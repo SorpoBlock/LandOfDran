@@ -1,0 +1,18 @@
+{
+  "dependencies": [
+    "zlib",
+    "assimp",
+    "bullet3",
+    "glew",
+    "openal-soft",
+    "opengl",
+    "sdl2",
+    "curl"
+  ],
+  "overrides": [
+    {
+      "name": "zlib",
+      "version": "1.3.1"
+    }
+  ]
+}
