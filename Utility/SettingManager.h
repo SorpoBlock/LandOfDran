@@ -149,5 +149,5 @@ class SettingManager
 			A C++ enum should be created for use alongside any enum preference to convert its values
    			Will not overwrite existing values
 		*/
-		void addEnum(std::string path, int value,std::vector<std::string> &&names);
+		void addEnum(std::string path, int value,std::string desc,std::vector<std::string> &&names);
 };
