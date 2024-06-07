@@ -1,7 +1,6 @@
 #pragma once
 
 #include "../LandOfDran.h"
-#include <cstdarg>
 
 /*
 	The four valid types of preferences
@@ -150,5 +149,5 @@ class SettingManager
 			A C++ enum should be created for use alongside any enum preference to convert its values
    			Will not overwrite existing values
 		*/
-		void addEnum(std::string path, int value, ...);
+		void addEnum(std::string path, int value,std::vector<std::string> &&names);
 };
