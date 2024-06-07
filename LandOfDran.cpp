@@ -11,6 +11,14 @@ using namespace std;
 
 int main(int argc, char* argv[])
 {
+	/*
+		Holds everything we need for playing the game
+		Not needed if this is a dedicated server
+		Everything inside should be allocated and populated otherwise
+		Nothing should be removed or deallocated until program shutdown
+	*/
+	ClientData clientEnv;
+	
 	Logger::setErrorFile("Logs/error.txt");
 	Logger::setInfoFile("Logs/log.txt");
 
@@ -22,12 +30,14 @@ int main(int argc, char* argv[])
 	SettingManager preferences("Config/settings.txt");
 	populateDefaults(preferences);
 	preferences.exportToFile("Config/settings.txt");
+	clientEnv.preferences = &preferences;
 
 	Logger::setDebug(preferences.getBool("logger/verbose"));
 
 	globalStartup(preferences);
 
 	RenderContext context(preferences);
+	clientEnv.renderContext = &context;
 
 	bool doMainLoop = true;
 	while (doMainLoop)
