@@ -1,13 +1,28 @@
 ﻿// LandOfDran.cpp : Defines the entry point for the application.
-//
 
 #include "LandOfDran.h"
+#include "Utility/SettingManager.h"
+#include "Utility/DefaultPreferences.h"
+#include "Utility/GlobalStartup.h"
 
 using namespace std;
 
 int main(int argc, char* argv[])
 {
-	SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS | SDL_INIT_TIMER);
+	Logger::setErrorFile("Logs/error.txt");
+	Logger::setInfoFile("Logs/log.txt");
+
+	info("Starting Land of Dran");  
+
+	info("Opening preferences file");
+
+	SettingManager preferences("Config/settings.txt");
+	populateDefaults(preferences);
+	preferences.exportToFile("Config/settings.txt");
+
+
+
+	globalStartup(preferences);
 
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
@@ -33,7 +48,7 @@ int main(int argc, char* argv[])
 		SDL_GL_SwapWindow(window);
 	}
 
-	SDL_Quit();
+	globalShutdown();
 	
 	return 0;
 }

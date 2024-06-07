@@ -22,7 +22,7 @@ find_package(OpenAL CONFIG REQUIRED)
 find_package(SDL2 CONFIG REQUIRED)
 
 # Add source to this project's executable.
-add_executable (LandOfDran "LandOfDran.cpp" "LandOfDran.h")
+add_executable (LandOfDran "LandOfDran.cpp" "LandOfDran.h" "Utility/Logger.h" "Utility/Logger.cpp" "Utility/SettingManager.h" "Utility/SettingManager.cpp" "Utility/StringFunctions.h" "Utility/StringFunctions.cpp" "Utility/DefaultPreferences.cpp" "Utility/DefaultPreferences.h" "Utility/DefaultPreferences.cpp" "Utility/GlobalStartup.h" "Utility/GlobalStartup.cpp")
 
 target_link_libraries(LandOfDran PRIVATE ZLIB::ZLIB)
 target_link_libraries(LandOfDran PRIVATE SDL2::SDL2 SDL2::SDL2main)

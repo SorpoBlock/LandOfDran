@@ -1,10 +1,19 @@
-﻿// LandOfDran.h : Include file for standard system include files,
-// or project specific include files.
+﻿// LandOfDran.h : Mostly external includes that can be included anywhere and not mess with anything
 
-#pragma once
-
+#include <ctype.h>
 #include <iostream>
 #include <SDL2/SDL.h>
 #include <GL/glew.h>
-
-// TODO: Reference additional headers your program requires here.
+#include <fstream>
+#include <vector>
+#include <algorithm>
+#include <functional>
+#include <time.h>
+#include <string>
+#include <filesystem>
+#include <iterator>
+#include <numeric>
+#include <string_view>
+#include <complex>
+#include "Utility/StringFunctions.h"
+#include "Utility/Logger.h"
