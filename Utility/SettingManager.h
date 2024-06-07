@@ -125,16 +125,16 @@ class SettingManager
 		PreferenceNode *createPathTo(std::string &path);
 
 		//Creates a preference, will create nodes along the way if needed
-		void addInt(std::string path, int value, bool override = true);
+		void addInt(std::string path, int value, bool override = true,std::string desc = "");
 
 		//Creates a preference, will create nodes along the way if needed
-		void addString(std::string path, std::string value, bool override = true);
+		void addString(std::string path, std::string value, bool override = true,std::string desc = "");
 
 		//Creates a preference, will create nodes along the way if needed
-		void addBool(std::string path, bool value, bool override = true);
+		void addBool(std::string path, bool value, bool override = tru,std::string desc = "";
 
 		//Creates a preference, will create nodes along the way if needed
-		void addFloat(std::string path, float value,bool override = true);
+		void addFloat(std::string path, float value,bool override = true,std::string desc = "");
 
 		//Returns any preference as a string, or "" if no preference exists at that path
 		std::string operator[] (std::string path) const;
