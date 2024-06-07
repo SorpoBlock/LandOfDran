@@ -15,5 +15,7 @@
 #include <numeric>
 #include <string_view>
 #include <complex>
+#include <glm/glm.hpp>
 #include "Utility/StringFunctions.h"
 #include "Utility/Logger.h"
+

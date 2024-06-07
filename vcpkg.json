@@ -3,11 +3,12 @@
     "zlib",
     "assimp",
     "bullet3",
+    "curl",
     "glew",
     "openal-soft",
     "opengl",
     "sdl2",
-    "curl"
+    "glm"
   ],
   "overrides": [
     {

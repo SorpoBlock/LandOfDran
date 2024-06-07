@@ -128,7 +128,7 @@ float SettingManager::getFloat(std::string path) const
 {
 	PreferencePair const * const pair = getPreference(path);
 	if (pair)
-		return atof(pair->value.c_str());
+		return (float)atof(pair->value.c_str()); //Supress warning, we know it's single precision
 	else
 		return 0;
 }
@@ -426,6 +426,8 @@ void PreferenceNode::writeToFile(std::ofstream& file,int level) const
 
 void SettingManager::exportToFile(std::string path) const
 {
+	std::filesystem::create_directories(std::filesystem::path(path.c_str()).parent_path());
+
 	std::ofstream file(path.c_str());
 
 	if (!file.is_open())

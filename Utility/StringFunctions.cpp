@@ -40,6 +40,7 @@ std::string leftTrim(std::string& s)
             return s.substr(i, s.length() - i);
         }
     }
+    return "";
 }
 
 void replaceAll(std::string& source, const std::string& from, const std::string& to)
