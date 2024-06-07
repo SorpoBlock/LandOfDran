@@ -26,6 +26,11 @@ struct PreferencePair
 	std::string name = "";
 	//The value is read as a string but can be converted to boolean, integer, or float
 	std::string value = "";
+	/*
+ 		Used for GUI generation in the settings menu, if string is empty ("") no GUI element will be created
+   		Not saved to text files, set in DefaultPreferences.cpp
+     	*/
+	std::string description = "";
 };
 
 /*
