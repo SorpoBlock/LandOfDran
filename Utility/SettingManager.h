@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../LandOfDran.h"
+#include <cstdarg>
 
 /*
 	The four valid types of preferences
@@ -31,6 +32,11 @@ struct PreferencePair
    		Not saved to text files, set in DefaultPreferences.cpp
      	*/
 	std::string description = "";
+	/*
+ 		Only used if created or changed with SettingManager::addEnum
+   		An actual C++ enum should be created alongside each one of these
+     	*/
+	std::vector<std::string> dropDownNames;
 };
 
 /*
@@ -138,4 +144,11 @@ class SettingManager
 
 		//Returns any preference as a string, or "" if no preference exists at that path
 		std::string operator[] (std::string path) const;
+
+		/*
+			Mostly an integer preference under the hood, differs only on how settings UI will be rendered
+			A C++ enum should be created for use alongside any enum preference to convert its values
+   			Will not overwrite existing values
+		*/
+		void addEnum(std::string path, int value, ...);
 };
