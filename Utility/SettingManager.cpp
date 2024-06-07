@@ -1,6 +1,6 @@
 #include "SettingManager.h"
 
-void SettingManager::addEnum(std::string path, int value,std::vector<std::string> &&names)
+void SettingManager::addEnum(std::string path, int value,std::string desc,std::vector<std::string> &&names)
 {
 	PreferenceNode *target = createPathTo(path);
 
