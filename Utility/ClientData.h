@@ -2,6 +2,7 @@
 
 #include "../LandOfDran.h"
 #include "../Graphics/RenderContext.h"
+#include "SettingManager.h"
 
 /*
 	A struct containing anything needed to actually play the game, as opposed to host it
@@ -11,4 +12,5 @@
 struct ClientData
 {
 	RenderContext* renderContext = 0;
+	SettingManager *preferences = 0;
 };
