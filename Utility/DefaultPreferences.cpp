@@ -35,17 +35,17 @@ void populateDefaults(SettingManager& settings)
 	
 	//GUI Settings
 	settings.addFloat("gui/opacity",		  0.8, false,   "HUD Opacity");
-	settings.addInt("gui/scaling",			  1, false,	"GUI Scaling Factor");
+	settings.addEnum("gui/scaling",			  1, 		"GUI Scaling Factor", 	{"Small","Normal","Large","Largest"});
 
 	//Audio settings
 	settings.addFloat("audio/mastervolume",		  0.5, false,   "Master Volume");
 	settings.addFloat("audio/musicvolume",		  0.5, false,   "Music Volume");
 
 	//Graphics settings
-	settings.addInt("graphics/waterquality",	  1, false, 	"Water Quality");
-	settings.addInt("graphics/shadowresolution",	  1, false, 	"Shadow Resolution");
-	settings.addInt("graphics/shadowsoftness",	  1, false, 	"Shadow Softness");
+	settings.addEnum("graphics/waterquality",	  1, 	 	"Water Quality",	{"No Reflections", "Half Res Reflections", "Full Reflections"});
+	settings.addEnum("graphics/shadowresolution",	  1, 	 	"Shadow Resolution", 	{"2k Shadows","4k Shadows","8k Shadows"});
+	settings.addEnum("graphics/shadowsoftness",	  1,  		"Shadow Softness" , 	{"No PCF","2x PCF","4x PCF","8x PCF"});
 	settings.addBool("graphics/shadowcolor",	  true, false, 	"Use colored shadows");
-	settings.addInt("graphics/godrayquality",	  1, false, 	"God ray samples");
-	settings.addInt("graphics/spritedensity",	  1, false,	"Sprite density");
+	settings.addEnum("graphics/godrayquality",	  1, 	 	"God ray samples", 	{"None","32 samples","64 samples","96 samples","128 samples"});
+	settings.addEnum("graphics/spritedensity",	  1, 		"Sprite density",	{"Low","Medium","High","Very High"});
 }
