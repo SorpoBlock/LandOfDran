@@ -1,5 +1,27 @@
 #include "SettingManager.h"
 
+void SettingManager::addEnum(std::string path, int value,std::vector<std::string> &&names)
+{
+	PreferenceNode *target = createPathTo(path);
+
+	for (unsigned int a = 0; a < target->childPreferences.size(); a++)
+	{
+		if (target->childPreferences[a].name == path)
+		{
+			target->description = desc;
+			target->enumnames = std::move(names);
+			return;
+		}
+	}
+
+	target->childPreferences.emplace_back();
+	target->childPreferences.back().value = std::to_string(value);
+	target->childPreferences.back().type = PreferenceInteger;
+	target->childPreferences.back().name = path;
+	target->description = desc;
+	target->enumnames = std::move(names);
+}
+
 PreferenceNode* SettingManager::createPathTo(std::string &path)
 {
 	//Why would this ever happen?
