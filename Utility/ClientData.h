@@ -2,6 +2,7 @@
 
 #include "../LandOfDran.h"
 #include "../Graphics/RenderContext.h"
+#include "../Graphics/ShaderSpecification.h"
 #include "SettingManager.h"
 
 /*
@@ -11,6 +12,7 @@
 */
 struct ClientData
 {
-	RenderContext* renderContext = 0;
+	RenderContext *renderContext = 0;
 	SettingManager *preferences = 0;
+	ShaderManager* shaders = 0;
 };

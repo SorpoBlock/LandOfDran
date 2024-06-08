@@ -38,7 +38,14 @@ add_executable (LandOfDran
 "Utility/GlobalStartup.cpp"
 "Utility/ClientData.h" 
 "Graphics/RenderContext.h"
-"Graphics/RenderContext.cpp")
+"Graphics/RenderContext.cpp" 
+"Graphics/Shader.h" 
+"Graphics/Shader.cpp" 
+"Graphics/Program.h"  
+"Utility/FileFunctions.h" 
+"Utility/FileFunctions.cpp"
+"External/CRC.h" 
+"Graphics/Program.cpp"  "Graphics/ShaderSpecification.h" "Graphics/ShaderSpecification.cpp" "Graphics/GraphicsHelpers.h" "Graphics/GraphicsHelpers.cpp")
 
 target_link_libraries(LandOfDran PRIVATE ZLIB::ZLIB)
 target_link_libraries(LandOfDran PRIVATE SDL2::SDL2 SDL2::SDL2main)

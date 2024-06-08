@@ -18,6 +18,8 @@
 #include <glm/glm.hpp>
 #include "Utility/StringFunctions.h"
 #include "Utility/Logger.h"
+#include "Utility/FileFunctions.h"
+#include "Graphics/GraphicsHelpers.h"
 
 //Used in the titlebar for the window, and for making sure client and server version match in mutliplayer
 #define GAME_VERSION 20

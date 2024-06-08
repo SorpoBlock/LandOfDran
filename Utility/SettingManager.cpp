@@ -8,8 +8,8 @@ void SettingManager::addEnum(std::string path, int value,std::string desc,std::v
 	{
 		if (target->childPreferences[a].name == path)
 		{
-			target->description = desc;
-			target->enumnames = std::move(names);
+			target->childPreferences[a].description = desc;
+			target->childPreferences[a].dropDownNames = std::move(names);
 			return;
 		}
 	}
@@ -18,8 +18,8 @@ void SettingManager::addEnum(std::string path, int value,std::string desc,std::v
 	target->childPreferences.back().value = std::to_string(value);
 	target->childPreferences.back().type = PreferenceInteger;
 	target->childPreferences.back().name = path;
-	target->description = desc;
-	target->enumnames = std::move(names);
+	target->childPreferences.back().description = desc;
+	target->childPreferences.back().dropDownNames = std::move(names);
 }
 
 PreferenceNode* SettingManager::createPathTo(std::string &path)
@@ -76,7 +76,7 @@ void SettingManager::addInt(std::string path, int value,bool overwrite,std::stri
 		{
 			if(overwrite)
 				target->childPreferences[a].value = std::to_string(value);
-			target->description = desc;
+			target->childPreferences[a].description = desc;
 			return;
 		}
 	}
@@ -85,7 +85,7 @@ void SettingManager::addInt(std::string path, int value,bool overwrite,std::stri
 	target->childPreferences.back().value = std::to_string(value);
 	target->childPreferences.back().type = PreferenceInteger;
 	target->childPreferences.back().name = path;
-	target->description = desc;
+	target->childPreferences.back().description = desc;
 }
 
 void SettingManager::addString(std::string path, std::string value, bool overwrite,std::string desc)
@@ -98,7 +98,7 @@ void SettingManager::addString(std::string path, std::string value, bool overwri
 		{
 			if(overwrite)
 				target->childPreferences[a].value = value;
-			target->description = desc;
+			target->childPreferences[a].description = desc;
 			return;
 		}
 	}
@@ -107,7 +107,7 @@ void SettingManager::addString(std::string path, std::string value, bool overwri
 	target->childPreferences.back().value = value;
 	target->childPreferences.back().type = PreferenceString;
 	target->childPreferences.back().name = path;
-	target->description = desc;
+	target->childPreferences.back().description = desc;
 }
 
 void SettingManager::addBool(std::string path, bool value, bool overwrite,std::string desc)
@@ -120,7 +120,7 @@ void SettingManager::addBool(std::string path, bool value, bool overwrite,std::s
 		{
 			if(overwrite)
 				target->childPreferences[a].value = value ? "true" : "false";
-			target->description = desc;
+			target->childPreferences[a].description = desc;
 			return;
 		}
 	}
@@ -129,7 +129,7 @@ void SettingManager::addBool(std::string path, bool value, bool overwrite,std::s
 	target->childPreferences.back().value = value ? "true" : "false";
 	target->childPreferences.back().type = PreferenceBoolean;
 	target->childPreferences.back().name = path;
-	target->description = desc;
+	target->childPreferences.back().description = desc;
 }
 
 void SettingManager::addFloat(std::string path, float value, bool overwrite,std::string desc)
@@ -142,7 +142,7 @@ void SettingManager::addFloat(std::string path, float value, bool overwrite,std:
 		{
 			if(overwrite)
 				target->childPreferences[a].value = std::to_string(value);
-			target->description = desc;
+			target->childPreferences[a].description = desc;
 			return;
 		}
 	}
@@ -151,7 +151,7 @@ void SettingManager::addFloat(std::string path, float value, bool overwrite,std:
 	target->childPreferences.back().value = std::to_string(value);
 	target->childPreferences.back().type = PreferenceFloat;
 	target->childPreferences.back().name = path;
-	target->description = desc;
+	target->childPreferences.back().description = desc;
 }
 
 float SettingManager::getFloat(std::string path) const

@@ -29,12 +29,12 @@ struct PreferencePair
 	/*
  		Used for GUI generation in the settings menu, if string is empty ("") no GUI element will be created
    		Not saved to text files, set in DefaultPreferences.cpp
-     	*/
+     */
 	std::string description = "";
 	/*
  		Only used if created or changed with SettingManager::addEnum
    		An actual C++ enum should be created alongside each one of these
-     	*/
+     */
 	std::vector<std::string> dropDownNames;
 };
 
@@ -136,7 +136,7 @@ class SettingManager
 		void addString(std::string path, std::string value, bool override = true,std::string desc = "");
 
 		//Creates a preference, will create nodes along the way if needed
-		void addBool(std::string path, bool value, bool override = tru,std::string desc = "";
+		void addBool(std::string path, bool value, bool override = true,std::string desc = "");
 
 		//Creates a preference, will create nodes along the way if needed
 		void addFloat(std::string path, float value,bool override = true,std::string desc = "");

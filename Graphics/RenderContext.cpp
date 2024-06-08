@@ -50,14 +50,14 @@ RenderContext::RenderContext(SettingManager & settings)
 	width = settings.getInt("graphics/startresolutionx");
 	if(width < 0 || width > 10000)
 	{
-		error("graphics/startresolutionx invalid value " + std::to_string(width);
+		error("graphics/startresolutionx invalid value " + std::to_string(width));
 		return;
 	}
 
 	height = settings.getInt("graphics/startresolutiony");
 	if(height < 0 || height > 10000)
 	{
-		error("graphics/startresolutiony invalid value " + std::to_string(height);
+		error("graphics/startresolutiony invalid value " + std::to_string(height));
 		return;
 	}
 
@@ -78,13 +78,13 @@ RenderContext::RenderContext(SettingManager & settings)
 	context = SDL_GL_CreateContext(window);
 	if(!context)
 	{
-		error("Failed to create GL context, SDL_GetError: " + std::string(SDL_GetError()) + " glGetError: " + std:to_string(glGetError()));
+		error("Failed to create GL context, SDL_GetError: " + std::string(SDL_GetError()) + " glGetError: " + std::to_string(glGetError()));
 		return;
 	}
 
 	debug("Starting GLEW");
 
-	//glewExperimental = GL_TRUE; Used to need this, might not be needed anymore
+	glewExperimental = GL_TRUE; //Used to need this, might not be needed anymore
 	//Must be called after window creation
 	GLenum glewError = glewInit();
 
@@ -105,6 +105,8 @@ RenderContext::RenderContext(SettingManager & settings)
 
 RenderContext::~RenderContext()
 {
-	SDL_GL_DeleteContext(context);
-	SDL_DestroyWindow(window);
+	if(context)
+		SDL_GL_DeleteContext(context);
+	if(window)
+		SDL_DestroyWindow(window);
 }

@@ -1,0 +1,134 @@
+#pragma once
+
+#include "../LandOfDran.h"
+#include "Shader.h"
+
+#include <glm/glm.hpp>
+
+//Helper function to pass a 4x4 matrix to a shader
+void UniformMat(GLint location, glm::mat4 mat);
+
+//Helper function to pass a vec3 to a shader
+void UniformVec3(GLint location, glm::vec3 vec);
+
+//Helper function to pass a vec4 to a shader
+void UniformVec4(GLint location, glm::vec4 vec);
+
+/*
+	Used for glActiveTexture and glUniformI for shader sampler2D uniforms
+*/
+enum TextureLocations
+{
+	Albedo = 0,
+	NormalMap = 1,
+	Mohr = 2,
+	BRDF = 3,
+	HeightMap = 4,
+	ShadowNearMap = 5,
+	Refraction = 6,
+	Reflection = 7,
+	ShadowFarMap = 8,
+	ShadowColorMap = 9,
+	ShadowNearTransMap = 10,
+	CubeMapEnvironment = 11,
+	CubeMapRadiance = 12,
+	CubeMapIrradiance = 13
+};
+
+/*
+	Used for glVertexAttribPointer indicies and shader layout locations for per-vertex data
+*/
+enum LayoutPosition
+{
+	ModelSpace = 0,
+	Normals = 1,
+	UVs = 2,
+	Colors = 3,
+	Tangents = 4,
+	Bitangents = 5,
+	BoneIDs = 6,
+	BoneWeightOrSprites = 7,
+	Index = 8
+};
+
+enum UniformType
+{
+	IsMatrix = 0,
+	IsFloat = 1,
+	IsInt = 2,
+	IsVec3 = 3
+};
+
+/*
+	Contains a handle to a single OpenGL shader program
+	As well as a list of attached shaders, uniform locations, and uniform defaults
+*/
+class Program
+{
+	private:
+		//Has the program been succesfully compiled and linked yet?
+		bool valid = false;
+
+		//Various shaders that may or may not be used and linked to this program:
+		Shader* vertex = 0;
+		Shader* fragment = 0;
+		Shader* tessEval = 0;
+		Shader* tessControl = 0;
+		Shader* geometry = 0;
+
+		//Handle to the OpenGL program object itself
+		GLuint handle = 0;
+
+		//Obtained by glGetUniformLocation with this program
+		std::vector<GLint> uniforms;
+		//Should we set the uniform to anything specific by default each time we use this program
+		std::vector<bool>  useDefaults;
+		//Which of the below vectors will contain a non-dummy default value for that uniform:
+		std::vector<UniformType>	defaultTypes;
+
+		//These vectors will all be the same size cause it's easier that way, if a given index is not of a given type, it will just have a dummy value inserted:
+		std::vector<glm::mat4>	defaultMats;
+		std::vector<float>		defaultFloats;
+		std::vector<int>		defaultInts;
+		std::vector<glm::vec3>	defaultVec3s;
+
+		/*
+			Sets int uniforms for GLSL sampler2Ds to their values corresponding to the
+			values in TextureLocations enum.
+			Currently run only once on program initial linkage.
+		*/
+		void registerSamplerUniforms();
+
+	public:
+		//Add a 4x4 matrix uniform to this program, returns glGetUniformLocation for later binding. Can optinally set a default value to be passed for each time the program is used.
+		GLint registerUniformMat(std::string name, bool useDefault = false, glm::mat4 defaul = glm::mat4(1.0));
+		//Add a int uniform to this program, returns glGetUniformLocation for later binding. Can optinally set a default value to be passed for each time the program is used.
+		GLint registerUniformInt(std::string name, bool useDefault = false, int   defaul = 0);
+		//Add a boolean (int) uniform to this program, returns glGetUniformLocation for later binding. Can optinally set a default value to be passed for each time the program is used.
+		GLint registerUniformBool(std::string name, bool useDefault = false, bool  defaul = false);
+		//Add a float uniform to this program, returns glGetUniformLocation for later binding. Can optinally set a default value to be passed for each time the program is used.
+		GLint registerUniformFloat(std::string name, bool useDefault = false, float defaul = 0);
+		//Add a glm::vec3 uniform to this program, returns glGetUniformLocation for later binding. Can optinally set a default value to be passed for each time the program is used.
+		GLint registerUniformVec3(std::string name, bool useDefault = false, glm::vec3 defaul = glm::vec3(0, 0, 0));
+
+		//Set any uniform with a default value to its default value
+		void resetUniforms() const;
+
+		//Add a shader to this program, must be called before compile
+		void bindShader(Shader* toBind);
+
+		//Create the OpenGL program from the shaders already bound
+		void compile();
+
+		//Was compile() called and did it succeed
+		bool isCompiled() const { return valid; };
+		
+		//Calls glUseProgram and also resetUniforms by default
+		void use(bool reset = true) const;
+
+		//Helper function to get the location of a temporary or debug uniform
+		GLint getUniformLocation(std::string name) const;
+
+		//Allows us to bind a uniform buffer object to this program
+		void bindUniformBlock(std::string glslName, GLuint UBOhandle, int index) const;
+};

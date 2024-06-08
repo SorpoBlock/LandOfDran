@@ -5,8 +5,9 @@
 #include "Utility/DefaultPreferences.h"
 #include "Utility/GlobalStartup.h"
 #include "Utility/ClientData.h"
-
-
+#include "Graphics/ShaderSpecification.h"
+#include <glm/gtx/transform.hpp>
+ 
 using namespace std;
 
 int main(int argc, char* argv[])
@@ -34,14 +35,36 @@ int main(int argc, char* argv[])
 
 	Logger::setDebug(preferences.getBool("logger/verbose"));
 
+	//Start SDL and other libraries
 	globalStartup(preferences);
 
+	//Create our program window
 	RenderContext context(preferences);
 	clientEnv.renderContext = &context;
+
+	//Load all the shaders
+	ShaderManager shaders;
+	clientEnv.shaders = &shaders;
+	shaders.readShaderList("Shaders/shadersList.txt");
+
+	shaders.modelShader->registerUniformFloat("test", true, 0.5);
+
+	shaders.globalUniforms.CameraView = glm::lookAt(glm::vec3(0, 0, -1), glm::vec3(0,0,1), glm::vec3(0,1,0));
+	shaders.globalUniforms.CameraProjection = glm::perspective(glm::radians(90.0), 1.0, 0.1, 400.0);
+	shaders.updateUniformBlock();
+
+	GLuint vao = createQuadVAO();
+
+	float angle = 0.0;
+	float lastTicks = SDL_GetTicks();
 
 	bool doMainLoop = true;
 	while (doMainLoop)
 	{
+		float deltaT = ((float)SDL_GetTicks()) - lastTicks;
+		lastTicks = SDL_GetTicks();
+		angle += deltaT * 0.001;
+
 		SDL_Event e;
 		while (SDL_PollEvent(&e))
 		{
@@ -52,7 +75,16 @@ int main(int argc, char* argv[])
 			}
 		}
 
+		shaders.globalUniforms.CameraView = glm::lookAt(glm::vec3(-sin(angle), 0, -cos(angle)), glm::vec3(0, 0, 0), glm::vec3(0, 1, 0));
+		shaders.updateUniformBlock();
+
+		context.select(); 
 		context.clear(1,1,1);
+
+		shaders.modelShader->use();
+
+		glBindVertexArray(vao);
+		glDrawArrays(GL_TRIANGLES, 0, 6);
 		
 		context.swap();
 	}
