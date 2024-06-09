@@ -590,3 +590,4 @@ void Texture::setWrapping(GLenum wrapS, GLenum wrapT, GLenum wrapR)
 	glTexParameteri(textureType, GL_TEXTURE_WRAP_R, wrapR);
 	glBindTexture(textureType, 0);
 }
+
