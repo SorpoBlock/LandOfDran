@@ -45,7 +45,14 @@ add_executable (LandOfDran
 "Utility/FileFunctions.h" 
 "Utility/FileFunctions.cpp"
 "External/CRC.h" 
-"Graphics/Program.cpp"  "Graphics/ShaderSpecification.h" "Graphics/ShaderSpecification.cpp" "Graphics/GraphicsHelpers.h" "Graphics/GraphicsHelpers.cpp")
+"Graphics/Program.cpp"  
+"Graphics/ShaderSpecification.h" 
+"Graphics/ShaderSpecification.cpp" 
+"Graphics/GraphicsHelpers.h" 
+"Graphics/GraphicsHelpers.cpp" 
+"Graphics/Texture.h" 
+"Graphics/Texture.cpp"
+"External/stb_image.h")
 
 target_link_libraries(LandOfDran PRIVATE ZLIB::ZLIB)
 target_link_libraries(LandOfDran PRIVATE SDL2::SDL2 SDL2::SDL2main)

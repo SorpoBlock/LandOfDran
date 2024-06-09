@@ -6,6 +6,7 @@
 #include "Utility/GlobalStartup.h"
 #include "Utility/ClientData.h"
 #include "Graphics/ShaderSpecification.h"
+#include "Graphics/Texture.h"
 #include <glm/gtx/transform.hpp>
  
 using namespace std;
@@ -42,6 +43,15 @@ int main(int argc, char* argv[])
 	RenderContext context(preferences);
 	clientEnv.renderContext = &context;
 
+	TextureManager textures;
+
+	Texture* grass = textures.createTexture(3, "Grass");
+	grass->addLayer("Assets/wispy-grass-meadow_albedo.png");
+	grass->addLayer("Assets/wispy-grass-meadow_normal-dx.png");
+	textures.addComponent(grass, "Assets/wispy-grass-meadow_roughness.png");
+	textures.addComponent(grass, "Assets/wispy-grass-meadow_metallic.png");
+	textures.addComponent(grass, "Assets/wispy-grass-meadow_ao.png");
+
 	//Load all the shaders
 	ShaderManager shaders;
 	clientEnv.shaders = &shaders;
@@ -57,10 +67,20 @@ int main(int argc, char* argv[])
 
 	float angle = 0.0;
 	float lastTicks = SDL_GetTicks();
+	unsigned int frames = 0;
+	unsigned int lastFPScheck = SDL_GetTicks();
 
 	bool doMainLoop = true;
 	while (doMainLoop)
 	{
+		frames++;
+		if (SDL_GetTicks() > lastFPScheck + 5000)
+		{
+			info(std::to_string(frames / 5) + " fps");
+			lastFPScheck = SDL_GetTicks();
+			frames = 0;
+		}
+
 		float deltaT = ((float)SDL_GetTicks()) - lastTicks;
 		lastTicks = SDL_GetTicks();
 		angle += deltaT * 0.001;
@@ -82,6 +102,7 @@ int main(int argc, char* argv[])
 		context.clear(1,1,1);
 
 		shaders.modelShader->use();
+		grass->bind(Albedo);
 
 		glBindVertexArray(vao);
 		glDrawArrays(GL_TRIANGLES, 0, 6);
