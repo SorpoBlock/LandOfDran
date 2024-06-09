@@ -19,20 +19,18 @@ void UniformVec4(GLint location, glm::vec4 vec);
 */
 enum TextureLocations
 {
-	Albedo = 0,
-	NormalMap = 1,
-	Mohr = 2,
-	BRDF = 3,
-	HeightMap = 4,
-	ShadowNearMap = 5,
-	Refraction = 6,
-	Reflection = 7,
-	ShadowFarMap = 8,
-	ShadowColorMap = 9,
-	ShadowNearTransMap = 10,
-	CubeMapEnvironment = 11,
-	CubeMapRadiance = 12,
-	CubeMapIrradiance = 13
+	PBRArray = 0,
+	BRDF = 1,
+	HeightMap = 2,
+	ShadowNearMap = 3,
+	Refraction = 4,
+	Reflection = 5,
+	ShadowFarMap = 6,
+	ShadowColorMap = 7,
+	ShadowNearTransMap = 8,
+	CubeMapEnvironment = 9,
+	CubeMapRadiance = 10,
+	CubeMapIrradiance = 11
 };
 
 /*

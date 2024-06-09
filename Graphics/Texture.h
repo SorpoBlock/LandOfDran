@@ -84,6 +84,10 @@ class Texture
 
 	public:
 
+	void setFilter(GLenum magFilter, GLenum minFilter);
+	void setWrapping(GLenum wrapping);
+	void setWrapping(GLenum wrapS, GLenum wrapT, GLenum wrapR);
+
 	//Actually use the texture
 	void bind(TextureLocations loc);
 

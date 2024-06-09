@@ -7,9 +7,7 @@ void Program::registerSamplerUniforms()
         But changes aren't often, and every shader uses the same layout all of the time
         Even if a given shader doesn't necesairly use every sampler
     */
-    glUniform1i(glGetUniformLocation(handle, "Albedo"),             Albedo);
-    glUniform1i(glGetUniformLocation(handle, "NormalMap"),          NormalMap);
-    glUniform1i(glGetUniformLocation(handle, "Mohr"),               Mohr);
+    glUniform1i(glGetUniformLocation(handle, "PBRArray"),           PBRArray);
     glUniform1i(glGetUniformLocation(handle, "BRDF"),               BRDF);
     glUniform1i(glGetUniformLocation(handle, "HeightMap"),          HeightMap);
     glUniform1i(glGetUniformLocation(handle, "ShadowNearMap"),      ShadowNearMap);

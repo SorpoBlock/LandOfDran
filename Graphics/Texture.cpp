@@ -429,17 +429,34 @@ void TextureManager::addComponent(Texture* target, std::string filePath, int des
 
 		//Allocate all the space for all the layers of the texture 
 		glBindTexture(target->textureType, target->handle);
-		glTexImage3D(
-			target->textureType,
-			0,
-			getTextureFormatEnum(target->channels, false),
-			target->width,
-			target->height,
-			target->layers,
-			0,
-			getTextureFormatEnum(target->channels, false),
-			GL_UNSIGNED_BYTE,
-			(void*)0);
+		if (target->textureType == GL_TEXTURE_2D_ARRAY)
+		{
+			glTexImage3D(
+				target->textureType,
+				0,
+				getTextureFormatEnum(target->channels, false),
+				target->width,
+				target->height,
+				target->layers,
+				0,
+				getTextureFormatEnum(target->channels, false),
+				GL_UNSIGNED_BYTE,
+				(void*)0);
+		}
+		else
+		{
+			glTexImage2D(
+				target->textureType,
+				0,
+				getTextureFormatEnum(target->channels, false),
+				target->width,
+				target->height,
+				0,
+				getTextureFormatEnum(target->channels, false),
+				GL_UNSIGNED_BYTE,
+				(void*)0
+			);
+		}
 
 		//Double check to make sure scratchPad can support the full size of this texture('s layer):
 		if (lowDynamicRangeScratchpadSize < target->width * target->height * target->channels)
@@ -537,4 +554,39 @@ void TextureManager::addComponent(Texture* target, std::string filePath, int des
 
 		glBindTexture(target->textureType, 0);
 	}
+}
+
+void Texture::setFilter(GLenum magFilter, GLenum minFilter)
+{
+	if ((minFilter == GL_LINEAR_MIPMAP_LINEAR 
+		|| minFilter == GL_LINEAR_MIPMAP_NEAREST
+		|| minFilter == GL_NEAREST_MIPMAP_LINEAR
+		|| minFilter == GL_NEAREST_MIPMAP_NEAREST) && !hasMipmaps)
+	{
+		error("Tried to set mipmap filter for " + name + " which has none.");
+		return;
+	}
+
+	glBindTexture(textureType, handle);
+	glTexParameteri(textureType, GL_TEXTURE_MAG_FILTER, magFilter);
+	glTexParameteri(textureType, GL_TEXTURE_MIN_FILTER, minFilter);
+	glBindTexture(textureType, 0);
+}
+
+void Texture::setWrapping(GLenum wrapping)
+{
+	glBindTexture(textureType, handle);
+	glTexParameteri(textureType, GL_TEXTURE_WRAP_S, wrapping);
+	glTexParameteri(textureType, GL_TEXTURE_WRAP_T, wrapping);
+	glTexParameteri(textureType, GL_TEXTURE_WRAP_R, wrapping);
+	glBindTexture(textureType, 0);
+}
+
+void Texture::setWrapping(GLenum wrapS, GLenum wrapT, GLenum wrapR)
+{
+	glBindTexture(textureType, handle);
+	glTexParameteri(textureType, GL_TEXTURE_WRAP_S, wrapS);
+	glTexParameteri(textureType, GL_TEXTURE_WRAP_T, wrapT);
+	glTexParameteri(textureType, GL_TEXTURE_WRAP_R, wrapR);
+	glBindTexture(textureType, 0);
 }

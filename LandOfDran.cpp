@@ -48,10 +48,10 @@ int main(int argc, char* argv[])
 	Texture* grass = textures.createTexture(3, "Grass");
 	grass->addLayer("Assets/wispy-grass-meadow_albedo.png");
 	grass->addLayer("Assets/wispy-grass-meadow_normal-dx.png");
-	textures.addComponent(grass, "Assets/wispy-grass-meadow_roughness.png");
+	textures.addComponent(grass, "Assets/wispy-grass-meadow_roughness.png", 3);
 	textures.addComponent(grass, "Assets/wispy-grass-meadow_metallic.png");
 	textures.addComponent(grass, "Assets/wispy-grass-meadow_ao.png");
-
+	 
 	//Load all the shaders
 	ShaderManager shaders;
 	clientEnv.shaders = &shaders;
@@ -102,7 +102,7 @@ int main(int argc, char* argv[])
 		context.clear(1,1,1);
 
 		shaders.modelShader->use();
-		grass->bind(Albedo);
+		grass->bind(PBRArray);
 
 		glBindVertexArray(vao);
 		glDrawArrays(GL_TRIANGLES, 0, 6);
