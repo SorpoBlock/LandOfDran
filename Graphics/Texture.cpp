@@ -25,6 +25,38 @@ void Texture::bind(TextureLocations loc)
 	glBindTexture(textureType, handle);
 }
 
+void TextureManager::allocateTexture(Texture* target,void *data)
+{
+	glBindTexture(target->textureType, target->handle);
+	if (target->layers == 1)
+	{
+		glTexImage2D(
+			target->textureType,
+			0,
+			getTextureFormatEnum(target->channels, target->isHDR),
+			target->width,
+			target->height,
+			0,
+			getTextureFormatEnum(target->channels, false),
+			target->isHDR ? GL_FLOAT : GL_UNSIGNED_BYTE,
+			data);
+	}
+	else
+	{
+		glTexImage3D(
+			target->textureType,
+			0,
+			getTextureFormatEnum(target->channels, target->isHDR),
+			target->width,
+			target->height,
+			target->layers,
+			0,
+			getTextureFormatEnum(target->channels, false),
+			target->isHDR ? GL_FLOAT : GL_UNSIGNED_BYTE,
+			data);
+	}
+}
+
 GLenum getTextureFormatEnum(int channels, bool hdrSpecific)
 {
 	switch (channels)
@@ -124,17 +156,7 @@ Texture* TextureManager::createTexture(std::string filePath, bool makeMipmaps)
 	}
 
 	//Actually pass pixel data to OpenGL / graphics card
-	glBindTexture(ret->textureType, ret->handle);
-	glTexImage2D(
-		ret->textureType,
-		0,
-		getTextureFormatEnum(ret->channels, ret->isHDR),
-		ret->width,
-		ret->height,
-		0,
-		getTextureFormatEnum(ret->channels, false),
-		ret->isHDR ? GL_FLOAT : GL_UNSIGNED_BYTE,
-		data);
+	allocateTexture(ret,data);
 
 	//STBI calls malloc on our data in stbi_load(f) and this just calls free
 	stbi_image_free(data);
@@ -179,34 +201,7 @@ Texture* TextureManager::createBlankTexture(unsigned int width, unsigned int hei
 	ret->name = name;
 	ret->hasMipmaps = false;
 
-	glBindTexture(ret->textureType, ret->handle);
-	if (layers == 1)
-	{
-		glTexImage2D(
-			ret->textureType,
-			0,
-			getTextureFormatEnum(ret->channels, ret->isHDR),
-			ret->width,
-			ret->height,
-			0,
-			getTextureFormatEnum(ret->channels, false),
-			ret->isHDR ? GL_FLOAT : GL_UNSIGNED_BYTE,
-			(void*)0);
-	}
-	else
-	{
-		glTexImage3D(
-			ret->textureType,
-			0,
-			getTextureFormatEnum(ret->channels, ret->isHDR),
-			ret->width,
-			ret->height,
-			ret->layers,
-			0,
-			getTextureFormatEnum(ret->channels, false),
-			ret->isHDR ? GL_FLOAT : GL_UNSIGNED_BYTE,
-			(void*)0);
-	}
+	allocateTexture(ret,0);
 
 	ret->index = textures.size();
 	textures.push_back(ret);
@@ -225,6 +220,9 @@ Texture *TextureManager::createTexture(unsigned int desiredLayers, std::string n
 	//Make sure we don't already have a texture by that name
 	for (unsigned int a = 0; a < textures.size(); a++)
 	{
+		if (textures[a]->name == "")
+			continue;
+
 		if (textures[a]->name == name)
 		{
 			/*
@@ -260,7 +258,7 @@ void Texture::addLayer(std::string filePath)
 	if (currentLayer >= layers)
 	{
 		error("Adding more layers to a texture than it was constructed for.");
-		return;
+		return; 
 	} 
 
 	if (currentChannel != 0)
@@ -370,135 +368,8 @@ void Texture::addLayer(std::string filePath)
 	glBindTexture(textureType, 0);
 }
 
-void TextureManager::addComponent(Texture* target, std::string filePath, int desiredTotalChannels)
+void TextureManager::finishLayer(Texture * target)
 {
-	scope("TextureManager::addComponent");
-
-	if (!target)
-	{
-		error("No texture specified");
-		return;
-	}
-
-	if (target->channels == 0)
-	{
-		if (desiredTotalChannels < 1 || desiredTotalChannels > 4)
-		{
-			error("This is the first addition to texture " + target->name + " please set desired number of channels");
-			return;
-		}
-		else
-			target->channels = desiredTotalChannels;
-	}
-
-	if (target->isHDR)
-	{
-		error("This function does not work on HDR textures Name: " + target->name + " File: " + filePath);
-		return;
-	}
-
-	if (target->valid)
-	{
-		error("This is already a complete texture! Name: " + target->name + " File: " + filePath);
-		return;
-	}
-
-	if (scratchPadUserID != -1 && scratchPadUserID != target->index)
-	{
-		std::string name = "";
-		if (scratchPadUserID < textures.size())
-			name = textures[scratchPadUserID]->name;
-
-		error("A different texture is currently being created " + name);
-		return;
-	}
-
-	//Make sure no other textures can have components added until this texture('s layer) is done
-	scratchPadUserID = target->index;
-
-	//Check if file is valid and get dimensions
-	int readWidth, readHeight, readChannels;
-	stbi_info(filePath.c_str(), &readWidth, &readHeight, &readChannels);
-
-	//Very first addition sets the dimensions for the rest of the texture
-	if (target->currentLayer == 0 && target->currentChannel == 0)
-	{
-		target->width = readWidth;
-		target->height = readHeight;
-		//channels was set at the start of this function
-
-		//Allocate all the space for all the layers of the texture 
-		glBindTexture(target->textureType, target->handle);
-		if (target->textureType == GL_TEXTURE_2D_ARRAY)
-		{
-			glTexImage3D(
-				target->textureType,
-				0,
-				getTextureFormatEnum(target->channels, false),
-				target->width,
-				target->height,
-				target->layers,
-				0,
-				getTextureFormatEnum(target->channels, false),
-				GL_UNSIGNED_BYTE,
-				(void*)0);
-		}
-		else
-		{
-			glTexImage2D(
-				target->textureType,
-				0,
-				getTextureFormatEnum(target->channels, false),
-				target->width,
-				target->height,
-				0,
-				getTextureFormatEnum(target->channels, false),
-				GL_UNSIGNED_BYTE,
-				(void*)0
-			);
-		}
-
-		//Double check to make sure scratchPad can support the full size of this texture('s layer):
-		if (lowDynamicRangeScratchpadSize < target->width * target->height * target->channels)
-		{
-			//This should never really happen
-			delete[] lowDynamicRangeTextureScratchpad;
-			lowDynamicRangeScratchpadSize = target->width * target->height * target->channels;
-			lowDynamicRangeTextureScratchpad = new unsigned char[lowDynamicRangeScratchpadSize];
-		}
-	}
-	//Subsequent addition failed to match addition of previous files read for this texture
-	else if (target->width != readWidth || target->height != readHeight)
-	{
-		error("Image " + filePath + " did not have same dimensions as rest of " + target->name);
-		scratchPadUserID = -1; //Unlock scratchpad
-		return;
-	}
-
-	debug("Loading texture " + filePath + " Dimensions: " +
-		std::to_string(target->width) + "/" +
-		std::to_string(target->height) + "/" +
-		std::to_string(target->channels));
-
-	stbi_uc *data = stbi_load(filePath.c_str(), &readWidth, &readHeight, &readChannels, 0);
-
-	if (!data)
-	{
-		error("Error processing image " + filePath);
-		scratchPadUserID = -1; //Unlock scratchpad
-		return;
-	}
-	
-	/*
-		Copy each pixel from the first / only channel of the file we just loaded
-		into the scratch pad such that we fill in one channel of the scratchPad per call to addComponent
-	*/
-	std::cout << "Cur channel: " << target->currentChannel << "\n";
-	for (int a = 0; a < target->width * target->height; a++)
-		lowDynamicRangeTextureScratchpad[a * target->channels + target->currentChannel] = data[a * readChannels];
-
-	stbi_image_free(data);
-
 	target->currentChannel++;
 	//All channels for this layer (or the entire texture if it's not an array texture) have been loaded
 	if (target->currentChannel == target->channels)
@@ -556,6 +427,149 @@ void TextureManager::addComponent(Texture* target, std::string filePath, int des
 	}
 }
 
+void TextureManager::addEmptyComponent(Texture* target)
+{
+	scope("TextureManager::addEmptyComponent");
+
+	if (!target)
+	{
+		error("No texture specified");
+		return;
+	}
+
+	if (target->channels == 0)
+	{
+		error("Empty component cannot be the first component of the first layer of a texture (array)");
+		return;
+	}
+
+	if (target->isHDR)
+	{
+		error("This function does not work on HDR textures Name: " + target->name);
+		return;
+	}
+
+	if (target->valid)
+	{
+		error("This is already a complete texture! Name: " + target->name);
+		return;
+	}
+
+	finishLayer(target);
+}
+
+void Texture::markForCleanup()
+{
+	usages--;
+
+	if (usages < 0)
+		error("Texture " + name + " somehow has *negative* references now!");
+}
+
+void TextureManager::addComponent(Texture* target, std::string filePath, int desiredTotalChannels)
+{
+	scope("TextureManager::addComponent");
+
+	if (!target)
+	{
+		error("No texture specified");
+		return;
+	}
+
+	if (target->channels == 0)
+	{
+		if (desiredTotalChannels < 1 || desiredTotalChannels > 4)
+		{
+			error("This is the first addition to texture " + target->name + " please set desired number of channels");
+			return;
+		}
+		else
+			target->channels = desiredTotalChannels;
+	}
+
+	if (target->isHDR)
+	{
+		error("This function does not work on HDR textures Name: " + target->name + " File: " + filePath);
+		return;
+	}
+
+	if (target->valid)
+	{
+		error("This is already a complete texture! Name: " + target->name + " File: " + filePath);
+		return;
+	}
+
+	if (scratchPadUserID != -1 && scratchPadUserID != target->index)
+	{
+		std::string name = "";
+		if (scratchPadUserID < textures.size())
+			name = textures[scratchPadUserID]->name;
+
+		error("A different texture is currently being created " + name);
+		return;
+	}
+
+	//Make sure no other textures can have components added until this texture('s layer) is done
+	scratchPadUserID = (int)target->index; 
+
+	//Check if file is valid and get dimensions
+	int readWidth, readHeight, readChannels;
+	stbi_info(filePath.c_str(), &readWidth, &readHeight, &readChannels);
+
+	//Very first addition sets the dimensions for the rest of the texture
+	if (target->currentLayer == 0 && target->currentChannel == 0)
+	{
+		target->width = readWidth;
+		target->height = readHeight;
+		//channels was set at the start of this function
+
+		//Allocate all the space for all the layers of the texture 
+		allocateTexture(target, 0);
+
+		//Double check to make sure scratchPad can support the full size of this texture('s layer):
+		if (lowDynamicRangeScratchpadSize < (unsigned int)(target->width * target->height * target->channels))
+		{
+			//This should never really happen
+			delete[] lowDynamicRangeTextureScratchpad;
+			lowDynamicRangeScratchpadSize = target->width * target->height * target->channels;
+			lowDynamicRangeTextureScratchpad = new unsigned char[lowDynamicRangeScratchpadSize];
+		}
+	}
+	//Subsequent addition failed to match addition of previous files read for this texture
+	else if (target->width != readWidth || target->height != readHeight)
+	{
+		error("Image " + filePath + " did not have same dimensions as rest of " + target->name);
+		scratchPadUserID = -1; //Unlock scratchpad
+		return;
+	}
+
+	debug("Loading texture " + filePath + " Dimensions: " +
+		std::to_string(target->width) + "/" +
+		std::to_string(target->height) + "/" +
+		std::to_string(target->channels));
+
+	stbi_uc *data = stbi_load(filePath.c_str(), &readWidth, &readHeight, &readChannels, 0);
+
+	if (!data)
+	{
+		error("Error processing image " + filePath);
+		scratchPadUserID = -1; //Unlock scratchpad
+		return;
+	}
+	
+	/*
+		Copy each pixel from the first / only channel of the file we just loaded
+		into the scratch pad such that we fill in one channel of the scratchPad per call to addComponent
+	*/
+	std::cout << "Cur channel: " << target->currentChannel << "\n";
+	for (int a = 0; a < target->width * target->height; a++)
+		lowDynamicRangeTextureScratchpad[a * target->channels + target->currentChannel] = data[a * readChannels];
+
+	stbi_image_free(data);
+
+	finishLayer(target);
+}
+
 void Texture::setFilter(GLenum magFilter, GLenum minFilter)
 {
 	if ((minFilter == GL_LINEAR_MIPMAP_LINEAR 
@@ -591,3 +605,20 @@ void Texture::setWrapping(GLenum wrapS, GLenum wrapT, GLenum wrapR)
 	glBindTexture(textureType, 0);
 }
 
+void TextureManager::garbageCollect()
+{
+	auto iter = textures.begin();
+
+	while (iter != textures.end())
+	{
+		Texture* t = *iter;
+
+		if (t->usages < 1)
+		{
+			delete t;
+			iter = textures.erase(iter);
+		}
+		else
+			++iter;
+	}
+}

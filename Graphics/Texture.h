@@ -31,7 +31,7 @@ class Texture
 	friend TextureManager;
 
 	//What position in TextureManager::Array was this created with
-	unsigned int index = 0;
+	size_t index = 0;
 
 	//Only used when combing multiple channels into a single multi-channel texture or layer of an array texture
 	unsigned int currentChannel = 0;
@@ -48,7 +48,7 @@ class Texture
 	//Were mipmaps made upon texture creation
 	bool hasMipmaps = false;
 
-	//If texture was loaded properly
+	//If texture(s) was loaded properly
 	bool valid = false;
 
 	//Should be 1 unless textureType == GL_TEXTURE_2D_ARRAY
@@ -77,12 +77,29 @@ class Texture
 	*/
 	std::string name = "";
 
+	/*
+		Makes this whole class kind of act like a shared_ptr
+		Each TextureManager::createTexture adds one to this
+		Each markForCleanup removes one from this
+		When it's below 0 TextureManager::garbageCollect will destroy it
+	*/
+	int usages = 0;
+
 	Texture();
 	~Texture();
 
 	Texture(const Texture&) = delete; //Disable copy constructor
 
 	public:
+
+	//Has this texture been put together succesfully, no missing files, and can be used for rendering
+	bool isValid() const { return valid;  }
+
+	/*
+		Decrements usages by one
+		Call TextureManager::garbageCollect at some point
+	*/
+	void markForCleanup();
 
 	void setFilter(GLenum magFilter, GLenum minFilter);
 	void setWrapping(GLenum wrapping);
@@ -117,6 +134,18 @@ class TextureManager
 
 	std::vector<Texture*> textures;
 
+	/*
+		Called after adding the last channel/component of a given layer
+		Finalizes the layer or the whole texture if its ready
+	*/
+	void finishLayer(Texture* target);
+
+	/*
+		Calls glTexImage2D or glTexImage3D
+		Can pass pixel data or data can be left nullptr just to allocate
+	*/
+	void allocateTexture(Texture* target,void *data);
+
 	public:
 
 	/*
@@ -143,6 +172,17 @@ class TextureManager
 		You need to set desiredTotalChannels only if this is the first thing you've added to this texture
 	*/
 	void addComponent(Texture *target,std::string filePath,int desiredTotalChannels = -1);
+
+	/*
+		Adds a channel to a layer filled entirely with undefined values
+		Cannot be the first component of the first layer
+	*/
+	void addEmptyComponent(Texture* target);
+
+	/*
+		Destroys any textures with a usage count less than 1
+	*/
+	void garbageCollect();
 
 	TextureManager();
 	~TextureManager();
