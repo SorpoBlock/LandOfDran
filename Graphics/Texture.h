@@ -102,7 +102,10 @@ class Texture
 	void markForCleanup();
 
 	void setFilter(GLenum magFilter, GLenum minFilter);
+
+	//Sets wrapping for S T and R at once
 	void setWrapping(GLenum wrapping);
+
 	void setWrapping(GLenum wrapS, GLenum wrapT, GLenum wrapR);
 
 	//Actually use the texture

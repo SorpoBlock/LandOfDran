@@ -5,6 +5,7 @@ Material::Material(std::string filePath,TextureManager * textures)
 	scope("Material::Material");
 
 	std::string name = getFileFromPath(filePath.c_str());
+	std::string pathToTextures = getFolderFromPath(filePath.c_str());
 
 	std::ifstream materialDescriptor(filePath.c_str());
 
@@ -102,6 +103,12 @@ Material::Material(std::string filePath,TextureManager * textures)
 
 	PBRArrayTexture = textures->createTexture(howManyLayers, name);
 
+	if (!PBRArrayTexture)
+	{
+		error("Something went wrong allocating space for texture for material: " + name);
+		return;
+	}
+
 	//In the super unlikely event a texture already exists with this exact name, use it instead?
 	if (PBRArrayTexture->isValid())
 	{
@@ -113,14 +120,14 @@ Material::Material(std::string filePath,TextureManager * textures)
 	{
 		useAlbedo = currentLayer;
 		++currentLayer;
-		PBRArrayTexture->addLayer(albedoPath);
+		PBRArrayTexture->addLayer(pathToTextures + albedoPath);
 	}
 
 	if (normalPath.length() > 0)
 	{
 		useNormal = currentLayer;
 		++currentLayer;
-		PBRArrayTexture->addLayer(normalPath);
+		PBRArrayTexture->addLayer(pathToTextures + normalPath);
 	}
 
 	//No point in incrementing currentLayer beyond this point...
@@ -137,7 +144,7 @@ Material::Material(std::string filePath,TextureManager * textures)
 	if (metalPath.length() > 0)
 	{
 		useMetalness = currentLayer;
-		textures->addComponent(PBRArrayTexture, metalPath);
+		textures->addComponent(PBRArrayTexture, pathToTextures + metalPath);
 	}
 	else
 		textures->addEmptyComponent(PBRArrayTexture);
@@ -146,7 +153,7 @@ Material::Material(std::string filePath,TextureManager * textures)
 	if (aoPath.length() > 0)
 	{
 		useOcclusion = currentLayer;
-		textures->addComponent(PBRArrayTexture, aoPath);
+		textures->addComponent(PBRArrayTexture, pathToTextures + aoPath);
 	}
 	else
 		textures->addEmptyComponent(PBRArrayTexture);
@@ -155,7 +162,7 @@ Material::Material(std::string filePath,TextureManager * textures)
 	if (roughPath.length() > 0)
 	{
 		useRoughness = currentLayer;
-		textures->addComponent(PBRArrayTexture, roughPath);
+		textures->addComponent(PBRArrayTexture, pathToTextures + roughPath);
 	}
 	else
 		textures->addEmptyComponent(PBRArrayTexture);

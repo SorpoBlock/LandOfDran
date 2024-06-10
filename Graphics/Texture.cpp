@@ -107,6 +107,7 @@ Texture* TextureManager::createTexture(std::string filePath, bool makeMipmaps)
 	{
 		if (textures[a]->name == textureName)
 		{
+			textures[a]->usages++;
 			return textures[a];
 		}
 	}
@@ -173,6 +174,7 @@ Texture* TextureManager::createTexture(std::string filePath, bool makeMipmaps)
 
 	ret->index = textures.size();
 	textures.push_back(ret);
+	ret->usages++;
 	return ret;
 }
 
@@ -187,6 +189,7 @@ Texture* TextureManager::createBlankTexture(unsigned int width, unsigned int hei
 		{
 			if (textures[a]->name == name)
 			{
+				textures[a]->usages++;
 				return textures[a];
 			}
 		}
@@ -205,6 +208,7 @@ Texture* TextureManager::createBlankTexture(unsigned int width, unsigned int hei
 
 	ret->index = textures.size();
 	textures.push_back(ret);
+	ret->usages++;
 	return ret;
 }
 
@@ -229,6 +233,7 @@ Texture *TextureManager::createTexture(unsigned int desiredLayers, std::string n
 				Check to make sure you didn't get a preexisting texture back
 				Before you call addLayer on the return value
 			*/
+			textures[a]->usages++;
 			return textures[a];
 		}
 	}
@@ -242,6 +247,7 @@ Texture *TextureManager::createTexture(unsigned int desiredLayers, std::string n
 
 	ret->index = textures.size();
 	textures.push_back(ret);
+	ret->usages++;
 	return ret;
 }
 
@@ -589,11 +595,7 @@ void Texture::setFilter(GLenum magFilter, GLenum minFilter)
 
 void Texture::setWrapping(GLenum wrapping)
 {
-	glBindTexture(textureType, handle);
-	glTexParameteri(textureType, GL_TEXTURE_WRAP_S, wrapping);
-	glTexParameteri(textureType, GL_TEXTURE_WRAP_T, wrapping);
-	glTexParameteri(textureType, GL_TEXTURE_WRAP_R, wrapping);
-	glBindTexture(textureType, 0);
+	setWrapping(wrapping, wrapping, wrapping);
 }
 
 void Texture::setWrapping(GLenum wrapS, GLenum wrapT, GLenum wrapR)

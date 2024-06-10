@@ -6,7 +6,7 @@
 #include "Utility/GlobalStartup.h"
 #include "Utility/ClientData.h"
 #include "Graphics/ShaderSpecification.h"
-#include "Graphics/Texture.h"
+#include "Graphics/Material.h"
 #include <glm/gtx/transform.hpp>
  
 using namespace std;
@@ -45,12 +45,7 @@ int main(int argc, char* argv[])
 
 	TextureManager textures;
 
-	Texture* grass = textures.createTexture(3, "Grass");
-	grass->addLayer("Assets/wispy-grass-meadow_albedo.png");
-	grass->addLayer("Assets/wispy-grass-meadow_normal-dx.png");
-	textures.addComponent(grass, "Assets/wispy-grass-meadow_roughness.png", 3);
-	textures.addComponent(grass, "Assets/wispy-grass-meadow_metallic.png");
-	textures.addComponent(grass, "Assets/wispy-grass-meadow_ao.png");
+	Material grass("Assets/grass/grass.txt", &textures);
 	 
 	//Load all the shaders
 	ShaderManager shaders;
@@ -102,7 +97,7 @@ int main(int argc, char* argv[])
 		context.clear(1,1,1);
 
 		shaders.modelShader->use();
-		grass->bind(PBRArray);
+		grass.use(&shaders);
 
 		glBindVertexArray(vao);
 		glDrawArrays(GL_TRIANGLES, 0, 6);
