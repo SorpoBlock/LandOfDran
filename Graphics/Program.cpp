@@ -242,7 +242,10 @@ void Program::resetUniforms() const
 void Program::use(bool reset) const
 {
     if (!valid)
-        error("Cannot use uncompiled shader program!");
+    {
+        //error("Cannot use uncompiled shader program!");
+        return;
+    }
     glUseProgram(handle);
     if (reset)
         resetUniforms();

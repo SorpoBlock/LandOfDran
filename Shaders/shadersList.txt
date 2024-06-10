@@ -1,0 +1,5 @@
+#	BDRF is actually still hard coded in the program for now...
+#	bdrf	frag	bdrf.frag.glsl
+#	bdrf	vert	bdrf.vert.glsl
+model	frag	model.frag.glsl
+model	vert	model.vert.glsl

@@ -8,6 +8,7 @@
 #include "Graphics/ShaderSpecification.h"
 #include "Graphics/Material.h"
 #include <glm/gtx/transform.hpp>
+#include <glm/gtx/euler_angles.hpp>
  
 using namespace std;
 
@@ -54,7 +55,7 @@ int main(int argc, char* argv[])
 
 	shaders.modelShader->registerUniformFloat("test", true, 0.5);
 
-	shaders.globalUniforms.CameraView = glm::lookAt(glm::vec3(0, 0, -1), glm::vec3(0,0,1), glm::vec3(0,1,0));
+	shaders.globalUniforms.CameraView = glm::lookAt(glm::vec3(0, 0, -2), glm::vec3(0,0,1), glm::vec3(0,1,0));
 	shaders.globalUniforms.CameraProjection = glm::perspective(glm::radians(90.0), 1.0, 0.1, 400.0);
 	shaders.updateUniformBlock();
 
@@ -90,7 +91,7 @@ int main(int argc, char* argv[])
 			}
 		}
 
-		shaders.globalUniforms.CameraView = glm::lookAt(glm::vec3(-sin(angle), 0, -cos(angle)), glm::vec3(0, 0, 0), glm::vec3(0, 1, 0));
+		shaders.globalUniforms.RotationMatrix = glm::eulerAngleXYZ(-sin(angle), 0.f, 0.f);
 		shaders.updateUniformBlock();
 
 		context.select(); 
