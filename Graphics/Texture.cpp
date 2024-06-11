@@ -14,7 +14,7 @@
 	It just isn't worth it
 */
 
-void Texture::bind(TextureLocations loc)
+void Texture::bind(TextureLocations loc) const
 {
 	if (!valid)
 	{
@@ -25,36 +25,39 @@ void Texture::bind(TextureLocations loc)
 	glBindTexture(textureType, handle);
 }
 
-void TextureManager::allocateTexture(Texture* target,void *data)
+void TextureManager::allocateTexture(Texture* target)
 {
+	int getMaxMipLevels = std::max(target->width, target->height);
+	getMaxMipLevels = log2(getMaxMipLevels);
+	if (getMaxMipLevels <= 0)
+		getMaxMipLevels = 1;
+
 	glBindTexture(target->textureType, target->handle);
-	if (target->layers == 1)
+	if (target->textureType == GL_TEXTURE_2D)
 	{
-		glTexImage2D(
-			target->textureType,
-			0,
-			getTextureFormatEnum(target->channels, target->isHDR),
-			target->width,
-			target->height,
-			0,
-			getTextureFormatEnum(target->channels, false),
-			target->isHDR ? GL_FLOAT : GL_UNSIGNED_BYTE,
-			data);
+		glTexStorage2D(target->textureType, getMaxMipLevels
+			, getSizedFormatEnum(target->channels, target->isHDR)
+			, target->width, target->height);
 	}
 	else
 	{
-		glTexImage3D(
-			target->textureType,
-			0,
-			getTextureFormatEnum(target->channels, target->isHDR),
-			target->width,
-			target->height,
-			target->layers,
-			0,
-			getTextureFormatEnum(target->channels, false),
-			target->isHDR ? GL_FLOAT : GL_UNSIGNED_BYTE,
-			data);
+		glTexStorage3D(target->textureType, getMaxMipLevels,
+			getSizedFormatEnum(target->channels, target->isHDR),
+			target->width, target->height, target->layers);
 	}
+}
+
+GLenum getSizedFormatEnum(int channels, bool hdr)
+{
+	switch (channels)
+	{
+		case 1: return hdr ? GL_R16F : GL_R8;
+		case 2: return hdr ? GL_RG16F : GL_RG8;
+		case 3: return hdr ? GL_RGB16F : GL_RGB8;
+		case 4: return hdr ? GL_RGBA16F : GL_RGBA8;
+	}
+
+	return 0;
 }
 
 GLenum getTextureFormatEnum(int channels, bool hdrSpecific)
@@ -157,7 +160,16 @@ Texture* TextureManager::createTexture(std::string filePath, bool makeMipmaps)
 	}
 
 	//Actually pass pixel data to OpenGL / graphics card
-	allocateTexture(ret,data);
+	glTexImage2D(
+		ret->textureType,
+		0,
+		getTextureFormatEnum(ret->channels, ret->isHDR),
+		ret->width,
+		ret->height,
+		0,
+		getTextureFormatEnum(ret->channels, false),
+		ret->isHDR ? GL_FLOAT : GL_UNSIGNED_BYTE,
+		data);
 
 	//STBI calls malloc on our data in stbi_load(f) and this just calls free
 	stbi_image_free(data);
@@ -204,7 +216,7 @@ Texture* TextureManager::createBlankTexture(unsigned int width, unsigned int hei
 	ret->name = name;
 	ret->hasMipmaps = false;
 
-	allocateTexture(ret,0);
+	allocateTexture(ret);
 
 	ret->index = textures.size();
 	textures.push_back(ret);
@@ -530,7 +542,7 @@ void TextureManager::addComponent(Texture* target, std::string filePath, int des
 		//channels was set at the start of this function
 
 		//Allocate all the space for all the layers of the texture 
-		allocateTexture(target, 0);
+		allocateTexture(target);
 
 		//Double check to make sure scratchPad can support the full size of this texture('s layer):
 		if (lowDynamicRangeScratchpadSize < (unsigned int)(target->width * target->height * target->channels))
@@ -567,7 +579,6 @@ void TextureManager::addComponent(Texture* target, std::string filePath, int des
 		Copy each pixel from the first / only channel of the file we just loaded
 		into the scratch pad such that we fill in one channel of the scratchPad per call to addComponent
 	*/
-	std::cout << "Cur channel: " << target->currentChannel << "\n";
 	for (int a = 0; a < target->width * target->height; a++)
 		lowDynamicRangeTextureScratchpad[a * target->channels + target->currentChannel] = data[a * readChannels];
 
@@ -623,4 +634,154 @@ void TextureManager::garbageCollect()
 		else
 			++iter;
 	}
+}
+
+void TextureManager::cleanupDecals()
+{
+	currentDecalCount = 0;
+	if (decals)
+	{
+		delete decals;
+		decals = nullptr;
+	}
+}
+
+void TextureManager::allocateForDecals(unsigned int dimensions, unsigned int maxEntries)
+{
+	if (decals)
+		cleanupDecals();
+
+	decals = new Texture();
+	decals->textureType = GL_TEXTURE_2D_ARRAY;
+
+	//A name isn't really needed, as it's the only texture not in the textures vector.
+	decals->name = "decals";
+
+	decals->width = dimensions;
+	decals->height = dimensions;
+
+	//How many decals a we can have on a given server
+	decals->layers = maxEntries;
+
+	//Red, Green, Blue, Alpha
+	decals->channels = 4;
+
+	allocateTexture(decals);
+}
+
+void TextureManager::addDecal(std::string filePath,int id)
+{
+	scope("TextureManager::addDecal");
+
+	if (id < 0 || (unsigned)id >= decals->layers)
+	{
+		error("Decal ID " + std::to_string(id) + " is beyond max decals " + std::to_string(decals->layers));
+		return;
+	}
+
+	//Check if file is valid and get dimensions
+	int readWidth, readHeight, readChannels;
+	stbi_info(filePath.c_str(), &readWidth, &readHeight, &readChannels);
+
+	if (readWidth == 0 || readHeight == 0)
+	{
+		error("Could not open image " + filePath);
+		return;
+	}
+
+	if (readWidth != 256 || readHeight != 256)
+	{
+		error("Decal file " + filePath + " did not have dimensions of 256x256");
+		return;
+	}
+
+	debug("Loading texture " + filePath + " Dimensions: " +
+		std::to_string(decals->width) + "/" +
+		std::to_string(decals->height) + "/4");
+
+	//Last parameter is 4 to force an alpha channel, if there wasn't one the image will be opaque
+	stbi_uc* data = stbi_load(filePath.c_str(), &readWidth, &readHeight, &readChannels, 4);
+
+	if (!data)
+	{
+		error("Could not load image " + filePath);
+		return;
+	}
+
+	//User has 256x256 decals set in graphics settings, no downsizing needed!
+	if (decals->width == 256)
+	{
+		glTexSubImage3D(decals->textureType, 0, 0, 0, id, decals->width, decals->height, 1,
+			getTextureFormatEnum(decals->channels, false),
+			decals->isHDR ? GL_FLOAT : GL_UNSIGNED_BYTE,
+			data);
+	}
+	else
+	{
+		//Make sure scratch pad isn't in use
+		//There's no point in locking it here, since it'll be unlocked by the end of the function anyway
+		if (scratchPadUserID != -1)
+		{
+			error("Scratch pad was in use from adding component!");
+			return;
+		}
+
+		if (decals->width == 128)
+		{
+			for (unsigned int x = 0; x < 128; x++)
+			{
+				for (unsigned int y = 0; y < 128; y++)
+				{
+					int sourceX = x * 2;
+					int sourceY = y * 2;
+
+					//Red, Green, Blue, Alpha
+					lowDynamicRangeTextureScratchpad[ (x + y * 128) * 4] =		data[ (sourceX + sourceY * 256) * 4];
+					lowDynamicRangeTextureScratchpad[((x + y * 128) * 4) + 1] = data[((sourceX + sourceY * 256) * 4) + 1];
+					lowDynamicRangeTextureScratchpad[((x + y * 128) * 4) + 2] = data[((sourceX + sourceY * 256) * 4) + 2];
+					lowDynamicRangeTextureScratchpad[((x + y * 128) * 4) + 3] = data[((sourceX + sourceY * 256) * 4) + 3];
+				}
+			}
+		}
+		else //64x64
+		{
+			for (unsigned int x = 0; x < 64; x++)
+			{
+				for (unsigned int y = 0; y < 64; y++)
+				{
+					int sourceX = x * 4;
+					int sourceY = y * 4;
+
+					//Red, Green, Blue, Alpha
+					lowDynamicRangeTextureScratchpad[ (x + y * 64) * 4] =	   data[ (sourceX + sourceY * 256) * 4];
+					lowDynamicRangeTextureScratchpad[((x + y * 64) * 4) + 1] = data[((sourceX + sourceY * 256) * 4) + 1];
+					lowDynamicRangeTextureScratchpad[((x + y * 64) * 4) + 2] = data[((sourceX + sourceY * 256) * 4) + 2];
+					lowDynamicRangeTextureScratchpad[((x + y * 64) * 4) + 3] = data[((sourceX + sourceY * 256) * 4) + 3];
+				}
+			}
+		}
+
+		glTexSubImage3D(decals->textureType, 0, 0, 0, id, decals->width, decals->height, 1,
+			getTextureFormatEnum(decals->channels, false),
+			decals->isHDR ? GL_FLOAT : GL_UNSIGNED_BYTE,
+			lowDynamicRangeTextureScratchpad);
+	}
+
+	stbi_image_free(data);
+
+	currentDecalCount++;
+}
+
+void TextureManager::finalizeDecals()
+{
+	//Already been called
+	if (decals->valid)
+		return;
+
+	glBindTexture(decals->textureType, decals->handle);
+	glGenerateMipmap(decals->textureType);
+	decals->valid = true;
+	glBindTexture(decals->textureType, 0);
+	
+	decals->bind(DecalArray);
 }

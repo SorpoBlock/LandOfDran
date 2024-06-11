@@ -1,5 +1,17 @@
 #include "RenderContext.h"
 
+//OpenGL callback function
+void GLAPIENTRY MessageCallback(GLenum source,
+	GLenum type,
+	GLuint id,
+	GLenum severity,
+	GLsizei length,
+	const GLchar* message,
+	const void* userParam)
+{
+	error("OpenGL error, type: " + std::to_string(type) + " severity: " + std::to_string(severity) + " message: " + message);
+}
+
 //Sets whether to trap the mouse in the center of the screen and hide it, i.e. first person controls
 void RenderContext::setMouseLock(bool locked)
 {
@@ -97,8 +109,11 @@ RenderContext::RenderContext(SettingManager & settings)
 	if(SDL_GL_SetSwapInterval(settings.getBool("graphics/usevsync")) != 0)
 		error("SDL_GL_SetSwapInterval failed SDL_GetError: " + std::string(SDL_GetError()));
 
-	if(settings.getBool("graphics/debug"))
+	if (settings.getBool("graphics/debug"))
+	{
 		glEnable(GL_DEBUG_OUTPUT);
+		glDebugMessageCallback(MessageCallback, 0);
+	}
 
 	valid = true;
 }

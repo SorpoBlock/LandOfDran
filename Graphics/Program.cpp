@@ -2,13 +2,21 @@
 
 void Program::registerSamplerUniforms()
 {
+    use();
+
     /*
         How I organize texture samplers *could* change in the future
         But changes aren't often, and every shader uses the same layout all of the time
         Even if a given shader doesn't necesairly use every sampler
     */
-    glUniform1i(glGetUniformLocation(handle, "PBRArray"),           PBRArray);
-    glUniform1i(glGetUniformLocation(handle, "BRDF"),               BRDF);
+    if(glGetUniformLocation(handle, "PBRArray") != -1)
+        glUniform1i(glGetUniformLocation(handle, "PBRArray"),           PBRArray);
+
+    if(glGetUniformLocation(handle, "DecalArray") != -1)
+        glUniform1i(glGetUniformLocation(handle, "DecalArray"),         DecalArray);
+
+    //Enable others as they are actually added
+    /*glUniform1i(glGetUniformLocation(handle, "BRDF"), BRDF);
     glUniform1i(glGetUniformLocation(handle, "HeightMap"),          HeightMap);
     glUniform1i(glGetUniformLocation(handle, "ShadowNearMap"),      ShadowNearMap);
     glUniform1i(glGetUniformLocation(handle, "Refraction"),         Refraction);
@@ -18,13 +26,13 @@ void Program::registerSamplerUniforms()
     glUniform1i(glGetUniformLocation(handle, "ShadowNearTransMap"), ShadowNearTransMap);
     glUniform1i(glGetUniformLocation(handle, "CubeMapEnvironment"), CubeMapEnvironment);
     glUniform1i(glGetUniformLocation(handle, "CubeMapRadiance"),    CubeMapRadiance);
-    glUniform1i(glGetUniformLocation(handle, "CubeMapIrradiance"),  CubeMapIrradiance);
+    glUniform1i(glGetUniformLocation(handle, "CubeMapIrradiance"),  CubeMapIrradiance);*/
 }
 
 void Program::bindUniformBlock(std::string glslName, GLuint UBOhandle, int index) const
 {
-    glUniformBlockBinding(handle, glGetUniformBlockIndex(handle, glslName.c_str()), 1);
-    glBindBufferBase(GL_UNIFORM_BUFFER, 1, UBOhandle);
+    glUniformBlockBinding(handle, glGetUniformBlockIndex(handle, glslName.c_str()), index);
+    glBindBufferBase(GL_UNIFORM_BUFFER, index, UBOhandle);
 }
 
 //Passes an array of matricies to a shader, was origionally used for skeletal animation
@@ -206,9 +214,9 @@ void Program::compile()
 
     info("Program created succesfully.");
 
-    registerSamplerUniforms();
-
     valid = true;
+
+    registerSamplerUniforms();
 }
 
 void Program::resetUniforms() const

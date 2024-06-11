@@ -18,8 +18,13 @@
 /*
 	Returns GLenum to pass for internalFormat argument to texture functions
 	value for format can be retrieved by setting hdrSpecific to false always
+	Returns sized for HDR and Base (non-sized) for not
 */
 GLenum getTextureFormatEnum(int channels, bool hdrSpecific);
+/*
+	Returns sized all the time i.e. GL_R16F or GL_R8
+*/
+GLenum getSizedFormatEnum(int channels, bool hdrSpecific);
 
 class TextureManager;
 
@@ -109,7 +114,7 @@ class Texture
 	void setWrapping(GLenum wrapS, GLenum wrapT, GLenum wrapR);
 
 	//Actually use the texture
-	void bind(TextureLocations loc);
+	void bind(TextureLocations loc) const;
 
 	//Loads one layer of a 2D texture array from a file
 	void addLayer(std::string filePath);
@@ -126,7 +131,7 @@ class TextureManager
 		This is used when trying to compile multiple one channel textures into
 		a single result (non-array) texture with 2-4 channels
 	*/
-	unsigned char* lowDynamicRangeTextureScratchpad = 0;
+	unsigned char* lowDynamicRangeTextureScratchpad = nullptr;
 
 	//How much memory has been allocated to lowDynamicRangeTextureScratchpad
 	unsigned int lowDynamicRangeScratchpadSize = 0;
@@ -147,9 +152,51 @@ class TextureManager
 		Calls glTexImage2D or glTexImage3D
 		Can pass pixel data or data can be left nullptr just to allocate
 	*/
-	void allocateTexture(Texture* target,void *data);
+	void allocateTexture(Texture* target);
 
+	/*
+		What is a decal in Land of Dran?
+		A decal is a small (64x64, 128x128 or 256x256) LDR - RGBA albedo only texture
+		(Decal files should be 256x256 pixels, they can be downsized based on settings)
+		That can be added to or replace the albedo component on a
+		designed mesh or face of a brick
+		They exist in a single fairly large texture, that is always available to shaders
+		Face decals, shirt decals, bullet holes, and brick prints are all examples of decals
+	*/
+	Texture* decals = nullptr;
+
+	/*
+		How many decals we currently have loaded in since the last cleanup/allocate call
+	*/
+	unsigned int currentDecalCount = 0;
+	
 	public:
+
+	/*
+		Destroy the old decals texture. Could be called upon server exit,
+		but will also be called automatically if needed before the next allocateForDecals call.
+	*/
+	void cleanupDecals();
+
+	/*
+		Creates the decals texture, should be called upon joining a game
+		dimensions should be 64, 128, or 256, controls the width and height of a single decal
+		maxEntries is how *deep* the decals texture array goes, i.e. the maximum amount of decals
+		See note on decals above.
+	*/
+	void allocateForDecals(unsigned int dimensions, unsigned int maxEntries = 256);
+
+	/*
+		Should be called after all decals for a given server have been loaded
+		Creates mip maps and binds the texture
+	*/
+	void finalizeDecals();
+
+	/*
+		Loads a decal from an image
+		id must be > 0 and < maxEntries, but does not need to be sequential
+	*/
+	void addDecal(std::string filePath,int id);
 
 	/*
 		Creates a non-array texture from a single image file and returns it

@@ -177,18 +177,18 @@ Material::~Material()
 		PBRArrayTexture->markForCleanup();
 }
 
-void Material::use(ShaderManager* shaders)
+void Material::use(ShaderManager* shaders) const
 {
 	if (!valid)
 		return;
 
-	shaders->globalUniforms.useAlbedo =		useAlbedo;
-	shaders->globalUniforms.useNormal =		useNormal;
-	shaders->globalUniforms.useMetalness =	useMetalness;
-	shaders->globalUniforms.useRoughness =	useRoughness;
-	shaders->globalUniforms.useAO =			useOcclusion;
+	shaders->basicUniforms.useAlbedo =		useAlbedo;
+	shaders->basicUniforms.useNormal =		useNormal;
+	shaders->basicUniforms.useMetalness =	useMetalness;
+	shaders->basicUniforms.useRoughness =	useRoughness;
+	shaders->basicUniforms.useAO =			useOcclusion;
 
-	shaders->updateUniformBlock();
+	shaders->updateBasicUBO();
 
 	PBRArrayTexture->bind(PBRArray);
 }

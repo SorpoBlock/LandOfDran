@@ -52,7 +52,7 @@ add_executable (LandOfDran
 "Graphics/GraphicsHelpers.cpp" 
 "Graphics/Texture.h" 
 "Graphics/Texture.cpp"
-"External/stb_image.h" "Graphics/Material.h" "Graphics/Material.cpp")
+"External/stb_image.h" "Graphics/Material.h" "Graphics/Material.cpp" "Graphics/Mesh.h" "Graphics/Mesh.cpp")
 
 target_link_libraries(LandOfDran PRIVATE ZLIB::ZLIB)
 target_link_libraries(LandOfDran PRIVATE SDL2::SDL2 SDL2::SDL2main)

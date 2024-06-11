@@ -8,3 +8,7 @@
 */
 GLuint createQuadVAO();
 
+/*
+	Pops all OpenGL and SDL errors in a loop and prints them to error
+*/
+void printAllGraphicsErrors();

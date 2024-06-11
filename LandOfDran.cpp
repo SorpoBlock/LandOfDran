@@ -45,7 +45,6 @@ int main(int argc, char* argv[])
 	clientEnv.renderContext = &context;
 
 	TextureManager textures;
-
 	Material grass("Assets/grass/grass.txt", &textures);
 	 
 	//Load all the shaders
@@ -53,11 +52,25 @@ int main(int argc, char* argv[])
 	clientEnv.shaders = &shaders;
 	shaders.readShaderList("Shaders/shadersList.txt");
 
+	Shader a("Shaders/model.vert.glsl", GL_VERTEX_SHADER);
+	Shader b("Shaders/model.frag.glsl", GL_FRAGMENT_SHADER);
+	Program c;
+	c.bindShader(&a);
+	c.bindShader(&b);
+	c.compile();
+	shaders.bind(&c);
+
+	textures.allocateForDecals(128);
+	textures.addDecal("Assets/animan.png", 0);
+	textures.addDecal("Assets/ascii-terror.png", 1);
+	textures.finalizeDecals();
+
+	grass.use(&shaders);
 	shaders.modelShader->registerUniformFloat("test", true, 0.5);
 
-	shaders.globalUniforms.CameraView = glm::lookAt(glm::vec3(0, 0, -2), glm::vec3(0,0,1), glm::vec3(0,1,0));
-	shaders.globalUniforms.CameraProjection = glm::perspective(glm::radians(90.0), 1.0, 0.1, 400.0);
-	shaders.updateUniformBlock();
+	shaders.cameraUniforms.CameraView = glm::lookAt(glm::vec3(0, 0, -2), glm::vec3(0,0,1), glm::vec3(0,1,0));
+	shaders.cameraUniforms.CameraProjection = glm::perspective(glm::radians(90.0), 1.0, 0.1, 400.0);
+	shaders.updateCameraUBO();
 
 	GLuint vao = createQuadVAO();
 
@@ -65,6 +78,9 @@ int main(int argc, char* argv[])
 	float lastTicks = SDL_GetTicks();
 	unsigned int frames = 0;
 	unsigned int lastFPScheck = SDL_GetTicks();
+
+	bool whichToUse = false;
+	bool asdf = false;
 
 	bool doMainLoop = true;
 	while (doMainLoop)
@@ -75,6 +91,9 @@ int main(int argc, char* argv[])
 			info(std::to_string(frames / 5) + " fps");
 			lastFPScheck = SDL_GetTicks();
 			frames = 0;
+			whichToUse = !whichToUse;
+			if (!whichToUse)
+				asdf = !asdf;
 		}
 
 		float deltaT = ((float)SDL_GetTicks()) - lastTicks;
@@ -91,14 +110,17 @@ int main(int argc, char* argv[])
 			}
 		}
 
-		shaders.globalUniforms.RotationMatrix = glm::eulerAngleXYZ(-sin(angle), 0.f, 0.f);
-		shaders.updateUniformBlock();
+		shaders.basicUniforms.RotationMatrix = glm::eulerAngleXYZ(-sin(angle), 0.f, 0.f);
+		shaders.basicUniforms.useDecal = asdf ? 0 : 1;
+		shaders.updateBasicUBO();
 
 		context.select(); 
 		context.clear(1,1,1);
 
-		shaders.modelShader->use();
-		grass.use(&shaders);
+		if (whichToUse)
+			shaders.modelShader->use();
+		else
+			c.use();
 
 		glBindVertexArray(vao);
 		glDrawArrays(GL_TRIANGLES, 0, 6);

@@ -52,7 +52,7 @@ class Material
 		Sets PBRArrayTexture as the active PBRArray texture
 		Passes other uniforms describing the texture to shaders
 	*/
-	void use(ShaderManager * shaders);
+	void use(ShaderManager * shaders) const;
 
 	/*
 		Pass a filepath to a text file containing a description of this material

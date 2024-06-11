@@ -20,33 +20,19 @@ void UniformVec4(GLint location, glm::vec4 vec);
 enum TextureLocations
 {
 	PBRArray = 0,
-	BRDF = 1,
-	HeightMap = 2,
-	ShadowNearMap = 3,
-	Refraction = 4,
-	Reflection = 5,
-	ShadowFarMap = 6,
-	ShadowColorMap = 7,
-	ShadowNearTransMap = 8,
-	CubeMapEnvironment = 9,
-	CubeMapRadiance = 10,
-	CubeMapIrradiance = 11
-};
-
-/*
-	Used for glVertexAttribPointer indicies and shader layout locations for per-vertex data
-*/
-enum LayoutPosition
-{
-	ModelSpace = 0,
-	Normals = 1,
-	UVs = 2,
-	Colors = 3,
-	Tangents = 4,
-	Bitangents = 5,
-	BoneIDs = 6,
-	BoneWeightOrSprites = 7,
-	Index = 8
+	DecalArray = 1,
+	//Add as needed:
+	/*BRDF = 2,
+	HeightMap = 3,
+	ShadowNearMap = 4,
+	Refraction = 5,
+	Reflection = 6,
+	ShadowFarMap = 7,
+	ShadowColorMap = 8,
+	ShadowNearTransMap = 9,
+	CubeMapEnvironment = 10,
+	CubeMapRadiance = 11,
+	CubeMapIrradiance = 12;*/
 };
 
 enum UniformType

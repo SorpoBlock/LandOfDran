@@ -59,7 +59,7 @@ bool ShaderManager::readShaderList(std::string filePath)
 					returnValue = true;
 
 				//Associate uniforms in UBO block GlobalUniforms with uniformBufferData struct memory
-				bind(lastProgram, "GlobalUniforms");
+				bind(lastProgram);
 			}
 
 			lastProgram = new Program();
@@ -107,7 +107,7 @@ bool ShaderManager::readShaderList(std::string filePath)
 			returnValue = true;
 
 		//Associate uniforms in UBO block GlobalUniforms with uniformBufferData struct memory
-		bind(lastProgram, "GlobalUniforms");
+		bind(lastProgram);
 	}
 
 	return returnValue;
@@ -115,32 +115,57 @@ bool ShaderManager::readShaderList(std::string filePath)
 
 ShaderManager::ShaderManager()
 {
-	glGenBuffers(1, &handle);
-	if (!handle)
-	{
-		scope("UniformManager::UniformManager");
+	scope("UniformManager::UniformManager");
+
+	//Basic:
+
+	glGenBuffers(1, &basicUBO);
+	if (!basicUBO)
 		error("Could not allocate uniform buffer object!");
-	}
-	glBindBuffer(GL_UNIFORM_BUFFER, handle);
-	glBufferData(GL_UNIFORM_BUFFER, 376, &globalUniforms, GL_DYNAMIC_DRAW);
+
+	glBindBuffer(GL_UNIFORM_BUFFER, basicUBO);
+	glBufferData(GL_UNIFORM_BUFFER, 220, &basicUniforms, GL_DYNAMIC_DRAW);
+	glBindBuffer(GL_UNIFORM_BUFFER, 0);
+
+	//Camera:
+
+	glGenBuffers(1, &cameraUBO);
+	if (!cameraUBO)
+		error("Could not allocate uniform buffer object!");
+
+	glBindBuffer(GL_UNIFORM_BUFFER, cameraUBO);
+	glBufferData(GL_UNIFORM_BUFFER, 156, &cameraUniforms, GL_DYNAMIC_DRAW);
 	glBindBuffer(GL_UNIFORM_BUFFER, 0);
 }
 
 ShaderManager::~ShaderManager()
 {
-	glDeleteBuffers(1, &handle);
+	glDeleteBuffers(1, &basicUBO);
+	glDeleteBuffers(1, &cameraUBO);
 }
 
-//Associates uniformBufferData with a struct by name glslName in a shader file used by target via a UBO
-void ShaderManager::bind(Program* target, std::string glslName, int index)
+/*
+	Associates contained UBOs with their definitions in the OpenGL shaders
+	See function definition for what names they should have in shaders
+*/
+void ShaderManager::bind(Program* target)
 {
-	target->bindUniformBlock(glslName, handle, index);
+	target->bindUniformBlock("BasicUniforms" , basicUBO , 0);
+	target->bindUniformBlock("CameraUniforms", cameraUBO, 1);
 }
 
-//Sends changes to uniformBufferData to the GPU
-void ShaderManager::updateUniformBlock()
+//Push camera changes to GPU/OpenGL
+void ShaderManager::updateCameraUBO()
 {
-	glBindBuffer(GL_UNIFORM_BUFFER, handle);
-	glBufferData(GL_UNIFORM_BUFFER, 376, &globalUniforms, GL_DYNAMIC_DRAW);
+	glBindBuffer(GL_UNIFORM_BUFFER, cameraUBO);
+	glBufferData(GL_UNIFORM_BUFFER, 156, &cameraUniforms, GL_DYNAMIC_DRAW);
+	glBindBuffer(GL_UNIFORM_BUFFER, 0);
+}
+
+//Push camera changes to GPU/OpenGL
+void ShaderManager::updateBasicUBO()
+{
+	glBindBuffer(GL_UNIFORM_BUFFER, basicUBO);
+	glBufferData(GL_UNIFORM_BUFFER, 220, &basicUniforms, GL_DYNAMIC_DRAW);
 	glBindBuffer(GL_UNIFORM_BUFFER, 0);
 }

@@ -1,5 +1,15 @@
 #include "GraphicsHelpers.h"
 
+void printAllGraphicsErrors()
+{
+	GLenum err;
+	while ((err = glGetError()) != GL_NO_ERROR)
+	{
+		error("OpenGL error: " + std::to_string(err));
+		error("Last SDL error string: " + std::string(SDL_GetError()));
+	}
+}
+
 GLuint createQuadVAO()
 {
 	GLuint debugTriangleVAO;

@@ -3,26 +3,31 @@
 layout(location = 0) in vec3 positions;
 layout(location = 1) in vec2 uv;
 
-layout (std140) uniform GlobalUniforms
+layout (std140) uniform BasicUniforms
 {
 	//Model Matrix:
 	mat4 TranslationMatrix;
 	mat4 RotationMatrix;
 	mat4 ScaleMatrix;
 	
-	//Camera Uniforms:
-	mat4 CameraProjection;
-	mat4 CameraView;
-	vec3 CameraPosition;
-	vec3 CameraDirection;
-	
 	//Material uniforms:
+	//These are -1 if not used, otherwise they point to what layer of their 2d texture array they are on
 	int useAlbedo;
 	int useNormal;
 	int useMetalness;
 	int useRoughness;
 	int useHeight;
 	int useAO;
+	int useDecal;
+};
+
+layout (std140) uniform CameraUniforms
+{
+	//Camera Uniforms:
+	mat4 CameraProjection;
+	mat4 CameraView;
+	vec3 CameraPosition;
+	vec3 CameraDirection;
 };
 
 out vec2 uvs;
