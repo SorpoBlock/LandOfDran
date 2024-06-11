@@ -143,8 +143,32 @@ ModelInstance::ModelInstance(Model* _type)
 	if (!_type)
 		return;
 
-	//Add this instance to each of its Model's Meshes 
 	type = _type;
+
+	//Something messed up loading the model?
+	if(type->allMeshes.size() < 1)
+		return;
+
+	//Create values for each mesh and node so we can always just access them by model's mesh/node index without worring about size
+	for(unsigned int a = 0 ; a<type->allMeshes.size(); a++)
+	{
+		MeshTransforms.push_back(glm::mat4(1.0));
+		MeshFlags.push_back(0);
+		MeshColors.push_back(glm::vec4(0,0,0,0));
+		flagsUpdated.push_back(true);
+		colorsUpdated.push_back(true);
+	}
+
+	for(unsigned int a = 0; a<type->allNodes.size(); a++)
+	{
+		NodeRotationFixes.push_back(glm::quat(1.0,0.0,0.0,0.0));
+		UseNodeRotationFix.push_back(false);
+	}
+
+	//The offset should be the same for all meshes of a given model
+	bufferOffset = type->allMeshes[0]->instances.size();
+	
+	//Add this instance to each of its Model's Meshes 
 	for (unsigned int a = 0; a < type->allMeshes.size(); a++)
 		type->allMeshes[a]->instances.push_back(this);
 }
