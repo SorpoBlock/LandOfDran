@@ -187,17 +187,17 @@ ModelInstance::~ModelInstance()
 			this
 		);
 
-		if (pos != type->allMeshes[a]->instances.end())
-		{
-			pos = type->allMeshes[a]->instances.erase(pos);
+		if (pos == type->allMeshes[a]->instances.end()) //Shouldn't happen
+			continue;
+		
+		pos = type->allMeshes[a]->instances.erase(pos);
 
-			//Update all other instances bufferOffsets since after this instance will need to be decremented by one
-			//TODO: Maybe preallocate a certain amount of instances at a time, reallocate more if needed, and only soft delete with a hidden flag most of the time
-			while(pos != type->allMeshs[a].bend())
-			{
-				--(*pos)->bufferOffset;
-				++pos;
-			}
+		//Update all other instances bufferOffsets since after this instance will need to be decremented by one
+		//TODO: Maybe preallocate a certain amount of instances at a time, reallocate more if needed, and only soft delete with a hidden flag most of the time
+		while(pos != type->allMeshs[a].end())
+		{
+			--(*pos)->bufferOffset;
+			++pos;
 		}
 	}
 }
