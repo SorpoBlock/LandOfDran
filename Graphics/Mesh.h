@@ -42,9 +42,51 @@ struct ModelInstance
 {	 
 	Model* type = nullptr;
 
+	/*
+ 		These allow you to manually tweak the rotation of a given node
+   		For instance if you want to make a player's head tilt when they look up or down
+     	*/
+	std::vector<glm::quat>  NodeRotationFixes;
+	//If NodeRotationFixes should be used for that given node
+	std::vector<bool> 	UseNodeRotationFix;
+
+	//The transform for the entire model instance
+	glm::mat4 wholeModelTransform = glm::mat4(1.0);
+
+	/*
+		These are calculated in calculateMeshTransforms per Mesh based on:
+  		The node hierarchy as imported from Assimp with any baked in hierarchical transformations
+    		Any currently playing animations
+      		Any manually applied NodeRotationFixes
+		wholeModelTransform
+ 	*/
 	std::vector<glm::mat4>	MeshTransforms;
-	std::vector<int>		MeshFlags;
+	std::vector<int>	MeshFlags;
 	std::vector<glm::vec4>	MeshColors;
+
+	//Were any of the above properties changed since last frame
+	//It's assumed any transform update would affect the entire model...
+	bool transformUpdated = true;
+
+	//... while these are per-mesh
+	std::vector<bool> flagsUpdated;
+	std::vector<bool> colorsUpdated;
+
+	//What offset to use for Mesh buffers for instanced data when calling performMeshBufferUpdates
+	unsigned int bufferOffset = 0;
+
+	public:
+
+	//Change the position/scale/rotation for the whole model instance
+	void setModelTransform(glm::mat4 transform);
+	//For little tweaks like making a player's head swivel up and down based on where they look
+	void setNodeRotation(int nodeId,glm::quat rotation);
+	//Set a flag or a custom color on a single mesh instance of the model instance
+	void setFlags(int meshId,int flags);
+	void setColor(int meshId,glm::vec4 color);
+
+	//Calls glBufferSubData on mesh buffers that need updating, and sets updated flags to false
+	void performMeshBufferUpdates();
 
 	ModelInstance(Model * _type); 
 	~ModelInstance();
