@@ -127,15 +127,97 @@ Mesh::~Mesh()
 
 void Mesh::render(ShaderManager* graphics, bool useMaterials) const
 {
-	/*
 	if(instances.size() < 1)
 		return;
-	*/
 
 	if (useMaterials && material)
 		material->use(graphics);
 
 	glBindVertexArray(vao);
-	//glDrawElementsInstanced(GL_TRIANGLES, vertexCount, GL_UNSIGNED_SHORT, (void*)0, instances.size());
+	glDrawElementsInstanced(GL_TRIANGLES, vertexCount, GL_UNSIGNED_SHORT, (void*)0, instances.size());
 	glBindVertexArray(0);
+}
+
+ModelInstance::ModelInstance(Model* _type)
+{
+	if (!_type)
+		return;
+
+	//Add this instance to each of its Model's Meshes 
+	type = _type;
+	for (unsigned int a = 0; a < type->allMeshes.size(); a++)
+		type->allMeshes[a]->instances.push_back(this);
+}
+
+ModelInstance::~ModelInstance()
+{
+	if (!type)
+		return;
+	
+	//Remove this instance from all of its Model's Meshes
+	for (unsigned int a = 0; a < type->allMeshes.size(); a++)
+	{
+		std::vector<ModelInstance*>::iterator pos = std::find(
+			type->allMeshes[a]->instances.begin(),
+			type->allMeshes[a]->instances.end(),
+			this
+		);
+
+		if (pos != type->allMeshes[a]->instances.end())
+			type->allMeshes[a]->instances.erase(pos);
+	}
+}
+
+Model::Model(std::string filePath)
+{
+
+}
+
+Model::~Model()
+{
+
+}
+
+/*
+	Assimp does this nasty thing when importing some models
+	It will add a billion superfluous nodes on top of each node
+	If you had Torso -> Left Arm -> Left Hand it would give you
+	Torso_RotationPivot -> Torso_Translation -> Torso->Rotation -> Torso_Scale -> LeftArm_RotationPivot...
+	This just makes parsing the hierarchy less efficient and we can generally get rid of all these
+*/
+std::string stripSillyAssimpNodeNames(std::string in)
+{
+	if (in.find("_$AssimpFbx$_") != std::string::npos)
+		return in.substr(0, in.find("_$AssimpFbx$_"));
+	else
+		return in;
+}
+
+Node::Node(aiNode const* const src, Model * parent)
+{
+	parent->allNodes.push_back(this);
+	name = src->mName.C_Str();
+
+	if (name.find("_RotationPivot") != std::string::npos)
+	{
+		glm::vec3 scale, skew, trans;
+		glm::vec4 perspective;
+		glm::quat rot;
+		glm::mat4 to;
+		CopyaiMat(src->mTransformation, to);
+		glm::decompose(to, scale, rot, trans, skew, perspective);
+		rotationPivot = trans;
+	}
+
+	name = stripSillyAssimpNodeNames(name);
+}
+
+void Node::foldNodeInto(aiNode const* const source, Model* parent)
+{
+
+}
+
+Node::~Node()
+{
+
 }

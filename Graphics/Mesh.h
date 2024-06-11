@@ -5,6 +5,7 @@
 #include <assimp/Importer.hpp>
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
+#include <glm/gtx/matrix_decompose.hpp>
 
 /*
 	Determines what order the various per-vertex variables
@@ -24,11 +25,38 @@ enum LayoutSlot
 	ModelTransform = 7		//mat4 - Contains the model matrix if rendering instanced models (per-instance)
 };
 
+#define MeshFlag_UsePickingColor  256     //Render the mesh with colors for mouse picking
+//Bits 0-7 would then be the mouse picking ID if that flag is enabled
+#define MeshFlag_UseDecal		  131072  //Should we render a decal on top of our current material
+//Bits 9-16 would then be the decal ID
+#define MeshFlag_SkipCameraMatrix 262144  //Skip camera projection and view matricies in vertex shader
+
+class Mesh;
 class Model;
+
+/*
+	Contains the information needed to render one instance of a Model
+	One set of data for each instanced layout binding point for each mesh of the model
+*/
+struct ModelInstance
+{	 
+	Model* type = nullptr;
+
+	std::vector<glm::mat4>	MeshTransforms;
+	std::vector<int>		MeshFlags;
+	std::vector<glm::vec4>	MeshColors;
+
+	ModelInstance(Model * _type); 
+	~ModelInstance();
+};
 
 class Mesh
 {
 	friend class Model;
+	friend class ModelInstance;
+
+	//This vector's members are shared between other Mesh's of the same Model
+	std::vector<ModelInstance*> instances;
 
 	//Assimp can specifiy a material for this particular mesh
 	Material* material = nullptr;
@@ -47,6 +75,9 @@ class Mesh
 
 	//How many verticies (including duplicates) does this mesh have
 	unsigned int vertexCount = 0;
+
+	//Used for seeing what index to use when reading from vectors in ModelInstance for rendering
+	unsigned int meshIndex = 0;
 
 	/*
 		Vertex array object that contains the mesh
@@ -78,11 +109,52 @@ class Mesh
 	void render(ShaderManager* graphics, bool useMaterials = true) const;
 };
 
+class Node
+{
+	//Leaves of the tree
+	std::vector<Mesh*> meshes;
+
+	//Babies
+	std::vector<Node*> children;
+
+	//Node above
+	Node* parent = nullptr;
+
+	/*
+		This is added by Assimp
+		The matrix multiplication for each node goes:
+		translate(rotationPivot) * rotate(rotation) * translate(-rotationPivot) * translate(pos) * higherNode...
+	*/
+	glm::vec3 rotationPivot;
+
+	//Undoes some of Assimps importing silliness that creates a billion extra nodes, see stripSillyAssimpNodeNames
+	void foldNodeInto(aiNode const * const source, Model * parent);
+
+	//Used for setting properties through script
+	std::string name = "";
+
+	Node(aiNode const* const src, Model* parent);
+	~Node();
+};
+
 class Model
 {
+	friend class ModelInstance;
+	friend class Node;
+
 	//Every mesh the model has stored in a way that doesn't require recusion to access
 	std::vector<Mesh*> allMeshes;
+	
+	//Nodes for non-hierarchical access
+	std::vector<Node*> allNodes;
 
 	public:
 
+	/*
+		File path refers to a text file that describes where the actual model is
+		Flags for how to load it, and other text files describing materials
+	*/
+	Model(std::string filePath);
+
+	~Model();
 };

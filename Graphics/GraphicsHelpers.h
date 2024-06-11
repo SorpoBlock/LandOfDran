@@ -2,6 +2,11 @@
 
 #include "../LandOfDran.h"
 
+#include <assimp/scene.h>
+
+//assimp to opengl conversion for 4x4 matrices
+void CopyaiMat(aiMatrix4x4 from, glm::mat4& to);
+
 /*
 	Returns a VAO representing two triangles in a quad with coords from -1 to 1
 	It has 3d verticies and UVs
@@ -12,3 +17,4 @@ GLuint createQuadVAO();
 	Pops all OpenGL and SDL errors in a loop and prints them to error
 */
 void printAllGraphicsErrors();
+
