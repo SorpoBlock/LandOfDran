@@ -20,6 +20,7 @@
 #include "Utility/Logger.h"
 #include "Utility/FileFunctions.h"
 #include "Graphics/GraphicsHelpers.h"
+#include <map>
 
 //Used in the titlebar for the window, and for making sure client and server version match in mutliplayer
 #define GAME_VERSION 20

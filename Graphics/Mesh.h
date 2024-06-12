@@ -7,6 +7,9 @@
 #include <assimp/postprocess.h>
 #include <glm/gtx/matrix_decompose.hpp>
 
+//How many instances for an instanced mesh we allocate space for at a time, don't set to 0
+#define InstanceBufferPageSize 1000
+
 /*
 	Determines what order the various per-vertex variables
 	are passed to the OpenGL shaders i.e. the 0 in:
@@ -33,12 +36,13 @@ enum LayoutSlot
 
 class Mesh;
 class Model;
+class Node;
 
 /*
 	Contains the information needed to render one instance of a Model
 	One set of data for each instanced layout binding point for each mesh of the model
 */
-struct ModelInstance
+class ModelInstance
 {	 
 	Model* type = nullptr;
 
@@ -56,17 +60,20 @@ struct ModelInstance
 	/*
 		These are calculated in calculateMeshTransforms per Mesh based on:
   		The node hierarchy as imported from Assimp with any baked in hierarchical transformations
-    		Any currently playing animations
-      		Any manually applied NodeRotationFixes
+    	Any currently playing animations
+      	Any manually applied NodeRotationFixes
 		wholeModelTransform
  	*/
-	std::vector<glm::mat4>	MeshTransforms;
-	std::vector<int>	MeshFlags;
-	std::vector<glm::vec4>	MeshColors;
+	std::vector<glm::mat4>		MeshTransforms;
+	std::vector<unsigned int>	MeshFlags;
+	std::vector<glm::vec4>		MeshColors;
 
 	//Were any of the above properties changed since last frame
 	//It's assumed any transform update would affect the entire model...
 	bool transformUpdated = true;
+
+	//If anything at all has been updated, any mesh's transform, flags, or colors, since last frame
+	bool anythingUpdated = true;
 
 	//... while these are per-mesh
 	std::vector<bool> flagsUpdated;
@@ -82,11 +89,23 @@ struct ModelInstance
 	//For little tweaks like making a player's head swivel up and down based on where they look
 	void setNodeRotation(int nodeId,glm::quat rotation);
 	//Set a flag or a custom color on a single mesh instance of the model instance
-	void setFlags(int meshId,int flags);
+	void setFlags(int meshId,unsigned int flags);
 	void setColor(int meshId,glm::vec4 color);
 
-	//Calls glBufferSubData on mesh buffers that need updating, and sets updated flags to false
+	/*
+		Calculates the transform of each indivdual node based on things, see above
+		Call once per frame if the object is animated or has moved
+	*/
+	void calculateMeshTransforms(glm::mat4 currentTransform = glm::mat4(1.0),Node * currentNode = 0);
+
+	/*
+		Calls glBufferSubData on mesh buffers that need updating, and sets updated flags to false
+		Call this once per instance per frame, after any calls to set* but before rendering
+	*/
 	void performMeshBufferUpdates();
+
+	//Calls calculateMeshTransforms and performMeshBufferUpdates
+	void update();
 
 	ModelInstance(Model * _type); 
 	~ModelInstance();
@@ -96,6 +115,9 @@ class Mesh
 {
 	friend class Model;
 	friend class ModelInstance;
+
+	//How many instances worth of space we've allocated in each of the instanced buffers
+	unsigned int instancesAllocated = 0;
 
 	//This vector's members are shared between other Mesh's of the same Model
 	std::vector<ModelInstance*> instances;
@@ -142,7 +164,7 @@ class Mesh
 	//Cannot be used for index buffer. Make sure VAO is already bound
 	void fillBuffer(LayoutSlot slot, void* data, int size, int elements);
 
-	Mesh(aiMesh const * const src);
+	Mesh(aiMesh const * const src,Model const * const parent);
 	~Mesh();
 
 	public:
@@ -153,6 +175,15 @@ class Mesh
 
 class Node
 {
+	friend class Model;
+	friend class ModelInstance;
+
+	/*
+		The transform a node will have, if no animations are playing
+		Is overrided entirely if an animation is playing that affects that node
+	*/
+	glm::mat4 defaultTransform = glm::mat4(1.0);
+
 	//Leaves of the tree
 	std::vector<Mesh*> meshes;
 
@@ -170,7 +201,7 @@ class Node
 	glm::vec3 rotationPivot;
 
 	//Undoes some of Assimps importing silliness that creates a billion extra nodes, see stripSillyAssimpNodeNames
-	void foldNodeInto(aiNode const * const source, Model * parent);
+	void foldNodeInto(aiNode const * const src, Model * parent);
 
 	//Used for setting properties through script
 	std::string name = "";
@@ -182,6 +213,7 @@ class Node
 class Model
 {
 	friend class ModelInstance;
+	friend class Mesh;
 	friend class Node;
 
 	//Every mesh the model has stored in a way that doesn't require recusion to access
@@ -190,13 +222,22 @@ class Model
 	//Nodes for non-hierarchical access
 	std::vector<Node*> allNodes;
 
+	//Assigned to indivdual meshes...
+	std::vector<Material*> allMaterials;
+
+	//Entry point to recursive calculations
+	Node* rootNode = nullptr;
+
 	public:
+
+	//Calls render on each mesh
+	void render(ShaderManager* graphics,bool useMaterials = true) const;
 
 	/*
 		File path refers to a text file that describes where the actual model is
 		Flags for how to load it, and other text files describing materials
 	*/
-	Model(std::string filePath);
+	Model(std::string filePath, TextureManager* textures);
 
 	~Model();
 };

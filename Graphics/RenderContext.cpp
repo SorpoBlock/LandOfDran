@@ -115,6 +115,9 @@ RenderContext::RenderContext(SettingManager & settings)
 		glDebugMessageCallback(MessageCallback, 0);
 	}
 
+	glEnable(GL_CULL_FACE);
+	glEnable(GL_DEPTH_TEST);
+
 	valid = true;
 }
 

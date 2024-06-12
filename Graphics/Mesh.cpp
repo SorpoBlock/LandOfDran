@@ -1,5 +1,155 @@
 #include "Mesh.h"
 
+//Used in Model::Model to read what flags we want to load our model with from a text file
+std::map<std::string, int> aiProcessMap = {
+	{"CalcTangentSpace",aiProcess_CalcTangentSpace},
+	{"JoinIdenticalVertices",aiProcess_JoinIdenticalVertices},
+	{"MakeLeftHanded",aiProcess_MakeLeftHanded},
+	{"Triangulate",aiProcess_Triangulate},
+	{"RemoveComponent",aiProcess_RemoveComponent},
+	{"GenNormals",aiProcess_GenNormals},
+	{"GenSmoothNormals",aiProcess_GenSmoothNormals},
+	{"SplitLargeMeshes",aiProcess_SplitLargeMeshes},
+	{"PreTransformVertices",aiProcess_PreTransformVertices},
+	{"LimitBoneWeights",aiProcess_LimitBoneWeights},
+	{"ValidateDataStructure",aiProcess_ValidateDataStructure},
+	{"ImproveCacheLocality",aiProcess_ImproveCacheLocality},
+	{"RemoveRedundantMaterials",aiProcess_RemoveRedundantMaterials},
+	{"FixInfacingNormals",aiProcess_FixInfacingNormals},
+	{"SortByPType",aiProcess_SortByPType},
+	{"FindDegenerates",aiProcess_FindDegenerates},
+	{"FindInvalidData",aiProcess_FindInvalidData},
+	{"GenUVCoords",aiProcess_GenUVCoords},
+	{"TransformUVCoords",aiProcess_TransformUVCoords},
+	{"FindInstances",aiProcess_FindInstances},
+	{"OptimizeMeshes",aiProcess_OptimizeMeshes},
+	{"OptimizeGraph",aiProcess_OptimizeGraph},
+	{"FlipUVs",aiProcess_FlipUVs},
+	{"FlipWindingOrder",aiProcess_FlipWindingOrder},
+	{"SplitByBoneCount",aiProcess_SplitByBoneCount},
+	{"Debone",aiProcess_Debone},
+	{"GlobalScale",aiProcess_GlobalScale},
+	{"EmbedTextures",aiProcess_EmbedTextures},
+	{"ForceGenNormals",aiProcess_ForceGenNormals},
+	{"DropNormals",aiProcess_DropNormals},
+	{"GenBoundingBoxes",aiProcess_GenBoundingBoxes},
+};
+
+void ModelInstance::setModelTransform(glm::mat4 transform)
+{
+	wholeModelTransform = transform;
+	transformUpdated = true;
+	anythingUpdated = true;
+}
+
+void ModelInstance::setNodeRotation(int nodeId, glm::quat rotation)
+{
+	if (nodeId < 0 || nodeId >= NodeRotationFixes.size())
+	{
+		scope("ModeInstance::setNodeRotation");
+		error("Node index out of range.");
+		return;
+	}
+
+	NodeRotationFixes[nodeId] = rotation;
+	UseNodeRotationFix[nodeId] = true;
+	anythingUpdated = true;
+}
+
+void ModelInstance::setFlags(int meshId, unsigned int flags)
+{
+	if (meshId < 0 || meshId >= MeshFlags.size())
+	{
+		scope("ModeInstance::setFlags");
+		error("Mesh index out of range.");
+		return;
+	}
+
+	MeshFlags[meshId] = flags;
+	flagsUpdated[meshId] = true;
+	anythingUpdated = true;
+}
+
+void ModelInstance::setColor(int meshId, glm::vec4 color)
+{
+	if (meshId < 0 || meshId >= MeshFlags.size())
+	{
+		scope("ModeInstance::setColor");
+		error("Mesh index out of range.");
+		return;
+	}
+
+	MeshColors[meshId] = color;
+	colorsUpdated[meshId] = true;
+	anythingUpdated = true;
+}
+
+void ModelInstance::update()
+{
+	calculateMeshTransforms(wholeModelTransform); 
+	performMeshBufferUpdates();
+}
+
+void ModelInstance::calculateMeshTransforms(glm::mat4 currentTransform,Node * currentNode)
+{
+	if (!currentNode)
+		currentNode = type->rootNode;
+
+	for (unsigned int a = 0; a < currentNode->meshes.size(); a++)
+	{
+		glm::mat4 finalTransform = currentTransform * currentNode->defaultTransform;
+		MeshTransforms[a] = finalTransform;
+	}
+
+	for (unsigned int a = 0; a < currentNode->children.size(); a++)
+		calculateMeshTransforms(currentTransform, currentNode->children[a]);
+}
+
+void ModelInstance::performMeshBufferUpdates()
+{
+	if (!anythingUpdated)
+		return;
+
+	//Mesh by mesh, update what has changed since last call of this function
+	for (unsigned int a = 0; a < type->allMeshes.size(); a++)
+	{
+		//std::cout << "Mesh: " << a << "\n";
+
+		//TODO: Is binding the vertex array actually needed? No, right?
+		glBindVertexArray(type->allMeshes[a]->vao);
+
+		if (transformUpdated)
+		{
+			//std::cout << "Transform " << type->allMeshes[a]->buffers[ModelTransform]<<","<<sizeof(glm::mat4) * bufferOffset << "," << sizeof(glm::mat4) << "," << &MeshTransforms[a][0][0] << "\n";
+			glBindBuffer(GL_ARRAY_BUFFER, type->allMeshes[a]->buffers[ModelTransform]);
+			glBufferSubData(GL_ARRAY_BUFFER, sizeof(glm::mat4) * bufferOffset, sizeof(glm::mat4), &MeshTransforms[a][0][0]);
+		}
+
+		if (flagsUpdated[a])
+		{
+			//std::cout << "Flags\n";
+			glBindBuffer(GL_ARRAY_BUFFER, type->allMeshes[a]->buffers[InstanceFlags]);
+			glBufferSubData(GL_ARRAY_BUFFER, sizeof(int) * bufferOffset, sizeof(int), &MeshFlags[a]);
+
+			flagsUpdated[a] = false;
+		}
+
+		if (colorsUpdated[a])
+		{
+			//std::cout << "Colors\n";
+			glBindBuffer(GL_ARRAY_BUFFER, type->allMeshes[a]->buffers[PreColor]);
+			glBufferSubData(GL_ARRAY_BUFFER, sizeof(glm::vec4) * bufferOffset, sizeof(glm::vec4), &MeshColors[a][0]);
+
+			colorsUpdated[a] = false;
+		}
+	}
+
+	glBindVertexArray(0);
+
+	transformUpdated = false;
+	anythingUpdated = false;
+}
+
 void Mesh::fillBuffer(LayoutSlot slot, void* data, int size, int elements)
 {
 	glBindBuffer(GL_ARRAY_BUFFER, buffers[slot]);
@@ -9,11 +159,17 @@ void Mesh::fillBuffer(LayoutSlot slot, void* data, int size, int elements)
 	glVertexAttribPointer(slot, elements, GL_FLOAT, GL_FALSE, 0, 0);
 }
 
-Mesh::Mesh(aiMesh const* const src)
+Mesh::Mesh(aiMesh const* const src, Model const* const parent)
 {
 	scope("Mesh::Mesh");
 
 	debug("Loading mesh: " + std::string(src->mName.C_Str()));
+
+	//If we have one material, make sure we just use that, could be result of materialoverride setting in descriptor file
+	if (parent->allMaterials.size() == 1)
+		material = parent->allMaterials[0];
+	else if (parent->allMaterials.size() > 1)	//Just use whatever materials were baked into the model file itself
+		material = parent->allMaterials[src->mMaterialIndex];
 
 	glGenVertexArrays(1, &vao);
 
@@ -29,6 +185,7 @@ Mesh::Mesh(aiMesh const* const src)
 	glEnableVertexAttribArray(PreColor);
 	glVertexAttribPointer(PreColor, 4, GL_FLOAT, GL_FALSE, 0, (void*)0);
 	glVertexAttribDivisor(PreColor, 1);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec4) * InstanceBufferPageSize, (void*)0, GL_DYNAMIC_DRAW);
 
 	//A 32bit int that represents at least a few things:
 	//Color-based mouse-picking IDs when mouse-picking
@@ -36,20 +193,24 @@ Mesh::Mesh(aiMesh const* const src)
 	//Various special effects and stuff 
 	glBindBuffer(GL_ARRAY_BUFFER, buffers[InstanceFlags]);
 	glEnableVertexAttribArray(InstanceFlags);
-	glVertexAttribIPointer(InstanceFlags, 1, GL_INT, 0, (void*)0);
+	glVertexAttribIPointer(InstanceFlags, 1, GL_UNSIGNED_INT, 0, (void*)0);
 	glVertexAttribDivisor(InstanceFlags, 1);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(unsigned int) * InstanceBufferPageSize, (void*)0, GL_DYNAMIC_DRAW);
 
 	//In OpenGL you *can* pass a mat4 as a vertex buffer based layout binding
 	//But you technically need to use 4 different layout locations to achieve it, 
 	//as if each one passed one row of a 4x4 matrix
 	//This is per-instance as well btw 
 	glBindBuffer(GL_ARRAY_BUFFER, buffers[ModelTransform]);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(glm::mat4) * InstanceBufferPageSize, (void*)0, GL_DYNAMIC_DRAW);
 	for (int i = 0; i < 4; i++)
 	{
 		glEnableVertexAttribArray(ModelTransform + i);
 		glVertexAttribPointer(    ModelTransform + i, 4, GL_FLOAT, GL_FALSE, sizeof(glm::mat4), (void*)(4 * sizeof(float) * i));
 		glVertexAttribDivisor(    ModelTransform + i, 1);
 	}
+
+	instancesAllocated = InstanceBufferPageSize;
 
 	//For the other 5 layout mapped buffers as well as the index buffer, we need to get data from Assimp:
 
@@ -103,15 +264,18 @@ Mesh::Mesh(aiMesh const* const src)
 		else
 		{
 			indices.push_back(src->mFaces[b].mIndices[0]);
-			indices.push_back(src->mFaces[b].mIndices[1]);
+			indices.push_back(src->mFaces[b].mIndices[1]); 
 			indices.push_back(src->mFaces[b].mIndices[2]);
 		}
 	}
 	vertexCount = (unsigned int)indices.size();
 
+	std::cout << "Passing index buffer: " << indexBuffer << "," << indices.size() << "," << &indices[0] << "\n";
+
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBuffer);
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(unsigned int), &indices[0], GL_STATIC_DRAW);
 	
+	std::cout << "Before unbind vertex array.\n";
 	glBindVertexArray(0);
 
 	valid = true;
@@ -134,7 +298,7 @@ void Mesh::render(ShaderManager* graphics, bool useMaterials) const
 		material->use(graphics);
 
 	glBindVertexArray(vao);
-	glDrawElementsInstanced(GL_TRIANGLES, vertexCount, GL_UNSIGNED_SHORT, (void*)0, instances.size());
+	glDrawElementsInstanced(GL_TRIANGLES, vertexCount, GL_UNSIGNED_SHORT, (void*)0, (GLsizei)instances.size());
 	glBindVertexArray(0);
 }
 
@@ -166,7 +330,7 @@ ModelInstance::ModelInstance(Model* _type)
 	}
 
 	//The offset should be the same for all meshes of a given model
-	bufferOffset = type->allMeshes[0]->instances.size();
+	bufferOffset = (unsigned int)type->allMeshes[0]->instances.size();
 	
 	//Add this instance to each of its Model's Meshes 
 	for (unsigned int a = 0; a < type->allMeshes.size(); a++)
@@ -194,7 +358,7 @@ ModelInstance::~ModelInstance()
 
 		//Update all other instances bufferOffsets since after this instance will need to be decremented by one
 		//TODO: Maybe preallocate a certain amount of instances at a time, reallocate more if needed, and only soft delete with a hidden flag most of the time
-		while(pos != type->allMeshs[a].end())
+		while(pos != type->allMeshes[a]->instances.end())
 		{
 			--(*pos)->bufferOffset;
 			++pos;
@@ -202,14 +366,199 @@ ModelInstance::~ModelInstance()
 	}
 }
 
-Model::Model(std::string filePath)
+Model::Model(std::string filePath,TextureManager * textures)
 {
+	scope("Model::Model");
 
+	debug("Loading model descriptor file: " + filePath);
+
+	std::ifstream descriptorFile(filePath.c_str());
+
+	if (!descriptorFile.is_open())
+	{
+		error("Could not open file " + filePath);
+		return;
+	}
+
+	/*
+		Allows us to force there to be just one material
+		whose channels and texture paths we manually specify with included text file
+		Empty string if not doing the override
+	*/
+	std::string overrideMaterialPath = "";
+
+	//What Assimp flags does the model creator wish for us to import their model with
+	unsigned int desiredImporterFlags = 0;
+	
+	//The relative file path to the actual 3d model file
+	std::string modelPath = "";
+
+	std::string line = "";
+	while (!descriptorFile.eof())
+	{
+		getline(descriptorFile, line);
+
+		//Every line is just two arguments separated by a tab
+
+		if (line.length() < 1)
+			continue;
+
+		if (line.substr(0, 1) == "#")
+			continue;
+
+		size_t firstTab = line.find("\t");
+
+		if (firstTab == std::string::npos)
+		{
+			error("Malformed model import text file: " + line);
+			continue;
+		}
+
+		std::string argument = line.substr(0, firstTab);
+		std::string value = line.substr(firstTab + 1, line.length() - (firstTab+1)); //value needs to maintain case for flags
+
+		//Getting a few non-importer-flags out of the way:
+		if (argument == "file")
+		{
+			modelPath = getFolderFromPath(filePath) + value;
+			continue;
+		}
+
+		//Only use one material, whose textures we manually define in an external text file:
+		if (argument == "materialoverride")
+		{
+			overrideMaterialPath = value;
+
+			continue;
+		}
+
+		auto flagSearchResult = aiProcessMap.find(argument);
+		//It wasn't a valid assimp flag
+		if (flagSearchResult == aiProcessMap.end())
+		{
+			error("Invalid process flag: " + argument);
+			continue;
+		}
+
+		//To be fair an argument field for these isn't really required since they're false by default...
+		if (lowercase(value) != "true")
+			continue;
+
+		//They specified an additional Assimp import flag to import their model with
+		desiredImporterFlags += flagSearchResult->second;
+	}
+
+	if (modelPath.length() < 1)
+	{
+		error("No 'file' line specified to point to the actual model file!");
+		return;
+	}
+
+	debug("Loading model " + filePath + " with flags " + std::to_string(desiredImporterFlags));
+
+	Assimp::Importer importer;
+	const aiScene* scene = importer.ReadFile(modelPath, desiredImporterFlags);
+
+	if (!scene)
+	{
+		error("Problem loaded model file " + modelPath);
+		error(importer.GetErrorString());
+		return;
+	}
+
+	if(overrideMaterialPath.length() > 0)
+	{
+		Material* overrideMaterial = new Material(overrideMaterialPath, textures);
+		allMaterials.push_back(overrideMaterial);
+	}
+	else
+	{
+		std::string fileName = getFileFromPath(filePath);
+		std::string folder = getFolderFromPath(filePath);
+
+		for (unsigned int a = 0; a < scene->mNumMaterials; a++)
+		{
+			aiMaterial* src = scene->mMaterials[a];
+
+			//Here we're going to load the textures that are embedded within the model file itself
+			//Assimp categorizes its textures weird, and I wouldn't be surprised if it's not even consistant across files
+			//aiTextureType_DIFFUSE   == our albedo
+			//aiTextureType_NORMALS   == our normal map
+			//aiTextureType_SHININESS == our roughness
+			//aiTextureType_METALNESS == our metalness
+			//Haven't found anything for ambient occlusion yet, but that may be because FBX files just don't use it
+
+			int numDiffuse = src->GetTextureCount(aiTextureType_DIFFUSE);
+			int numNormal = src->GetTextureCount(aiTextureType_NORMALS);
+			int numRough = src->GetTextureCount(aiTextureType_SHININESS);
+			int numMetal = src->GetTextureCount(aiTextureType_METALNESS);
+
+			aiString albedo;
+			aiString normal;
+			aiString rough;
+			aiString metal;
+			
+			if (numDiffuse == 1)
+				src->GetTexture(aiTextureType_DIFFUSE, 0, &albedo);
+			else if (numDiffuse > 1)
+				error("More than one diffuse texture for material " + std::string(src->GetName().C_Str()));
+
+			if (numNormal == 1)
+				src->GetTexture(aiTextureType_NORMALS, 0, &normal);
+			else if (numNormal > 1)
+				error("More than one normal texture for material " + std::string(src->GetName().C_Str()));
+
+			if (numRough == 1)
+				src->GetTexture(aiTextureType_SHININESS, 0, &rough);
+			else if (numRough > 1)
+				error("More than one roughness texture for material " + std::string(src->GetName().C_Str()));
+
+			if (numMetal == 1)
+				src->GetTexture(aiTextureType_METALNESS, 0, &metal);
+			else if (numMetal > 1)
+				error("More than one metalness texture for material " + std::string(src->GetName().C_Str()));
+
+			std::string albedoPath = albedo.length > 0 ? folder + albedo.C_Str() : "";
+			std::string normalPath = normal.length > 0 ? folder + normal.C_Str() : "";
+			std::string roughPath  = rough.length  > 0 ? folder + rough.C_Str()  : "";
+			std::string metalPath  = metal.length  > 0 ? folder + metal.C_Str()  : "";
+
+			debug("Loading material " + fileName + std::string(src->GetName().C_Str()));
+			Material* tmp = new Material(fileName+std::string(src->GetName().C_Str()),albedoPath,normalPath,roughPath,metalPath, "",textures);
+			allMaterials.push_back(tmp);
+		}
+	}
+
+	for (unsigned int a = 0; a < scene->mNumMeshes; a++)
+	{
+		aiMesh* src = scene->mMeshes[a];
+		std::cout << src << " mesh\n";
+		Mesh* tmp = new Mesh(src, this);
+
+		tmp->meshIndex = allMeshes.size();
+		allMeshes.push_back(tmp);
+	}
+
+	rootNode = new Node(scene->mRootNode, this);
+}
+
+void Model::render(ShaderManager* graphics,bool useMaterials) const
+{
+	for (unsigned int a = 0; a < allMeshes.size(); a++)
+		allMeshes[a]->render(graphics, useMaterials);
 }
 
 Model::~Model()
 {
+	//Deletion is recursive, trying to do it through allNodes would cause a crash
+	if(rootNode)
+		delete rootNode;
 
+	for (unsigned int a = 0; a < allMeshes.size(); a++)
+		delete allMeshes[a];
+
+	for (unsigned int a = 0; a < allMaterials.size(); a++)
+		delete allMaterials[a]; //Calls markForCleanup on associated textures
 }
 
 /*
@@ -244,14 +593,72 @@ Node::Node(aiNode const* const src, Model * parent)
 	}
 
 	name = stripSillyAssimpNodeNames(name);
+
+	//What is this node's default state before any animations
+	glm::mat4 to;
+	CopyaiMat(src->mTransformation, to);
+	defaultTransform = to * defaultTransform;
+
+	//Assimp gives us meshes as indicies to an array of meshes loaded earlier
+	for (unsigned int a = 0; a < src->mNumMeshes; a++)
+		meshes.push_back(parent->allMeshes[src->mMeshes[a]]);
+
+	//Recursivly collapse the bloated node hierarchy Assimp gives us
+	for (unsigned int a = 0; a < src->mNumChildren; a++)
+	{
+		//Is a child node one of the nodes Assimp split a single original node into during importing
+		if (stripSillyAssimpNodeNames(src->mChildren[a]->mName.C_Str()) == name)
+			foldNodeInto(src->mChildren[a], parent);					//Collapse it into this node
+		else
+			children.push_back(new Node(src->mChildren[a], parent));	//Allow it to be its own node
+	}
 }
 
-void Node::foldNodeInto(aiNode const* const source, Model* parent)
+void Node::foldNodeInto(aiNode const* const src, Model* parent)
 {
+	//Just in case the rotation pivot is not the first of the node's assimp separates an origional node into
+	std::string tmpname = src->mName.C_Str();
+	if (tmpname.find("_RotationPivot") != std::string::npos)
+	{
+		glm::vec3 scale, skew, trans;
+		glm::vec4 perspective;
+		glm::quat rot;
+		glm::mat4 to;
+		CopyaiMat(src->mTransformation, to);
+		glm::decompose(to, scale, rot, trans, skew, perspective);
+		rotationPivot = trans;
+	}
 
+	//If assimp splits a single origonal node into many smaller nodes for each part of the model matrix the org. node had
+	//*Probably* the last one will have all of the meshes for the original node
+	//Make sure every mesh that was assigned to the original node is assigned to our reconstructed node
+	for (unsigned int a = 0; a < src->mNumMeshes; a++)
+	{
+		//Do we already have this mesh in our node?
+		std::vector<Mesh*>::iterator pos = std::find(
+			meshes.begin(), 
+			meshes.end(), 
+			parent->allMeshes[src->mMeshes[a]]);
+
+		//If not, add it
+		if (pos == meshes.end())
+			meshes.push_back(parent->allMeshes[src->mMeshes[a]]);
+	}
+
+	//Continue the folding process recursivly 
+	for (unsigned int a = 0; a < src->mNumChildren; a++)
+	{
+		//Is a child node one of the nodes Assimp split a single original node into during importing
+		if (stripSillyAssimpNodeNames(src->mChildren[a]->mName.C_Str()) == name)
+			foldNodeInto(src->mChildren[a], parent);					//Collapse it into this node
+		else
+			children.push_back(new Node(src->mChildren[a], parent));	//Allow it to be its own node
+	}
 }
 
 Node::~Node()
 {
-
+	//Recursive!
+	for (unsigned int a = 0; a < children.size(); a++)
+		delete children[a];
 }

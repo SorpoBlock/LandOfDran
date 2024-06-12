@@ -7,6 +7,7 @@
 #include "Utility/ClientData.h"
 #include "Graphics/ShaderSpecification.h"
 #include "Graphics/Material.h"
+#include "Graphics/Mesh.h"
 #include <glm/gtx/transform.hpp>
 #include <glm/gtx/euler_angles.hpp>
  
@@ -52,23 +53,29 @@ int main(int argc, char* argv[])
 	clientEnv.shaders = &shaders;
 	shaders.readShaderList("Shaders/shadersList.txt");
 
-	Shader a("Shaders/model.vert.glsl", GL_VERTEX_SHADER);
-	Shader b("Shaders/model.frag.glsl", GL_FRAGMENT_SHADER);
-	Program c;
-	c.bindShader(&a);
-	c.bindShader(&b);
-	c.compile();
-	shaders.bind(&c);
-
 	textures.allocateForDecals(128);
 	textures.addDecal("Assets/animan.png", 0);
 	textures.addDecal("Assets/ascii-terror.png", 1);
 	textures.finalizeDecals();
 
+	Model test("Assets/Gun/gun.txt",&textures); 
+	for (unsigned int a = 0; a < 10; a++)
+	{
+		for (unsigned int b = 0; b < 10; b++)
+		{
+			for (unsigned int c = 0; c < 10; c++)
+			{
+				ModelInstance* tester = new ModelInstance(&test);
+				tester->setModelTransform(glm::translate(glm::vec3(a*5,b*5,c*5)));
+				tester->update();
+			}
+		}
+	}
+
 	grass.use(&shaders);
 	shaders.modelShader->registerUniformFloat("test", true, 0.5);
 
-	shaders.cameraUniforms.CameraView = glm::lookAt(glm::vec3(0, 0, -2), glm::vec3(0,0,1), glm::vec3(0,1,0));
+	shaders.cameraUniforms.CameraView = glm::lookAt(glm::vec3(0, -1, -3), glm::vec3(0,0,1), glm::vec3(0,1,0));
 	shaders.cameraUniforms.CameraProjection = glm::perspective(glm::radians(90.0), 1.0, 0.1, 400.0);
 	shaders.updateCameraUBO();
 
@@ -117,13 +124,12 @@ int main(int argc, char* argv[])
 		context.select(); 
 		context.clear(1,1,1);
 
-		if (whichToUse)
-			shaders.modelShader->use();
-		else
-			c.use();
+		shaders.modelShader->use();
+		test.render(&shaders);
 
-		glBindVertexArray(vao);
+		/*glBindVertexArray(vao);
 		glDrawArrays(GL_TRIANGLES, 0, 6);
+		glBindVertexArray(0);*/
 		
 		context.swap();
 	}

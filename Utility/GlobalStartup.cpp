@@ -40,8 +40,6 @@ bool globalStartup(SettingManager& settings)
             error("SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS,SDL_GL_CONTEXT_DEBUG_FLAG) failed");
     }
 
-    glEnable(GL_CULL_FACE);
-
 	return false;
 }
 

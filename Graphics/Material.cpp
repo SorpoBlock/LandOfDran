@@ -1,10 +1,102 @@
 #include "Material.h"
 
+void Material::finishCreation(std::string albedo, std::string normal, std::string roughness, std::string metalness, std::string occlusion, TextureManager* textures)
+{
+	int howManyLayers = 0;
+	if (albedo.length() > 0)
+		howManyLayers++;
+	if (normal.length() > 0)
+		howManyLayers++;
+	if (metalness.length() > 0 || roughness.length() > 0 || occlusion.length() > 0)
+		howManyLayers++;
+
+	int currentLayer = 0;
+	
+	std::cout << "Name: " << name << "\n";
+	PBRArrayTexture = textures->createTexture(howManyLayers, name);
+
+	if (!PBRArrayTexture)
+	{
+		error("Something went wrong allocating space for texture for material: " + name);
+		return;
+	}
+
+	//In the super unlikely event a texture already exists with this exact name, use it instead?
+	if (PBRArrayTexture->isValid())
+	{
+		valid = true;
+		return;
+	}
+
+	if (albedo.length() > 0)
+	{
+		useAlbedo = currentLayer;
+		++currentLayer;
+		PBRArrayTexture->addLayer(albedo);
+	}
+
+	if (normal.length() > 0)
+	{
+		useNormal = currentLayer;
+		++currentLayer;
+		PBRArrayTexture->addLayer(normal);
+	}
+
+	//No point in incrementing currentLayer beyond this point...
+	//Create the final layer with various masks used for PBR rendering
+
+	//Bail early, no metalness/roughness/occlusion data, no need for a 3rd layer
+	if (howManyLayers == currentLayer)
+	{
+		if (PBRArrayTexture->isValid())
+			valid = true;
+	}
+
+	//Metalness
+	if (metalness.length() > 0)
+	{
+		useMetalness = currentLayer;
+		textures->addComponent(PBRArrayTexture, metalness);
+	}
+	else
+		textures->addEmptyComponent(PBRArrayTexture);
+
+	//Ambient occlusion
+	if (occlusion.length() > 0)
+	{
+		useOcclusion = currentLayer;
+		textures->addComponent(PBRArrayTexture, occlusion);
+	}
+	else
+		textures->addEmptyComponent(PBRArrayTexture);
+
+	//Roughness
+	if (roughness.length() > 0)
+	{
+		useRoughness = currentLayer;
+		textures->addComponent(PBRArrayTexture, roughness);
+	}
+	else
+		textures->addEmptyComponent(PBRArrayTexture);
+
+	if (PBRArrayTexture->isValid())
+		valid = true;
+}
+
+Material::Material(std::string _name,std::string albedo, std::string normal, std::string roughness, std::string metalness, std::string occlusion, TextureManager* textures)
+{
+	scope("Material::Material (explicit)");
+
+	name = _name;
+
+	finishCreation(albedo, normal, roughness, metalness, occlusion, textures);
+}
+
 Material::Material(std::string filePath,TextureManager * textures)
 {
-	scope("Material::Material");
+	scope("Material::Material (from file)");
 
-	std::string name = getFileFromPath(filePath.c_str());
+	name = getFileFromPath(filePath.c_str());
 	std::string pathToTextures = getFolderFromPath(filePath.c_str());
 
 	std::ifstream materialDescriptor(filePath.c_str());
@@ -72,18 +164,22 @@ Material::Material(std::string filePath,TextureManager * textures)
 
 		//You can optionally specify a name for the material for use with Lua or whatever later
 		//It can also prevent reusing the same material
+		std::cout << "Type: " << type << "\n";
 		if (type == "name")
+		{
+			std::cout << "Picked name: " << path << "\n";
 			name = path;
+		}
 		else if (type == "albedo")
-			albedoPath = path;
+			albedoPath = pathToTextures + path;
 		else if (type == "normal")
-			normalPath = path;
+			normalPath = pathToTextures + path;
 		else if (type == "metalness")
-			metalPath = path;
+			metalPath = pathToTextures + path;
 		else if (type == "roughness")
-			roughPath = path;
+			roughPath = pathToTextures + path;
 		else if (type == "occlusion")
-			aoPath = path;
+			aoPath = pathToTextures + path;
 		else
 		{
 			error("Invalid material texture type: " + type + " file: " + filePath);
@@ -91,84 +187,7 @@ Material::Material(std::string filePath,TextureManager * textures)
 		}
 	}
 
-	int howManyLayers = 0;
-	if (albedoPath.length() > 0)
-		howManyLayers++;
-	if (normalPath.length() > 0)
-		howManyLayers++;
-	if (metalPath.length() > 0 || roughPath.length() > 0 || aoPath.length() > 0)
-		howManyLayers++;
-
-	int currentLayer = 0;
-
-	PBRArrayTexture = textures->createTexture(howManyLayers, name);
-
-	if (!PBRArrayTexture)
-	{
-		error("Something went wrong allocating space for texture for material: " + name);
-		return;
-	}
-
-	//In the super unlikely event a texture already exists with this exact name, use it instead?
-	if (PBRArrayTexture->isValid())
-	{
-		valid = true;
-		return;
-	}
-
-	if (albedoPath.length() > 0)
-	{
-		useAlbedo = currentLayer;
-		++currentLayer;
-		PBRArrayTexture->addLayer(pathToTextures + albedoPath);
-	}
-
-	if (normalPath.length() > 0)
-	{
-		useNormal = currentLayer;
-		++currentLayer;
-		PBRArrayTexture->addLayer(pathToTextures + normalPath);
-	}
-
-	//No point in incrementing currentLayer beyond this point...
-	//Create the final layer with various masks used for PBR rendering
-
-	//Bail early, no metalness/roughness/occlusion data, no need for a 3rd layer
-	if (howManyLayers == currentLayer)
-	{
-		if (PBRArrayTexture->isValid())
-			valid = true;
-	}
-
-	//Metalness
-	if (metalPath.length() > 0)
-	{
-		useMetalness = currentLayer;
-		textures->addComponent(PBRArrayTexture, pathToTextures + metalPath);
-	}
-	else
-		textures->addEmptyComponent(PBRArrayTexture);
-
-	//Ambient occlusion
-	if (aoPath.length() > 0)
-	{
-		useOcclusion = currentLayer;
-		textures->addComponent(PBRArrayTexture, pathToTextures + aoPath);
-	}
-	else
-		textures->addEmptyComponent(PBRArrayTexture);
-
-	//Roughness
-	if (roughPath.length() > 0)
-	{
-		useRoughness = currentLayer;
-		textures->addComponent(PBRArrayTexture, pathToTextures + roughPath);
-	}
-	else
-		textures->addEmptyComponent(PBRArrayTexture);
-
-	if(PBRArrayTexture->isValid())
-		valid = true;
+	finishCreation(albedoPath, normalPath, roughPath, metalPath, aoPath, textures);
 }
 
 Material::~Material()

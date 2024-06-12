@@ -46,6 +46,9 @@ class Material
 
 	bool valid = false;
 
+	//Second half of both constructors
+	void finishCreation(std::string albedo, std::string normal, std::string roughness, std::string metalness, std::string occlusion, TextureManager* textures);
+
 	public:
 
 	/*
@@ -59,6 +62,12 @@ class Material
 		and the filepaths of the indivdual textures it has
 	*/
 	Material(std::string filePath, TextureManager* textures);
+
+	/*
+		Pass the paths for the 5 possible channels directly to make a material
+		Any you don't want to use can be left as empty strings: ""
+	*/
+	Material(std::string _name,std::string albedo, std::string normal, std::string roughness, std::string metalness, std::string occlusion, TextureManager* textures);
 
 	~Material();
 };
