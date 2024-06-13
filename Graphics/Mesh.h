@@ -5,7 +5,6 @@
 #include <assimp/Importer.hpp>
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
-#include <glm/gtx/matrix_decompose.hpp>
 
 //How many instances for an instanced mesh we allocate space for at a time, don't set to 0
 #define InstanceBufferPageSize 1000
@@ -44,6 +43,8 @@ class Node;
 */
 class ModelInstance
 {	 
+	friend class Mesh;
+
 	Model* type = nullptr;
 
 	/*
@@ -95,8 +96,9 @@ class ModelInstance
 	/*
 		Calculates the transform of each indivdual node based on things, see above
 		Call once per frame if the object is animated or has moved
+		Set debugLayer to 0 to do a hierarchical std::cout print of transforms
 	*/
-	void calculateMeshTransforms(glm::mat4 currentTransform = glm::mat4(1.0),Node * currentNode = 0);
+	void calculateMeshTransforms(glm::mat4 currentTransform = glm::mat4(1.0),Node * currentNode = 0,int debugLayer = -1);
 
 	/*
 		Calls glBufferSubData on mesh buffers that need updating, and sets updated flags to false
@@ -105,7 +107,7 @@ class ModelInstance
 	void performMeshBufferUpdates();
 
 	//Calls calculateMeshTransforms and performMeshBufferUpdates
-	void update();
+	void update(bool debug = false);
 
 	ModelInstance(Model * _type); 
 	~ModelInstance();
@@ -115,6 +117,9 @@ class Mesh
 {
 	friend class Model;
 	friend class ModelInstance;
+
+	//For collision meshes, binding points, other stuff that might be included with models we don't want to see
+	bool nonRenderingMesh = false;
 
 	//How many instances worth of space we've allocated in each of the instanced buffers
 	unsigned int instancesAllocated = 0;
@@ -143,6 +148,8 @@ class Mesh
 	//Used for seeing what index to use when reading from vectors in ModelInstance for rendering
 	unsigned int meshIndex = 0;
 
+	std::string name = "";
+
 	/*
 		Vertex array object that contains the mesh
 		With verticies, and optionally normals, tangents, uvs, etc.
@@ -168,6 +175,9 @@ class Mesh
 	~Mesh();
 
 	public:
+
+	//A slightler quicker version of calling performMeshBufferUpdates on every single instance
+	void recompileInstances();
 
 	//Render all instances of this particular mesh
 	void render(ShaderManager* graphics, bool useMaterials = true) const;
@@ -229,6 +239,18 @@ class Model
 	Node* rootNode = nullptr;
 
 	public:
+
+	//Outputs the entire hierarchy in depth to std::cout for debugging
+	void printHierarchy(Node * node = 0,int layer = 0) const;
+
+	//Calls recompileInstances on each mesh, or the equivlent of calling performMeshBufferUpdates on every instance of this model
+	void recompileAll();
+
+	/*
+		FBX models will be loaded 100x larger than they should be
+		Be sure to call performMeshBufferUpdates on instances / recompileAll after changing this
+	*/
+	glm::vec3 baseScale = glm::vec3(1, 1, 1);
 
 	//Calls render on each mesh
 	void render(ShaderManager* graphics,bool useMaterials = true) const;

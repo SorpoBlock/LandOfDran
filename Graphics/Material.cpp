@@ -10,9 +10,10 @@ void Material::finishCreation(std::string albedo, std::string normal, std::strin
 	if (metalness.length() > 0 || roughness.length() > 0 || occlusion.length() > 0)
 		howManyLayers++;
 
+	debug(std::to_string(howManyLayers) + " layers expected for " + name);
+
 	int currentLayer = 0;
 	
-	std::cout << "Name: " << name << "\n";
 	PBRArrayTexture = textures->createTexture(howManyLayers, name);
 
 	if (!PBRArrayTexture)
@@ -21,9 +22,28 @@ void Material::finishCreation(std::string albedo, std::string normal, std::strin
 		return;
 	}
 
-	//In the super unlikely event a texture already exists with this exact name, use it instead?
+	//In the event a texture already exists with this exact name, use it instead
 	if (PBRArrayTexture->isValid())
 	{
+		//Still gotta set material related uniforms though
+		int layer = 0;
+		if (albedo.length() > 0)
+		{
+			useAlbedo = layer;
+			layer++;
+		}
+		if (normal.length() > 0)
+		{
+			useNormal = layer;
+			layer++;
+		}
+		if (metalness.length() > 0)
+			useMetalness = layer;
+		if (roughness.length() > 0)
+			useRoughness = layer;
+		if (occlusion.length() > 0)
+			useOcclusion = layer;
+
 		valid = true;
 		return;
 	}
@@ -77,6 +97,10 @@ void Material::finishCreation(std::string albedo, std::string normal, std::strin
 		textures->addComponent(PBRArrayTexture, roughness);
 	}
 	else
+		textures->addEmptyComponent(PBRArrayTexture);
+
+	//We used to force every layer to have 4 channels and the MOHR channel had a fourth height channel that's not back in yet
+	if (PBRArrayTexture->getNumChannels() == 4)
 		textures->addEmptyComponent(PBRArrayTexture);
 
 	if (PBRArrayTexture->isValid())

@@ -97,6 +97,8 @@ class Texture
 
 	public:
 
+	int getNumChannels() const { return channels;  }
+
 	//Has this texture been put together succesfully, no missing files, and can be used for rendering
 	bool isValid() const { return valid;  }
 

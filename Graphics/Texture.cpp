@@ -291,6 +291,11 @@ void Texture::addLayer(std::string filePath)
 	int readWidth, readHeight, readChannels;
 	stbi_info(filePath.c_str(), &readWidth,&readHeight,&readChannels);
 
+	debug("Loading texture " + filePath + " Dimensions: " +
+		std::to_string(readWidth) + "/" +
+		std::to_string(readHeight) + "/" +
+		std::to_string(readChannels));
+
 	if (readWidth < 1 || readHeight < 1 || readChannels < 1)
 	{
 		error("Could not load texture " + filePath);
@@ -329,23 +334,18 @@ void Texture::addLayer(std::string filePath)
 			(void*)0);
 	}
 	//Successive texture loads need to have same dimensions as what's already in the array
-	else if (width != readWidth || height != readHeight || channels != readChannels || readHDR != isHDR)
+	else if (width != readWidth || height != readHeight)
 	{
 		error(filePath + " did not have same dimensions as other textures in array " + name);
 		return;
 	}
 
-	debug("Loading texture " + filePath + " Dimensions: " +
-		std::to_string(width) + "/" +
-		std::to_string(height) + "/" +
-		std::to_string(channels));
-
 	void* data = 0;
 
 	if (!isHDR)
-		data = stbi_load(filePath.c_str(), &width, &height, &channels, 0);
+		data = stbi_load(filePath.c_str(), &width, &height, &readChannels, channels);
 	else
-		data = stbi_loadf(filePath.c_str(), &width, &height, &channels, 0);
+		data = stbi_loadf(filePath.c_str(), &width, &height, &readChannels, channels);
 
 	if (!data)
 	{
@@ -534,6 +534,11 @@ void TextureManager::addComponent(Texture* target, std::string filePath, int des
 	int readWidth, readHeight, readChannels;
 	stbi_info(filePath.c_str(), &readWidth, &readHeight, &readChannels);
 
+	debug("Loading texture " + filePath + " Dimensions: " +
+		std::to_string(readWidth) + "/" +
+		std::to_string(readHeight) + "/" +
+		std::to_string(readChannels));
+
 	//Very first addition sets the dimensions for the rest of the texture
 	if (target->currentLayer == 0 && target->currentChannel == 0)
 	{
@@ -560,11 +565,6 @@ void TextureManager::addComponent(Texture* target, std::string filePath, int des
 		scratchPadUserID = -1; //Unlock scratchpad
 		return;
 	}
-
-	debug("Loading texture " + filePath + " Dimensions: " +
-		std::to_string(target->width) + "/" +
-		std::to_string(target->height) + "/" +
-		std::to_string(target->channels));
 
 	stbi_uc *data = stbi_load(filePath.c_str(), &readWidth, &readHeight, &readChannels, 0);
 

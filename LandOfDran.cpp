@@ -46,7 +46,7 @@ int main(int argc, char* argv[])
 	clientEnv.renderContext = &context;
 
 	TextureManager textures;
-	Material grass("Assets/grass/grass.txt", &textures);
+	//Material grass("Assets/grass/grass.txt", &textures);
 	 
 	//Load all the shaders
 	ShaderManager shaders;
@@ -58,25 +58,36 @@ int main(int argc, char* argv[])
 	textures.addDecal("Assets/ascii-terror.png", 1);
 	textures.finalizeDecals();
 
-	Model test("Assets/Gun/gun.txt",&textures); 
-	for (unsigned int a = 0; a < 10; a++)
+	Model test("Assets/brickhead/brickhead.txt",&textures); 
+	test.baseScale = glm::vec3(0.01);
+	test.printHierarchy();
+
+	std::vector<ModelInstance*> instances;
+	for (unsigned int a = 0; a < 1; a++)
 	{
-		for (unsigned int b = 0; b < 10; b++)
+		for (unsigned int b = 0; b < 1; b++)
 		{
-			for (unsigned int c = 0; c < 10; c++)
+			for (unsigned int c = 0; c < 1; c++)
 			{
 				ModelInstance* tester = new ModelInstance(&test);
-				tester->setModelTransform(glm::translate(glm::vec3(a*5,b*5,c*5)));
-				tester->update();
-			}
+				instances.push_back(tester);
+				tester->setModelTransform(glm::translate(glm::vec3(a * 8, b * 8, c * 8)));
+				tester->update(false);
+			} 
 		}
-	}
+	} 
 
-	grass.use(&shaders);
+	//grass.use(&shaders);
 	shaders.modelShader->registerUniformFloat("test", true, 0.5);
 
-	shaders.cameraUniforms.CameraView = glm::lookAt(glm::vec3(0, -1, -3), glm::vec3(0,0,1), glm::vec3(0,1,0));
+	float yaw = 0;
+	float pitch = 0;
+	glm::vec3 camPos  = glm::vec3(0, -1, -3);
+	glm::vec3 camDir  = glm::vec3(sin(yaw) * cos(pitch), sin(pitch), cos(yaw) * cos(pitch));
+	glm::vec3 perpDir = glm::vec3(sin(yaw+1.57) * cos(pitch), sin(pitch), cos(yaw + 1.57) * cos(pitch));
+
 	shaders.cameraUniforms.CameraProjection = glm::perspective(glm::radians(90.0), 1.0, 0.1, 400.0);
+	shaders.cameraUniforms.CameraView = glm::lookAt(camPos, glm::vec3(0,0,1), glm::vec3(0,1,0));
 	shaders.updateCameraUBO();
 
 	GLuint vao = createQuadVAO();
@@ -107,6 +118,9 @@ int main(int argc, char* argv[])
 		lastTicks = SDL_GetTicks();
 		angle += deltaT * 0.001;
 
+		bool camUpdate = false;
+		const Uint8* states = SDL_GetKeyboardState(NULL);
+
 		SDL_Event e;
 		while (SDL_PollEvent(&e))
 		{
@@ -115,21 +129,73 @@ int main(int argc, char* argv[])
 				doMainLoop = false;
 				break;
 			}
+			else if (e.type == SDL_MOUSEMOTION && context.getMouseLocked())
+			{
+				camUpdate = true;
+				yaw -= e.motion.xrel / 100.0;
+				pitch -= e.motion.yrel / 100.0;
+				if (pitch < -1.57)
+					pitch = -1.57;
+				if (pitch > 1.57)
+					pitch = 1.57;
+			}
+			else if (e.type == SDL_KEYDOWN)
+			{
+				if (e.key.keysym.sym == SDLK_m)
+					context.setMouseLock(!context.getMouseLocked());
+			}
 		}
 
-		shaders.basicUniforms.RotationMatrix = glm::eulerAngleXYZ(-sin(angle), 0.f, 0.f);
-		shaders.basicUniforms.useDecal = asdf ? 0 : 1;
-		shaders.updateBasicUBO();
+		if (states[SDL_SCANCODE_W])
+		{
+			camPos += glm::vec3(deltaT * 0.01) * camDir;
+			camUpdate = true;
+		}
+		else if (states[SDL_SCANCODE_S])
+		{
+			camPos -= glm::vec3(deltaT * 0.01) * camDir;
+			camUpdate = true;
+		}
+		else if (states[SDL_SCANCODE_A])
+		{
+			camPos += glm::vec3(deltaT * 0.01) * perpDir;
+			camUpdate = true;
+		}
+		else if (states[SDL_SCANCODE_D])
+		{
+			camPos -= glm::vec3(deltaT * 0.01) * perpDir;
+			camUpdate = true;
+		}
+
+		if (camUpdate)
+		{
+			camDir = glm::vec3(sin(yaw) * cos(pitch), sin(pitch), cos(yaw) * cos(pitch));
+			perpDir = glm::vec3(sin(yaw + 1.57) * cos(pitch), sin(pitch), cos(yaw + 1.57) * cos(pitch));
+			shaders.cameraUniforms.CameraView = glm::lookAt(camPos, camPos+camDir, glm::vec3(0, 1, 0));
+			shaders.cameraUniforms.CameraPosition = camPos;
+			shaders.cameraUniforms.CameraDirection = camDir;
+			shaders.updateCameraUBO();
+		}
+
+		/*for (unsigned int a = 0; a < 10; a++)
+		{
+			for (unsigned int b = 0; b < 10; b++)
+			{
+				for (unsigned int c = 0; c < 10; c++)
+				{
+					instances[c + b * 10 + a * 100]->setModelTransform(glm::translate(glm::vec3(a * 8, b * 8, c * 8)) * glm::toMat4(glm::quat(glm::vec3(1.57, 1.57, angle))));
+					instances[c + b * 10 + a * 100]->calculateMeshTransforms();
+					//instances[c + b * 10 + a * 100]->update();
+				}
+			}
+		}
+		test.recompileAll();*/
 
 		context.select(); 
-		context.clear(1,1,1);
+		context.clear(0.2,0.2,0.2);
 
 		shaders.modelShader->use();
 		test.render(&shaders);
-
-		/*glBindVertexArray(vao);
-		glDrawArrays(GL_TRIANGLES, 0, 6);
-		glBindVertexArray(0);*/
 		
 		context.swap();
 	}

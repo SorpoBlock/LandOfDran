@@ -35,6 +35,49 @@ std::map<std::string, int> aiProcessMap = {
 	{"GenBoundingBoxes",aiProcess_GenBoundingBoxes},
 };
 
+void Model::printHierarchy(Node * node,int layer) const
+{
+	if (!node)
+		node = rootNode;
+
+	for (unsigned int a = 0; a < layer; a++)
+		std::cout << "\t";
+	std::cout << node->name << "\n";
+
+	glm::vec3 scale, skew, trans;
+	glm::vec4 perspective;
+	glm::quat rot;
+	glm::decompose(node->defaultTransform, scale, rot, trans, skew, perspective);
+
+	for (unsigned int a = 0; a < layer + 1; a++)
+		std::cout << "\t";
+	std::cout << "--Translation: " << trans.x << "," << trans.y << "," << trans.z << "\n";
+
+	for (unsigned int a = 0; a < layer + 1; a++)
+		std::cout << "\t";
+	std::cout << "--Rotation: " << rot.w << ", " << rot.x << ", " << rot.y << ", " << rot.z << "\n";
+
+	for (unsigned int a = 0; a < layer + 1; a++)
+		std::cout << "\t";
+	std::cout << "--Scale: " << scale.x << ", " << scale.y << ", " << scale.z << "\n";
+
+	for (unsigned int a = 0; a < node->meshes.size(); a++)
+	{
+		for (unsigned int a = 0; a < layer+1; a++)
+			std::cout << "\t";
+		std::cout << node->meshes[a]->name << ": " << node->meshes[a]->vertexCount << " verts, index: "<<node->meshes[a]->meshIndex<<"\n";
+		if (node->meshes[a]->material)
+		{
+			for (unsigned int a = 0; a < layer + 2; a++)
+				std::cout << "\t";
+			std::cout << "Material: " <<node->meshes[a]->material->getName() << "\n";
+		}
+	}
+
+	for (unsigned int a = 0; a < node->children.size(); a++)
+		printHierarchy(node->children[a], layer + 1);
+}
+
 void ModelInstance::setModelTransform(glm::mat4 transform)
 {
 	wholeModelTransform = transform;
@@ -84,25 +127,60 @@ void ModelInstance::setColor(int meshId, glm::vec4 color)
 	anythingUpdated = true;
 }
 
-void ModelInstance::update()
+void ModelInstance::update(bool debug)
 {
-	calculateMeshTransforms(wholeModelTransform); 
+	calculateMeshTransforms(wholeModelTransform * glm::scale(glm::mat4(1.0),type->baseScale), 0, debug ? 0 : -1);
 	performMeshBufferUpdates();
 }
 
-void ModelInstance::calculateMeshTransforms(glm::mat4 currentTransform,Node * currentNode)
+void ModelInstance::calculateMeshTransforms(glm::mat4 currentTransform,Node * currentNode,int debugLayer)
 {
 	if (!currentNode)
 		currentNode = type->rootNode;
 
+	if (debugLayer != -1)
+	{
+		for (unsigned int a = 0; a < debugLayer; a++)
+			std::cout << "\t";
+		std::cout << currentNode->name << "\n";
+	}
+
+	currentTransform = currentTransform * currentNode->defaultTransform;
+
 	for (unsigned int a = 0; a < currentNode->meshes.size(); a++)
 	{
-		glm::mat4 finalTransform = currentTransform * currentNode->defaultTransform;
-		MeshTransforms[a] = finalTransform;
+		if (currentNode->meshes[a]->nonRenderingMesh)
+			continue;
+
+		MeshTransforms[currentNode->meshes[a]->meshIndex] = currentTransform;
+
+		if (debugLayer != -1)
+		{
+			for (unsigned int a = 0; a < debugLayer + 1; a++)
+				std::cout << "\t";
+			std::cout << currentNode->meshes[a]->name << "\n";
+
+			glm::vec3 scale, skew, trans;
+			glm::vec4 perspective;
+			glm::quat rot;
+			glm::decompose(currentTransform, scale, rot, trans, skew, perspective);
+
+			for (unsigned int a = 0; a < debugLayer + 1; a++)
+				std::cout << "\t";
+			std::cout << "--Translation: " << trans.x << "," << trans.y << "," << trans.z << "\n";
+
+			for (unsigned int a = 0; a < debugLayer + 1; a++)
+				std::cout << "\t";
+			std::cout << "--Rotation: " << rot.w << ", " << rot.x << ", " << rot.y << ", " << rot.z << "\n";
+
+			for (unsigned int a = 0; a < debugLayer + 1; a++)
+				std::cout << "\t";
+			std::cout << "--Scale: " << scale.x << ", " << scale.y << ", " << scale.z << "\n";
+		}
 	}
 
 	for (unsigned int a = 0; a < currentNode->children.size(); a++)
-		calculateMeshTransforms(currentTransform, currentNode->children[a]);
+		calculateMeshTransforms(currentTransform, currentNode->children[a],debugLayer == -1 ? -1 : debugLayer + 1);
 }
 
 void ModelInstance::performMeshBufferUpdates()
@@ -113,14 +191,13 @@ void ModelInstance::performMeshBufferUpdates()
 	//Mesh by mesh, update what has changed since last call of this function
 	for (unsigned int a = 0; a < type->allMeshes.size(); a++)
 	{
-		//std::cout << "Mesh: " << a << "\n";
-
-		//TODO: Is binding the vertex array actually needed? No, right?
-		glBindVertexArray(type->allMeshes[a]->vao);
+		if (type->allMeshes[a]->nonRenderingMesh)
+			continue;
 
 		if (transformUpdated)
 		{
-			//std::cout << "Transform " << type->allMeshes[a]->buffers[ModelTransform]<<","<<sizeof(glm::mat4) * bufferOffset << "," << sizeof(glm::mat4) << "," << &MeshTransforms[a][0][0] << "\n";
+			/*glm::vec3 trans = getTransformFromMatrix(MeshTransforms[a]);
+			std::cout << "Buffer " << type->allMeshes[a]->buffers[ModelTransform] << " offset: " << sizeof(glm::mat4) * bufferOffset << " position: " << trans.x << "," << trans.y << "," << trans.z << "\n";*/
 			glBindBuffer(GL_ARRAY_BUFFER, type->allMeshes[a]->buffers[ModelTransform]);
 			glBufferSubData(GL_ARRAY_BUFFER, sizeof(glm::mat4) * bufferOffset, sizeof(glm::mat4), &MeshTransforms[a][0][0]);
 		}
@@ -143,8 +220,6 @@ void ModelInstance::performMeshBufferUpdates()
 			colorsUpdated[a] = false;
 		}
 	}
-
-	glBindVertexArray(0);
 
 	transformUpdated = false;
 	anythingUpdated = false;
@@ -169,7 +244,22 @@ Mesh::Mesh(aiMesh const* const src, Model const* const parent)
 	if (parent->allMaterials.size() == 1)
 		material = parent->allMaterials[0];
 	else if (parent->allMaterials.size() > 1)	//Just use whatever materials were baked into the model file itself
-		material = parent->allMaterials[src->mMaterialIndex];
+	{
+		if (src->mMaterialIndex < parent->allMaterials.size())
+			material = parent->allMaterials[src->mMaterialIndex];
+		else
+			error("Material index for mesh out of range! Wanted: " + std::to_string(src->mMaterialIndex) + " total : " + std::to_string(parent->allMaterials.size()));
+	}
+
+	name = src->mName.C_Str();
+
+	if (lowercase(name) == "collision")
+	{
+		nonRenderingMesh = true;
+		valid = true;
+		//TODO: processCollisionMesh();
+		return;
+	}
 
 	glGenVertexArrays(1, &vao);
 
@@ -256,6 +346,8 @@ Mesh::Mesh(aiMesh const* const src, Model const* const parent)
 		return;
 	}
 
+	std::cout << "Num faces: " << src->mNumFaces << "\n";
+
 	std::vector<unsigned short> indices;
 	for (unsigned int b = 0; b < src->mNumFaces; b++)
 	{
@@ -270,12 +362,9 @@ Mesh::Mesh(aiMesh const* const src, Model const* const parent)
 	}
 	vertexCount = (unsigned int)indices.size();
 
-	std::cout << "Passing index buffer: " << indexBuffer << "," << indices.size() << "," << &indices[0] << "\n";
-
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBuffer);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(unsigned int), &indices[0], GL_STATIC_DRAW);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(unsigned short), &indices[0], GL_STATIC_DRAW);
 	
-	std::cout << "Before unbind vertex array.\n";
 	glBindVertexArray(0);
 
 	valid = true;
@@ -291,6 +380,9 @@ Mesh::~Mesh()
 
 void Mesh::render(ShaderManager* graphics, bool useMaterials) const
 {
+	if (nonRenderingMesh)
+		return;
+
 	if(instances.size() < 1)
 		return;
 
@@ -393,6 +485,9 @@ Model::Model(std::string filePath,TextureManager * textures)
 	//The relative file path to the actual 3d model file
 	std::string modelPath = "";
 
+	//First string is material name from model, second string is path to material descriptor text file
+	std::map<std::string, std::string> materialOverrides;
+
 	std::string line = "";
 	while (!descriptorFile.eof())
 	{
@@ -425,9 +520,28 @@ Model::Model(std::string filePath,TextureManager * textures)
 		}
 
 		//Only use one material, whose textures we manually define in an external text file:
-		if (argument == "materialoverride")
+		if (argument == "singlematerial")
 		{
 			overrideMaterialPath = value;
+
+			continue;
+		}
+
+		if (argument == "material")
+		{
+			//Okay actually this line has 3 tabs
+			size_t secondTab = value.find("\t");
+
+			if (secondTab == std::string::npos)
+			{
+				error("material line needs 2 arguments");
+				continue;
+			}
+
+			std::string materialName = value.substr(0, secondTab);
+			std::string materialPath = value.substr(secondTab + 1, value.length() - (secondTab + 1));
+
+			materialOverrides.insert(std::pair<std::string,std::string>(materialName, materialPath));
 
 			continue;
 		}
@@ -466,9 +580,12 @@ Model::Model(std::string filePath,TextureManager * textures)
 		return;
 	}
 
+	//We're using singlematerial to have one material for the whole mesh!
 	if(overrideMaterialPath.length() > 0)
 	{
 		Material* overrideMaterial = new Material(overrideMaterialPath, textures);
+		if (!overrideMaterial->isValid())
+			error("Material : " + overrideMaterial->getName() + " was not valid!");
 		allMaterials.push_back(overrideMaterial);
 	}
 	else
@@ -476,9 +593,25 @@ Model::Model(std::string filePath,TextureManager * textures)
 		std::string fileName = getFileFromPath(filePath);
 		std::string folder = getFolderFromPath(filePath);
 
+		debug("Expected materials: " + std::to_string(scene->mNumMaterials));
+
 		for (unsigned int a = 0; a < scene->mNumMaterials; a++)
 		{
 			aiMaterial* src = scene->mMaterials[a];
+
+			auto matPair = materialOverrides.find(src->GetName().C_Str());
+			if (matPair != materialOverrides.end())
+			{
+				//A specific material override was defined for this material
+				debug("Using override for " + matPair->first);
+
+				Material* overrideMaterial = new Material(folder + matPair->second, textures);
+				if (!overrideMaterial->isValid())
+					error("Material : " + overrideMaterial->getName() + " was not valid!");
+				allMaterials.push_back(overrideMaterial);
+
+				continue;
+			}
 
 			//Here we're going to load the textures that are embedded within the model file itself
 			//Assimp categorizes its textures weird, and I wouldn't be surprised if it's not even consistant across files
@@ -523,16 +656,26 @@ Model::Model(std::string filePath,TextureManager * textures)
 			std::string roughPath  = rough.length  > 0 ? folder + rough.C_Str()  : "";
 			std::string metalPath  = metal.length  > 0 ? folder + metal.C_Str()  : "";
 
-			debug("Loading material " + fileName + std::string(src->GetName().C_Str()));
-			Material* tmp = new Material(fileName+std::string(src->GetName().C_Str()),albedoPath,normalPath,roughPath,metalPath, "",textures);
+			if (albedoPath.length() < 1 && normalPath.length() < 1)
+			{
+				error("Neither albedo for normal map texture specified for material " + std::string(src->GetName().C_Str()));
+				continue;
+			}
+
+			debug("Loading material " + std::string(src->GetName().C_Str()));
+			Material* tmp = new Material(std::string(src->GetName().C_Str()),albedoPath,normalPath,roughPath,metalPath, "",textures);
 			allMaterials.push_back(tmp);
+
+			if (!tmp->isValid())
+				error("Material : " + tmp->getName() + " was not valid!");
 		}
 	}
+
+	debug(std::to_string(allMaterials.size()) + " materials loaded");
 
 	for (unsigned int a = 0; a < scene->mNumMeshes; a++)
 	{
 		aiMesh* src = scene->mMeshes[a];
-		std::cout << src << " mesh\n";
 		Mesh* tmp = new Mesh(src, this);
 
 		tmp->meshIndex = allMeshes.size();
@@ -540,6 +683,38 @@ Model::Model(std::string filePath,TextureManager * textures)
 	}
 
 	rootNode = new Node(scene->mRootNode, this);
+}
+
+void Mesh::recompileInstances()
+{
+	if (nonRenderingMesh)
+		return;
+
+	std::vector<glm::mat4> transforms;
+	std::vector<unsigned int> flags;
+	std::vector<glm::vec4> colors;
+
+	for (unsigned int a = 0; a < instances.size(); a++)
+	{
+		transforms.push_back(instances[a]->MeshTransforms[meshIndex]);
+		flags.push_back(instances[a]->MeshFlags[meshIndex]);
+		colors.push_back(instances[a]->MeshColors[meshIndex]);
+	}
+
+	glBindBuffer(GL_ARRAY_BUFFER, buffers[ModelTransform]);
+	glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(glm::mat4) * transforms.size(), &transforms[0][0][0]);
+
+	glBindBuffer(GL_ARRAY_BUFFER, buffers[InstanceFlags]);
+	glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(int) * flags.size(), &flags[0]);
+
+	glBindBuffer(GL_ARRAY_BUFFER, buffers[PreColor]);
+	glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(glm::vec4) * colors.size(), &colors[0][0]);
+}
+
+void Model::recompileAll()
+{
+	for (unsigned int a = 0; a < allMeshes.size(); a++)
+		allMeshes[a]->recompileInstances();
 }
 
 void Model::render(ShaderManager* graphics,bool useMaterials) const
@@ -583,21 +758,15 @@ Node::Node(aiNode const* const src, Model * parent)
 
 	if (name.find("_RotationPivot") != std::string::npos)
 	{
-		glm::vec3 scale, skew, trans;
-		glm::vec4 perspective;
-		glm::quat rot;
 		glm::mat4 to;
 		CopyaiMat(src->mTransformation, to);
-		glm::decompose(to, scale, rot, trans, skew, perspective);
-		rotationPivot = trans;
+		rotationPivot = getTransformFromMatrix(to);
 	}
 
 	name = stripSillyAssimpNodeNames(name);
 
 	//What is this node's default state before any animations
-	glm::mat4 to;
-	CopyaiMat(src->mTransformation, to);
-	defaultTransform = to * defaultTransform;
+	CopyaiMat(src->mTransformation, defaultTransform);
 
 	//Assimp gives us meshes as indicies to an array of meshes loaded earlier
 	for (unsigned int a = 0; a < src->mNumMeshes; a++)
@@ -620,13 +789,9 @@ void Node::foldNodeInto(aiNode const* const src, Model* parent)
 	std::string tmpname = src->mName.C_Str();
 	if (tmpname.find("_RotationPivot") != std::string::npos)
 	{
-		glm::vec3 scale, skew, trans;
-		glm::vec4 perspective;
-		glm::quat rot;
 		glm::mat4 to;
 		CopyaiMat(src->mTransformation, to);
-		glm::decompose(to, scale, rot, trans, skew, perspective);
-		rotationPivot = trans;
+		rotationPivot = getTransformFromMatrix(to);
 	}
 
 	//If assimp splits a single origonal node into many smaller nodes for each part of the model matrix the org. node had

@@ -51,6 +51,10 @@ class Material
 
 	public:
 
+	std::string getName() const { return name; }
+
+	bool isValid() const { return valid; }
+
 	/*
 		Sets PBRArrayTexture as the active PBRArray texture
 		Passes other uniforms describing the texture to shaders
