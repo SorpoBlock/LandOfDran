@@ -35,6 +35,11 @@ std::map<std::string, int> aiProcessMap = {
 	{"GenBoundingBoxes",aiProcess_GenBoundingBoxes},
 };
 
+void Model::addAnimation(Animation& animation)
+{
+	animations.push_back(std::move(animation));
+}
+
 void Model::printHierarchy(Node * node,int layer) const
 {
 	if (!node)
@@ -78,14 +83,14 @@ void Model::printHierarchy(Node * node,int layer) const
 		printHierarchy(node->children[a], layer + 1);
 }
 
-void ModelInstance::setModelTransform(glm::mat4 transform)
+void ModelInstance::setModelTransform(glm::mat4 &&transform)
 {
 	wholeModelTransform = transform;
 	transformUpdated = true;
 	anythingUpdated = true;
 }
 
-void ModelInstance::setNodeRotation(int nodeId, glm::quat rotation)
+void ModelInstance::setNodeRotation(int nodeId, glm::quat &rotation)
 {
 	if (nodeId < 0 || nodeId >= NodeRotationFixes.size())
 	{
@@ -127,16 +132,170 @@ void ModelInstance::setColor(int meshId, glm::vec4 color)
 	anythingUpdated = true;
 }
 
-void ModelInstance::update(bool debug)
+void ModelInstance::update(float deltaT,bool debug)
 {
-	calculateMeshTransforms(wholeModelTransform * glm::scale(glm::mat4(1.0),type->baseScale), 0, debug ? 0 : -1);
+	calculateMeshTransforms(deltaT,glm::mat4(1.0), 0, debug ? 0 : -1);
 	performMeshBufferUpdates();
 }
 
-void ModelInstance::calculateMeshTransforms(glm::mat4 currentTransform,Node * currentNode,int debugLayer)
+void Node::getFrame(int frame, glm::vec3& pos, glm::mat4& rot) const
+{
+	if (frame < 0)
+		return;
+
+	if (frame < posFrames.size())
+		pos += posFrames[frame];
+	if (frame <= rotFrames.size())
+		rot = glm::toMat4(rotFrames[frame]) * rot;
+}
+
+void Node::getFrame(const AnimationPlayback& anim, glm::vec3& pos, glm::mat4& rot) const
+{
+	//Get the key frame after and before our current time
+	for (unsigned int a = 1; a < posFrames.size(); a++)
+	{
+		//Find the first frame with a time greater than our own
+		if (posTimes[a] >= anim.animationTime)
+		{
+			float nextTime = posTimes[a];
+			glm::vec3 nextFrame = posFrames[a];
+
+			//Figure out what the previous frame is...
+			//We start by assuming it was literally the previous frame, but...
+			float prevTime = posTimes[a - 1];
+			glm::vec3 prevFrame = posFrames[a - 1];
+
+			//How far are we between frames: for interpolation
+			float totalTimeBetween = nextTime - prevTime;
+			float timeProgress = anim.animationTime - prevTime;
+
+			pos += anim.animationFadeOut * lerp(prevFrame, nextFrame, timeProgress / totalTimeBetween);
+
+			break;
+		}
+	}
+
+	//Get the key frame after and before our current time
+	for (unsigned int a = 1; a < rotFrames.size(); a++)
+	{
+		//Find the first frame with a time greater than our own
+		if (rotTimes[a] >= anim.animationTime)
+		{
+			float nextTime = rotTimes[a];
+			glm::quat nextFrame = rotFrames[a];
+
+			//Figure out what the previous frame is...
+			//We start by assuming it was literally the previous frame, but...
+			float prevTime = rotTimes[a - 1];
+			glm::quat prevFrame = rotFrames[a - 1];
+
+			//How far are we between frames: for interpolation
+			float totalTimeBetween = nextTime - prevTime;
+			float timeProgress = anim.animationTime - prevTime;
+
+			rot = glm::toMat4(glm::slerp(glm::quat(1,0,0,0),glm::slerp(prevFrame, nextFrame, timeProgress / totalTimeBetween), anim.animationFadeOut)) * rot;
+
+			break;
+		}
+	}
+}
+
+void ModelInstance::progressAnimations(float deltaT)
+{
+	auto iter = playingAnimations.begin();
+	while (iter != playingAnimations.end())
+	{
+		AnimationPlayback* anim = &(*iter);
+
+		if (anim->animationEnding)
+		{
+			//Animation is truely over, remove it from this instance
+			if (anim->animationFadeOut <= 0)
+			{
+				iter = playingAnimations.erase(iter);
+				continue;
+			}
+
+			//IDK why but assume animation should fade out over 200ms ?
+			anim->animationFadeOut -= deltaT / 200.0;
+		}
+		else if (anim->animationStarting)
+		{
+			if (anim->animationFadeOut >= 1.0)
+			{
+				anim->animationFadeOut = 1.0;
+				anim->animationStarting = false;
+			}
+			else
+				anim->animationFadeOut += deltaT / 400.0;
+		}
+
+		//Advance animation based on passed time
+		anim->animationTime += deltaT * anim->animationSpeed * anim->animation->defaultSpeed;
+
+		//The animation has ended
+		if (anim->animationTime >= anim->animation->endTime)
+		{
+			//Start over
+			if (anim->animationLooping)
+			{
+				float animationLength = anim->animation->endTime - anim->animation->startTime;
+				anim->animationTime -= animationLength;
+			}
+			else //Begin ending fade-out
+				anim->animationEnding = true;
+		}
+
+		++iter;
+	}
+}
+
+glm::mat4 ModelInstance::calculateNodeTransform(Node const * const node)
+{
+	glm::mat4 ret = glm::mat4(1.0);
+
+	//Default transform if no animation data available at all
+	if (node->posFrames.size() < 1 || node->rotFrames.size() < 1)
+	{
+		ret = node->defaultTransform;
+	}
+	else
+	{
+		glm::vec3 pos = glm::vec3(0, 0, 0);
+		glm::mat4 rot = glm::mat4(1.0);
+
+		//There's one or more playing animations
+		if (playingAnimations.size() > 0)
+		{
+			for (unsigned int a = 0; a < playingAnimations.size(); a++)
+				node->getFrame(playingAnimations[a], pos, rot);
+		}
+		//There are animations but we aren't playing any, use default frame
+		else
+			node->getFrame(type->animationDefaultTime, pos, rot);
+
+		//if no rotation pivot fix
+		//ret = glm::translate(glm::mat4(1.0), pos) * rot;
+
+		ret = glm::translate(node->rotationPivot) * rot * glm::translate(-node->rotationPivot) * glm::translate(pos);
+	}
+
+	//Apply node rotation fixes, for example the tilt of a player's head when they look up or down
+	if (UseNodeRotationFix[node->nodeIndex])
+	{
+		ret = glm::toMat4(NodeRotationFixes[node->nodeIndex]) * ret;
+	}
+
+	return ret;
+}
+
+void ModelInstance::calculateMeshTransforms(float deltaT,glm::mat4 currentTransform,Node const * currentNode,int debugLayer)
 {
 	if (!currentNode)
+	{
 		currentNode = type->rootNode;
+		progressAnimations(deltaT);
+	}
 
 	if (debugLayer != -1)
 	{
@@ -145,14 +304,14 @@ void ModelInstance::calculateMeshTransforms(glm::mat4 currentTransform,Node * cu
 		std::cout << currentNode->name << "\n";
 	}
 
-	currentTransform = currentTransform * currentNode->defaultTransform;
+	currentTransform = currentTransform * calculateNodeTransform(currentNode);
 
 	for (unsigned int a = 0; a < currentNode->meshes.size(); a++)
 	{
 		if (currentNode->meshes[a]->nonRenderingMesh)
 			continue;
 
-		MeshTransforms[currentNode->meshes[a]->meshIndex] = currentTransform;
+		MeshTransforms[currentNode->meshes[a]->meshIndex] = wholeModelTransform * glm::scale(glm::mat4(1.0), type->baseScale) * currentTransform;
 
 		if (debugLayer != -1)
 		{
@@ -179,8 +338,9 @@ void ModelInstance::calculateMeshTransforms(glm::mat4 currentTransform,Node * cu
 		}
 	}
 
+	//deltaT is only used at the start of this function when currentNode == 0 to calculate animation changes
 	for (unsigned int a = 0; a < currentNode->children.size(); a++)
-		calculateMeshTransforms(currentTransform, currentNode->children[a],debugLayer == -1 ? -1 : debugLayer + 1);
+		calculateMeshTransforms(0,currentTransform, currentNode->children[a],debugLayer == -1 ? -1 : debugLayer + 1);
 }
 
 void ModelInstance::performMeshBufferUpdates()
@@ -196,15 +356,12 @@ void ModelInstance::performMeshBufferUpdates()
 
 		if (transformUpdated)
 		{
-			/*glm::vec3 trans = getTransformFromMatrix(MeshTransforms[a]);
-			std::cout << "Buffer " << type->allMeshes[a]->buffers[ModelTransform] << " offset: " << sizeof(glm::mat4) * bufferOffset << " position: " << trans.x << "," << trans.y << "," << trans.z << "\n";*/
 			glBindBuffer(GL_ARRAY_BUFFER, type->allMeshes[a]->buffers[ModelTransform]);
 			glBufferSubData(GL_ARRAY_BUFFER, sizeof(glm::mat4) * bufferOffset, sizeof(glm::mat4), &MeshTransforms[a][0][0]);
 		}
 
 		if (flagsUpdated[a])
 		{
-			//std::cout << "Flags\n";
 			glBindBuffer(GL_ARRAY_BUFFER, type->allMeshes[a]->buffers[InstanceFlags]);
 			glBufferSubData(GL_ARRAY_BUFFER, sizeof(int) * bufferOffset, sizeof(int), &MeshFlags[a]);
 
@@ -213,7 +370,6 @@ void ModelInstance::performMeshBufferUpdates()
 
 		if (colorsUpdated[a])
 		{
-			//std::cout << "Colors\n";
 			glBindBuffer(GL_ARRAY_BUFFER, type->allMeshes[a]->buffers[PreColor]);
 			glBufferSubData(GL_ARRAY_BUFFER, sizeof(glm::vec4) * bufferOffset, sizeof(glm::vec4), &MeshColors[a][0]);
 
@@ -232,6 +388,65 @@ void Mesh::fillBuffer(LayoutSlot slot, void* data, int size, int elements)
 	glBufferData(GL_ARRAY_BUFFER, size, data, GL_STATIC_DRAW);
 	glVertexAttribDivisor(slot, 0);
 	glVertexAttribPointer(slot, elements, GL_FLOAT, GL_FALSE, 0, 0);
+}
+
+void ModelInstance::stopAnimation(int id)
+{
+	for (unsigned int a = 0; a < playingAnimations.size(); a++)
+	{
+		if (playingAnimations[a].animation->serverID == id)
+		{
+			playingAnimations[a].animationStarting = false;
+			playingAnimations[a].animationEnding = true;
+			return;
+		}
+	}
+}
+
+void ModelInstance::playAnimation(int id,bool loop)
+{
+	for (unsigned int a = 0; a < playingAnimations.size(); a++)
+	{
+		if (playingAnimations[a].animation->serverID == id)
+		{
+			playingAnimations[a].animationStarting = true;
+			playingAnimations[a].animationEnding = false;
+			return;
+		}
+	}
+
+	Animation* anim = nullptr;
+	for (unsigned int a = 0; a < type->animations.size(); a++)
+	{
+		if (type->animations[a].serverID == id)
+		{
+			anim = &type->animations[a];
+			continue;
+		}
+	}
+
+	if (!anim)
+		return;
+
+	AnimationPlayback play;
+	play.animation = anim;
+	play.animationLooping = loop;
+	play.animationStarting = true;
+	play.animationEnding = false;
+	play.animationFadeOut = 0.0;
+	play.animationTime = play.animation->startTime;
+
+	playingAnimations.push_back(std::move(play));
+}
+
+bool ModelInstance::isPlaying(int id) const
+{
+	for (unsigned int a = 0; a < playingAnimations.size(); a++)
+	{
+		if (playingAnimations[a].animation->serverID == id)
+			return !playingAnimations[a].animationEnding;
+	}
+	return false;
 }
 
 Mesh::Mesh(aiMesh const* const src, Model const* const parent)
@@ -456,6 +671,21 @@ ModelInstance::~ModelInstance()
 			++pos;
 		}
 	}
+}
+
+/*
+	Assimp does this nasty thing when importing some models
+	It will add a billion superfluous nodes on top of each node
+	If you had Torso -> Left Arm -> Left Hand it would give you
+	Torso_RotationPivot -> Torso_Translation -> Torso->Rotation -> Torso_Scale -> LeftArm_RotationPivot...
+	This just makes parsing the hierarchy less efficient and we can generally get rid of all these
+*/
+std::string stripSillyAssimpNodeNames(std::string in)
+{
+	if (in.find("_$AssimpFbx$_") != std::string::npos)
+		return in.substr(0, in.find("_$AssimpFbx$_"));
+	else
+		return in;
 }
 
 Model::Model(std::string filePath,TextureManager * textures)
@@ -683,6 +913,59 @@ Model::Model(std::string filePath,TextureManager * textures)
 	}
 
 	rootNode = new Node(scene->mRootNode, this);
+
+	if (scene->mNumAnimations == 1)
+	{
+		aiAnimation* anim = scene->mAnimations[0];
+
+		//For each 'channel' aka node this animation affects
+		for (unsigned int a = 0; a < anim->mNumChannels; a++)
+		{
+			//Find the node by name
+			//Keeping in mind we've collapsed the hierarchy ourselves quite a bit
+			aiNodeAnim* nodeAnim = anim->mChannels[a];
+			std::string targetName = stripSillyAssimpNodeNames(nodeAnim->mNodeName.C_Str());
+			Node* target = nullptr;
+			for (unsigned int b = 0; b < allNodes.size(); b++)
+			{
+				if (allNodes[b]->name == targetName)
+				{
+					target = allNodes[b];
+					break;
+				}
+			}
+
+			if (!target)
+			{
+				error("Animation target node " + targetName + " could not be found");
+				continue;
+			}
+
+			//Copy position keys for all possible animations to the given node
+			for (unsigned int b = 0; b < nodeAnim->mNumPositionKeys; b++)
+			{
+				glm::vec3 pos(nodeAnim->mPositionKeys[b].mValue.x, nodeAnim->mPositionKeys[b].mValue.y, nodeAnim->mPositionKeys[b].mValue.z);
+
+				target->posFrames.push_back(pos);
+				target->posTimes.push_back(nodeAnim->mPositionKeys[b].mTime);
+			}
+
+			//Copy rotation keys for all possible animations to the given node
+			for (unsigned int b = 0; b < nodeAnim->mNumRotationKeys; b++)
+			{
+				glm::quat rot(nodeAnim->mRotationKeys[b].mValue.w, nodeAnim->mRotationKeys[b].mValue.x, nodeAnim->mRotationKeys[b].mValue.y, nodeAnim->mRotationKeys[b].mValue.z);
+
+				target->rotFrames.push_back(rot);
+				target->rotTimes.push_back(nodeAnim->mRotationKeys[b].mTime);
+			}
+		}
+	}
+	else if (scene->mNumAnimations > 1)
+	{
+		error("More than one animation imported by Assimp for model " + filePath);
+		error("For now animations should all be on the same track, but LoD animations are then");
+		error("defined in script as being certain time slices of the original animation track.");
+	}
 }
 
 void Mesh::recompileInstances()
@@ -736,23 +1019,9 @@ Model::~Model()
 		delete allMaterials[a]; //Calls markForCleanup on associated textures
 }
 
-/*
-	Assimp does this nasty thing when importing some models
-	It will add a billion superfluous nodes on top of each node
-	If you had Torso -> Left Arm -> Left Hand it would give you
-	Torso_RotationPivot -> Torso_Translation -> Torso->Rotation -> Torso_Scale -> LeftArm_RotationPivot...
-	This just makes parsing the hierarchy less efficient and we can generally get rid of all these
-*/
-std::string stripSillyAssimpNodeNames(std::string in)
-{
-	if (in.find("_$AssimpFbx$_") != std::string::npos)
-		return in.substr(0, in.find("_$AssimpFbx$_"));
-	else
-		return in;
-}
-
 Node::Node(aiNode const* const src, Model * parent)
 {
+	nodeIndex = parent->allNodes.size();
 	parent->allNodes.push_back(this);
 	name = src->mName.C_Str();
 

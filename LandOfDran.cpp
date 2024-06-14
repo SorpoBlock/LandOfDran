@@ -60,19 +60,34 @@ int main(int argc, char* argv[])
 
 	Model test("Assets/brickhead/brickhead.txt",&textures); 
 	test.baseScale = glm::vec3(0.01);
-	test.printHierarchy();
+	test.animationDefaultTime = 36;
+
+	Animation walk;
+	walk.defaultSpeed = 0.01;
+	walk.startTime = 0;
+	walk.endTime = 30;
+	walk.serverID = 0;
+	walk.name = "walk";
+	test.addAnimation(walk);
+
+	Animation grab;
+	grab.defaultSpeed = 0.01;
+	grab.startTime = 57;
+	grab.endTime = 66;
+	grab.serverID = 1;
+	grab.name = "grab";
+	test.addAnimation(grab);
 
 	std::vector<ModelInstance*> instances;
-	for (unsigned int a = 0; a < 1; a++)
+	for (unsigned int a = 0; a < 3; a++)
 	{
-		for (unsigned int b = 0; b < 1; b++)
+		for (unsigned int b = 0; b < 3; b++)
 		{
-			for (unsigned int c = 0; c < 1; c++)
+			for (unsigned int c = 0; c < 3; c++)
 			{
 				ModelInstance* tester = new ModelInstance(&test);
 				instances.push_back(tester);
 				tester->setModelTransform(glm::translate(glm::vec3(a * 8, b * 8, c * 8)));
-				tester->update(false);
 			} 
 		}
 	} 
@@ -144,28 +159,46 @@ int main(int argc, char* argv[])
 				if (e.key.keysym.sym == SDLK_m)
 					context.setMouseLock(!context.getMouseLocked());
 			}
+			else if (e.type == SDL_MOUSEBUTTONDOWN)
+				instances[0]->playAnimation(1, false);
 		}
+
+		float speed = 0.01;
+		if (states[SDL_SCANCODE_LCTRL])
+			speed = 0.5;
 
 		if (states[SDL_SCANCODE_W])
 		{
-			camPos += glm::vec3(deltaT * 0.01) * camDir;
+			camPos += glm::vec3(deltaT * speed) * camDir;
 			camUpdate = true;
 		}
 		else if (states[SDL_SCANCODE_S])
 		{
-			camPos -= glm::vec3(deltaT * 0.01) * camDir;
+			camPos -= glm::vec3(deltaT * speed) * camDir;
 			camUpdate = true;
 		}
 		else if (states[SDL_SCANCODE_A])
 		{
-			camPos += glm::vec3(deltaT * 0.01) * perpDir;
+			camPos += glm::vec3(deltaT * speed) * perpDir;
 			camUpdate = true;
 		}
 		else if (states[SDL_SCANCODE_D])
 		{
-			camPos -= glm::vec3(deltaT * 0.01) * perpDir;
+			camPos -= glm::vec3(deltaT * speed) * perpDir;
 			camUpdate = true;
 		}
+
+		if (states[SDL_SCANCODE_SPACE])
+		{
+			for (unsigned int a = 0; a < instances.size(); a++)
+				instances[a]->playAnimation(0, true);
+		}
+		else
+		{
+			for (unsigned int a = 0; a < instances.size(); a++)
+				instances[a]->stopAnimation(0);
+		}
+
 
 		if (camUpdate)
 		{
@@ -176,20 +209,10 @@ int main(int argc, char* argv[])
 			shaders.cameraUniforms.CameraDirection = camDir;
 			shaders.updateCameraUBO();
 		}
-
-		/*for (unsigned int a = 0; a < 10; a++)
-		{
-			for (unsigned int b = 0; b < 10; b++)
-			{
-				for (unsigned int c = 0; c < 10; c++)
-				{
-					instances[c + b * 10 + a * 100]->setModelTransform(glm::translate(glm::vec3(a * 8, b * 8, c * 8)) * glm::toMat4(glm::quat(glm::vec3(1.57, 1.57, angle))));
-					instances[c + b * 10 + a * 100]->calculateMeshTransforms();
-					//instances[c + b * 10 + a * 100]->update();
-				}
-			}
-		}
-		test.recompileAll();*/
+		
+		for(unsigned int a = 0; a<instances.size(); a++)
+			instances[a]->calculateMeshTransforms(deltaT);
+		test.recompileAll();
 
 		context.select(); 
 		context.clear(0.2,0.2,0.2);

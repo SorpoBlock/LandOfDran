@@ -18,6 +18,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/quaternion.hpp>
+#include <glm/gtx/transform.hpp>
 #include "Utility/StringFunctions.h"
 #include "Utility/Logger.h"
 #include "Utility/FileFunctions.h"

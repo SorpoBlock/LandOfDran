@@ -1,5 +1,20 @@
 #include "GraphicsHelpers.h"
 
+void printVec3(const glm::vec3& vec)
+{
+	std::cout << vec.x << "," << vec.y << "," << vec.z << "\n";
+}
+
+void printQuat(const glm::quat& quat)
+{
+	std::cout << quat.w << "," << quat.x << "," << quat.y << "," << quat.z << "\n";
+}
+
+glm::vec3 lerp(glm::vec3 x, glm::vec3 y, float t)
+{
+	return x * (1.f - t) + y * t;
+}
+
 glm::vec3 getTransformFromMatrix(const glm::mat4 &in)
 {
 	glm::vec3 scale, skew, trans;
@@ -7,6 +22,15 @@ glm::vec3 getTransformFromMatrix(const glm::mat4 &in)
 	glm::quat rot;
 	glm::decompose(in, scale, rot, trans, skew, perspective);
 	return trans;
+}
+
+glm::quat getRotationFromMatrix(const glm::mat4& in)
+{
+	glm::vec3 scale, skew, trans;
+	glm::vec4 perspective;
+	glm::quat rot;
+	glm::decompose(in, scale, rot, trans, skew, perspective);
+	return rot;
 }
 
 //assimp to opengl conversion for 4x4 matrices

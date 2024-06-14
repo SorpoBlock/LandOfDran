@@ -5,6 +5,12 @@
 #include <glm/gtx/matrix_decompose.hpp>
 #include <assimp/scene.h>
 
+void printVec3(const glm::vec3& vec);
+void printQuat(const glm::quat& quat);
+glm::quat getRotationFromMatrix(const glm::mat4& in);
+
+glm::vec3 lerp(glm::vec3 x, glm::vec3 y, float t);
+
 //Calls glm::decompose
 glm::vec3 getTransformFromMatrix(const glm::mat4 &in);
 

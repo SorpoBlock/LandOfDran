@@ -38,6 +38,54 @@ class Model;
 class Node;
 
 /*
+	Describes one of a Model's animations
+	These are generally created in Lua on the server after loading the model
+*/
+struct Animation
+{
+	float startTime = 0;
+	float endTime = 0;
+	float defaultSpeed = 0.04;
+	int serverID = -1;
+	std::string name = "";
+};
+
+/*
+	Describes the current playing of an animation by an instance
+	These are created when you play an animation and stored in an instance
+	And destroyed when the animation stops (if its not a looping animation)
+*/
+struct AnimationPlayback
+{
+	//Which animation is this playing
+	Animation* animation = nullptr;
+
+	/*
+		This is incremented by speed* deltaT and the animation frame rounded down
+		and the one from rounding up will be interpolated to create the final 
+		contribution of this particular animation to the final meshes' transforms
+	*/
+	float animationTime = 0;
+
+	//Stacks with Animation::defaultSpeed
+	float animationSpeed = 1;
+
+	//Will still render / affect the instance, just won't progress from its current frame
+	bool animationPaused = false;
+
+	//Destroy this animation when we're done with it
+	bool animationLooping = false;
+
+	//This animation has finished or was stopped and is fading out, animationFadeOut will count towards 0
+	bool animationEnding = false;
+
+	bool animationStarting = false;
+
+	//If animationEnding is true this value will go to 0 over time then the animation will be deleted
+	float animationFadeOut = 1.0;
+};
+
+/*
 	Contains the information needed to render one instance of a Model
 	One set of data for each instanced layout binding point for each mesh of the model
 */
@@ -46,6 +94,9 @@ class ModelInstance
 	friend class Mesh;
 
 	Model* type = nullptr;
+
+	//See note for struct AnimationPlayback
+	std::vector<AnimationPlayback> playingAnimations;
 
 	/*
  		These allow you to manually tweak the rotation of a given node
@@ -83,22 +134,29 @@ class ModelInstance
 	//What offset to use for Mesh buffers for instanced data when calling performMeshBufferUpdates
 	unsigned int bufferOffset = 0;
 
+	//Handles moving animations forward over time and removing completed ones
+	void progressAnimations(float deltaT);
+
+	//Calculates what the transform of a given node for this instance should be taking animations into account
+	glm::mat4 calculateNodeTransform(Node const * const node);
+
 	public:
 
 	//Change the position/scale/rotation for the whole model instance
-	void setModelTransform(glm::mat4 transform);
+	void setModelTransform(glm::mat4 &&transform);
 	//For little tweaks like making a player's head swivel up and down based on where they look
-	void setNodeRotation(int nodeId,glm::quat rotation);
+	void setNodeRotation(int nodeId,glm::quat &rotation);
 	//Set a flag or a custom color on a single mesh instance of the model instance
 	void setFlags(int meshId,unsigned int flags);
 	void setColor(int meshId,glm::vec4 color);
 
 	/*
 		Calculates the transform of each indivdual node based on things, see above
+		Also handles playing of animations
 		Call once per frame if the object is animated or has moved
 		Set debugLayer to 0 to do a hierarchical std::cout print of transforms
 	*/
-	void calculateMeshTransforms(glm::mat4 currentTransform = glm::mat4(1.0),Node * currentNode = 0,int debugLayer = -1);
+	void calculateMeshTransforms(float deltaT,glm::mat4 currentTransform = glm::mat4(1.0),Node const * currentNode = 0,int debugLayer = -1);
 
 	/*
 		Calls glBufferSubData on mesh buffers that need updating, and sets updated flags to false
@@ -107,7 +165,17 @@ class ModelInstance
 	void performMeshBufferUpdates();
 
 	//Calls calculateMeshTransforms and performMeshBufferUpdates
-	void update(bool debug = false);
+	void update(float deltaT,bool debug = false);
+
+	//If the animation with that id is playing
+	bool isPlaying(int id) const;
+	//Will do nothing if animation with that id is already playing
+	void playAnimation(int id,bool loop);
+	/*
+		Does nothing if animation with id is not playing
+		Otherwise will fade out over 200Ms or so then be removed from playing anims list
+	*/
+	void stopAnimation(int id);
 
 	ModelInstance(Model * _type); 
 	~ModelInstance();
@@ -188,6 +256,31 @@ class Node
 	friend class Model;
 	friend class ModelInstance;
 
+	
+	/*
+		Generally how animations work
+		Is model's are limited to one 'animation' in the sense Assimp loads them
+		from models, in particular, FBX models
+		However different 'Animations' in the sense of our Animation struct
+		Are then defined based on time slices of the one used Assimp animation
+		Animations are node based, rather than truely skeltal and don't include scaling keys
+		At least for now...
+	 
+		Position of animation keyframes
+	*/
+	std::vector<glm::vec3> posFrames;
+	//Animation time of associated position keyframe
+	std::vector<float> posTimes;
+	//Rotation of animation keyframes
+	std::vector<glm::quat> rotFrames;
+	//Animation time of associated rotation keyframe
+	std::vector<float> rotTimes;
+
+	//Gets the pos and rot that should be contributed by that animation for that node
+	void getFrame(const AnimationPlayback & anim, glm::vec3& pos, glm::mat4& rot) const;
+	//Literally just gets a certain frame, if frame is out of bounds, rot and pos are unchanged
+	void getFrame(int frame, glm::vec3& pos, glm::mat4& rot) const;
+
 	/*
 		The transform a node will have, if no animations are playing
 		Is overrided entirely if an animation is playing that affects that node
@@ -203,12 +296,15 @@ class Node
 	//Node above
 	Node* parent = nullptr;
 
+	//Position in allNodes
+	unsigned int nodeIndex = 0;
+
 	/*
 		This is added by Assimp
 		The matrix multiplication for each node goes:
 		translate(rotationPivot) * rotate(rotation) * translate(-rotationPivot) * translate(pos) * higherNode...
 	*/
-	glm::vec3 rotationPivot;
+	glm::vec3 rotationPivot = glm::vec3(0, 0, 0);
 
 	//Undoes some of Assimps importing silliness that creates a billion extra nodes, see stripSillyAssimpNodeNames
 	void foldNodeInto(aiNode const * const src, Model * parent);
@@ -226,6 +322,8 @@ class Model
 	friend class Mesh;
 	friend class Node;
 
+	std::vector<Animation> animations;
+
 	//Every mesh the model has stored in a way that doesn't require recusion to access
 	std::vector<Mesh*> allMeshes;
 	
@@ -240,6 +338,9 @@ class Model
 
 	public:
 
+	//Add another animation to this Model
+	void addAnimation(Animation& animation);
+
 	//Outputs the entire hierarchy in depth to std::cout for debugging
 	void printHierarchy(Node * node = 0,int layer = 0) const;
 
@@ -251,6 +352,9 @@ class Model
 		Be sure to call performMeshBufferUpdates on instances / recompileAll after changing this
 	*/
 	glm::vec3 baseScale = glm::vec3(1, 1, 1);
+
+	//What frame of animation should be displayed for an instance when we're not playing any animations on it
+	float animationDefaultTime = 0;
 
 	//Calls render on each mesh
 	void render(ShaderManager* graphics,bool useMaterials = true) const;
