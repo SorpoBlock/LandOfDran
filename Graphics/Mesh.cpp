@@ -47,7 +47,7 @@ void Model::printHierarchy(Node * node,int layer) const
 
 	for (unsigned int a = 0; a < layer; a++)
 		std::cout << "\t";
-	std::cout << node->name << "\n";
+	std::cout << node->name << " ID: " << node->nodeIndex << "\n";
 
 	glm::vec3 scale, skew, trans;
 	glm::vec4 perspective;
@@ -90,7 +90,7 @@ void ModelInstance::setModelTransform(glm::mat4 &&transform)
 	anythingUpdated = true;
 }
 
-void ModelInstance::setNodeRotation(int nodeId, glm::quat &rotation)
+void ModelInstance::setNodeRotation(int nodeId,const glm::quat &rotation)
 {
 	if (nodeId < 0 || nodeId >= NodeRotationFixes.size())
 	{
@@ -283,7 +283,7 @@ glm::mat4 ModelInstance::calculateNodeTransform(Node const * const node)
 	//Apply node rotation fixes, for example the tilt of a player's head when they look up or down
 	if (UseNodeRotationFix[node->nodeIndex])
 	{
-		ret = glm::toMat4(NodeRotationFixes[node->nodeIndex]) * ret;
+		ret = ret * glm::translate(node->rotationPivot) * glm::toMat4(NodeRotationFixes[node->nodeIndex]) * glm::translate(-node->rotationPivot);
 	}
 
 	return ret;

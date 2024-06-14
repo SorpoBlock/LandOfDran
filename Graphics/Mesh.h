@@ -145,7 +145,7 @@ class ModelInstance
 	//Change the position/scale/rotation for the whole model instance
 	void setModelTransform(glm::mat4 &&transform);
 	//For little tweaks like making a player's head swivel up and down based on where they look
-	void setNodeRotation(int nodeId,glm::quat &rotation);
+	void setNodeRotation(int nodeId,const glm::quat &rotation);
 	//Set a flag or a custom color on a single mesh instance of the model instance
 	void setFlags(int meshId,unsigned int flags);
 	void setColor(int meshId,glm::vec4 color);

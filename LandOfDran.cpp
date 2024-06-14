@@ -59,6 +59,7 @@ int main(int argc, char* argv[])
 	textures.finalizeDecals();
 
 	Model test("Assets/brickhead/brickhead.txt",&textures); 
+	test.printHierarchy();
 	test.baseScale = glm::vec3(0.01);
 	test.animationDefaultTime = 36;
 
@@ -209,6 +210,8 @@ int main(int argc, char* argv[])
 			shaders.cameraUniforms.CameraDirection = camDir;
 			shaders.updateCameraUBO();
 		}
+
+		instances[0]->setNodeRotation(4, glm::quat(glm::vec3(pitch,yaw,0)));
 		
 		for(unsigned int a = 0; a<instances.size(); a++)
 			instances[a]->calculateMeshTransforms(deltaT);
