@@ -10,6 +10,8 @@
 #include <glm/gtx/transform.hpp>
 #include <glm/gtx/euler_angles.hpp>
 #include "Graphics/RenderContext.h"
+#include "Interface/InputMap.h"
+#include "Graphics/PlayerCamera.h"
  
 using namespace std;
 
@@ -32,6 +34,7 @@ int main(int argc, char* argv[])
 	//Import settings we have, set defaults for settings we don't, then export the file with any new default values
 	SettingManager preferences("Config/settings.txt");
 	populateDefaults(preferences);
+	InputMap input(&preferences); //This will also populate key-bind specific defaults
 	preferences.exportToFile("Config/settings.txt");
 
 	Logger::setDebug(preferences.getBool("logger/verbose"));
@@ -42,21 +45,25 @@ int main(int argc, char* argv[])
 	//Create our program window
 	RenderContext context(preferences);
 
-	TextureManager textures;
-	//Material grass("Assets/grass/grass.txt", &textures);
 	 
 	//Load all the shaders
 	ShaderManager shaders;
 	shaders.readShaderList("Shaders/shadersList.txt");
 
+	Camera camera(context.getResolution().x / context.getResolution().y);
+	camera.mouseSensitivity = preferences.getFloat("input/mousesensitivity");
+	camera.invertMouse = preferences.getFloat("input/invertmousey");
+
+	TextureManager textures;
+	//Material grass("Assets/grass/grass.txt", &textures);
 	textures.allocateForDecals(128);
 	textures.addDecal("Assets/animan.png", 0);
 	textures.addDecal("Assets/ascii-terror.png", 1);
 	textures.finalizeDecals();
 
-	Model test("Assets/brickhead/brickhead.txt",&textures); 
-	test.baseScale = glm::vec3(0.01);
-	test.setDefaultFrame(35);
+	Model testModel("Assets/brickhead/brickhead.txt",&textures); 
+	testModel.baseScale = glm::vec3(0.01);
+	testModel.setDefaultFrame(35);
 
 	Animation walk;
 	walk.defaultSpeed = 0.01;
@@ -66,7 +73,7 @@ int main(int argc, char* argv[])
 	walk.name = "walk";
 	walk.fadeInMS = 200;
 	walk.fadeOutMS = 400;
-	test.addAnimation(walk);
+	testModel.addAnimation(walk);
 
 	Animation grab;
 	grab.defaultSpeed = 0.01;
@@ -76,7 +83,7 @@ int main(int argc, char* argv[])
 	grab.name = "grab";
 	grab.fadeInMS = 200;
 	grab.fadeOutMS = 400;
-	test.addAnimation(grab);
+	testModel.addAnimation(grab);
 
 	/*Model test("Assets/gun/gun.txt", &textures);
 	test.setDefaultFrame(25);
@@ -104,7 +111,7 @@ int main(int argc, char* argv[])
 		{
 			for (unsigned int c = 0; c < 10; c++)
 			{
-				ModelInstance* tester = new ModelInstance(&test);
+				ModelInstance* tester = new ModelInstance(&testModel);
 				instances.push_back(tester);
 				tester->setModelTransform(glm::translate(glm::vec3(a * 8, b * 8, c * 8)));
 				tester->update(0);
@@ -114,16 +121,6 @@ int main(int argc, char* argv[])
 
 	//grass.use(&shaders);
 	shaders.modelShader->registerUniformFloat("test", true, 0.5);
-
-	float yaw = 0;
-	float pitch = 0;
-	glm::vec3 camPos  = glm::vec3(0, -1, -3);
-	glm::vec3 camDir  = glm::vec3(sin(yaw) * cos(pitch), sin(pitch), cos(yaw) * cos(pitch));
-	glm::vec3 perpDir = glm::vec3(sin(yaw+1.57) * cos(pitch), sin(pitch), cos(yaw + 1.57) * cos(pitch));
-
-	shaders.cameraUniforms.CameraProjection = glm::perspective(glm::radians(90.0), 1.0, 0.1, 400.0);
-	shaders.cameraUniforms.CameraView = glm::lookAt(camPos, glm::vec3(0,0,1), glm::vec3(0,1,0));
-	shaders.updateCameraUBO();
 
 	GLuint vao = createQuadVAO();
 
@@ -154,91 +151,54 @@ int main(int argc, char* argv[])
 		angle += deltaT * 0.001;
 
 		bool camUpdate = false;
-		const Uint8* states = SDL_GetKeyboardState(NULL);
+		input.keystates = SDL_GetKeyboardState(NULL);
 
 		SDL_Event e;
 		while (SDL_PollEvent(&e))
 		{
+			input.handleInput(e);
+
 			if (e.type == SDL_QUIT)
 			{
 				doMainLoop = false;
 				break;
 			}
+			else if (e.type == SDL_WINDOWEVENT)
+			{
+				if (e.window.event == SDL_WINDOWEVENT_SIZE_CHANGED)
+				{
+					context.setSize(e.window.data1, e.window.data2);
+					camera.setAspectRatio(context.getResolution().x / context.getResolution().y);
+				}
+			}
 			else if (e.type == SDL_MOUSEMOTION && context.getMouseLocked())
-			{
-				camUpdate = true;
-				yaw -= e.motion.xrel / 100.0;
-				pitch -= e.motion.yrel / 100.0;
-				if (pitch < -1.57)
-					pitch = -1.57;
-				if (pitch > 1.57)
-					pitch = 1.57;
-			}
-			else if (e.type == SDL_KEYDOWN)
-			{
-				if (e.key.keysym.sym == SDLK_m)
-					context.setMouseLock(!context.getMouseLocked());
-			}
+				camera.turn(-e.motion.xrel, -e.motion.yrel);
 			else if (e.type == SDL_MOUSEBUTTONDOWN)
 				instances[0]->playAnimation(1, false);
 		}
 
-		float speed = 0.01;
-		if (states[SDL_SCANCODE_LCTRL])
-			speed = 0.5;
+		if (input.pollCommand(MouseLock))
+			context.setMouseLock(!context.getMouseLocked());
 
-		if (states[SDL_SCANCODE_W])
-		{
-			camPos += glm::vec3(deltaT * speed) * camDir;
-			camUpdate = true;
-		}
-		else if (states[SDL_SCANCODE_S])
-		{
-			camPos -= glm::vec3(deltaT * speed) * camDir;
-			camUpdate = true;
-		}
-		else if (states[SDL_SCANCODE_A])
-		{
-			camPos += glm::vec3(deltaT * speed) * perpDir;
-			camUpdate = true;
-		}
-		else if (states[SDL_SCANCODE_D])
-		{
-			camPos -= glm::vec3(deltaT * speed) * perpDir;
-			camUpdate = true;
-		}
+		float speed = 0.015;
 
-		if (states[SDL_SCANCODE_SPACE])
-		{
-			for (unsigned int a = 0; a < instances.size(); a++)
-				instances[a]->playAnimation(0, true);
-		}
-		else
-		{
-			for (unsigned int a = 0; a < instances.size(); a++)
-				instances[a]->stopAnimation(0);
-		}
+		if (input.isCommandKeydown(WalkForward))
+			camera.flyStraight(deltaT * speed);
+		if (input.isCommandKeydown(WalkBackward))
+			camera.flyStraight(-deltaT * speed);
+		if (input.isCommandKeydown(WalkRight))
+			camera.flySideways(-deltaT * speed);
+		if (input.isCommandKeydown(WalkLeft))
+			camera.flySideways(deltaT * speed);
 
-		instances[0]->setNodeRotation(4, glm::quat(glm::vec3(pitch, yaw, 0)));
-		instances[0]->setDecal(2, 0);
-
-		test.updateAll(deltaT);
-
-		if (camUpdate)
-		{
-			camDir = glm::vec3(sin(yaw) * cos(pitch), sin(pitch), cos(yaw) * cos(pitch));
-			perpDir = glm::vec3(sin(yaw + 1.57) * cos(pitch), sin(pitch), cos(yaw + 1.57) * cos(pitch));
-			shaders.cameraUniforms.CameraView = glm::lookAt(camPos, camPos+camDir, glm::vec3(0, 1, 0));
-			shaders.cameraUniforms.CameraPosition = camPos;
-			shaders.cameraUniforms.CameraDirection = camDir;
-			shaders.updateCameraUBO();
-		}
+		testModel.updateAll(deltaT);
+		camera.render(&shaders);
 
 		context.select(); 
 		context.clear(0.2,0.2,0.2);
 
 		shaders.modelShader->use();
-		test.render(&shaders);
+		testModel.render(&shaders);
 		
 		context.swap();
 	}

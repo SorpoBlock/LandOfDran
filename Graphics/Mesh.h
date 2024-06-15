@@ -269,7 +269,7 @@ class Mesh
 
 	public:
 
-	//A slightler quicker version of calling performMeshBufferUpdates on every single instance
+	//A slightly quicker version of calling performMeshBufferUpdates on every single instance
 	void recompileInstances();
 
 	//Render all instances of this particular mesh

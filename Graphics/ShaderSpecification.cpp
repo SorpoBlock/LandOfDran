@@ -134,7 +134,7 @@ ShaderManager::ShaderManager()
 		error("Could not allocate uniform buffer object!");
 
 	glBindBuffer(GL_UNIFORM_BUFFER, cameraUBO);
-	glBufferData(GL_UNIFORM_BUFFER, 156, &cameraUniforms, GL_DYNAMIC_DRAW);
+	glBufferData(GL_UNIFORM_BUFFER, 220, &cameraUniforms, GL_DYNAMIC_DRAW);
 	glBindBuffer(GL_UNIFORM_BUFFER, 0);
 }
 
@@ -158,7 +158,7 @@ void ShaderManager::bind(Program* target)
 void ShaderManager::updateCameraUBO()
 {
 	glBindBuffer(GL_UNIFORM_BUFFER, cameraUBO);
-	glBufferData(GL_UNIFORM_BUFFER, 156, &cameraUniforms, GL_DYNAMIC_DRAW);
+	glBufferData(GL_UNIFORM_BUFFER, 220, &cameraUniforms, GL_DYNAMIC_DRAW);
 	glBindBuffer(GL_UNIFORM_BUFFER, 0);
 }
 

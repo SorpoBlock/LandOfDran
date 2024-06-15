@@ -26,16 +26,17 @@ struct BasicUniforms
 
 /*
 	Camera specific information for a uniform buffer object
-	Size: 156 bytes
+	Size: 208 bytes
 */
 struct CameraUniforms
 {
 	//Camera uniforms:
 	glm::mat4 CameraProjection = glm::mat4(1.0);		//16*4			0
 	glm::mat4 CameraView = glm::mat4(1.0);				//16*4			64
-	glm::vec3 CameraPosition = glm::vec3(0.0);			//16			128   vec3 is technically only 12 bytes, insert 4 bytes padding
+	glm::mat4 CameraAngle = glm::mat4(1.0);				//16*4			128
+	glm::vec3 CameraPosition = glm::vec3(0.0);			//16			192   vec3 is technically only 12 bytes, insert 4 bytes padding
 	float padding1 = 0;
-	glm::vec3 CameraDirection = glm::vec3(0, 0, 1);		//16			144   padding doesn't matter here cause ints have alignment of 4 bytes
+	glm::vec3 CameraDirection = glm::vec3(0, 0, 1);		//16			208   padding doesn't matter here cause ints have alignment of 4 bytes
 };
 
 /*
