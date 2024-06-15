@@ -7,6 +7,7 @@ in vec3 worldPos;
 in vec3 tangent;
 in vec3 bitangent;
 in vec3 normal;
+flat in int useDecal;
 
 layout (std140) uniform BasicUniforms
 {
@@ -23,7 +24,6 @@ layout (std140) uniform BasicUniforms
 	int useRoughness;
 	int useHeight;
 	int useAO;
-	int useDecal;
 };
 
 layout (std140) uniform CameraUniforms
@@ -31,11 +31,13 @@ layout (std140) uniform CameraUniforms
 	//Camera Uniforms:
 	mat4 CameraProjection;
 	mat4 CameraView;
+	mat4 CameraAngle;
 	vec3 CameraPosition;
 	vec3 CameraDirection;
 };
 
 uniform sampler2DArray PBRArray;
+uniform sampler2DArray DecalArray;
 
 //Start tutorial code
 //https://github.com/JoeyDeVries/LearnOpenGL/blob/master/src/6.pbr/1.2.lighting_textured/1.2.pbr.fs
@@ -54,7 +56,7 @@ vec3 getNormalFromMapGrad(vec2 realUV,vec2 dx,vec2 dy)
 	
 	mat3 TBN;
 
-	bool calcTBN = true;
+	/*bool calcTBN = false;
 	if(calcTBN)
 	{
 		//Honeslty don't even need this because assImp calcs TBN for us
@@ -67,7 +69,7 @@ vec3 getNormalFromMapGrad(vec2 realUV,vec2 dx,vec2 dy)
 		vec3 B  = -normalize(cross(N, T));
 		TBN = mat3(T,B,N);
 	}
-	else
+	else*/
 		TBN = mat3(
 			normalize(tangent),
 			normalize(bitangent),
@@ -124,29 +126,29 @@ vec3 fresnelSchlickRoughness(float cosTheta, vec3 F0, float roughness)
 uniform float test;
 
 void main()
-{	
+{		
 	vec2 dxuv = dFdx(uvs);
 	vec2 dyuv = dFdy(uvs);
 	vec3 viewVector = normalize(CameraPosition - worldPos);
-
+	
 	vec4 albedo_ = vec4(1,1,1,1);
 	if(useAlbedo != -1)
 		albedo_ = textureGrad(PBRArray,vec3(uvs,useAlbedo),dxuv,dyuv);
+		
+	if(useDecal != -1)
+	{
+		vec4 decalAlbedo = textureGrad(DecalArray,vec3(uvs,useDecal),dxuv,dyuv);
+		albedo_ = mix(albedo_,decalAlbedo,decalAlbedo.a);
+	}
 
 	float nonLinearAlbedoF = 1.0;											
 	vec3 albedo = pow(albedo_.rgb,vec3(1.0 + 1.2 * nonLinearAlbedoF));
 	
 	vec3 newNormal = getNormalFromMapGrad(uvs,dxuv,dyuv);
 	
-	color = vec4(albedo,1);
-	
 	vec3 mor = vec3(0,0,0.5);
 	
-	int morLayer = useMetalness;
-	if(morLayer == -1 && useRoughness != -1)
-		morLayer = useRoughness;
-	if(morLayer == -1 && useAO != -1)
-		morLayer = useAO;
+	int morLayer = max(max(useMetalness,useRoughness),useAO);
 		
 	if(morLayer != -1)
 		mor = textureGrad(PBRArray,vec3(uvs,morLayer),dxuv,dyuv).rgb;
@@ -154,13 +156,13 @@ void main()
 	if(useMetalness == -1)
 		mor.r = 0;
 	if(useAO == -1)
-		mor.g = 0;
+		mor.g = 1;
 	if(useRoughness == -1)
 		mor.b = 0.5;
 		
 	//Testing:
 	vec3 sunDirection = normalize(vec3(0.2,1,0.4));
-	vec3 sunColor = 5.0 * vec3(1,0.5,0.2);
+	vec3 sunColor = 15.0 * vec3(1,0.7,0.5);
 	//End testing
 	
 	float NdotV = max(dot(newNormal, viewVector), 0.0);	
@@ -187,7 +189,7 @@ void main()
 	//Tone maping
 	color.rgb = color.rgb / (color.rgb + vec3(1.0));
 	//Gamma correction
-	color.rgb = pow(color.rgb, vec3(1.0/2.2)); 
+	color.rgb = pow(color.rgb, vec3(1.0/2.2));
 }
 
 
