@@ -43,11 +43,23 @@ class Node;
 */
 struct Animation
 {
+	//Models are imported with 'one' node based animation by assimp
+	//These animation structs represent a 'slice' in time of the 'one' big animation
+
+	//What time in the model's animation reel does it start
 	float startTime = 0;
+	//What time in the model's animation reed does it end
 	float endTime = 0;
+	//Stacks with AnimationPlayback::animationSpeed
 	float defaultSpeed = 0.04;
+	//So the server can play animations by ID
 	int serverID = -1;
+	//I suppose if you were hard coding animations you could use this, but you shouldn't
 	std::string name = "";
+	//How fast do we interpolate from no transform to the first frames of the animation
+	float fadeInMS = 0;
+	//How fast do we interpolate from the last frames of the animation back to idle pose
+	float fadeOutMS = 0;
 };
 
 /*
@@ -120,11 +132,19 @@ class ModelInstance
 	std::vector<unsigned int>	MeshFlags;
 	std::vector<glm::vec4>		MeshColors;
 
-	//Were any of the above properties changed since last frame
-	//It's assumed any transform update would affect the entire model...
+	//Were any of the above properties changed since last frame:
+
+	/*
+		Used for node rotation fixes changes
+		And also set true briefly when animationsPlaying goes to 0...
+		...this gives us one frame where we set the transforms based on animationDefaultTime
+	*/
 	bool transformUpdated = true;
 
-	//If anything at all has been updated, any mesh's transform, flags, or colors, since last frame
+	//Not actually included in anything updated at the moment
+	bool wholeModelTransformUpdated = true;
+
+	//Does not include wholeModelTransform atm, does include flags, colors, and node rotation fixes
 	bool anythingUpdated = true;
 
 	//... while these are per-mesh
@@ -140,15 +160,20 @@ class ModelInstance
 	//Calculates what the transform of a given node for this instance should be taking animations into account
 	glm::mat4 calculateNodeTransform(Node const * const node);
 
+	//Set a flag or a custom color on a single mesh instance of the model instance
+	void setFlags(int meshId, unsigned int flags);
+
 	public:
 
 	//Change the position/scale/rotation for the whole model instance
 	void setModelTransform(glm::mat4 &&transform);
 	//For little tweaks like making a player's head swivel up and down based on where they look
 	void setNodeRotation(int nodeId,const glm::quat &rotation);
-	//Set a flag or a custom color on a single mesh instance of the model instance
-	void setFlags(int meshId,unsigned int flags);
 	void setColor(int meshId,glm::vec4 color);
+	//Applies a decal to an instance of a mesh on a model, pass -1 as decalId to remove
+	void setDecal(int meshId, int decalId);
+	//Calls setDecal with decalId = -1
+	void removeDecal(unsigned int meshId);
 
 	/*
 		Calculates the transform of each indivdual node based on things, see above
@@ -279,13 +304,15 @@ class Node
 	//Gets the pos and rot that should be contributed by that animation for that node
 	void getFrame(const AnimationPlayback & anim, glm::vec3& pos, glm::mat4& rot) const;
 	//Literally just gets a certain frame, if frame is out of bounds, rot and pos are unchanged
-	void getFrame(int frame, glm::vec3& pos, glm::mat4& rot) const;
+	void getFrame(float frame, glm::vec3& pos, glm::mat4& rot) const;
 
 	/*
 		The transform a node will have, if no animations are playing
 		Is overrided entirely if an animation is playing that affects that node
 	*/
 	glm::mat4 defaultTransform = glm::mat4(1.0);
+	glm::vec3 defaultPos = glm::vec3(0, 0, 0);
+	glm::quat defaultRot = glm::quat(1, 0, 0, 0); //From defaultTransform
 
 	//Leaves of the tree
 	std::vector<Mesh*> meshes;
@@ -322,6 +349,8 @@ class Model
 	friend class Mesh;
 	friend class Node;
 
+	std::vector<ModelInstance*> instances;
+
 	std::vector<Animation> animations;
 
 	//Every mesh the model has stored in a way that doesn't require recusion to access
@@ -336,6 +365,12 @@ class Model
 	//Entry point to recursive calculations
 	Node* rootNode = nullptr;
 
+	//Was at least one node an Assimp inserted rotation pivot node
+	bool rotationPivotsApplied = false;
+
+	//What frame of animation should be displayed for an instance when we're not playing any animations on it
+	float animationDefaultTime = 0;
+
 	public:
 
 	//Add another animation to this Model
@@ -345,7 +380,8 @@ class Model
 	void printHierarchy(Node * node = 0,int layer = 0) const;
 
 	//Calls recompileInstances on each mesh, or the equivlent of calling performMeshBufferUpdates on every instance of this model
-	void recompileAll();
+	//Also calculates every instances mesh transforms too
+	void updateAll(float deltaT);
 
 	/*
 		FBX models will be loaded 100x larger than they should be
@@ -353,8 +389,7 @@ class Model
 	*/
 	glm::vec3 baseScale = glm::vec3(1, 1, 1);
 
-	//What frame of animation should be displayed for an instance when we're not playing any animations on it
-	float animationDefaultTime = 0;
+	void setDefaultFrame(float time);
 
 	//Calls render on each mesh
 	void render(ShaderManager* graphics,bool useMaterials = true) const;

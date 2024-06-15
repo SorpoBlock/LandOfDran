@@ -4,12 +4,12 @@
 #include "Utility/SettingManager.h"
 #include "Utility/DefaultPreferences.h"
 #include "Utility/GlobalStartup.h"
-#include "Utility/ClientData.h"
 #include "Graphics/ShaderSpecification.h"
 #include "Graphics/Material.h"
 #include "Graphics/Mesh.h"
 #include <glm/gtx/transform.hpp>
 #include <glm/gtx/euler_angles.hpp>
+#include "Graphics/RenderContext.h"
  
 using namespace std;
 
@@ -21,7 +21,6 @@ int main(int argc, char* argv[])
 		Everything inside should be allocated and populated otherwise
 		Nothing should be removed or deallocated until program shutdown
 	*/
-	ClientData clientEnv;
 	
 	Logger::setErrorFile("Logs/error.txt");
 	Logger::setInfoFile("Logs/log.txt");
@@ -34,7 +33,6 @@ int main(int argc, char* argv[])
 	SettingManager preferences("Config/settings.txt");
 	populateDefaults(preferences);
 	preferences.exportToFile("Config/settings.txt");
-	clientEnv.preferences = &preferences;
 
 	Logger::setDebug(preferences.getBool("logger/verbose"));
 
@@ -43,14 +41,12 @@ int main(int argc, char* argv[])
 
 	//Create our program window
 	RenderContext context(preferences);
-	clientEnv.renderContext = &context;
 
 	TextureManager textures;
 	//Material grass("Assets/grass/grass.txt", &textures);
 	 
 	//Load all the shaders
 	ShaderManager shaders;
-	clientEnv.shaders = &shaders;
 	shaders.readShaderList("Shaders/shadersList.txt");
 
 	textures.allocateForDecals(128);
@@ -59,9 +55,8 @@ int main(int argc, char* argv[])
 	textures.finalizeDecals();
 
 	Model test("Assets/brickhead/brickhead.txt",&textures); 
-	test.printHierarchy();
 	test.baseScale = glm::vec3(0.01);
-	test.animationDefaultTime = 36;
+	test.setDefaultFrame(35);
 
 	Animation walk;
 	walk.defaultSpeed = 0.01;
@@ -69,6 +64,8 @@ int main(int argc, char* argv[])
 	walk.endTime = 30;
 	walk.serverID = 0;
 	walk.name = "walk";
+	walk.fadeInMS = 200;
+	walk.fadeOutMS = 400;
 	test.addAnimation(walk);
 
 	Animation grab;
@@ -77,18 +74,40 @@ int main(int argc, char* argv[])
 	grab.endTime = 66;
 	grab.serverID = 1;
 	grab.name = "grab";
+	grab.fadeInMS = 200;
+	grab.fadeOutMS = 400;
 	test.addAnimation(grab);
 
+	/*Model test("Assets/gun/gun.txt", &textures);
+	test.setDefaultFrame(25);
+
+	Animation fire;
+	fire.defaultSpeed = 0.01;
+	fire.startTime = 39;
+	fire.endTime = 86;
+	fire.serverID = 0;
+	fire.name = "fire";
+	test.addAnimation(fire);
+
+	Animation reload;
+	reload.defaultSpeed = 0.01;
+	reload.startTime = 1;
+	reload.endTime = 21;
+	reload.serverID = 1;
+	reload.name = "fire";
+	test.addAnimation(reload);*/
+
 	std::vector<ModelInstance*> instances;
-	for (unsigned int a = 0; a < 3; a++)
+	for (unsigned int a = 0; a < 10; a++)
 	{
-		for (unsigned int b = 0; b < 3; b++)
+		for (unsigned int b = 0; b < 10; b++)
 		{
-			for (unsigned int c = 0; c < 3; c++)
+			for (unsigned int c = 0; c < 10; c++)
 			{
 				ModelInstance* tester = new ModelInstance(&test);
 				instances.push_back(tester);
 				tester->setModelTransform(glm::translate(glm::vec3(a * 8, b * 8, c * 8)));
+				tester->update(0);
 			} 
 		}
 	} 
@@ -200,6 +219,10 @@ int main(int argc, char* argv[])
 				instances[a]->stopAnimation(0);
 		}
 
+		instances[0]->setNodeRotation(4, glm::quat(glm::vec3(pitch, yaw, 0)));
+		instances[0]->setDecal(2, 0);
+
+		test.updateAll(deltaT);
 
 		if (camUpdate)
 		{
@@ -210,12 +233,6 @@ int main(int argc, char* argv[])
 			shaders.cameraUniforms.CameraDirection = camDir;
 			shaders.updateCameraUBO();
 		}
-
-		instances[0]->setNodeRotation(4, glm::quat(glm::vec3(pitch,yaw,0)));
-		
-		for(unsigned int a = 0; a<instances.size(); a++)
-			instances[a]->calculateMeshTransforms(deltaT);
-		test.recompileAll();
 
 		context.select(); 
 		context.clear(0.2,0.2,0.2);

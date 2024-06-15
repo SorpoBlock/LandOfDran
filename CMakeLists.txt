@@ -36,7 +36,7 @@ add_executable (LandOfDran
 "Utility/DefaultPreferences.cpp" 
 "Utility/GlobalStartup.h" 
 "Utility/GlobalStartup.cpp"
-"Utility/ClientData.h" 
+ 
 "Graphics/RenderContext.h"
 "Graphics/RenderContext.cpp" 
 "Graphics/Shader.h" 

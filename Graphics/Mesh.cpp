@@ -66,6 +66,10 @@ void Model::printHierarchy(Node * node,int layer) const
 		std::cout << "\t";
 	std::cout << "--Scale: " << scale.x << ", " << scale.y << ", " << scale.z << "\n";
 
+	for (unsigned int a = 0; a < layer + 1; a++)
+		std::cout << "\t";
+	std::cout << "--Pivot: " << node->rotationPivot.x << "," << node->rotationPivot.y << "," << node->rotationPivot.z << "\n";
+
 	for (unsigned int a = 0; a < node->meshes.size(); a++)
 	{
 		for (unsigned int a = 0; a < layer+1; a++)
@@ -85,9 +89,10 @@ void Model::printHierarchy(Node * node,int layer) const
 
 void ModelInstance::setModelTransform(glm::mat4 &&transform)
 {
+	//Used to update transformUpdated and anythingUpdated, but now wholeModelTransform is exempt
+	//wholeModelTransform updates apply during any compile call
+	wholeModelTransformUpdated = true;
 	wholeModelTransform = transform;
-	transformUpdated = true;
-	anythingUpdated = true;
 }
 
 void ModelInstance::setNodeRotation(int nodeId,const glm::quat &rotation)
@@ -101,6 +106,7 @@ void ModelInstance::setNodeRotation(int nodeId,const glm::quat &rotation)
 
 	NodeRotationFixes[nodeId] = rotation;
 	UseNodeRotationFix[nodeId] = true;
+	transformUpdated = true;
 	anythingUpdated = true;
 }
 
@@ -138,15 +144,49 @@ void ModelInstance::update(float deltaT,bool debug)
 	performMeshBufferUpdates();
 }
 
-void Node::getFrame(int frame, glm::vec3& pos, glm::mat4& rot) const
+void Node::getFrame(float time, glm::vec3& pos, glm::mat4& rot) const
 {
-	if (frame < 0)
-		return;
+	//Get the key frame after and before our current time
+	for (unsigned int a = 1; a < posFrames.size(); a++)
+	{
+		//Find the first frame with a time greater than our own
+		if (posTimes[a] >= time)
+		{
+			pos += posFrames[a];
+			break;
+		}
+	}
 
-	if (frame < posFrames.size())
-		pos += posFrames[frame];
-	if (frame <= rotFrames.size())
-		rot = glm::toMat4(rotFrames[frame]) * rot;
+	//Get the key frame after and before our current time
+	for (unsigned int a = 1; a < rotFrames.size(); a++)
+	{
+		//Find the first frame with a time greater than our own
+		if (rotTimes[a] >= time)
+		{
+			rot = glm::toMat4(rotFrames[a]) * rot;
+			break;
+		}
+	}
+}
+
+void ModelInstance::setDecal(int meshId, int decalId)
+{
+	if (meshId < 0 || meshId >= MeshFlags.size())
+	{
+		scope("ModeInstance::setDecal");
+		error("Mesh index out of range.");
+		return;
+	}
+	unsigned int flagsExceptDecal = MeshFlags[meshId] & 4294705663;
+	unsigned int decalFlags = decalId == -1 ? 0 : (131072 + (decalId << 9));
+	MeshFlags[meshId] = flagsExceptDecal | decalFlags;
+	flagsUpdated[meshId] = true;
+	anythingUpdated = true;
+}
+
+void ModelInstance::removeDecal(unsigned int meshId)
+{
+	setDecal(meshId, -1);
 }
 
 void Node::getFrame(const AnimationPlayback& anim, glm::vec3& pos, glm::mat4& rot) const
@@ -193,7 +233,8 @@ void Node::getFrame(const AnimationPlayback& anim, glm::vec3& pos, glm::mat4& ro
 			float totalTimeBetween = nextTime - prevTime;
 			float timeProgress = anim.animationTime - prevTime;
 
-			rot = glm::toMat4(glm::slerp(glm::quat(1,0,0,0),glm::slerp(prevFrame, nextFrame, timeProgress / totalTimeBetween), anim.animationFadeOut)) * rot;
+			glm::quat animationRotation = glm::slerp(prevFrame, nextFrame, timeProgress / totalTimeBetween);
+			rot = glm::toMat4(glm::slerp(glm::quat(1,0,0,0), animationRotation, anim.animationFadeOut)) * rot;
 
 			break;
 		}
@@ -210,24 +251,24 @@ void ModelInstance::progressAnimations(float deltaT)
 		if (anim->animationEnding)
 		{
 			//Animation is truely over, remove it from this instance
-			if (anim->animationFadeOut <= 0)
+			if (anim->animationFadeOut <= 0 || anim->animation->fadeOutMS == 0)
 			{
 				iter = playingAnimations.erase(iter);
+				transformUpdated = true;
 				continue;
 			}
-
-			//IDK why but assume animation should fade out over 200ms ?
-			anim->animationFadeOut -= deltaT / 200.0;
+			else
+				anim->animationFadeOut -= deltaT / anim->animation->fadeOutMS;
 		}
 		else if (anim->animationStarting)
 		{
-			if (anim->animationFadeOut >= 1.0)
+			if (anim->animationFadeOut >= 1.0 || anim->animation->fadeInMS == 0)
 			{
 				anim->animationFadeOut = 1.0;
 				anim->animationStarting = false;
 			}
 			else
-				anim->animationFadeOut += deltaT / 400.0;
+				anim->animationFadeOut += deltaT / anim->animation->fadeInMS;
 		}
 
 		//Advance animation based on passed time
@@ -247,6 +288,22 @@ void ModelInstance::progressAnimations(float deltaT)
 		}
 
 		++iter;
+	}
+}
+
+void Model::setDefaultFrame(float time)
+{
+	for (unsigned int a = 0; a < allNodes.size(); a++)
+	{
+		if (allNodes[a]->posFrames.size() < 1 || allNodes[a]->rotFrames.size() < 1)
+			continue;
+
+		glm::vec3 pos = glm::vec3(0, 0, 0);
+		glm::mat4 rot = glm::mat4(1.0);
+		allNodes[a]->getFrame(time, pos, rot);
+		allNodes[a]->defaultTransform = rot * glm::translate(pos);
+		allNodes[a]->defaultRot = getRotationFromMatrix(rot);
+		allNodes[a]->defaultPos = pos;
 	}
 }
 
@@ -272,12 +329,15 @@ glm::mat4 ModelInstance::calculateNodeTransform(Node const * const node)
 		}
 		//There are animations but we aren't playing any, use default frame
 		else
-			node->getFrame(type->animationDefaultTime, pos, rot);
+		{
+			pos = node->defaultPos;
+			rot = glm::toMat4(node->defaultRot);
+		}
 
-		//if no rotation pivot fix
-		//ret = glm::translate(glm::mat4(1.0), pos) * rot;
-
-		ret = glm::translate(node->rotationPivot) * rot * glm::translate(-node->rotationPivot) * glm::translate(pos);
+		if(type->rotationPivotsApplied)
+			ret = glm::translate(node->rotationPivot) * rot * glm::translate(-node->rotationPivot) * glm::translate(pos);
+		else
+			ret = glm::translate(pos) * rot;
 	}
 
 	//Apply node rotation fixes, for example the tilt of a player's head when they look up or down
@@ -291,6 +351,11 @@ glm::mat4 ModelInstance::calculateNodeTransform(Node const * const node)
 
 void ModelInstance::calculateMeshTransforms(float deltaT,glm::mat4 currentTransform,Node const * currentNode,int debugLayer)
 {
+	//The only update was perhaps the entire model as a whole moving around
+	//This would be a change to wholeModelTransform which is applied right before sending to a GL buffer
+	if (playingAnimations.size() < 1 && !transformUpdated)
+		return;
+
 	if (!currentNode)
 	{
 		currentNode = type->rootNode;
@@ -311,7 +376,7 @@ void ModelInstance::calculateMeshTransforms(float deltaT,glm::mat4 currentTransf
 		if (currentNode->meshes[a]->nonRenderingMesh)
 			continue;
 
-		MeshTransforms[currentNode->meshes[a]->meshIndex] = wholeModelTransform * glm::scale(glm::mat4(1.0), type->baseScale) * currentTransform;
+		MeshTransforms[currentNode->meshes[a]->meshIndex] = glm::scale(type->baseScale) * currentTransform;
 
 		if (debugLayer != -1)
 		{
@@ -345,8 +410,9 @@ void ModelInstance::calculateMeshTransforms(float deltaT,glm::mat4 currentTransf
 
 void ModelInstance::performMeshBufferUpdates()
 {
-	if (!anythingUpdated)
+	if (!anythingUpdated && playingAnimations.size() < 0 && !wholeModelTransformUpdated)
 		return;
+	wholeModelTransformUpdated = false;
 
 	//Mesh by mesh, update what has changed since last call of this function
 	for (unsigned int a = 0; a < type->allMeshes.size(); a++)
@@ -354,10 +420,11 @@ void ModelInstance::performMeshBufferUpdates()
 		if (type->allMeshes[a]->nonRenderingMesh)
 			continue;
 
-		if (transformUpdated)
+		if (transformUpdated || playingAnimations.size() > 0)
 		{
+			glm::mat4 meshTransform = wholeModelTransform * MeshTransforms[a];
 			glBindBuffer(GL_ARRAY_BUFFER, type->allMeshes[a]->buffers[ModelTransform]);
-			glBufferSubData(GL_ARRAY_BUFFER, sizeof(glm::mat4) * bufferOffset, sizeof(glm::mat4), &MeshTransforms[a][0][0]);
+			glBufferSubData(GL_ARRAY_BUFFER, sizeof(glm::mat4) * bufferOffset, sizeof(glm::mat4), &meshTransform[0][0]);
 		}
 
 		if (flagsUpdated[a])
@@ -411,6 +478,7 @@ void ModelInstance::playAnimation(int id,bool loop)
 		{
 			playingAnimations[a].animationStarting = true;
 			playingAnimations[a].animationEnding = false;
+			playingAnimations[a].animationLooping = loop;
 			return;
 		}
 	}
@@ -561,8 +629,6 @@ Mesh::Mesh(aiMesh const* const src, Model const* const parent)
 		return;
 	}
 
-	std::cout << "Num faces: " << src->mNumFaces << "\n";
-
 	std::vector<unsigned short> indices;
 	for (unsigned int b = 0; b < src->mNumFaces; b++)
 	{
@@ -639,6 +705,9 @@ ModelInstance::ModelInstance(Model* _type)
 	//The offset should be the same for all meshes of a given model
 	bufferOffset = (unsigned int)type->allMeshes[0]->instances.size();
 	
+	//Used for Model::updateAll
+	type->instances.push_back(this);
+
 	//Add this instance to each of its Model's Meshes 
 	for (unsigned int a = 0; a < type->allMeshes.size(); a++)
 		type->allMeshes[a]->instances.push_back(this);
@@ -648,6 +717,15 @@ ModelInstance::~ModelInstance()
 {
 	if (!type)
 		return;
+
+	std::vector<ModelInstance*>::iterator pos = std::find(
+		type->instances.begin(),
+		type->instances.end(),
+		this
+	);
+
+	if (pos != type->instances.end()) //Shouldn't happen
+		type->instances.erase(pos);
 	
 	//Remove this instance from all of its Model's Meshes
 	for (unsigned int a = 0; a < type->allMeshes.size(); a++)
@@ -946,6 +1024,13 @@ Model::Model(std::string filePath,TextureManager * textures)
 			{
 				glm::vec3 pos(nodeAnim->mPositionKeys[b].mValue.x, nodeAnim->mPositionKeys[b].mValue.y, nodeAnim->mPositionKeys[b].mValue.z);
 
+				//TODO: Actually applying scaling keys and letting baseScale cancel it out would be the right way to do it
+				if (nodeAnim->mNumScalingKeys > b)
+				{
+					glm::vec3 scale(nodeAnim->mScalingKeys[b].mValue.x, nodeAnim->mScalingKeys[b].mValue.y, nodeAnim->mScalingKeys[b].mValue.z);
+					pos /= scale;
+				}
+
 				target->posFrames.push_back(pos);
 				target->posTimes.push_back(nodeAnim->mPositionKeys[b].mTime);
 			}
@@ -979,7 +1064,7 @@ void Mesh::recompileInstances()
 
 	for (unsigned int a = 0; a < instances.size(); a++)
 	{
-		transforms.push_back(instances[a]->MeshTransforms[meshIndex]);
+		transforms.push_back(instances[a]->wholeModelTransform * instances[a]->MeshTransforms[meshIndex]);
 		flags.push_back(instances[a]->MeshFlags[meshIndex]);
 		colors.push_back(instances[a]->MeshColors[meshIndex]);
 	}
@@ -994,8 +1079,10 @@ void Mesh::recompileInstances()
 	glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(glm::vec4) * colors.size(), &colors[0][0]);
 }
 
-void Model::recompileAll()
+void Model::updateAll(float deltaT)
 {
+	for (unsigned int a = 0; a < instances.size(); a++)
+		instances[a]->calculateMeshTransforms(deltaT);
 	for (unsigned int a = 0; a < allMeshes.size(); a++)
 		allMeshes[a]->recompileInstances();
 }
@@ -1027,6 +1114,7 @@ Node::Node(aiNode const* const src, Model * parent)
 
 	if (name.find("_RotationPivot") != std::string::npos)
 	{
+		parent->rotationPivotsApplied = true;
 		glm::mat4 to;
 		CopyaiMat(src->mTransformation, to);
 		rotationPivot = getTransformFromMatrix(to);
@@ -1058,6 +1146,7 @@ void Node::foldNodeInto(aiNode const* const src, Model* parent)
 	std::string tmpname = src->mName.C_Str();
 	if (tmpname.find("_RotationPivot") != std::string::npos)
 	{
+		parent->rotationPivotsApplied = true;
 		glm::mat4 to;
 		CopyaiMat(src->mTransformation, to);
 		rotationPivot = getTransformFromMatrix(to);

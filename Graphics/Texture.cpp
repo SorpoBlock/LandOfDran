@@ -667,6 +667,15 @@ void TextureManager::allocateForDecals(unsigned int dimensions, unsigned int max
 	decals->channels = 4;
 
 	allocateTexture(decals);
+
+	std::fill(lowDynamicRangeTextureScratchpad, lowDynamicRangeTextureScratchpad + decals->width * decals->height, 0);
+
+	glTexSubImage3D(decals->textureType, 0, 0, 0, 0, decals->width, decals->height, 1,
+		getTextureFormatEnum(decals->channels, false),
+		decals->isHDR ? GL_FLOAT : GL_UNSIGNED_BYTE,
+		lowDynamicRangeTextureScratchpad);
+
+	currentDecalCount++;
 }
 
 void TextureManager::addDecal(std::string filePath,int id)
@@ -784,4 +793,6 @@ void TextureManager::finalizeDecals()
 	glBindTexture(decals->textureType, 0);
 	
 	decals->bind(DecalArray);
+	//This line makes sure that the next texture op, including loading textures, won't unset our decals texture
+	glActiveTexture(GL_TEXTURE0);
 }

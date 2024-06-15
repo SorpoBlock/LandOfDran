@@ -190,6 +190,7 @@ class TextureManager
 
 	/*
 		Should be called after all decals for a given server have been loaded
+		AND after all programs you're going to use decals in have been loaded
 		Creates mip maps and binds the texture
 	*/
 	void finalizeDecals();
