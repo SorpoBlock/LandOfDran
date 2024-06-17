@@ -81,7 +81,11 @@ add_executable (LandOfDran
 "Interface/InputMap.cpp" 
 "Graphics/PlayerCamera.h" 
 "Graphics/PlayerCamera.cpp" 
-)
+
+ "Interface/UserInterface.cpp" 
+ "Interface/UserInterface.h" 
+ "Interface/SettingsMenu.h" 
+ "Interface/SettingsMenu.cpp")
 
 target_link_libraries(LandOfDran PRIVATE ZLIB::ZLIB)
 target_link_libraries(LandOfDran PRIVATE SDL2::SDL2 SDL2::SDL2main)

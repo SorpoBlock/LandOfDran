@@ -24,6 +24,8 @@
 #include "Utility/FileFunctions.h"
 #include "Graphics/GraphicsHelpers.h"
 #include <map>
+#include <stack>
+#include <memory>
 
 //Used in the titlebar for the window, and for making sure client and server version match in mutliplayer
 #define GAME_VERSION 20

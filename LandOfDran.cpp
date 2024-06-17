@@ -13,9 +13,9 @@
 #include "Interface/InputMap.h"
 #include "Graphics/PlayerCamera.h"
 
-#include "External/Imgui/imgui.h"
-#include "External/Imgui/imgui_impl_sdl2.h"
-#include "External/Imgui/imgui_impl_opengl3.h"
+#include "Interface/SettingsMenu.h"
+
+#include "Utility/UserInterfaceFunctions.h"
 
 using namespace std;
 
@@ -80,12 +80,12 @@ int main(int argc, char* argv[])
 	info("Opening preferences file");
 
 	//Import settings we have, set defaults for settings we don't, then export the file with any new default values
-	SettingManager preferences("Config/settings.txt");
+	auto preferences = std::make_shared<SettingManager>("Config/settings.txt");
 	populateDefaults(preferences);
-	InputMap input(&preferences); //This will also populate key-bind specific defaults
-	preferences.exportToFile("Config/settings.txt");
+	InputMap input(preferences); //This will also populate key-bind specific defaults
+	preferences->exportToFile("Config/settings.txt");
 
-	Logger::setDebug(preferences.getBool("logger/verbose"));
+	Logger::setDebug(preferences->getBool("logger/verbose"));
 
 	//Start SDL and other libraries
 	globalStartup(preferences);
@@ -93,26 +93,19 @@ int main(int argc, char* argv[])
 	//Create our program window
 	RenderContext context(preferences);
 
-	IMGUI_CHECKVERSION();
-	ImGui::CreateContext();
-	ImGuiIO& io = ImGui::GetIO();
-	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+	UserInterface gui;
+	gui.globalInterfaceTransparency = preferences->getFloat("gui/opacity");
 
-	ImGui::StyleColorsDark();
-
-	context.bindImGui();
-
-	//It's so weird that ImGui handles it this way lol
-	const char* glsl_version = "#version 330";
-	ImGui_ImplOpenGL3_Init(glsl_version);
+	auto settingsMenu = std::make_shared<SettingsMenu>(preferences);
+	gui.addWindow(settingsMenu);
 
 	//Load all the shaders
 	ShaderManager shaders;
 	shaders.readShaderList("Shaders/shadersList.txt");
 
 	Camera camera(context.getResolution().x / context.getResolution().y);
-	camera.mouseSensitivity = preferences.getFloat("input/mousesensitivity");
-	camera.invertMouse = preferences.getFloat("input/invertmousey");
+	camera.mouseSensitivity = preferences->getFloat("input/mousesensitivity");
+	camera.invertMouse = preferences->getFloat("input/invertmousey");
 
 	TextureManager textures;
 	//Material grass("Assets/grass/grass.txt", &textures);
@@ -165,11 +158,11 @@ int main(int argc, char* argv[])
 	test.addAnimation(reload);*/
 
 	std::vector<ModelInstance*> instances;
-	for (unsigned int a = 0; a < 10; a++)
+	for (unsigned int a = 0; a < 7; a++)
 	{
-		for (unsigned int b = 0; b < 10; b++)
+		for (unsigned int b = 0; b < 7; b++)
 		{
-			for (unsigned int c = 0; c < 10; c++)
+			for (unsigned int c = 0; c < 7; c++)
 			{
 				ModelInstance* tester = new ModelInstance(&testModel);
 				instances.push_back(tester);
@@ -213,11 +206,12 @@ int main(int argc, char* argv[])
 		bool camUpdate = false;
 		input.keystates = SDL_GetKeyboardState(NULL);
 
+		bool shouldSuppress = false;
+
 		SDL_Event e;
 		while (SDL_PollEvent(&e))
 		{
-			ImGui_ImplSDL2_ProcessEvent(&e);
-			input.supressed = !io.WantCaptureKeyboard;
+			shouldSuppress = gui.handleInput(e) || shouldSuppress;
 			input.handleInput(e);
 
 			if (e.type == SDL_QUIT)
@@ -239,8 +233,20 @@ int main(int argc, char* argv[])
 				instances[0]->playAnimation(1, false);
 		}
 
+		input.supressed = shouldSuppress;
+		if (context.getMouseLocked() && gui.shouldUnlockMouse())
+			context.setMouseLock(false);
+
+		if (input.pollCommand(CloseWindow))
+		{
+			gui.closeOneWindow();
+			if (!context.getMouseLocked() && !gui.getOpenWindowCount())
+				context.setMouseLock(true);
+		}
 		if (input.pollCommand(MouseLock))
 			context.setMouseLock(!context.getMouseLocked());
+		if (input.pollCommand(OptionsMenu))
+			settingsMenu->open();
 
 		float speed = 0.015;
 
@@ -262,12 +268,7 @@ int main(int argc, char* argv[])
 		shaders.modelShader->use();
 		testModel.render(&shaders);
 
-		DrawExampleWindow(io);
-		ImGui::Render();
-		glViewport(0, 0, (int)io.DisplaySize.x, (int)io.DisplaySize.y);
-		glClearColor(clear_color.x * clear_color.w, clear_color.y * clear_color.w, clear_color.z * clear_color.w, clear_color.w);
-		glClear(GL_COLOR_BUFFER_BIT);
-		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+		gui.render();
 
 		context.swap();
 

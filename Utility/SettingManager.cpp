@@ -1,32 +1,72 @@
 #include "SettingManager.h"
 
+/*
+	Used in DrawSettingsWindow in a loop to get names, types, and pointers for each preference
+	Returns true if there's still preferences, and false when the loop should end
+	prePath is the level of the preference hierarchy you want to parse at, which may be left blank
+*/
+PreferencePair *SettingManager::nextPreferenceBinding(std::string &path)
+{
+	//No nodes, settings not loaded yet, or at the end of the search
+	if (nodeSearchIndex >= allNodes.size())
+		return nullptr;
+
+	//Done with that particular node...
+	if (preferenceSearchIndex >= allNodes[nodeSearchIndex]->childPreferences.size())
+	{
+		nodeSearchIndex++;
+		preferenceSearchIndex = 0;
+	}
+
+	//..turns out that particular node was the last node
+	if (nodeSearchIndex >= allNodes.size())
+		return nullptr;
+
+	PreferencePair* ret = allNodes[nodeSearchIndex]->childPreferences[preferenceSearchIndex];
+	path = allNodes[nodeSearchIndex]->path;
+	preferenceSearchIndex++;
+	return ret;
+}
+
+void SettingManager::startPreferenceBindingSearch()
+{
+	preferenceSearchIndex = 0;
+	nodeSearchIndex = 0;
+}
+
 void SettingManager::addEnum(std::string path, int value,std::string desc,std::vector<std::string> &&names)
 {
 	PreferenceNode *target = createPathTo(path);
 
 	for (unsigned int a = 0; a < target->childPreferences.size(); a++)
 	{
-		if (target->childPreferences[a].name == path)
+		if (target->childPreferences[a]->name == path)
 		{
-			target->childPreferences[a].description = desc;
-			target->childPreferences[a].dropDownNames = std::move(names);
+			target->childPreferences[a]->description = desc;
+			target->childPreferences[a]->minValue = 0;
+			target->childPreferences[a]->maxValue = names.size();
+			target->childPreferences[a]->dropDownNames = std::move(names);
 			return;
 		}
 	}
 
-	target->childPreferences.emplace_back();
-	target->childPreferences.back().value = std::to_string(value);
-	target->childPreferences.back().type = PreferenceInteger;
-	target->childPreferences.back().name = path;
-	target->childPreferences.back().description = desc;
-	target->childPreferences.back().dropDownNames = std::move(names);
+	PreferencePair* tmp = new PreferencePair;
+	target->childPreferences.push_back(tmp);
+	tmp->value = std::to_string(value);
+	tmp->valueInt = value;
+	tmp->type = PreferenceInteger;
+	tmp->name = path;
+	tmp->description = desc;
+	tmp->minValue = 0;
+	tmp->maxValue = names.size();
+	tmp->dropDownNames = std::move(names);
 }
 
 PreferenceNode* SettingManager::createPathTo(std::string &path)
 {
 	//Why would this ever happen?
 	if (path.length() == 0)
-		return nullptr;
+		return &rootNode;
 
 	//Strip final slashes because you shouldn't put those in anyway
 	if (path[path.length() - 1] == '/')
@@ -44,9 +84,9 @@ PreferenceNode* SettingManager::createPathTo(std::string &path)
 		bool needNewNode = true;
 		for (unsigned int a = 0; a < currentNode->childNodes.size(); a++)
 		{
-			if (currentNode->childNodes[a].name == nextNodeName)
+			if (currentNode->childNodes[a]->name == nextNodeName)
 			{
-				currentNode = &currentNode->childNodes[a];
+				currentNode = currentNode->childNodes[a];
 				needNewNode = false;
 				break;
 			}
@@ -55,10 +95,13 @@ PreferenceNode* SettingManager::createPathTo(std::string &path)
 		//... it does not, create it
 		if(needNewNode)
 		{
-			currentNode->childNodes.emplace_back();
-			currentNode->childNodes.back().parent = currentNode;
-			currentNode->childNodes.back().name = nextNodeName;
-			currentNode = &currentNode->childNodes.back();
+			PreferenceNode* tmp = new PreferenceNode;
+			currentNode->childNodes.push_back(tmp);
+			tmp->parent = currentNode;
+			tmp->name = nextNodeName;
+			currentNode = currentNode->childNodes.back();
+			currentNode->path = path;
+			allNodes.push_back(currentNode);
 		}
 	}
 
@@ -66,26 +109,35 @@ PreferenceNode* SettingManager::createPathTo(std::string &path)
 	return currentNode;
 }
 
-void SettingManager::addInt(std::string path, int value,bool overwrite,std::string desc)
+void SettingManager::addInt(std::string path, int value,bool overwrite,std::string desc, float min, float max)
 {
 	PreferenceNode *target = createPathTo(path);
 
 	for (unsigned int a = 0; a < target->childPreferences.size(); a++)
 	{
-		if (target->childPreferences[a].name == path)
+		if (target->childPreferences[a]->name == path)
 		{
-			if(overwrite)
-				target->childPreferences[a].value = std::to_string(value);
-			target->childPreferences[a].description = desc;
+			if (overwrite)
+			{
+				target->childPreferences[a]->value = std::to_string(value);
+				target->childPreferences[a]->valueInt = value;
+			}
+			target->childPreferences[a]->description = desc;
+			target->childPreferences[a]->minValue = min;
+			target->childPreferences[a]->maxValue = max;
 			return;
 		}
 	}
 
-	target->childPreferences.emplace_back();
-	target->childPreferences.back().value = std::to_string(value);
-	target->childPreferences.back().type = PreferenceInteger;
-	target->childPreferences.back().name = path;
-	target->childPreferences.back().description = desc;
+	PreferencePair* tmp = new PreferencePair;
+	target->childPreferences.push_back(tmp);
+	tmp->value = std::to_string(value);
+	tmp->valueInt = value;
+	tmp->type = PreferenceInteger;
+	tmp->name = path;
+	tmp->description = desc;
+	tmp->minValue = min;
+	tmp->maxValue = max;
 }
 
 void SettingManager::addString(std::string path, std::string value, bool overwrite,std::string desc)
@@ -94,20 +146,21 @@ void SettingManager::addString(std::string path, std::string value, bool overwri
 
 	for (unsigned int a = 0; a < target->childPreferences.size(); a++)
 	{
-		if (target->childPreferences[a].name == path)
+		if (target->childPreferences[a]->name == path)
 		{
-			if(overwrite)
-				target->childPreferences[a].value = value;
-			target->childPreferences[a].description = desc;
+			if (overwrite)
+				target->childPreferences[a]->value = value;
+			target->childPreferences[a]->description = desc;
 			return;
 		}
 	}
 
-	target->childPreferences.emplace_back();
-	target->childPreferences.back().value = value;
-	target->childPreferences.back().type = PreferenceString;
-	target->childPreferences.back().name = path;
-	target->childPreferences.back().description = desc;
+	PreferencePair* tmp = new PreferencePair;
+	target->childPreferences.push_back(tmp);
+	tmp->value = value;
+	tmp->type = PreferenceString;
+	tmp->name = path;
+	tmp->description = desc;
 }
 
 void SettingManager::addBool(std::string path, bool value, bool overwrite,std::string desc)
@@ -116,42 +169,56 @@ void SettingManager::addBool(std::string path, bool value, bool overwrite,std::s
 
 	for (unsigned int a = 0; a < target->childPreferences.size(); a++)
 	{
-		if (target->childPreferences[a].name == path)
+		if (target->childPreferences[a]->name == path)
 		{
-			if(overwrite)
-				target->childPreferences[a].value = value ? "true" : "false";
-			target->childPreferences[a].description = desc;
+			if (overwrite)
+			{
+				target->childPreferences[a]->value = value ? "true" : "false";
+				target->childPreferences[a]->valueBool = value;
+			}
+			target->childPreferences[a]->description = desc;
 			return;
 		}
 	}
 
-	target->childPreferences.emplace_back();
-	target->childPreferences.back().value = value ? "true" : "false";
-	target->childPreferences.back().type = PreferenceBoolean;
-	target->childPreferences.back().name = path;
-	target->childPreferences.back().description = desc;
+	PreferencePair* tmp = new PreferencePair;
+	target->childPreferences.push_back(tmp);
+	tmp->value = value ? "true" : "false";
+	tmp->valueBool = value;
+	tmp->type = PreferenceBoolean;
+	tmp->name = path;
+	tmp->description = desc;
 }
 
-void SettingManager::addFloat(std::string path, float value, bool overwrite,std::string desc)
+void SettingManager::addFloat(std::string path, float value, bool overwrite,std::string desc, float min, float max)
 {
 	PreferenceNode* target = createPathTo(path);
 
 	for (unsigned int a = 0; a < target->childPreferences.size(); a++)
 	{
-		if (target->childPreferences[a].name == path)
+		if (target->childPreferences[a]->name == path)
 		{
-			if(overwrite)
-				target->childPreferences[a].value = std::to_string(value);
-			target->childPreferences[a].description = desc;
+			if (overwrite)
+			{
+				target->childPreferences[a]->value = std::to_string(value);
+				target->childPreferences[a]->valueFloat = value;
+			}
+			target->childPreferences[a]->description = desc;
+			target->childPreferences[a]->minValue = min;
+			target->childPreferences[a]->maxValue = max;
 			return;
 		}
 	}
 
-	target->childPreferences.emplace_back();
-	target->childPreferences.back().value = std::to_string(value);
-	target->childPreferences.back().type = PreferenceFloat;
-	target->childPreferences.back().name = path;
-	target->childPreferences.back().description = desc;
+	PreferencePair* tmp = new PreferencePair;
+	target->childPreferences.push_back(tmp);
+	tmp->value = std::to_string(value);
+	tmp->type = PreferenceFloat;
+	tmp->valueFloat = value;
+	tmp->name = path;
+	tmp->description = desc;
+	tmp->minValue = min;
+	tmp->maxValue = max;
 }
 
 float SettingManager::getFloat(std::string path) const
@@ -215,9 +282,9 @@ PreferencePair const* const SettingManager::getPreference(std::string path) cons
 
 		for (unsigned int a = 0; a < currentNode->childNodes.size(); a++)
 		{
-			if (currentNode->childNodes[a].name == nextNodeName)
+			if (currentNode->childNodes[a]->name == nextNodeName)
 			{
-				currentNode = &currentNode->childNodes[a];
+				currentNode = currentNode->childNodes[a];
 				foundChildNode = true;
 				break;
 			}
@@ -236,9 +303,9 @@ PreferencePair const* const SettingManager::getPreference(std::string path) cons
 
 	for (unsigned int a = 0; a < currentNode->childPreferences.size(); a++)
 	{
-		if (currentNode->childPreferences[a].name == path)
+		if (currentNode->childPreferences[a]->name == path)
 		{
-			return &currentNode->childPreferences[a];
+			return currentNode->childPreferences[a];
 		}
 	}
 
@@ -269,30 +336,86 @@ void PreferenceNode::readFromLine(std::string &line,int lineNumber,PreferenceNod
 		return;
 	}
 
-	if (line.length() - tabAfterType < 1)
+	size_t tabAfterValue = line.find("\t", tabAfterType + 1);
+	if (tabAfterValue == std::string::npos)
 	{
-		error("Missing value for parameter on line " + std::to_string(lineNumber));
+		error("Missing value parameter on line " + std::to_string(lineNumber));
+		return;
+	}
+
+	if (line.length() - tabAfterValue < 1)
+	{
+		error("Missing value for metadata on line " + std::to_string(lineNumber));
 		return;
 	}
 
 	//Convert to lowercase
 	std::string name = lowercase(line.substr(0, tabAfterName));
 	std::string type = lowercase(line.substr(tabAfterName + 1, tabAfterType - (tabAfterName + 1)));
-	std::string value = line.substr(tabAfterType + 1, line.length() - (tabAfterType + 1));
+	std::string value = lowercase(line.substr(tabAfterType + 1, tabAfterValue - (tabAfterType + 1)));
+	std::string meta = line.substr(tabAfterValue + 1, line.length() - (tabAfterValue + 1));
 
 	//Add the preference
-	currentNode->childPreferences.emplace_back();
-	PreferencePair* pair = &currentNode->childPreferences.back();
+	PreferencePair* pair = new PreferencePair;
+	currentNode->childPreferences.push_back(pair);
 
 	//Make sure type makes sense
 	if (type == "boolean")
+	{
 		pair->type = PreferenceBoolean;
+		pair->description = meta;
+	}
 	else if (type == "float")
+	{
 		pair->type = PreferenceFloat;
+
+		size_t tabAfterDesc = meta.find("\t");
+		if (tabAfterDesc == std::string::npos)
+		{
+			error("Missing min value metadata on line " + std::to_string(lineNumber));
+			return;
+		}
+
+		size_t tabAfterMin = meta.find("\t", tabAfterDesc + 1);
+		if (tabAfterValue == std::string::npos)
+		{
+			error("Missing max value metadata on line " + std::to_string(lineNumber));
+			return;
+		}
+
+		pair->description = meta.substr(0, tabAfterDesc);
+		pair->minValue = atof(meta.substr(tabAfterDesc + 1, tabAfterMin - (tabAfterDesc + 1)).c_str());
+		pair->maxValue = atof(meta.substr(tabAfterMin + 1, meta.length() - (tabAfterMin + 1)).c_str());
+		std::cout << meta << "-" << pair->minValue << "-" << pair->maxValue << "\n";
+	}
 	else if (type == "string")
+	{
 		pair->type = PreferenceString;
+		pair->description = meta;
+	}
 	else if (type == "integer")
+	{
 		pair->type = PreferenceInteger;
+
+		size_t tabAfterDesc = meta.find("\t");
+		if (tabAfterDesc == std::string::npos)
+		{
+			error("Missing min value metadata on line " + std::to_string(lineNumber));
+			return;
+		}
+
+		size_t tabAfterMin = meta.find("\t", tabAfterDesc + 1);
+		if (tabAfterValue == std::string::npos)
+		{
+			error("Missing max value metadata on line " + std::to_string(lineNumber));
+			return;
+		}
+
+		pair->description = meta.substr(0, tabAfterDesc);
+		pair->minValue = atof(meta.substr(tabAfterDesc + 1, tabAfterMin - (tabAfterDesc + 1)).c_str());
+		pair->maxValue = atof(meta.substr(tabAfterMin + 1, meta.length() - (tabAfterMin + 1)).c_str());
+		std::cout << meta << "-" << pair->minValue << "-" << pair->maxValue << "\n";
+	}
 	else
 	{
 		error("Invalid type " + type + " of line " + std::to_string(lineNumber));
@@ -301,6 +424,12 @@ void PreferenceNode::readFromLine(std::string &line,int lineNumber,PreferenceNod
 
 	pair->name = name;
 	pair->value = value;
+	if (pair->type == PreferenceBoolean)
+		pair->valueBool = value == "true";
+	else if (pair->type == PreferenceFloat)
+		pair->valueFloat = atof(value.c_str());
+	else if (pair->type == PreferenceInteger)
+		pair->valueInt = atoi(value.c_str());
 }
 
 SettingManager::SettingManager(std::string path)
@@ -319,6 +448,8 @@ SettingManager::SettingManager(std::string path)
 	//Construct a tree by reading a text file
 	int lastNumberOfTabs = 0;
 	PreferenceNode* currentNode = &rootNode;
+
+	std::vector<std::string> pathStack;
 
 	std::string line = "";
 	int lineNumber = 0;
@@ -357,7 +488,8 @@ SettingManager::SettingManager(std::string path)
 			}
 
 			//Find whatever the last added node is and set that as the current node, before doing whatever
-			currentNode = &currentNode->childNodes.back();
+			currentNode = currentNode->childNodes.back();
+			pathStack.push_back(currentNode->name);
 		}
 		//We went back a few levels of identation, go back down the tree
 		else if (currentNumberOfTabs < lastNumberOfTabs)
@@ -373,6 +505,7 @@ SettingManager::SettingManager(std::string path)
 				}
 
 				currentNode = currentNode->parent;
+				pathStack.pop_back();
 			}
 		}
 
@@ -387,9 +520,15 @@ SettingManager::SettingManager(std::string path)
 				return;
 			}
 
-			currentNode->childNodes.emplace_back();
-			currentNode->childNodes.back().parent = currentNode;
-			currentNode->childNodes.back().name = lowercase(nodeName);
+			PreferenceNode* tmp = new PreferenceNode;
+			allNodes.push_back(tmp);
+			currentNode->childNodes.push_back(tmp);
+
+			tmp->parent = currentNode;
+			tmp->name = lowercase(nodeName);
+			for (unsigned int a = 0; a < pathStack.size(); a++)
+				tmp->path += pathStack[a] + "/";
+			tmp->path += tmp->name;
 		}
 		//Extra fields, must be an actual setting
 		else
@@ -399,6 +538,11 @@ SettingManager::SettingManager(std::string path)
 		}
 
 		lastNumberOfTabs = currentNumberOfTabs;
+	}
+
+	for (unsigned int a = 0; a < allNodes.size(); a++)
+	{
+		std::cout << allNodes[a]->name << "\n";
 	}
 
 	debug("Read " + std::to_string(readPrefs) + " prefs from " + std::to_string(lineNumber) + " lines");
@@ -430,8 +574,8 @@ void PreferenceNode::writeToFile(std::ofstream& file,int level) const
 		//All of this is one line
 		for (int i = 0; i < level; i++)
 			file << "\t";
-		file << childPreferences[i].name << "\t";
-		switch (childPreferences[i].type)
+		file << childPreferences[i]->name << "\t";
+		switch (childPreferences[i]->type)
 		{
 			case PreferenceBoolean:
 				file << "boolean\t";
@@ -446,16 +590,52 @@ void PreferenceNode::writeToFile(std::ofstream& file,int level) const
 				file << "string\t";
 				break;
 		}
-		file << childPreferences[i].value << "\n";
+		file << childPreferences[i]->value<<"\t";
+		//Why tf did I set up my file this way lol
+		switch (childPreferences[i]->type)
+		{
+			case PreferenceBoolean:
+				file << childPreferences[i]->description;
+				break;
+			case PreferenceFloat:
+				file << childPreferences[i]->description << "\t";
+				file << childPreferences[i]->minValue << "\t";
+				file << childPreferences[i]->maxValue;
+				break;
+			case PreferenceInteger:
+				file << childPreferences[i]->description<<"\t";
+				file << childPreferences[i]->minValue<<"\t";
+				file << childPreferences[i]->maxValue;
+				break;
+			case PreferenceString:
+				file << childPreferences[i]->description;
+				break;
+		}
+		file << "\n";
 	}
 
 	//Recursivly write child nodes:
 	for (unsigned int i = 0; i < childNodes.size(); i++)
-		childNodes[i].writeToFile(file, level+1);
+		childNodes[i]->writeToFile(file, level+1);
 }
 
 void SettingManager::exportToFile(std::string path) const
 {
+	//This loop exists in case someone changed the options in game
+	for (unsigned int a = 0; a < allNodes.size(); a++)
+	{
+		for (unsigned int b = 0; b < allNodes[a]->childPreferences.size(); b++)
+		{
+			PreferencePair *pref = allNodes[a]->childPreferences[b];
+			if (pref->type == PreferenceBoolean)
+				pref->value = pref->valueBool ? "true" : "false";
+			if (pref->type == PreferenceInteger)
+				pref->value = std::to_string(pref->valueInt);
+			if (pref->type == PreferenceFloat)
+				pref->value = std::to_string(pref->valueFloat);
+		}
+	}
+
 	std::filesystem::create_directories(std::filesystem::path(path.c_str()).parent_path());
 
 	std::ofstream file(path.c_str());

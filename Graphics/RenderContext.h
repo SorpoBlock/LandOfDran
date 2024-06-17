@@ -51,7 +51,7 @@ struct RenderContext
 		//Changes screen resolution
 		void setSize(unsigned int x, unsigned int y);
 
-		RenderContext(SettingManager& settings);
+		RenderContext(std::shared_ptr<SettingManager> settings);
 		~RenderContext();
 
 		//Calls ImGui_ImplSDL2_InitForOpenGL

@@ -57,28 +57,28 @@ void RenderContext::setSize(unsigned int x, unsigned int y)
 	height = y;
 }
 
-RenderContext::RenderContext(SettingManager & settings) 
+RenderContext::RenderContext(std::shared_ptr<SettingManager> settings) 
 	: context((SDL_GLContext)nullptr) // Exists to suppress warning, SDL_GL_CreateContext can return 0 anyway
 {
 	scope("RenderContext::RenderContext");
 
 	debug("Creating window");
 
-	width = settings.getInt("graphics/startresolutionx");
+	width = settings->getInt("graphics/startresolutionx");
 	if(width < 0 || width > 10000)
 	{
 		error("graphics/startresolutionx invalid value " + std::to_string(width));
 		return;
 	}
 
-	height = settings.getInt("graphics/startresolutiony");
+	height = settings->getInt("graphics/startresolutiony");
 	if(height < 0 || height > 10000)
 	{
 		error("graphics/startresolutiony invalid value " + std::to_string(height));
 		return;
 	}
 
-	int flag = settings.getBool("graphics/startfullscreen") ? SDL_WINDOW_FULLSCREEN : SDL_WINDOW_RESIZABLE;
+	int flag = settings->getBool("graphics/startfullscreen") ? SDL_WINDOW_FULLSCREEN : SDL_WINDOW_RESIZABLE;
 
 	int version = GAME_VERSION;
 	std::string windowName = "Land of Dran v" + std::to_string(version);
@@ -111,10 +111,10 @@ RenderContext::RenderContext(SettingManager & settings)
 		return;
 	}
 
-	if(SDL_GL_SetSwapInterval(settings.getBool("graphics/usevsync")) != 0)
+	if(SDL_GL_SetSwapInterval(settings->getBool("graphics/usevsync")) != 0)
 		error("SDL_GL_SetSwapInterval failed SDL_GetError: " + std::string(SDL_GetError()));
 
-	if (settings.getBool("graphics/debug"))
+	if (settings->getBool("graphics/debug"))
 	{
 		glEnable(GL_DEBUG_OUTPUT);
 		glDebugMessageCallback(MessageCallback, 0);
@@ -122,6 +122,8 @@ RenderContext::RenderContext(SettingManager & settings)
 
 	glEnable(GL_CULL_FACE);
 	glEnable(GL_DEPTH_TEST);
+
+	bindImGui();
 
 	valid = true;
 }

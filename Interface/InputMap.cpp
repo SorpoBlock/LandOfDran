@@ -11,6 +11,9 @@ std::string GetInputCommandString(InputCommand command)
         case WalkLeft: return "Walk Left";
         case WalkRight: return "Walk Right";
         case MouseLock: return "Toggle Mouse Lock";
+        case OptionsMenu: return "Open Settings";
+        case CloseWindow: return "Close a window";
+        default: return "Other error";
     }
 }
 
@@ -24,7 +27,7 @@ void InputMap::resetKeyStates()
     }
 }
 
-InputMap::InputMap(SettingManager * settings)
+InputMap::InputMap(std::shared_ptr<SettingManager> settings)
 {
     if (settings)
     {
@@ -35,7 +38,7 @@ InputMap::InputMap(SettingManager * settings)
             if (!pref)
                 continue;
 
-            keyForCommand[a] = (SDL_Scancode)atoi(pref->value.c_str());
+            keyForCommand[a] = (SDL_Scancode)settings->getInt("keybinds/" + std::to_string(a));
         }
 
         //Default key bindings here:
@@ -45,6 +48,8 @@ InputMap::InputMap(SettingManager * settings)
         bindKey(WalkRight, SDL_SCANCODE_D);
         bindKey(WalkLeft, SDL_SCANCODE_A);
         bindKey(MouseLock, SDL_SCANCODE_M);
+        bindKey(OptionsMenu, SDL_SCANCODE_O);
+        bindKey(CloseWindow, SDL_SCANCODE_ESCAPE);
 
         for (unsigned int a = 1; a < InputCommand::EndOfCommands; a++)
             settings->addInt("keybinds/" + std::to_string(a), keyForCommand[a]);

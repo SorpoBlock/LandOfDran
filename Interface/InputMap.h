@@ -14,7 +14,9 @@ enum InputCommand
 	WalkLeft = 3,
 	WalkRight = 4,
 	MouseLock = 5,
-    EndOfCommands = 6
+    OptionsMenu = 6,
+    CloseWindow = 7,
+    EndOfCommands = 8
 };
 
 //For user interface
@@ -60,5 +62,5 @@ class InputMap
     void resetKeyStates();
 
     //Loads key binds from a preference file if one is given
-    InputMap(SettingManager* settings);
+    InputMap(std::shared_ptr<SettingManager> settings);
 };

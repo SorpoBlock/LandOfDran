@@ -14,12 +14,25 @@ enum PreferenceType
 };
 
 class SettingManager;
+struct PreferenceNode;
 
 /*
 	Value key pair that stores a preference
 */
 struct PreferencePair
 {
+	friend struct PreferenceNode;
+	friend class SettingManager;
+
+	//Only used in DrawSettingsWindow, transfers to string value upon export
+	int valueInt = 0;
+	//Only used in DrawSettingsWindow, transfers to string value upon export
+	float valueFloat = 0;
+	//Only used in DrawSettingsWindow, transfers to string value upon export
+	bool valueBool = false;
+	//Only used in DrawSettingsWindow, both floats and ints
+	float maxValue = 0, minValue = 100;
+
 	//What kind of value should the string be converted to
 	PreferenceType type = PreferenceString;
 	//The setting this value represents, case insensitive
@@ -49,10 +62,12 @@ struct PreferenceNode
 	PreferenceNode* parent = nullptr;
 	//The name of this node in the tree
 	std::string name = "";
+	//Full path including name
+	std::string path = "";
 	//Lower level branches of the tree
-	std::vector<PreferenceNode> childNodes;
+	std::vector<PreferenceNode*> childNodes;
 	//Leaves of the tree
-	std::vector<PreferencePair> childPreferences;
+	std::vector<PreferencePair*> childPreferences;
 
 	private:
 		//For recursive writing, level determines how many tabs to start line with
@@ -76,7 +91,27 @@ class SettingManager
 		//Writes a warning to users to be careful of editing preference files manually
 		static void writePreferenceWarningToFile(std::ofstream& file);
 
+		//Used in nextPreferenceBinding cleared in startPreferenceBindingSearch
+		int preferenceSearchIndex = 0;
+		//Used in nextPreferenceBinding cleared in startPreferenceBindingSearch
+		int nodeSearchIndex = 0;
+
+		//So we can do non-recursive searches
+		std::vector<PreferenceNode*> allNodes;
+
 	public:
+
+		/*
+			Call startPreferenceBindingSearch once first, then call this in a loop
+			Returns a pointer to the data held in a preference, or nullptr when the loop should end
+			Name and type describe the preference whose value pointer is being returned
+			Path does not include name
+		*/
+		PreferencePair *nextPreferenceBinding(std::string& path);
+
+		//Call one between looping through nextPreferenceBinding
+		void startPreferenceBindingSearch();
+
 		//Load the settings/preferences from a text file
 		SettingManager(std::string path);
 
@@ -130,7 +165,7 @@ class SettingManager
 		PreferenceNode *createPathTo(std::string &path);
 
 		//Creates a preference, will create nodes along the way if needed
-		void addInt(std::string path, int value, bool override = true,std::string desc = "");
+		void addInt(std::string path, int value, bool override = true,std::string desc = "",float min=0,float max=100);
 
 		//Creates a preference, will create nodes along the way if needed
 		void addString(std::string path, std::string value, bool override = true,std::string desc = "");
@@ -139,7 +174,7 @@ class SettingManager
 		void addBool(std::string path, bool value, bool override = true,std::string desc = "");
 
 		//Creates a preference, will create nodes along the way if needed
-		void addFloat(std::string path, float value,bool override = true,std::string desc = "");
+		void addFloat(std::string path, float value,bool override = true,std::string desc = "", float min = 0, float max = 100);
 
 		//Returns any preference as a string, or "" if no preference exists at that path
 		std::string operator[] (std::string path) const;
