@@ -107,17 +107,19 @@ int main(int argc, char* argv[])
 	camera.mouseSensitivity = preferences->getFloat("input/mousesensitivity");
 	camera.invertMouse = preferences->getFloat("input/invertmousey");
 
+	//A few test decals
 	TextureManager textures;
-	//Material grass("Assets/grass/grass.txt", &textures);
 	textures.allocateForDecals(128);
 	textures.addDecal("Assets/animan.png", 0);
 	textures.addDecal("Assets/ascii-terror.png", 1);
 	textures.finalizeDecals();
 
+	//Test model
 	Model testModel("Assets/brickhead/brickhead.txt",&textures); 
 	testModel.baseScale = glm::vec3(0.01);
 	testModel.setDefaultFrame(35);
 
+	//Test animations
 	Animation walk;
 	walk.defaultSpeed = 0.01;
 	walk.startTime = 0;
@@ -138,6 +140,7 @@ int main(int argc, char* argv[])
 	grab.fadeOutMS = 400;
 	testModel.addAnimation(grab);
 
+	//Alternative test model and animations
 	/*Model test("Assets/gun/gun.txt", &textures);
 	test.setDefaultFrame(25);
 
@@ -157,6 +160,7 @@ int main(int argc, char* argv[])
 	reload.name = "fire";
 	test.addAnimation(reload);*/
 
+	//Spawn in a ton of instances of the test model
 	std::vector<ModelInstance*> instances;
 	for (unsigned int a = 0; a < 7; a++)
 	{
@@ -172,42 +176,23 @@ int main(int argc, char* argv[])
 		}
 	} 
 
-	//grass.use(&shaders);
-	shaders.modelShader->registerUniformFloat("test", true, 0.5);
-
-	GLuint vao = createQuadVAO();
-
 	float angle = 0.0;
 	float lastTicks = SDL_GetTicks();
-	unsigned int frames = 0;
-	unsigned int lastFPScheck = SDL_GetTicks();
-
-	bool whichToUse = false;
-	bool asdf = false;
 
 	bool doMainLoop = true;
 	while (doMainLoop)
 	{
-		frames++;
-		if (SDL_GetTicks() > lastFPScheck + 5000)
-		{
-			info(std::to_string(frames / 5) + " fps");
-			lastFPScheck = SDL_GetTicks();
-			frames = 0;
-			whichToUse = !whichToUse;
-			if (!whichToUse)
-				asdf = !asdf;
-		}
-
 		float deltaT = ((float)SDL_GetTicks()) - lastTicks;
 		lastTicks = SDL_GetTicks();
 		angle += deltaT * 0.001;
 
-		bool camUpdate = false;
 		input.keystates = SDL_GetKeyboardState(NULL);
 
+		//TODO: This is used for making sure no call to gui.handleInput wants to suppress
+		//but really you should only have to call a function once to get this
 		bool shouldSuppress = false;
 
+		//Event loop, mostly just passing stuff to InputMap (in-game controls) and UserInterface (gui controls)
 		SDL_Event e;
 		while (SDL_PollEvent(&e))
 		{
@@ -233,10 +218,14 @@ int main(int argc, char* argv[])
 				instances[0]->playAnimation(1, false);
 		}
 
+		//Interacting with gui, don't move around in-game
 		input.supressed = shouldSuppress;
+
+		//Windows are open, let mouse move around
 		if (context.getMouseLocked() && gui.shouldUnlockMouse())
 			context.setMouseLock(false);
 
+		//Various keys were pressed that were bound to certain commands:
 		if (input.pollCommand(CloseWindow))
 		{
 			gui.closeOneWindow();
@@ -248,6 +237,7 @@ int main(int argc, char* argv[])
 		if (input.pollCommand(OptionsMenu))
 			settingsMenu->open();
 
+		//Test camera controls, no-clip camera
 		float speed = 0.015;
 
 		if (input.isCommandKeydown(WalkForward))
@@ -259,6 +249,7 @@ int main(int argc, char* argv[])
 		if (input.isCommandKeydown(WalkLeft))
 			camera.flySideways(deltaT * speed);
 
+		//Start rendering to screen:
 		testModel.updateAll(deltaT);
 		camera.render(&shaders);
 
@@ -271,8 +262,6 @@ int main(int argc, char* argv[])
 		gui.render();
 
 		context.swap();
-
-		glEnable(GL_DEPTH_TEST);
 	}
 
 	globalShutdown();
