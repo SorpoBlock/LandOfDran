@@ -3,6 +3,10 @@
 #include "../LandOfDran.h"
 #include "../Utility/SettingManager.h"
 
+#include "../External/Imgui/imgui.h"
+#include "../External/Imgui/imgui_impl_sdl2.h"
+#include "../External/Imgui/imgui_impl_opengl3.h"
+
 struct RenderContext
 {
 	private:
@@ -49,4 +53,7 @@ struct RenderContext
 
 		RenderContext(SettingManager& settings);
 		~RenderContext();
+
+		//Calls ImGui_ImplSDL2_InitForOpenGL
+		bool bindImGui() const;
 };

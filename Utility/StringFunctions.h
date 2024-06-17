@@ -2,6 +2,10 @@
 
 #include "../LandOfDran.h"
 
+
+//Used for taking the result of a sha256 has and turning it into a string in hexidecimal 
+std::string GetHexRepresentation(const unsigned char* Bytes, size_t Length);
+
 /*
 	Returns a lowercase version of a string
 	stripOtherChars will remove non alpha-numeric characters

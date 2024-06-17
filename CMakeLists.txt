@@ -36,15 +36,36 @@ add_executable (LandOfDran
 "Utility/DefaultPreferences.cpp" 
 "Utility/GlobalStartup.h" 
 "Utility/GlobalStartup.cpp"
+"Utility/FileFunctions.h" 
+"Utility/FileFunctions.cpp"
+#"Utility/UserInterfaceFunctions.h" 
+#"Utility/UserInterfaceFunctions.cpp"
+
+"External/CRC.h" 
+"External/stb_image.h" 
+
+"External/Imgui/imgui.h"
+"External/Imgui/imgui.cpp"
+"External/Imgui/imgui_impl_opengl3.cpp"
+"External/Imgui/imgui_impl_opengl3.h"
+"External/Imgui/imgui_impl_sdl2.cpp"
+"External/Imgui/imgui_impl_sdl2.h"
+"External/Imgui/imgui_stdlib.cpp"
+"External/Imgui/imgui_stdlib.h"
+"External/Imgui/imgui_tables.cpp"
+"External/Imgui/imgui_widgets.cpp"
+"External/Imgui/imstb_rectpack.h"
+"External/Imgui/imstb_textedit.h"
+"External/Imgui/imstb_truetype.h"
+"External/Imgui/imgui_internal.h"
+"External/Imgui/imgui_draw.cpp"
+#"External/Imgui/imconfig.h"
  
 "Graphics/RenderContext.h"
 "Graphics/RenderContext.cpp" 
 "Graphics/Shader.h" 
 "Graphics/Shader.cpp" 
 "Graphics/Program.h"  
-"Utility/FileFunctions.h" 
-"Utility/FileFunctions.cpp"
-"External/CRC.h" 
 "Graphics/Program.cpp"  
 "Graphics/ShaderSpecification.h" 
 "Graphics/ShaderSpecification.cpp" 
@@ -52,7 +73,15 @@ add_executable (LandOfDran
 "Graphics/GraphicsHelpers.cpp" 
 "Graphics/Texture.h" 
 "Graphics/Texture.cpp"
-"External/stb_image.h" "Graphics/Material.h" "Graphics/Material.cpp" "Graphics/Mesh.h" "Graphics/Mesh.cpp" "Interface/InputMap.h"  "Interface/InputMap.cpp" "Graphics/PlayerCamera.h" "Graphics/PlayerCamera.cpp")
+"Graphics/Material.h" 
+"Graphics/Material.cpp" 
+"Graphics/Mesh.h" 
+"Graphics/Mesh.cpp" 
+"Interface/InputMap.h"  
+"Interface/InputMap.cpp" 
+"Graphics/PlayerCamera.h" 
+"Graphics/PlayerCamera.cpp" 
+)
 
 target_link_libraries(LandOfDran PRIVATE ZLIB::ZLIB)
 target_link_libraries(LandOfDran PRIVATE SDL2::SDL2 SDL2::SDL2main)
@@ -68,3 +97,4 @@ if (CMAKE_VERSION VERSION_GREATER 3.12)
 endif()
 
 # TODO: Add tests and install targets if needed.
+

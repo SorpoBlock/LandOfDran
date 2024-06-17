@@ -1,5 +1,16 @@
 #include "StringFunctions.h"
 
+std::string GetHexRepresentation(const unsigned char* Bytes, size_t Length)
+{
+    std::ostringstream os;
+    os.fill('0');
+    os << std::hex;
+    for (const unsigned char* ptr = Bytes; ptr < Bytes + Length; ++ptr) {
+        os << std::setw(2) << (unsigned int)*ptr;
+    }
+    return os.str();
+}
+
 std::string lowercase(std::string in,bool stripOtherChars)
 {
     std::string ret = "";

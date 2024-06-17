@@ -1,5 +1,10 @@
 #include "RenderContext.h"
 
+bool RenderContext::bindImGui() const
+{
+	return ImGui_ImplSDL2_InitForOpenGL(window, context);
+}
+
 //OpenGL callback function
 void GLAPIENTRY MessageCallback(GLenum source,
 	GLenum type,
