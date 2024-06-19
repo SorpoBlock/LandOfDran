@@ -1,5 +1,10 @@
 #include "UserInterface.h"
 
+bool UserInterface::wantsSuppression() const
+{
+	return io->WantCaptureKeyboard;
+}
+
 //If mouselock should be forced on
 bool UserInterface::shouldUnlockMouse()
 {
@@ -35,13 +40,21 @@ void Window::open()
 
 void UserInterface::addWindow(std::shared_ptr<Window> window)
 {
+	window->userInterface = this;
 	windows.push_back(window);
 }
 
-bool UserInterface::handleInput(SDL_Event& e)
+void UserInterface::handleInput(SDL_Event& e)
 {
 	ImGui_ImplSDL2_ProcessEvent(&e);
-	return io->WantCaptureKeyboard;
+}
+
+std::shared_ptr<Window> UserInterface::getWindowByName(std::string name)
+{
+	for (unsigned int a = 0; a < windows.size(); a++)
+		if (windows[a]->name == name)
+			return windows[a];
+	return nullptr;
 }
 
 void UserInterface::initAll()

@@ -11,8 +11,8 @@ std::string GetInputCommandString(InputCommand command)
         case WalkLeft: return "Walk Left";
         case WalkRight: return "Walk Right";
         case MouseLock: return "Toggle Mouse Lock";
-        case OptionsMenu: return "Open Settings";
-        case CloseWindow: return "Close a window";
+        case OpenOptionsMenu: return "Open Settings";
+        case OpenDebugWindow: return "Open Debug Window";
         default: return "Other error";
     }
 }
@@ -25,6 +25,12 @@ void InputMap::resetKeyStates()
         keyToProcess[a] = false;
         keyPressed[a] = false;
     }
+}
+
+void InputMap::setPreferences(std::shared_ptr<SettingManager> settings)
+{
+    for (unsigned int a = 1; a < InputCommand::EndOfCommands; a++)
+        settings->addInt("keybinds/" + std::to_string(a), keyForCommand[a]);
 }
 
 InputMap::InputMap(std::shared_ptr<SettingManager> settings)
@@ -48,14 +54,21 @@ InputMap::InputMap(std::shared_ptr<SettingManager> settings)
         bindKey(WalkRight, SDL_SCANCODE_D);
         bindKey(WalkLeft, SDL_SCANCODE_A);
         bindKey(MouseLock, SDL_SCANCODE_M);
-        bindKey(OptionsMenu, SDL_SCANCODE_O);
-        bindKey(CloseWindow, SDL_SCANCODE_ESCAPE);
+        bindKey(OpenOptionsMenu, SDL_SCANCODE_O);
+        bindKey(OpenDebugWindow, SDL_SCANCODE_GRAVE);
 
         for (unsigned int a = 1; a < InputCommand::EndOfCommands; a++)
             settings->addInt("keybinds/" + std::to_string(a), keyForCommand[a]);
     }
 
     resetKeyStates();
+}
+
+SDL_Scancode InputMap::getKeyBind(InputCommand command) const
+{
+    if (command == NoCommand || command == InputCommand::EndOfCommands)
+        return SDL_NUM_SCANCODES;
+    return keyForCommand[command];
 }
 
 void InputMap::bindKey(InputCommand command, SDL_Scancode key)

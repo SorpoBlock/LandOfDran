@@ -49,5 +49,9 @@ class Camera
 	//Call when screen size changed
 	void setAspectRatio(float ratio);
 
+	glm::vec3 getPosition();
+
+	glm::vec3 getDirection();
+
 	Camera(float _aspectRatio = 1.0, float _fieldOfVision = 90.0, float _nearPlane = 0.5, float _farPlane = 1000.0);
 };

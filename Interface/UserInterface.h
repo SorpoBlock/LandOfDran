@@ -32,6 +32,8 @@ class Window
 	//Is window currently open and being rendered
 	bool opened = false;
 
+	UserInterface* userInterface = nullptr;
+
 	public:
 
 	//Opens the window if it was closed
@@ -51,6 +53,8 @@ class UserInterface
 	
 	public:
 
+	bool wantsSuppression() const;
+
 	//Opacity/Transparency for all windows unless they stack or something
 	float globalInterfaceTransparency = 1.0;
 
@@ -61,7 +65,7 @@ class UserInterface
 		Call in your SDL_PollEvent loop
 		Returns if InputMap should be suppressed
 	*/
-	bool handleInput(SDL_Event& e);
+	void handleInput(SDL_Event& e);
 
 	//Windows passed here will be destroyed when UserInterface is
 	void addWindow(std::shared_ptr<Window> window);
@@ -69,8 +73,14 @@ class UserInterface
 	//Call every frame
 	void render();
 
-	//Call after all windows have been added:
+	/*
+		Call after all windows have been added :
+		This is mostly in case a window needs to grab a reference to another window to function
+	*/
 	void initAll();
+
+	//Returns nullptr if nothing by that name
+	std::shared_ptr<Window> getWindowByName(std::string name);
 
 	//If mouselock should be forced on
 	bool shouldUnlockMouse();

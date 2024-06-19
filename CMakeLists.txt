@@ -85,7 +85,7 @@ add_executable (LandOfDran
  "Interface/UserInterface.cpp" 
  "Interface/UserInterface.h" 
  "Interface/SettingsMenu.h" 
- "Interface/SettingsMenu.cpp")
+ "Interface/SettingsMenu.cpp" "Interface/DebugMenu.cpp" "Interface/DebugMenu.h")
 
 target_link_libraries(LandOfDran PRIVATE ZLIB::ZLIB)
 target_link_libraries(LandOfDran PRIVATE SDL2::SDL2 SDL2::SDL2main)

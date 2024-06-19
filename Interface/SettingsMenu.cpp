@@ -1,24 +1,45 @@
 #include "SettingsMenu.h"
 
-static int MyResizeCallback(ImGuiInputTextCallbackData* data)
-{
-	if (data->EventFlag == ImGuiInputTextFlags_CallbackResize)
-	{
-		ImVector<char>* my_str = (ImVector<char>*)data->UserData;
-		IM_ASSERT(my_str->begin() == data->Buf);
-		my_str->resize(data->BufSize);
-		data->Buf = my_str->begin();
-	}
-	return 0;
-}
-
 void SettingsMenu::init()
 {
 	initalized = true;
 }
 
+bool SettingsMenu::pollForChanges()
+{
+	bool ret = settingsUpdated;
+	settingsUpdated = false;
+	return ret;
+}
+void SettingsMenu::processKeyBind(SDL_Event& e)
+{
+	if(currentlyBindingFor == InputCommand::NoCommand)
+		return;
+
+	if (e.type != SDL_KEYDOWN)
+		return;
+
+	inputMap->bindKey(currentlyBindingFor, e.key.keysym.scancode);
+	currentlyBindingFor = InputCommand::NoCommand;
+}
+
 void SettingsMenu::render(ImGuiIO* io)
 {
+	if (currentlyBindingFor != InputCommand::NoCommand)
+	{
+		ImGui::OpenPopup("Bind Key");
+		ImVec2 center = ImGui::GetMainViewport()->GetCenter();
+		ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+		if (ImGui::BeginPopupModal("Bind Key", NULL, ImGuiWindowFlags_AlwaysAutoResize))
+		{
+			std::string name = "Press any key to bind to " + GetInputCommandString(currentlyBindingFor);
+			ImGui::Text(name.c_str());
+			if (ImGui::Button("Cancel"))
+				currentlyBindingFor = InputCommand::NoCommand;
+			ImGui::EndPopup();
+		}
+	}
+
 	if (!opened)
 		return;
 
@@ -28,8 +49,10 @@ void SettingsMenu::render(ImGuiIO* io)
 		return;
 	}
 
-	char* textInput = new char[256];
+	//Shared across all text fields, set by the function that renders them when rendered
+	char textInput[256];
 
+	//Sets internal iterator to zero for a non-recursive search of the preference node tree
 	settings->startPreferenceBindingSearch();
 
 	PreferencePair* ptr = nullptr;
@@ -39,11 +62,15 @@ void SettingsMenu::render(ImGuiIO* io)
 
 	ImGui::BeginTabBar("tabsSettings");
 
+	//For each preference
 	while (ptr = settings->nextPreferenceBinding(path))
 	{
+		//Skip keybinds, we will handle these separatly, getting them right from InputMap
 		if (path == "keybinds")
 			continue;
 
+		//This whole block just figures out when we want a tab for a new category of controls
+		//I.e. 'graphics' or 'audio' if you rearrange the settings in the text file this might break?
 		if (lastPath != path)
 		{
 			if (lastPath != "")
@@ -61,6 +88,7 @@ void SettingsMenu::render(ImGuiIO* io)
 			lastPath = path;
 		}
 
+		//What kind of input component should we make for the given preference
 		switch (ptr->type)
 		{
 		case PreferenceBoolean:
@@ -88,6 +116,8 @@ void SettingsMenu::render(ImGuiIO* io)
 		{
 			if (ptr->dropDownNames.size() > 0)
 			{
+				//Add text in the middle of the drop down clarifying what that enum value represents
+				//I.e. 'high' or 'medium' or 'low'
 				ImGui::SliderInt(ptr->description.c_str(), &ptr->valueInt, ptr->minValue, ptr->maxValue - 1, ptr->dropDownNames[ptr->valueInt].c_str());
 			}
 			else
@@ -101,16 +131,56 @@ void SettingsMenu::render(ImGuiIO* io)
 	if (lastTabCreated)
 		ImGui::EndTabItem();
 
-	delete[] textInput;
+	if (ImGui::BeginTabItem("Keybinds"))
+	{
+		float width = ImGui::GetContentRegionAvail().x;
+		float height = ImGui::GetContentRegionAvail().y;
+
+		int flags = ImGuiTableFlags_BordersOuter | ImGuiTableFlags_Resizable | ImGuiTableFlags_ScrollY;
+		if (ImGui::BeginTable("keybinds",2,flags,ImVec2(width * 0.95,height * 0.90)))
+		{
+			ImGui::TableSetupColumn("Command");
+			ImGui::TableSetupColumn("Bound Key");
+			ImGui::TableHeadersRow();
+
+			//NoCommand is index 0
+			for (int a = 1; a < InputCommand::EndOfCommands; a++)
+			{
+				ImGui::TableNextRow();
+				ImGui::TableNextColumn();
+				//What command are we setting
+				ImGui::Text(GetInputCommandString((InputCommand)a).c_str());
+				ImGui::TableNextColumn();
+				//Button you click to bind a key to that
+				if (ImGui::Button(SDL_GetScancodeName(inputMap->getKeyBind((InputCommand)a)), ImVec2(width * 0.95 * 0.5, 20)))
+					currentlyBindingFor = (InputCommand)a;
+			}
+
+			ImGui::EndTable();
+		}
+		ImGui::EndTabItem();
+	}
+
 	ImGui::EndTabBar();
 
 	ImGui::NewLine();
-	ImGui::Button("Save Changes");
+	if (ImGui::Button("Save Changes"))
+	{
+		info("Saving settings...");
+		inputMap->setPreferences(settings);
+		settings->exportToFile("Config/settings.txt");
+		//Main loop will have to poll settings to actually change how the game runs
+		settingsUpdated = true;
+	}
 
 	ImGui::End();
 }
 
-SettingsMenu::SettingsMenu(std::shared_ptr< SettingManager> _settings) : settings(_settings)
+SettingsMenu::SettingsMenu(
+	std::shared_ptr< SettingManager> _settings,
+	std::shared_ptr<InputMap> _inputMap) 
+	: settings(_settings),
+	inputMap(_inputMap)
 {
 
 }

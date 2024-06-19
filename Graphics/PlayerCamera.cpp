@@ -1,5 +1,15 @@
 #include "PlayerCamera.h"
 
+glm::vec3 Camera::getPosition()
+{
+    return position;
+}
+
+glm::vec3 Camera::getDirection()
+{
+    return direction;
+}
+
 void Camera::setFOV(float fov)
 {
     fieldOfVision = fov;

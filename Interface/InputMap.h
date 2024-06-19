@@ -14,8 +14,8 @@ enum InputCommand
 	WalkLeft = 3,
 	WalkRight = 4,
 	MouseLock = 5,
-    OptionsMenu = 6,
-    CloseWindow = 7,
+    OpenOptionsMenu = 6,
+    OpenDebugWindow = 7,
     EndOfCommands = 8
 };
 
@@ -58,8 +58,13 @@ class InputMap
     //Sets what key is bound to what command
     void bindKey(InputCommand command, SDL_Scancode key);
 
+    SDL_Scancode getKeyBind(InputCommand command) const;
+
     //Clears any currently waiting commands to be polled
     void resetKeyStates();
+
+    //Passes key binds to SettingsManager usually so SettingsManager can then export to file
+    void setPreferences(std::shared_ptr<SettingManager> settings);
 
     //Loads key binds from a preference file if one is given
     InputMap(std::shared_ptr<SettingManager> settings);

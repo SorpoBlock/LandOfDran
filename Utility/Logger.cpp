@@ -5,6 +5,13 @@ std::function<void(std::string)> error = Logger::error;
 std::function<void(std::string)> info = Logger::infoNewLine;
 std::function<void(std::string)> addScope = Logger::addScope;
 std::function<void()> leave = Logger::leave;
+std::deque<loggerLine> Logger::storage;
+
+Logger::Logger()
+{
+    //Target of last logStorageLines lines, though going over wouldn't cause crashes or anything
+    //storage.reserve(logStorageLines);
+}
 
 Logger::~Logger()
 {
@@ -135,6 +142,10 @@ bool Logger::setErrorFile(std::string path)
 
 void Logger::error(std::string text)
 {
+    if (storage.size() >= logStorageLines)
+        storage.pop_back();
+    storage.push_front({ true,false,text });
+
     if (Logger::get().errorFile.is_open())
         Logger::get().errorFile << Logger::format(text);
 
@@ -143,6 +154,10 @@ void Logger::error(std::string text)
 
 void Logger::infoNewLine(std::string text)
 {
+    if (storage.size() >= logStorageLines)
+        storage.pop_back();
+    storage.push_front({false,false,text});
+
     info(text);
 }
 
@@ -164,6 +179,17 @@ void Logger::info(std::string text, bool noLine)
 
 void Logger::debug(std::string text)
 {
-    if (Logger::get().debugMode)
-        info(text);
+    if (!Logger::get().debugMode)
+        return;
+
+    if (storage.size() >= logStorageLines)
+        storage.pop_back();
+    storage.push_front({ false,true,text });
+
+    info(text);
+}
+
+const std::deque<loggerLine> const* Logger::getStorage()
+{
+    return &storage;
 }

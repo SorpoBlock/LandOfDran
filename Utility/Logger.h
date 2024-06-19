@@ -13,6 +13,16 @@
     }
 */
 
+#define logStorageLines 100
+
+//We keep logStorageLines of these in memory for display on the debug menu GUI
+struct loggerLine
+{
+    bool isError = false;
+    bool isDebug = false;
+    std::string text = "";
+};
+
 /*
     Basic logger that logs to console as well as text files
     Three levels of logging:
@@ -49,11 +59,17 @@ class Logger
 
         static Logger& get();
 
+        //Gets last logStorageLines lines of logged text
+        static const std::deque<loggerLine> const* getStorage();
+
         //Make sure there can't ever be more than one logger at a time
         Logger(Logger const&) = delete;
         Logger &operator=(Logger const&) = delete;
 
     private:
+        //Keep the last 100 lines of logs along with their logging type
+        static std::deque<loggerLine> storage;
+
         static std::string format(std::string text, bool noLine = false, bool noHeader = false);
 
         std::vector<std::string> scopes;
@@ -64,7 +80,7 @@ class Logger
         std::ofstream infoFile;
         std::ofstream errorFile;
          
-        Logger() {}
+        Logger();
         ~Logger();
 };
 

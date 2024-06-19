@@ -16,52 +16,9 @@
 #include "Interface/SettingsMenu.h"
 
 #include "Utility/UserInterfaceFunctions.h"
+#include "Interface/DebugMenu.h"
 
 using namespace std;
-
-// Our state
-bool show_another_window = false;
-ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
-
-void DrawExampleWindow(ImGuiIO& io)
-{
-	// Start the Dear ImGui frame
-	ImGui_ImplOpenGL3_NewFrame();
-	ImGui_ImplSDL2_NewFrame();
-	ImGui::NewFrame();
-
-	// 2. Show a simple window that we create ourselves. We use a Begin/End pair to create a named window.
-	{
-		static float f = 0.0f;
-		static int counter = 0;
-
-		ImGui::Begin("Hello, world!");                          // Create a window called "Hello, world!" and append into it.
-
-		ImGui::Text("This is some useful text.");               // Display some text (you can use a format strings too)
-		ImGui::Checkbox("Another Window", &show_another_window);
-
-		ImGui::SliderFloat("float", &f, 0.0f, 1.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
-		ImGui::ColorEdit3("clear color", (float*)&clear_color); // Edit 3 floats representing a color
-
-		if (ImGui::Button("Button"))                            // Buttons return true when clicked (most widgets return true when edited/activated)
-			counter++;
-		ImGui::SameLine();
-		ImGui::Text("counter = %d", counter);
-
-		ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
-		ImGui::End();
-	}
-
-	// 3. Show another simple window.
-	if (show_another_window)
-	{
-		ImGui::Begin("Another Window", &show_another_window);   // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
-		ImGui::Text("Hello from another window!");
-		if (ImGui::Button("Close Me"))
-			show_another_window = false;
-		ImGui::End();
-	}
-}
 
 int main(int argc, char* argv[])
 {
@@ -82,7 +39,7 @@ int main(int argc, char* argv[])
 	//Import settings we have, set defaults for settings we don't, then export the file with any new default values
 	auto preferences = std::make_shared<SettingManager>("Config/settings.txt");
 	populateDefaults(preferences);
-	InputMap input(preferences); //This will also populate key-bind specific defaults
+	auto input = std::make_shared<InputMap>(preferences); //This will also populate key-bind specific defaults
 	preferences->exportToFile("Config/settings.txt");
 
 	Logger::setDebug(preferences->getBool("logger/verbose"));
@@ -96,16 +53,21 @@ int main(int argc, char* argv[])
 	UserInterface gui;
 	gui.globalInterfaceTransparency = preferences->getFloat("gui/opacity");
 
-	auto settingsMenu = std::make_shared<SettingsMenu>(preferences);
+	auto settingsMenu = std::make_shared<SettingsMenu>(preferences,input);
 	gui.addWindow(settingsMenu);
+
+	auto debugMenu = std::make_shared<DebugMenu>();
+	gui.addWindow(debugMenu);
+
+	gui.initAll();
 
 	//Load all the shaders
 	ShaderManager shaders;
 	shaders.readShaderList("Shaders/shadersList.txt");
 
-	Camera camera(context.getResolution().x / context.getResolution().y);
-	camera.mouseSensitivity = preferences->getFloat("input/mousesensitivity");
-	camera.invertMouse = preferences->getFloat("input/invertmousey");
+	auto camera = std::make_shared<Camera>(context.getResolution().x / context.getResolution().y);
+	camera->mouseSensitivity = preferences->getFloat("input/mousesensitivity");
+	camera->invertMouse = preferences->getFloat("input/invertmousey");
 
 	//A few test decals
 	TextureManager textures;
@@ -186,18 +148,15 @@ int main(int argc, char* argv[])
 		lastTicks = SDL_GetTicks();
 		angle += deltaT * 0.001;
 
-		input.keystates = SDL_GetKeyboardState(NULL);
-
-		//TODO: This is used for making sure no call to gui.handleInput wants to suppress
-		//but really you should only have to call a function once to get this
-		bool shouldSuppress = false;
+		input->keystates = SDL_GetKeyboardState(NULL);
 
 		//Event loop, mostly just passing stuff to InputMap (in-game controls) and UserInterface (gui controls)
 		SDL_Event e;
 		while (SDL_PollEvent(&e))
 		{
-			shouldSuppress = gui.handleInput(e) || shouldSuppress;
-			input.handleInput(e);
+			settingsMenu->processKeyBind(e);
+			gui.handleInput(e);
+			input->handleInput(e);
 
 			if (e.type == SDL_QUIT)
 			{
@@ -209,49 +168,60 @@ int main(int argc, char* argv[])
 				if (e.window.event == SDL_WINDOWEVENT_SIZE_CHANGED)
 				{
 					context.setSize(e.window.data1, e.window.data2);
-					camera.setAspectRatio(context.getResolution().x / context.getResolution().y);
+					camera->setAspectRatio(context.getResolution().x / context.getResolution().y);
 				}
 			}
 			else if (e.type == SDL_MOUSEMOTION && context.getMouseLocked())
-				camera.turn(-e.motion.xrel, -e.motion.yrel);
+				camera->turn(-e.motion.xrel, -e.motion.yrel);
 			else if (e.type == SDL_MOUSEBUTTONDOWN)
 				instances[0]->playAnimation(1, false);
+			else if (e.type == SDL_KEYDOWN)
+			{
+				//This one is not handled through input map because input map can be suppressed
+				//By having one or more guis open, which defeats the purpose of a quick gui close key
+				if (e.key.keysym.sym == SDLK_ESCAPE)
+				{
+					gui.closeOneWindow();
+					if (!context.getMouseLocked() && !gui.getOpenWindowCount())
+						context.setMouseLock(true);
+				}
+			}
 		}
 
 		//Interacting with gui, don't move around in-game
-		input.supressed = shouldSuppress;
-
-		//Windows are open, let mouse move around
-		if (context.getMouseLocked() && gui.shouldUnlockMouse())
-			context.setMouseLock(false);
+		input->supressed = gui.wantsSuppression();
 
 		//Various keys were pressed that were bound to certain commands:
-		if (input.pollCommand(CloseWindow))
-		{
-			gui.closeOneWindow();
-			if (!context.getMouseLocked() && !gui.getOpenWindowCount())
-				context.setMouseLock(true);
-		}
-		if (input.pollCommand(MouseLock))
+		if (input->pollCommand(MouseLock))
 			context.setMouseLock(!context.getMouseLocked());
-		if (input.pollCommand(OptionsMenu))
+		if (input->pollCommand(OpenOptionsMenu))
+		{
 			settingsMenu->open();
+			context.setMouseLock(false);
+		}
+		if (input->pollCommand(OpenDebugWindow))
+		{
+			debugMenu->open();
+			context.setMouseLock(false);
+		}
 
 		//Test camera controls, no-clip camera
 		float speed = 0.015;
 
-		if (input.isCommandKeydown(WalkForward))
-			camera.flyStraight(deltaT * speed);
-		if (input.isCommandKeydown(WalkBackward))
-			camera.flyStraight(-deltaT * speed);
-		if (input.isCommandKeydown(WalkRight))
-			camera.flySideways(-deltaT * speed);
-		if (input.isCommandKeydown(WalkLeft))
-			camera.flySideways(deltaT * speed);
+		if (input->isCommandKeydown(WalkForward))
+			camera->flyStraight(deltaT * speed);
+		if (input->isCommandKeydown(WalkBackward))
+			camera->flyStraight(-deltaT * speed);
+		if (input->isCommandKeydown(WalkRight))
+			camera->flySideways(-deltaT * speed);
+		if (input->isCommandKeydown(WalkLeft))
+			camera->flySideways(deltaT * speed);
+
+		debugMenu->passDetails(camera);
 
 		//Start rendering to screen:
 		testModel.updateAll(deltaT);
-		camera.render(&shaders);
+		camera->render(&shaders);
 
 		context.select(); 
 		context.clear(0.2,0.2,0.2);
