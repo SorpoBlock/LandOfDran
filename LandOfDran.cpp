@@ -21,14 +21,7 @@
 using namespace std;
 
 int main(int argc, char* argv[])
-{
-	/*
-		Holds everything we need for playing the game
-		Not needed if this is a dedicated server
-		Everything inside should be allocated and populated otherwise
-		Nothing should be removed or deallocated until program shutdown
-	*/
-	
+{	
 	Logger::setErrorFile("Logs/error.txt");
 	Logger::setInfoFile("Logs/log.txt");
 
