@@ -1,5 +1,11 @@
 #include "PlayerCamera.h"
 
+void Camera::updateSettings(std::shared_ptr<SettingManager> settings)
+{
+    mouseSensitivity = settings->getFloat("input/mousesensitivity");
+    invertMouse = settings->getBool("input/invertmousey");
+}
+
 glm::vec3 Camera::getPosition()
 {
     return position;

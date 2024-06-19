@@ -50,13 +50,18 @@ class UserInterface
 	std::vector<std::shared_ptr<Window>> windows;
 
 	ImGuiIO* io = nullptr;
-	
-	public:
 
-	bool wantsSuppression() const;
+	//Just increases font size really, but Dear Imgui will increase component sizes with text in them
+	float uiScaling = 1.0;
 
 	//Opacity/Transparency for all windows unless they stack or something
 	float globalInterfaceTransparency = 1.0;
+	
+	public:
+
+	void updateSettings(std::shared_ptr<SettingManager> settings);
+
+	bool wantsSuppression() const;
 
 	//How many windows are currently open
 	int getOpenWindowCount() const;

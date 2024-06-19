@@ -27,10 +27,12 @@ class Camera
 	float farPlane = 1000.0;
 	float aspectRatio = 1.0;
 
-	public:
-
 	float mouseSensitivity = 1.0;
 	bool invertMouse = false;
+
+	public:
+
+	void updateSettings(std::shared_ptr<SettingManager> settings);
 
 	//Positive amount forward, negative backward, only use for no-clip camera
 	void flyStraight(float amount);

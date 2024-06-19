@@ -51,7 +51,7 @@ int main(int argc, char* argv[])
 	RenderContext context(preferences);
 
 	UserInterface gui;
-	gui.globalInterfaceTransparency = preferences->getFloat("gui/opacity");
+	gui.updateSettings(preferences);
 
 	auto settingsMenu = std::make_shared<SettingsMenu>(preferences,input);
 	gui.addWindow(settingsMenu);
@@ -66,8 +66,7 @@ int main(int argc, char* argv[])
 	shaders.readShaderList("Shaders/shadersList.txt");
 
 	auto camera = std::make_shared<Camera>(context.getResolution().x / context.getResolution().y);
-	camera->mouseSensitivity = preferences->getFloat("input/mousesensitivity");
-	camera->invertMouse = preferences->getFloat("input/invertmousey");
+	camera->updateSettings(preferences);
 
 	//A few test decals
 	TextureManager textures;
@@ -190,6 +189,14 @@ int main(int argc, char* argv[])
 
 		//Interacting with gui, don't move around in-game
 		input->supressed = gui.wantsSuppression();
+
+		//Someone just applied setting changes
+		if (settingsMenu->pollForChanges())
+		{
+			Logger::setDebug(preferences->getBool("logger/verbose"));
+			camera->updateSettings(preferences);
+			gui.updateSettings(preferences);
+		}
 
 		//Various keys were pressed that were bound to certain commands:
 		if (input->pollCommand(MouseLock))

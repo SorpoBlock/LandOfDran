@@ -11,8 +11,11 @@ void DebugMenu::render(ImGuiIO* io)
 	if (!opened)
 		return;
 
-	if (!ImGui::Begin("Debug Menu"))
+	if (!ImGui::Begin("Debug Menu", &opened))
+	{
+		ImGui::End();
 		return;
+	}
 
 	ImGui::BeginTabBar("debugTabs");
 

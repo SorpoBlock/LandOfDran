@@ -1,5 +1,28 @@
 #include "UserInterface.h"
 
+void UserInterface::updateSettings(std::shared_ptr<SettingManager> settings)
+{
+	globalInterfaceTransparency = settings->getFloat("gui/opacity");
+
+	//Refer to DefaultPreferences.cpp - Small, Normal, Large, Largest
+	int sizeEnum = settings->getInt("gui/scaling");
+	switch (sizeEnum)
+	{
+		case 0: 
+			uiScaling = 0.5;
+			break;
+		case 1:
+			uiScaling = 1.0;
+			break;
+		case 2:
+			uiScaling = 1.5;
+			break;
+		case 3:
+			uiScaling = 2.0;
+			break;
+	}
+}
+
 bool UserInterface::wantsSuppression() const
 {
 	return io->WantCaptureKeyboard;
@@ -35,6 +58,7 @@ void UserInterface::closeOneWindow()
 
 void Window::open()
 {
+	//TODO: Make new windows appear in upper left corner and slighty offset depending on how many are open
 	opened = true;
 }
 
@@ -73,8 +97,10 @@ void UserInterface::render()
 		ImGui::SetNextWindowBgAlpha(globalInterfaceTransparency);
 		windows[a]->render(io);
 	}
+	io->FontGlobalScale = uiScaling;
 	ImGui::Render();
-	ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+	ImDrawData* data = ImGui::GetDrawData();
+	ImGui_ImplOpenGL3_RenderDrawData(data);
 }
 
 UserInterface::UserInterface()

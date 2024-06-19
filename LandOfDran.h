@@ -22,6 +22,7 @@
 #include "Utility/StringFunctions.h"
 #include "Utility/Logger.h"
 #include "Utility/FileFunctions.h"
+#include "Utility/SettingManager.h"
 #include "Graphics/GraphicsHelpers.h"
 #include <map>
 #include <stack>
