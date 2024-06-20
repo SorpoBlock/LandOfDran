@@ -36,7 +36,13 @@ void SettingManager::startPreferenceBindingSearch()
 
 void SettingManager::addEnum(std::string path, int value,std::string desc,std::vector<std::string> &&names)
 {
+	std::string pathBeforePref = path;
 	PreferenceNode *target = createPathTo(path);
+
+	//Get the path of the nodes before the preference name
+	if (path.length() + 1 < pathBeforePref.length())
+		pathBeforePref = pathBeforePref.substr(0, pathBeforePref.length() - (path.length() + 1));
+	target->path = pathBeforePref;
 
 	for (unsigned int a = 0; a < target->childPreferences.size(); a++)
 	{
@@ -111,7 +117,13 @@ PreferenceNode* SettingManager::createPathTo(std::string &path)
 
 void SettingManager::addInt(std::string path, int value,bool overwrite,std::string desc, float min, float max)
 {
-	PreferenceNode *target = createPathTo(path);
+	std::string pathBeforePref = path;
+	PreferenceNode* target = createPathTo(path);
+
+	//Get the path of the nodes before the preference name
+	if (path.length() + 1 < pathBeforePref.length())
+		pathBeforePref = pathBeforePref.substr(0, pathBeforePref.length() - (path.length() + 1));
+	target->path = pathBeforePref;
 
 	for (unsigned int a = 0; a < target->childPreferences.size(); a++)
 	{
@@ -142,7 +154,13 @@ void SettingManager::addInt(std::string path, int value,bool overwrite,std::stri
 
 void SettingManager::addString(std::string path, std::string value, bool overwrite,std::string desc)
 {
+	std::string pathBeforePref = path;
 	PreferenceNode* target = createPathTo(path);
+
+	//Get the path of the nodes before the preference name
+	if (path.length() + 1 < pathBeforePref.length())
+		pathBeforePref = pathBeforePref.substr(0, pathBeforePref.length() - (path.length() + 1));
+	target->path = pathBeforePref;
 
 	for (unsigned int a = 0; a < target->childPreferences.size(); a++)
 	{
@@ -165,7 +183,13 @@ void SettingManager::addString(std::string path, std::string value, bool overwri
 
 void SettingManager::addBool(std::string path, bool value, bool overwrite,std::string desc)
 {
+	std::string pathBeforePref = path;
 	PreferenceNode* target = createPathTo(path);
+
+	//Get the path of the nodes before the preference name
+	if (path.length() + 1 < pathBeforePref.length())
+		pathBeforePref = pathBeforePref.substr(0, pathBeforePref.length() - (path.length() + 1));
+	target->path = pathBeforePref;
 
 	for (unsigned int a = 0; a < target->childPreferences.size(); a++)
 	{
@@ -190,9 +214,55 @@ void SettingManager::addBool(std::string path, bool value, bool overwrite,std::s
 	tmp->description = desc;
 }
 
+void SettingManager::addColor(std::string path, glm::vec4 value, bool overwrite, std::string desc)
+{
+	std::string pathBeforePref = path;
+	PreferenceNode* target = createPathTo(path);
+
+	//Get the path of the nodes before the preference name
+	if (path.length() + 1 < pathBeforePref.length())
+		pathBeforePref = pathBeforePref.substr(0, pathBeforePref.length() - (path.length() + 1));
+	target->path = pathBeforePref;
+
+	for (unsigned int a = 0; a < target->childPreferences.size(); a++)
+	{
+		if (target->childPreferences[a]->name == path)
+		{
+			if (overwrite)
+			{
+				target->childPreferences[a]->value = std::to_string(value.r) + " " + std::to_string(value.g) + " " + std::to_string(value.b) + " " + std::to_string(value.a);
+				target->childPreferences[a]->color[0] = value.r;
+				target->childPreferences[a]->color[1] = value.g;
+				target->childPreferences[a]->color[2] = value.b;
+				target->childPreferences[a]->color[3] = value.a;
+			}
+			target->childPreferences[a]->description = desc;
+			target->childPreferences[a]->type = PreferenceColor;
+			return;
+		}
+	}
+
+	PreferencePair* tmp = new PreferencePair;
+	target->childPreferences.push_back(tmp);
+	tmp->value = std::to_string(value.r) + " " + std::to_string(value.g) + " " + std::to_string(value.b) + " " + std::to_string(value.a);
+	tmp->color[0] = value.r;
+	tmp->color[1] = value.g;
+	tmp->color[2] = value.b;
+	tmp->color[3] = value.a;
+	tmp->type = PreferenceColor;
+	tmp->name = path;
+	tmp->description = desc;
+}
+
 void SettingManager::addFloat(std::string path, float value, bool overwrite,std::string desc, float min, float max)
 {
+	std::string pathBeforePref = path;
 	PreferenceNode* target = createPathTo(path);
+
+	//Get the path of the nodes before the preference name
+	if (path.length() + 1 < pathBeforePref.length())
+		pathBeforePref = pathBeforePref.substr(0, pathBeforePref.length() - (path.length() + 1));
+	target->path = pathBeforePref;
 
 	for (unsigned int a = 0; a < target->childPreferences.size(); a++)
 	{
@@ -228,6 +298,37 @@ float SettingManager::getFloat(std::string path) const
 		return (float)atof(pair->value.c_str()); //Supress warning, we know it's single precision
 	else
 		return 0;
+}
+
+glm::vec4 SettingManager::getColor(std::string path) const
+{
+	glm::vec4 ret(1, 1, 1, 1);
+	PreferencePair const* const pair = getPreference(path);
+	if (pair)
+	{
+		//Break string like '1 0.5 0.2 0.9' into four floats for color
+		std::string buf = "";
+		std::stringstream ss(pair->value);
+		ss >> buf;
+		if (buf.length() < 1)
+			return ret;
+		ret.r = atof(buf.c_str());
+		ss >> buf;
+		if (buf.length() < 1)
+			return ret;
+		ret.g = atof(buf.c_str());
+		ss >> buf;
+		if (buf.length() < 1)
+			return ret;
+		ret.b = atof(buf.c_str());
+		ss >> buf;
+		if (buf.length() < 1)
+			return ret;
+		ret.a = atof(buf.c_str());
+		return ret;
+	}
+	else
+		return ret;
 }
 
 int SettingManager::getInt(std::string path) const
@@ -266,7 +367,7 @@ std::string SettingManager::operator[] (std::string path) const
 		return "";
 }
 
-PreferencePair const* const SettingManager::getPreference(std::string path) const
+PreferencePair /*const* const*/* SettingManager::getPreference(std::string path) const
 {
 	//Saves headaches down the road :)
 	path = lowercase(path);
@@ -359,10 +460,15 @@ void PreferenceNode::readFromLine(std::string &line,int lineNumber,PreferenceNod
 	PreferencePair* pair = new PreferencePair;
 	currentNode->childPreferences.push_back(pair);
 
-	//Make sure type makes sense
+	//Make sure type makes sense, handle metadata as well, values are handled below
 	if (type == "boolean")
 	{
 		pair->type = PreferenceBoolean;
+		pair->description = meta;
+	}
+	else if (type == "vec4" || type == "vec")
+	{
+		pair->type = PreferenceColor;
 		pair->description = meta;
 	}
 	else if (type == "float")
@@ -386,7 +492,6 @@ void PreferenceNode::readFromLine(std::string &line,int lineNumber,PreferenceNod
 		pair->description = meta.substr(0, tabAfterDesc);
 		pair->minValue = atof(meta.substr(tabAfterDesc + 1, tabAfterMin - (tabAfterDesc + 1)).c_str());
 		pair->maxValue = atof(meta.substr(tabAfterMin + 1, meta.length() - (tabAfterMin + 1)).c_str());
-		std::cout << meta << "-" << pair->minValue << "-" << pair->maxValue << "\n";
 	}
 	else if (type == "string")
 	{
@@ -414,7 +519,6 @@ void PreferenceNode::readFromLine(std::string &line,int lineNumber,PreferenceNod
 		pair->description = meta.substr(0, tabAfterDesc);
 		pair->minValue = atof(meta.substr(tabAfterDesc + 1, tabAfterMin - (tabAfterDesc + 1)).c_str());
 		pair->maxValue = atof(meta.substr(tabAfterMin + 1, meta.length() - (tabAfterMin + 1)).c_str());
-		std::cout << meta << "-" << pair->minValue << "-" << pair->maxValue << "\n";
 	}
 	else
 	{
@@ -423,6 +527,8 @@ void PreferenceNode::readFromLine(std::string &line,int lineNumber,PreferenceNod
 	}
 
 	pair->name = name;
+
+	//Handle values
 	pair->value = value;
 	if (pair->type == PreferenceBoolean)
 		pair->valueBool = value == "true";
@@ -430,6 +536,28 @@ void PreferenceNode::readFromLine(std::string &line,int lineNumber,PreferenceNod
 		pair->valueFloat = atof(value.c_str());
 	else if (pair->type == PreferenceInteger)
 		pair->valueInt = atoi(value.c_str());
+	else if (pair->type == PreferenceColor)
+	{
+		//Break string like '1 0.5 0.2 0.9' into four floats for color
+		std::string buf = "";
+		std::stringstream ss(value);
+		ss >> buf;
+		if (buf.length() < 1)
+			return;
+		pair->color[0] = atof(buf.c_str());
+		ss >> buf;
+		if (buf.length() < 1)
+			return;
+		pair->color[1] = atof(buf.c_str());
+		ss >> buf;
+		if (buf.length() < 1)
+			return;
+		pair->color[2] = atof(buf.c_str());
+		ss >> buf;
+		if (buf.length() < 1)
+			return;
+		pair->color[3] = atof(buf.c_str());
+	}
 }
 
 SettingManager::SettingManager(std::string path)
@@ -540,11 +668,6 @@ SettingManager::SettingManager(std::string path)
 		lastNumberOfTabs = currentNumberOfTabs;
 	}
 
-	for (unsigned int a = 0; a < allNodes.size(); a++)
-	{
-		std::cout << allNodes[a]->name << "\n";
-	}
-
 	debug("Read " + std::to_string(readPrefs) + " prefs from " + std::to_string(lineNumber) + " lines");
 }   
 
@@ -577,6 +700,9 @@ void PreferenceNode::writeToFile(std::ofstream& file,int level) const
 		file << childPreferences[i]->name << "\t";
 		switch (childPreferences[i]->type)
 		{
+			case PreferenceColor:
+				file << "vec4\t";
+				break;
 			case PreferenceBoolean:
 				file << "boolean\t";
 				break;
@@ -594,6 +720,9 @@ void PreferenceNode::writeToFile(std::ofstream& file,int level) const
 		//Why tf did I set up my file this way lol
 		switch (childPreferences[i]->type)
 		{
+			case PreferenceColor:
+				file << childPreferences[i]->description;
+				break;
 			case PreferenceBoolean:
 				file << childPreferences[i]->description;
 				break;
@@ -633,6 +762,8 @@ void SettingManager::exportToFile(std::string path) const
 				pref->value = std::to_string(pref->valueInt);
 			if (pref->type == PreferenceFloat)
 				pref->value = std::to_string(pref->valueFloat);
+			if (pref->type == PreferenceColor)
+				pref->value = std::to_string(pref->color[0]) + " " + std::to_string(pref->color[1]) + " " + std::to_string(pref->color[2]) + " " + std::to_string(pref->color[3]);
 		}
 	}
 

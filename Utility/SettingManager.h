@@ -10,7 +10,8 @@ enum PreferenceType
 	PreferenceString = 0,
 	PreferenceBoolean = 1,
 	PreferenceInteger = 2,
-	PreferenceFloat = 3
+	PreferenceFloat = 3,
+	PreferenceColor = 4 //aka vec4
 };
 
 class SettingManager;
@@ -32,6 +33,8 @@ struct PreferencePair
 	bool valueBool = false;
 	//Only used in DrawSettingsWindow, both floats and ints
 	float maxValue = 0, minValue = 100;
+	//Used for color preferences only
+	float color[4] = { 1,1,1,1 };
 
 	//What kind of value should the string be converted to
 	PreferenceType type = PreferenceString;
@@ -123,7 +126,7 @@ class SettingManager
 			Use / and never \
 			Can return nullptr on bad path
 		*/
-		PreferencePair const * const getPreference(std::string path) const;
+		PreferencePair /*const* const*/* getPreference(std::string path) const;
 
 		/*
 			Gets a preference by specifiying a path to a preference
@@ -132,6 +135,14 @@ class SettingManager
 			will return 0 if preference doens't exist
 		*/
 		float getFloat(std::string path) const;
+
+		/*
+			Gets a preference by specifiying a path to a preference
+			i.e. AvatarPreferences/NodeColors/LeftHand
+			Use / and never \
+			will return 1,1,1,1 if preference doens't exist
+		*/
+		glm::vec4 getColor(std::string path) const;
 
 		/*
 			Gets a preference by specifiying a path to a preference
@@ -175,6 +186,9 @@ class SettingManager
 
 		//Creates a preference, will create nodes along the way if needed
 		void addFloat(std::string path, float value,bool override = true,std::string desc = "", float min = 0, float max = 100);
+
+		//Creates a preference, will create nodes along the way if needed
+		void addColor(std::string path, glm::vec4 value, bool override = true, std::string desc = "");
 
 		//Returns any preference as a string, or "" if no preference exists at that path
 		std::string operator[] (std::string path) const;

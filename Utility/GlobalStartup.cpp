@@ -3,6 +3,13 @@
 //Calls functions like SDL_Init and such that don't return anything (important)
 bool globalStartup(std::shared_ptr<SettingManager> settings)
 {
+    info("Starting Enet");
+   if (enet_initialize() != 0)
+    {
+        error("Could not start up Enet");
+        return true;
+    }
+
 	info("Starting SDL");
 	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS | SDL_INIT_TIMER) != 0)
 	{
@@ -51,6 +58,9 @@ bool globalStartup(std::shared_ptr<SettingManager> settings)
 //Calls shutdown for global start-up functions called in globalStartup
 void globalShutdown()
 {
+    info("Shutting down Enet");
+    enet_deinitialize();
+
     info("Shutting down Imgui");
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplSDL2_Shutdown();

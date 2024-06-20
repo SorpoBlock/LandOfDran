@@ -31,7 +31,7 @@ class Window
 	virtual void render(ImGuiIO* io) = 0;
 	//Is window currently open and being rendered
 	bool opened = false;
-
+	 
 	UserInterface* userInterface = nullptr;
 
 	public:
@@ -42,7 +42,7 @@ class Window
 
 /*
 	Holds everything we need to render user interfaces
-	Each (major) window gets its own .h and .cpp file that includes this one
+	Each (major) window gets its own .h and .cpp file that includes this file
 */
 class UserInterface
 {

@@ -12,13 +12,9 @@
 #include "Graphics/RenderContext.h"
 #include "Interface/InputMap.h"
 #include "Graphics/PlayerCamera.h"
-
 #include "Interface/SettingsMenu.h"
-
 #include "Utility/UserInterfaceFunctions.h"
 #include "Interface/DebugMenu.h"
-
-using namespace std;
 
 int main(int argc, char* argv[])
 {	
@@ -133,9 +129,41 @@ int main(int argc, char* argv[])
 	float angle = 0.0;
 	float lastTicks = SDL_GetTicks();
 
+	ENetAddress address;
+	ENetHost* server;
+	ENetEvent netEvent;
+	address.host = ENET_HOST_ANY;
+	address.port = preferences->getInt("network/port");
+	enet_address_set_host_ip(&address, "localhost");
+
+	server = enet_host_create(&address, 32, 2, 0, 0);
+
+	if (!server)
+	{
+		error("Could not create Enet server!");
+		return 0;
+	}
+
 	bool doMainLoop = true;
 	while (doMainLoop)
 	{
+		int enetValue = enet_host_service(server, &netEvent, 0);
+		if (enetValue < -1)
+			error("enet_host_service error");
+		else if (enetValue > 0)
+		{
+			switch (netEvent.type)
+			{
+				case ENET_EVENT_TYPE_CONNECT:
+				{
+					char host[256];
+					enet_address_get_host(&netEvent.peer->address, host, 256);
+					info("Someone connected from " + std::string(host));
+					break;
+				}
+			}
+		}
+
 		float deltaT = ((float)SDL_GetTicks()) - lastTicks;
 		lastTicks = SDL_GetTicks();
 		angle += deltaT * 0.001;

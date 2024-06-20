@@ -23,7 +23,61 @@ void SettingsMenu::processKeyBind(SDL_Event& e)
 	currentlyBindingFor = InputCommand::NoCommand;
 }
 
-void SettingsMenu::render(ImGuiIO* io)
+void SettingsMenu::renderThemeSettings(ImGuiIO* io)
+{
+	//These aren't taken from a loop, they're just hardcoded directly for whatever reason
+
+	PreferencePair* pref = settings->getPreference("gui/textcolor");
+	if (pref)
+	{
+		ImGui::Text(ImGui::GetStyleColorName(ImGuiCol_Text));
+		ImGui::ColorEdit4(ImGui::GetStyleColorName(ImGuiCol_Text), pref->color);
+	}
+
+	pref = settings->getPreference("gui/windowcolor");
+	if (pref)
+	{
+		ImGui::Text(ImGui::GetStyleColorName(ImGuiCol_WindowBg));
+		ImGui::ColorEdit4(ImGui::GetStyleColorName(ImGuiCol_WindowBg), pref->color);
+	}
+
+	pref = settings->getPreference("gui/framecolor");
+	if (pref)
+	{
+		ImGui::Text(ImGui::GetStyleColorName(ImGuiCol_FrameBg));
+		ImGui::ColorEdit4(ImGui::GetStyleColorName(ImGuiCol_FrameBg), pref->color);
+	}
+
+	pref = settings->getPreference("gui/framehovercolor");
+	if (pref)
+	{
+		ImGui::Text(ImGui::GetStyleColorName(ImGuiCol_FrameBgHovered));
+		ImGui::ColorEdit4(ImGui::GetStyleColorName(ImGuiCol_FrameBgHovered), pref->color);
+	}
+
+	pref = settings->getPreference("gui/frameclickcolor");
+	if (pref)
+	{
+		ImGui::Text(ImGui::GetStyleColorName(ImGuiCol_FrameBgActive));
+		ImGui::ColorEdit4(ImGui::GetStyleColorName(ImGuiCol_FrameBgActive), pref->color);
+	}
+
+	pref = settings->getPreference("gui/titlecolor");
+	if (pref)
+	{
+		ImGui::Text(ImGui::GetStyleColorName(ImGuiCol_TitleBgActive));
+		ImGui::ColorEdit4(ImGui::GetStyleColorName(ImGuiCol_TitleBgActive), pref->color);
+	}
+
+	pref = settings->getPreference("gui/highlight");
+	if (pref)
+	{
+		ImGui::Text("Highlight");
+		ImGui::ColorEdit4("Highlight", pref->color);
+	}
+}
+
+void SettingsMenu::renderKeybindsMenu(ImGuiIO* io)
 {
 	if (currentlyBindingFor != InputCommand::NoCommand)
 	{
@@ -40,8 +94,44 @@ void SettingsMenu::render(ImGuiIO* io)
 		}
 	}
 
+	if (ImGui::BeginTabItem("Keybinds"))
+	{
+		float width = ImGui::GetContentRegionAvail().x;
+		float height = ImGui::GetContentRegionAvail().y;
+
+		int flags = ImGuiTableFlags_BordersOuter | ImGuiTableFlags_Resizable | ImGuiTableFlags_ScrollY;
+		if (ImGui::BeginTable("keybinds", 2, flags, ImVec2(width * 0.95, height * 0.90)))
+		{
+			ImGui::TableSetupColumn("Command");
+			ImGui::TableSetupColumn("Bound Key");
+			ImGui::TableHeadersRow();
+
+			//NoCommand is index 0
+			for (int a = 1; a < InputCommand::EndOfCommands; a++)
+			{
+				ImGui::TableNextRow();
+				ImGui::TableNextColumn();
+				//What command are we setting
+				ImGui::Text(GetInputCommandString((InputCommand)a).c_str());
+				ImGui::TableNextColumn();
+				//Button you click to bind a key to that
+				if (ImGui::Button(SDL_GetScancodeName(inputMap->getKeyBind((InputCommand)a)), ImVec2(width * 0.95 * 0.5, 20)))
+					currentlyBindingFor = (InputCommand)a;
+			}
+
+			ImGui::EndTable();
+		}
+		ImGui::EndTabItem();
+	}
+}
+
+void SettingsMenu::render(ImGuiIO* io)
+{
 	if (!opened)
+	{
+		currentlyBindingFor = InputCommand::NoCommand;
 		return;
+	}
 
 	if (!ImGui::Begin("Preferences and Settings", &opened))
 	{
@@ -77,6 +167,9 @@ void SettingsMenu::render(ImGuiIO* io)
 			{
 				if (lastTabCreated)
 				{
+					if (lastPath == "gui")
+						renderThemeSettings(io);
+
 					ImGui::EndTabItem();
 					lastTabCreated = false;
 				}
@@ -105,6 +198,7 @@ void SettingsMenu::render(ImGuiIO* io)
 		}
 		case PreferenceString:
 		{
+			//std::cout << ptr->name << " is string value\n";
 			memcpy(textInput, ptr->value.c_str(), ptr->value.length());
 			textInput[ptr->value.length()] = 0;
 			ImGui::InputText(ptr->description.c_str(), textInput, 255);
@@ -131,35 +225,7 @@ void SettingsMenu::render(ImGuiIO* io)
 	if (lastTabCreated)
 		ImGui::EndTabItem();
 
-	if (ImGui::BeginTabItem("Keybinds"))
-	{
-		float width = ImGui::GetContentRegionAvail().x;
-		float height = ImGui::GetContentRegionAvail().y;
-
-		int flags = ImGuiTableFlags_BordersOuter | ImGuiTableFlags_Resizable | ImGuiTableFlags_ScrollY;
-		if (ImGui::BeginTable("keybinds",2,flags,ImVec2(width * 0.95,height * 0.90)))
-		{
-			ImGui::TableSetupColumn("Command");
-			ImGui::TableSetupColumn("Bound Key");
-			ImGui::TableHeadersRow();
-
-			//NoCommand is index 0
-			for (int a = 1; a < InputCommand::EndOfCommands; a++)
-			{
-				ImGui::TableNextRow();
-				ImGui::TableNextColumn();
-				//What command are we setting
-				ImGui::Text(GetInputCommandString((InputCommand)a).c_str());
-				ImGui::TableNextColumn();
-				//Button you click to bind a key to that
-				if (ImGui::Button(SDL_GetScancodeName(inputMap->getKeyBind((InputCommand)a)), ImVec2(width * 0.95 * 0.5, 20)))
-					currentlyBindingFor = (InputCommand)a;
-			}
-
-			ImGui::EndTable();
-		}
-		ImGui::EndTabItem();
-	}
+	renderKeybindsMenu(io);
 
 	ImGui::EndTabBar();
 

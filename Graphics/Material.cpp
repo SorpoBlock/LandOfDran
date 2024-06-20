@@ -188,12 +188,8 @@ Material::Material(std::string filePath,TextureManager * textures)
 
 		//You can optionally specify a name for the material for use with Lua or whatever later
 		//It can also prevent reusing the same material
-		std::cout << "Type: " << type << "\n";
 		if (type == "name")
-		{
-			std::cout << "Picked name: " << path << "\n";
 			name = path;
-		}
 		else if (type == "albedo")
 			albedoPath = pathToTextures + path;
 		else if (type == "normal")

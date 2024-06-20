@@ -20,6 +20,7 @@ find_package(CURL CONFIG REQUIRED)
 find_package(OpenGL REQUIRED)
 find_package(OpenAL CONFIG REQUIRED)
 find_package(SDL2 CONFIG REQUIRED)
+#find_package(unofficial-enet CONFIG REQUIRED)
 
 # Add source to this project's executable.
 add_executable (LandOfDran 
@@ -59,6 +60,7 @@ add_executable (LandOfDran
 "External/Imgui/imstb_truetype.h"
 "External/Imgui/imgui_internal.h"
 "External/Imgui/imgui_draw.cpp"
+#"External/enet.h"
 #"External/Imgui/imconfig.h"
  
 "Graphics/RenderContext.h"
@@ -85,8 +87,14 @@ add_executable (LandOfDran
  "Interface/UserInterface.cpp" 
  "Interface/UserInterface.h" 
  "Interface/SettingsMenu.h" 
- "Interface/SettingsMenu.cpp" "Interface/DebugMenu.cpp" "Interface/DebugMenu.h")
+ "Interface/SettingsMenu.cpp" 
+ "Interface/DebugMenu.cpp" 
+ "Interface/DebugMenu.h")
 
+#include_directories("C:/Users/Syerjchep/Downloads/enet-2.3.10/include")
+include_directories("C:/Users/Syerjchep/Downloads/enet-1.3.18.tar/enet-1.3.18/include")
+
+#target_link_libraries(LandOfDran PRIVATE unofficial::enet::enet)
 target_link_libraries(LandOfDran PRIVATE ZLIB::ZLIB)
 target_link_libraries(LandOfDran PRIVATE SDL2::SDL2 SDL2::SDL2main)
 target_link_libraries(LandOfDran PRIVATE OpenAL::OpenAL)
@@ -95,6 +103,9 @@ target_link_libraries(LandOfDran PRIVATE OpenGL::GL)
 target_link_libraries(LandOfDran PRIVATE CURL::libcurl)
 target_link_libraries(LandOfDran PRIVATE ${BULLET_LIBRARIES})
 target_link_libraries(LandOfDran PRIVATE assimp::assimp)
+#target_link_libraries(LandOfDran PRIVATE "C:/Users/Syerjchep/Downloads/enet-2.3.10/build/release/enet_shared.lib")
+target_link_libraries(LandOfDran PRIVATE wsock32 ws2_32 winmm)
+target_link_libraries(LandOfDran PRIVATE "C:/Users/Syerjchep/Downloads/enet-1.3.18.tar/enet-1.3.18/enet64.lib")
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)
   set_property(TARGET LandOfDran PROPERTY CXX_STANDARD 20)

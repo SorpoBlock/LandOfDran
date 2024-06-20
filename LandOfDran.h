@@ -1,5 +1,6 @@
 ﻿// LandOfDran.h : Mostly external includes that can be included anywhere and not mess with anything
 
+#include "enet/enet.h"
 #include <ctype.h>
 #include <iostream>
 #include <SDL2/SDL.h>
@@ -30,3 +31,6 @@
 
 //Used in the titlebar for the window, and for making sure client and server version match in mutliplayer
 #define GAME_VERSION 20
+
+//Default port for land of dran
+#define DEFAULT_PORT 8765

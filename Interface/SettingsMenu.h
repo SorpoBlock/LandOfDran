@@ -13,6 +13,13 @@ class SettingsMenu : public Window
 	std::shared_ptr<SettingManager> settings;
 	std::shared_ptr<InputMap> inputMap;
 
+	//Separated the code specific to key binds from the rest
+	//Just call after last tab before EndTabBar in render
+	void renderKeybindsMenu(ImGuiIO* io);
+
+	//Renders more settings like background color on the gui tab of the settings menu
+	void renderThemeSettings(ImGuiIO* io);
+
 	void render(ImGuiIO* io) override;
 	void init() override;
 

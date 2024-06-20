@@ -29,13 +29,23 @@ void populateDefaults(std::shared_ptr<SettingManager> settings)
 	settings->addBool("input/invertmousey",			false, false,	"Invert mouse Y axis");
 	
 	//Network settings
-	settings->addInt("network/assumedbandwidth",		0, false, 		"ENet bandwidth assumption, 0 for dynamic",0,65535);
+	settings->addInt("network/incomingbandwidth",		0, false, 		"ENet incoming assumption, 0 for dynamic",0,500000);
+	settings->addInt("network/outgoingbandwidth",		0, false, 		"ENet outgoing assumption, 0 for dynamic",0,500000);
 	settings->addString("network/guestname",			"Guest", false,	"Guest name if not logged in");
 	settings->addString("network/lastip",			"localhost", false, "Last IP connected to");
+	settings->addInt("network/port",				DEFAULT_PORT, false, "Hosting port", 1, 65535);
 	
 	//GUI Settings
 	settings->addFloat("gui/opacity",				0.75f, false,		"HUD Opacity",0,1);
 	settings->addEnum("gui/scaling",					1, 				"GUI Scaling Factor", 	{"Small","Normal","Large","Largest"});
+	settings->addFloat("gui/rounding", 				0.0, false,		"UI element rounding",0.0,15.0);
+	settings->addColor("gui/windowcolor", glm::vec4(0.06, 0.06, 0.06, 0.940), false, "Window Background Color");
+	settings->addColor("gui/textcolor", 			glm::vec4(1,1,1,1), false, "Default Text Color");
+	settings->addColor("gui/framecolor", 			glm::vec4(0.16,0.29,0.48,0.54), false, "Frame Color (normal)");
+	settings->addColor("gui/framehovercolor", 		glm::vec4(0.26,0.59,0.98,0.4), false, "Frame Color (hover)");
+	settings->addColor("gui/frameclickcolor", 		glm::vec4(0.26,0.59,0.98,0.67), false, "Frame Color (clicked)");
+	settings->addColor("gui/titlecolor", 			glm::vec4(0.16,0.29,0.48,0.54), false, "Titel Bar Color");
+	settings->addColor("gui/highlight", 			glm::vec4(0.24,0.52,0.88,1.0), false, "Titel Bar Color");
 
 	//Audio settings
 	settings->addFloat("audio/mastervolume",			0.5f, false,		"Master Volume",0,1);

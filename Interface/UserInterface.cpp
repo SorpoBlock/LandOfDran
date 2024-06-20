@@ -2,6 +2,65 @@
 
 void UserInterface::updateSettings(std::shared_ptr<SettingManager> settings)
 {
+	ImGuiStyle& style = ImGui::GetStyle();
+
+	PreferencePair* pref = settings->getPreference("gui/textcolor");
+	if (pref)
+		style.Colors[ImGuiCol_Text] = ImVec4(pref->color[0], pref->color[1], pref->color[2], pref->color[3]);
+
+	pref = settings->getPreference("gui/windowcolor");
+	if (pref)
+		style.Colors[ImGuiCol_WindowBg] = ImVec4(pref->color[0],pref->color[1],pref->color[2],pref->color[3]);
+
+	pref = settings->getPreference("gui/framecolor");
+	if (pref)
+	{
+		style.Colors[ImGuiCol_FrameBg] = ImVec4(pref->color[0], pref->color[1], pref->color[2], pref->color[3]);
+		style.Colors[ImGuiCol_Button] = ImVec4(pref->color[0], pref->color[1], pref->color[2], pref->color[3]);
+		style.Colors[ImGuiCol_Tab] = ImVec4(pref->color[0], pref->color[1], pref->color[2], pref->color[3]);
+		style.Colors[ImGuiCol_Header] = ImVec4(pref->color[0], pref->color[1], pref->color[2], pref->color[3]);
+	}
+
+	pref = settings->getPreference("gui/framehovercolor");
+	if (pref)
+	{
+		style.Colors[ImGuiCol_FrameBgHovered] = ImVec4(pref->color[0], pref->color[1], pref->color[2], pref->color[3]);
+		style.Colors[ImGuiCol_ButtonHovered] = ImVec4(pref->color[0], pref->color[1], pref->color[2], pref->color[3]);
+		style.Colors[ImGuiCol_TabHovered] = ImVec4(pref->color[0], pref->color[1], pref->color[2], pref->color[3]);
+		style.Colors[ImGuiCol_ResizeGripHovered] = ImVec4(pref->color[0], pref->color[1], pref->color[2], pref->color[3]);
+		style.Colors[ImGuiCol_HeaderHovered] = ImVec4(pref->color[0], pref->color[1], pref->color[2], pref->color[3]);
+	}
+
+	pref = settings->getPreference("gui/highlight");
+	if (pref)
+	{
+		style.Colors[ImGuiCol_CheckMark] = ImVec4(pref->color[0], pref->color[1], pref->color[2], pref->color[3]);
+		style.Colors[ImGuiCol_ResizeGrip] = ImVec4(pref->color[0], pref->color[1], pref->color[2], pref->color[3]);
+		style.Colors[ImGuiCol_SliderGrab] = ImVec4(pref->color[0], pref->color[1], pref->color[2], pref->color[3]);
+	}
+
+	pref = settings->getPreference("gui/frameclickcolor");
+	if (pref)
+	{
+		style.Colors[ImGuiCol_FrameBgActive] = ImVec4(pref->color[0], pref->color[1], pref->color[2], pref->color[3]);
+		style.Colors[ImGuiCol_ButtonActive] = ImVec4(pref->color[0], pref->color[1], pref->color[2], pref->color[3]);
+		style.Colors[ImGuiCol_TabActive] = ImVec4(pref->color[0], pref->color[1], pref->color[2], pref->color[3]);
+		style.Colors[ImGuiCol_ResizeGripActive] = ImVec4(pref->color[0], pref->color[1], pref->color[2], pref->color[3]);
+		style.Colors[ImGuiCol_HeaderActive] = ImVec4(pref->color[0], pref->color[1], pref->color[2], pref->color[3]);
+		style.Colors[ImGuiCol_SliderGrabActive] = ImVec4(pref->color[0], pref->color[1], pref->color[2], pref->color[3]);
+	}
+
+	pref = settings->getPreference("gui/titlecolor");
+	if (pref)
+		style.Colors[ImGuiCol_TitleBgActive] = ImVec4(pref->color[0], pref->color[1], pref->color[2], pref->color[3]);
+
+	float rounding = settings->getFloat("gui/rounding");
+	style.WindowRounding = rounding;
+	style.ChildRounding = rounding;
+	style.FrameRounding = rounding;
+	style.PopupRounding = rounding;
+	style.GrabRounding = rounding;
+
 	globalInterfaceTransparency = settings->getFloat("gui/opacity");
 
 	//Refer to DefaultPreferences.cpp - Small, Normal, Large, Largest
