@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../LandOfDran.h"
+#include "JoinedClient.h"
 
 class Server
 {
@@ -8,6 +9,12 @@ class Server
 	ENetHost* server = nullptr;
 
 	bool valid = false;
+
+	//Last netID given to a JoinedClient
+	unsigned int lastNetID = 0;
+
+	//Each one represents a connected player
+	std::vector<std::shared_ptr<JoinedClient>> clients;
 
 public:
 

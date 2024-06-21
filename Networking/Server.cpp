@@ -2,26 +2,61 @@
 
 void Server::run()
 {
+	scope("Server::run");
+
 	if (!valid)
 		return;
 
 	ENetEvent netEvent;
 
 	int enetValue = enet_host_service(server, &netEvent, 0);
+
 	if (enetValue < -1)
 		error("enet_host_service error");
-	else if (enetValue > 0)
+	else if (enetValue == 0)
+		return;
+	
+	switch (netEvent.type)
 	{
-		switch (netEvent.type)
-		{
 		case ENET_EVENT_TYPE_CONNECT:
 		{
-			char host[256];
-			enet_address_get_host(&netEvent.peer->address, host, 256);
-			info("Someone connected from " + std::string(host));
+			clients.push_back(std::make_shared<JoinedClient>(netEvent,lastNetID));
+			lastNetID++;
 			break;
 		}
+		case ENET_EVENT_TYPE_RECEIVE:
+		{
+			JoinedClient* client = (JoinedClient*)netEvent.peer->data;
+			if (!client)
+			{
+				error("Got packet that had no JoinedClient pointer!");
+				break;
+			}
+
+			client->dataReceived(netEvent.packet);
+			enet_packet_destroy(netEvent.packet);
+
+			break;
 		}
+		case ENET_EVENT_TYPE_DISCONNECT:
+		{
+			//We could just jump directly to the joined client with the data pointer but we'd need to iterate the vector anyway to remove it
+			auto iter = clients.begin();
+			while (iter != clients.end())
+			{
+				std::shared_ptr<JoinedClient> client = *iter;
+				if (client.get() == (JoinedClient*)netEvent.peer->data)
+				{
+					client.reset();
+					clients.erase(iter);
+					break;
+				}
+				++iter;
+			}
+			break;
+		}
+		default:
+			break;
 	}
 }
 
@@ -44,6 +79,9 @@ Server::Server(int port)
 
 Server::~Server()
 {
+	for (unsigned int a = 0; a < clients.size(); a++)
+		clients[a]->kick(KickReason::ServerShutdown);
+
 	if (valid)
 		enet_host_destroy(server);
 }

@@ -93,7 +93,7 @@ add_executable (LandOfDran
 "Networking/Server.h" 
 "Networking/Server.cpp" 
 "Networking/Client.cpp" 
-"Networking/Client.h")
+"Networking/Client.h" "NetTypes/DynamicType.h" "NetTypes/DynamicType.cpp" "Networking/JoinedClient.h" "Networking/JoinedClient.cpp")
 
 #include_directories("C:/Users/Syerjchep/Downloads/enet-2.3.10/include")
 include_directories("C:/Users/Syerjchep/Downloads/enet-1.3.18.tar/enet-1.3.18/include")

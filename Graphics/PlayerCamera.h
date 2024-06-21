@@ -47,7 +47,7 @@ class Camera
 	void turn(float relMouseX, float relMouseY);
 
 	//Call once per frame
-	void render(ShaderManager * graphics);
+	void render(std::shared_ptr<ShaderManager> graphics);
 
 	void setFOV(float fov);
 

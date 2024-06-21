@@ -94,7 +94,7 @@ void Camera::turn(float relMouseX, float relMouseY)
 }
 
 //Call once per frame
-void Camera::render(ShaderManager* graphics)
+void Camera::render(std::shared_ptr<ShaderManager> graphics)
 {
     viewMatrix = glm::lookAt(position, position + direction, nominalUp);
     angleMatrix = glm::lookAt(glm::vec3(0, 0, 0), direction, nominalUp);

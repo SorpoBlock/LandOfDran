@@ -77,8 +77,9 @@ class UserInterface
 	/*
 		Call in your SDL_PollEvent loop
 		Passes input to all windows' functions, handles window open key binds, and passes input directly to ImGui
+		Returns true if mouse should be unlocked (window was opened)
 	*/
-	void handleInput(SDL_Event& e, std::shared_ptr<InputMap> input);
+	bool handleInput(SDL_Event& e, std::shared_ptr<InputMap> input);
 
 	//Creates a window of a given derived type and returns a shared pointer to it
 	template <typename T,typename ... Args>

@@ -1,7 +1,7 @@
 #include "GlobalStartup.h"
 
 //Calls functions like SDL_Init and such that don't return anything (important)
-bool globalStartup(std::shared_ptr<SettingManager> settings)
+bool globalStartup(std::shared_ptr<SettingManager> settings,const ExecutableArguments &cmdArgs)
 {
     info("Starting Enet");
    if (enet_initialize() != 0)
@@ -9,6 +9,14 @@ bool globalStartup(std::shared_ptr<SettingManager> settings)
         error("Could not start up Enet");
         return true;
     }
+
+   //No graphics or UI if running headless
+   if (cmdArgs.dedicated)
+   {
+       //TODO: I feel like we don't need to start all of SDL just for SDL_GetTicks lmao
+       SDL_Init(SDL_INIT_TIMER);
+       return false; //Everything's okay so far!
+   }
 
 	info("Starting SDL");
 	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS | SDL_INIT_TIMER) != 0)
@@ -56,10 +64,18 @@ bool globalStartup(std::shared_ptr<SettingManager> settings)
 }
 
 //Calls shutdown for global start-up functions called in globalStartup
-void globalShutdown()
+void globalShutdown(const ExecutableArguments& cmdArgs)
 {
     info("Shutting down Enet");
     enet_deinitialize();
+
+    //No graphics or UI if running headless
+    if (cmdArgs.dedicated)
+    {
+        info("Shutting down SDL");
+        SDL_Quit();
+        return;
+    }
 
     info("Shutting down Imgui");
     ImGui_ImplOpenGL3_Shutdown();

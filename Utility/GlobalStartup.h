@@ -10,7 +10,7 @@
 	Calls functions like SDL_Init and such that don't return anything (important)
 	Returns true if there was an issue and we should crash!
 */
-bool globalStartup(std::shared_ptr<SettingManager> settings);
+bool globalStartup(std::shared_ptr<SettingManager> settings, const ExecutableArguments& cmdArgs);
 
 //Calls shutdown for global start-up functions called in globalStartup
-void globalShutdown();
+void globalShutdown(const ExecutableArguments& cmdArgs);
