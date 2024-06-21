@@ -1,5 +1,20 @@
 #include "PlayerCamera.h"
 
+void Camera::control(float deltaT,std::shared_ptr<InputMap> input)
+{
+    //Test camera controls, no-clip camera
+    float speed = 0.015f;
+
+    if (input->isCommandKeydown(WalkForward))
+        flyStraight(deltaT * speed);
+    if (input->isCommandKeydown(WalkBackward))
+        flyStraight(-deltaT * speed);
+    if (input->isCommandKeydown(WalkRight))
+        flySideways(-deltaT * speed);
+    if (input->isCommandKeydown(WalkLeft))
+        flySideways(deltaT * speed);
+}
+
 void Camera::updateSettings(std::shared_ptr<SettingManager> settings)
 {
     mouseSensitivity = settings->getFloat("input/mousesensitivity");

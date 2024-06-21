@@ -97,8 +97,14 @@ void DebugMenu::init()
 
 }
 
+void DebugMenu::handleInput(SDL_Event& e, std::shared_ptr<InputMap> input)
+{
+
+}
+
 DebugMenu::DebugMenu()
 {
+	name = "Debug Menu";
 	consoleCommandBuffer[0] = 0;
 }
 

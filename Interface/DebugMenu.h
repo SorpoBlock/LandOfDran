@@ -15,6 +15,7 @@ class DebugMenu : public Window
 
 	virtual void render(ImGuiIO* io) override;
 	virtual void init() override;
+	virtual void handleInput(SDL_Event& e, std::shared_ptr<InputMap> input) override;
 
 	bool showVerboseLogging = false;
 	bool scrollToBottom = true;

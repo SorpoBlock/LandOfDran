@@ -6,6 +6,7 @@
 #include "../External/Imgui/imgui_impl_sdl2.h"
 #include "../External/Imgui/imgui_impl_opengl3.h"
 #include "../External/Imgui//imgui_stdlib.h"
+#include "../Interface/InputMap.h"
 
 class UserInterface;
 
@@ -19,7 +20,7 @@ class Window
 
 	friend class UserInterface;
 
-	//Displayed in titlebar, can be changed
+	//Used internally for figuring out key binds and such, not always displayed on actual UI
 	std::string name = "";
 
 	//Child class should set this to true at the end of init()
@@ -29,6 +30,8 @@ class Window
 	virtual void init() = 0;
 	//Called by UserInterface every frame
 	virtual void render(ImGuiIO* io) = 0;
+	//In SDL_PollEvent loop
+	virtual void handleInput(SDL_Event& e, std::shared_ptr<InputMap> input) = 0;
 	//Is window currently open and being rendered
 	bool opened = false;
 	 
@@ -73,9 +76,9 @@ class UserInterface
 
 	/*
 		Call in your SDL_PollEvent loop
-		Returns if InputMap should be suppressed
+		Passes input to all windows' functions, handles window open key binds, and passes input directly to ImGui
 	*/
-	void handleInput(SDL_Event& e) const;
+	void handleInput(SDL_Event& e, std::shared_ptr<InputMap> input);
 
 	//Creates a window of a given derived type and returns a shared pointer to it
 	template <typename T,typename ... Args>

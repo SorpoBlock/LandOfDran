@@ -60,71 +60,7 @@ int main(int argc, char* argv[])
 	//A few test decals
 	TextureManager textures;
 	textures.allocateForDecals(128);
-	textures.addDecal("Assets/animan.png", 0);
-	textures.addDecal("Assets/ascii-terror.png", 1);
 	textures.finalizeDecals();
-
-	//Test model
-	Model testModel("Assets/brickhead/brickhead.txt",&textures); 
-	testModel.baseScale = glm::vec3(0.01f);
-	testModel.setDefaultFrame(35);
-
-	//Test animations
-	Animation walk;
-	walk.defaultSpeed = 0.01f;
-	walk.startTime = 0;
-	walk.endTime = 30;
-	walk.serverID = 0;
-	walk.name = "walk";
-	walk.fadeInMS = 200;
-	walk.fadeOutMS = 400;
-	testModel.addAnimation(walk);
-
-	Animation grab;
-	grab.defaultSpeed = 0.01f;
-	grab.startTime = 57;
-	grab.endTime = 66;
-	grab.serverID = 1;
-	grab.name = "grab";
-	grab.fadeInMS = 200;
-	grab.fadeOutMS = 400;
-	testModel.addAnimation(grab);
-
-	//Alternative test model and animations
-	/*Model test("Assets/gun/gun.txt", &textures);
-	test.setDefaultFrame(25);
-
-	Animation fire;
-	fire.defaultSpeed = 0.01;
-	fire.startTime = 39;
-	fire.endTime = 86;
-	fire.serverID = 0;
-	fire.name = "fire";
-	test.addAnimation(fire);
-
-	Animation reload;
-	reload.defaultSpeed = 0.01;
-	reload.startTime = 1;
-	reload.endTime = 21;
-	reload.serverID = 1;
-	reload.name = "fire";
-	test.addAnimation(reload);*/
-
-	//Spawn in a ton of instances of the test model
-	std::vector<ModelInstance*> instances;
-	for (unsigned int a = 0; a < 7; a++)
-	{
-		for (unsigned int b = 0; b < 7; b++)
-		{
-			for (unsigned int c = 0; c < 7; c++)
-			{
-				ModelInstance* tester = new ModelInstance(&testModel);
-				instances.push_back(tester);
-				tester->setModelTransform(glm::translate(glm::vec3(a * 8, b * 8, c * 8)));
-				tester->update(0);
-			} 
-		}
-	} 
 
 	Server* server = nullptr;
 	Client* client = nullptr;
@@ -133,20 +69,18 @@ int main(int argc, char* argv[])
 	{
 		server = new Server(DEFAULT_PORT);
 		if (!server->isValid())
-			return 0;
+			return 0; 
 	}
 	else
 	{
 		client = new Client();
-		if (!client->isValid())
-			return 0;
-	}
+		if (!client->isValid()) 
+			return 0; 
+	} 
 
-	float angle = 0.0;
-	float lastTicks = SDL_GetTicks();
-
-	bool doMainLoop = true;
-	while (doMainLoop)
+	float lastTicks = (float)SDL_GetTicks();
+	
+	while (cmdArgs.mainLoopRun)
 	{
 		if (cmdArgs.dedicated && server)
 			server->run();
@@ -155,7 +89,6 @@ int main(int argc, char* argv[])
 
 		float deltaT = ((float)SDL_GetTicks()) - lastTicks;
 		lastTicks = (float)SDL_GetTicks();
-		angle += deltaT * 0.001f;
 
 		input->keystates = SDL_GetKeyboardState(NULL);
 
@@ -163,13 +96,12 @@ int main(int argc, char* argv[])
 		SDL_Event e;
 		while (SDL_PollEvent(&e))
 		{
-			settingsMenu->processKeyBind(e);
-			gui.handleInput(e);
+			gui.handleInput(e,input);
 			input->handleInput(e);
 
 			if (e.type == SDL_QUIT)
 			{
-				doMainLoop = false;
+				cmdArgs.mainLoopRun = false;
 				break;
 			}
 			else if (e.type == SDL_WINDOWEVENT)
@@ -182,8 +114,6 @@ int main(int argc, char* argv[])
 			}
 			else if (e.type == SDL_MOUSEMOTION && context.getMouseLocked())
 				camera->turn(-(float)e.motion.xrel, -(float)e.motion.yrel);
-			else if (e.type == SDL_MOUSEBUTTONDOWN)
-				instances[0]->playAnimation(1, false);
 			else if (e.type == SDL_KEYDOWN)
 			{
 				//This one is not handled through input map because input map can be suppressed
@@ -211,40 +141,17 @@ int main(int argc, char* argv[])
 		//Various keys were pressed that were bound to certain commands:
 		if (input->pollCommand(MouseLock))
 			context.setMouseLock(!context.getMouseLocked());
-		if (input->pollCommand(OpenOptionsMenu))
-		{
-			settingsMenu->open();
-			context.setMouseLock(false);
-		}
-		if (input->pollCommand(OpenDebugWindow))
-		{
-			debugMenu->open();
-			context.setMouseLock(false);
-		}
 
-		//Test camera controls, no-clip camera
-		float speed = 0.015f;
-
-		if (input->isCommandKeydown(WalkForward))
-			camera->flyStraight(deltaT * speed);
-		if (input->isCommandKeydown(WalkBackward))
-			camera->flyStraight(-deltaT * speed);
-		if (input->isCommandKeydown(WalkRight))
-			camera->flySideways(-deltaT * speed);
-		if (input->isCommandKeydown(WalkLeft))
-			camera->flySideways(deltaT * speed);
-
+		camera->control(deltaT, input);
 		debugMenu->passDetails(camera);
 
 		//Start rendering to screen:
-		testModel.updateAll(deltaT);
 		camera->render(&shaders);
 
 		context.select(); 
 		context.clear(0.2f,0.2f,0.2f);
 
 		shaders.modelShader->use();
-		testModel.render(&shaders);
 
 		gui.render();
 

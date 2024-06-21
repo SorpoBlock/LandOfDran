@@ -121,9 +121,31 @@ void Window::open()
 	opened = true;
 }
 
-void UserInterface::handleInput(SDL_Event& e) const
+void UserInterface::handleInput(SDL_Event& e,std::shared_ptr<InputMap> input)
 {
 	ImGui_ImplSDL2_ProcessEvent(&e);
+
+	for (unsigned int a = 0; a < windows.size(); a++)
+		windows[a]->handleInput(e, input);
+
+	if (e.type != SDL_KEYDOWN)
+		return;
+
+	if (e.key.keysym.scancode == input->getKeyBind(OpenDebugWindow))
+	{
+		auto tmp = getWindowByName("Debug Menu");
+		if (tmp)
+			tmp->open();
+		return;
+	}
+
+	if (e.key.keysym.scancode == input->getKeyBind(OpenOptionsMenu))
+	{
+		auto tmp = getWindowByName("Settings Menu");
+		if (tmp)
+			tmp->open();
+		return;
+	}
 }
 
 std::shared_ptr<Window> UserInterface::getWindowByName(const std::string &name)

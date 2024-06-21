@@ -23,6 +23,7 @@ class SettingsMenu : public Window
 
 	virtual void render(ImGuiIO* io) override;
 	virtual void init() override;
+	virtual void handleInput(SDL_Event& e, std::shared_ptr<InputMap> input) override;
 
 	bool settingsUpdated = false;
 
@@ -33,9 +34,6 @@ class SettingsMenu : public Window
 		std::shared_ptr<InputMap> _inputMap);
 
 	public:
-
-	//Put this in your main SDL_PollEvent loop, won't do anything unless you're binding a key tho
-	void processKeyBind(SDL_Event& e);
 
 	//Did someone hit the save button since the last call to this function
 	bool pollForChanges();

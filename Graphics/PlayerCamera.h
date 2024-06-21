@@ -3,6 +3,7 @@
 #include "../LandOfDran.h"
 
 #include "ShaderSpecification.h"
+#include "../Interface/InputMap.h"
 
 class Camera
 {
@@ -31,6 +32,8 @@ class Camera
 	bool invertMouse = false;
 
 	public:
+
+	void control(float deltaT,std::shared_ptr<InputMap> input);
 
 	void updateSettings(std::shared_ptr<SettingManager> settings);
 

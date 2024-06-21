@@ -5,15 +5,9 @@ void SettingsMenu::init()
 	initalized = true;
 }
 
-bool SettingsMenu::pollForChanges()
+void SettingsMenu::handleInput(SDL_Event& e, std::shared_ptr<InputMap> input)
 {
-	bool ret = settingsUpdated;
-	settingsUpdated = false;
-	return ret;
-}
-void SettingsMenu::processKeyBind(SDL_Event& e)
-{
-	if(currentlyBindingFor == InputCommand::NoCommand)
+	if (currentlyBindingFor == InputCommand::NoCommand)
 		return;
 
 	if (e.type != SDL_KEYDOWN)
@@ -21,6 +15,13 @@ void SettingsMenu::processKeyBind(SDL_Event& e)
 
 	inputMap->bindKey(currentlyBindingFor, e.key.keysym.scancode);
 	currentlyBindingFor = InputCommand::NoCommand;
+}
+
+bool SettingsMenu::pollForChanges()
+{
+	bool ret = settingsUpdated;
+	settingsUpdated = false;
+	return ret;
 }
 
 void SettingsMenu::renderThemeSettings(ImGuiIO* io)
@@ -244,11 +245,11 @@ void SettingsMenu::render(ImGuiIO* io)
 
 SettingsMenu::SettingsMenu(
 	std::shared_ptr< SettingManager> _settings,
-	std::shared_ptr<InputMap> _inputMap) 
+	std::shared_ptr<InputMap> _inputMap)
 	: settings(_settings),
 	inputMap(_inputMap)
 {
-
+	name = "Settings Menu";
 }
 
 SettingsMenu::~SettingsMenu()

@@ -8,6 +8,10 @@
 */
 struct ExecutableArguments
 {
+	//False if the entire program should shut down
+	//Not loaded from command line arguments, but frequently passed with them
+	bool mainLoopRun = true;
+
 	//Are we hosting from a headless no UI dedicated servver
 	bool dedicated = false;
 
