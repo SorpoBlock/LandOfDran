@@ -108,10 +108,9 @@ void Material::finishCreation(std::string albedo, std::string normal, std::strin
 }
 
 Material::Material(const std::string &_name, const std::string &albedo, const  std::string &normal, const  std::string &roughness, const  std::string &metalness, const  std::string &occlusion, TextureManager* textures)
+	: name(_name)
 {
 	scope("Material::Material (explicit)");
-
-	name = _name;
 
 	finishCreation(albedo, normal, roughness, metalness, occlusion, textures);
 }

@@ -88,7 +88,7 @@ bool UserInterface::wantsSuppression() const
 }
 
 //If mouselock should be forced on
-bool UserInterface::shouldUnlockMouse()
+bool UserInterface::shouldUnlockMouse() const
 {
 	return io->WantCaptureMouse;
 }
@@ -121,13 +121,7 @@ void Window::open()
 	opened = true;
 }
 
-void UserInterface::addWindow(std::shared_ptr<Window> window)
-{
-	window->userInterface = this;
-	windows.push_back(window);
-}
-
-void UserInterface::handleInput(SDL_Event& e)
+void UserInterface::handleInput(SDL_Event& e) const
 {
 	ImGui_ImplSDL2_ProcessEvent(&e);
 }

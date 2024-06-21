@@ -42,11 +42,8 @@ int main(int argc, char* argv[])
 	UserInterface gui;
 	gui.updateSettings(preferences);
 
-	auto settingsMenu = std::make_shared<SettingsMenu>(preferences,input);
-	gui.addWindow(settingsMenu);
-
-	auto debugMenu = std::make_shared<DebugMenu>();
-	gui.addWindow(debugMenu);
+	auto settingsMenu = gui.createWindow<SettingsMenu>(preferences,input);
+	auto debugMenu    = gui.createWindow<DebugMenu>();
 
 	gui.initAll();
 
@@ -66,12 +63,12 @@ int main(int argc, char* argv[])
 
 	//Test model
 	Model testModel("Assets/brickhead/brickhead.txt",&textures); 
-	testModel.baseScale = glm::vec3(0.01);
+	testModel.baseScale = glm::vec3(0.01f);
 	testModel.setDefaultFrame(35);
 
 	//Test animations
 	Animation walk;
-	walk.defaultSpeed = 0.01;
+	walk.defaultSpeed = 0.01f;
 	walk.startTime = 0;
 	walk.endTime = 30;
 	walk.serverID = 0;
@@ -81,7 +78,7 @@ int main(int argc, char* argv[])
 	testModel.addAnimation(walk);
 
 	Animation grab;
-	grab.defaultSpeed = 0.01;
+	grab.defaultSpeed = 0.01f;
 	grab.startTime = 57;
 	grab.endTime = 66;
 	grab.serverID = 1;
@@ -165,8 +162,8 @@ int main(int argc, char* argv[])
 		}
 
 		float deltaT = ((float)SDL_GetTicks()) - lastTicks;
-		lastTicks = SDL_GetTicks();
-		angle += deltaT * 0.001;
+		lastTicks = (float)SDL_GetTicks();
+		angle += deltaT * 0.001f;
 
 		input->keystates = SDL_GetKeyboardState(NULL);
 
@@ -192,7 +189,7 @@ int main(int argc, char* argv[])
 				}
 			}
 			else if (e.type == SDL_MOUSEMOTION && context.getMouseLocked())
-				camera->turn(-e.motion.xrel, -e.motion.yrel);
+				camera->turn(-(float)e.motion.xrel, -(float)e.motion.yrel);
 			else if (e.type == SDL_MOUSEBUTTONDOWN)
 				instances[0]->playAnimation(1, false);
 			else if (e.type == SDL_KEYDOWN)
@@ -234,7 +231,7 @@ int main(int argc, char* argv[])
 		}
 
 		//Test camera controls, no-clip camera
-		float speed = 0.015;
+		float speed = 0.015f;
 
 		if (input->isCommandKeydown(WalkForward))
 			camera->flyStraight(deltaT * speed);
@@ -252,7 +249,7 @@ int main(int argc, char* argv[])
 		camera->render(&shaders);
 
 		context.select(); 
-		context.clear(0.2,0.2,0.2);
+		context.clear(0.2f,0.2f,0.2f);
 
 		shaders.modelShader->use();
 		testModel.render(&shaders);

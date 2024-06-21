@@ -103,17 +103,17 @@ class Texture
 	bool isValid() const { return valid;  }
 
 	/*
-		Decrements usages by one
+		Decrements usages by one, like a shared pointer
 		Call TextureManager::garbageCollect at some point
 	*/
 	void markForCleanup();
 
-	void setFilter(GLenum magFilter, GLenum minFilter);
+	void setFilter(GLenum magFilter, GLenum minFilter) const;
 
 	//Sets wrapping for S T and R at once
-	void setWrapping(GLenum wrapping);
+	void setWrapping(GLenum wrapping) const;
 
-	void setWrapping(GLenum wrapS, GLenum wrapT, GLenum wrapR);
+	void setWrapping(GLenum wrapS, GLenum wrapT, GLenum wrapR) const;
 
 	//Actually use the texture
 	void bind(TextureLocations loc) const;
@@ -199,14 +199,14 @@ class TextureManager
 		Loads a decal from an image
 		id must be > 0 and < maxEntries, but does not need to be sequential
 	*/
-	void addDecal(std::string filePath,int id);
+	void addDecal(const std::string &filePath,int id);
 
 	/*
 		Creates a non-array texture from a single image file and returns it
 		Unless a texture from that file already exists, in which case the existing is returned
 		Will detect if it is HDR or not HDR
 	*/
-	Texture *createTexture(std::string filePath,bool makeMipmaps = true);
+	Texture *createTexture(const std::string &filePath,bool makeMipmaps = true);
 
 	/*
 		Create a 2d texture array, for use with things like PBR material workflows

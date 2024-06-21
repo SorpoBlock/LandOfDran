@@ -1,6 +1,6 @@
 #include "ShaderSpecification.h"
 
-bool ShaderManager::readShaderList(std::string filePath)
+bool ShaderManager::readShaderList(const std::string &filePath)
 {
 	bool returnValue = false;
 
@@ -123,6 +123,7 @@ ShaderManager::ShaderManager()
 	if (!basicUBO)
 		error("Could not allocate uniform buffer object!");
 
+	//Note, because of OpenGLs std140 padding, we cannot do sizeof(struct basicUniforms) there's basically no way but to manually calculate the padding size
 	glBindBuffer(GL_UNIFORM_BUFFER, basicUBO);
 	glBufferData(GL_UNIFORM_BUFFER, 216, &basicUniforms, GL_DYNAMIC_DRAW);
 	glBindBuffer(GL_UNIFORM_BUFFER, 0);
@@ -148,14 +149,14 @@ ShaderManager::~ShaderManager()
 	Associates contained UBOs with their definitions in the OpenGL shaders
 	See function definition for what names they should have in shaders
 */
-void ShaderManager::bind(Program* target)
+void ShaderManager::bind(Program* target) const
 {
 	target->bindUniformBlock("BasicUniforms" , basicUBO , 0);
 	target->bindUniformBlock("CameraUniforms", cameraUBO, 1);
 }
 
 //Push camera changes to GPU/OpenGL
-void ShaderManager::updateCameraUBO()
+void ShaderManager::updateCameraUBO() const 
 {
 	glBindBuffer(GL_UNIFORM_BUFFER, cameraUBO);
 	glBufferData(GL_UNIFORM_BUFFER, 220, &cameraUniforms, GL_DYNAMIC_DRAW);
@@ -163,7 +164,7 @@ void ShaderManager::updateCameraUBO()
 }
 
 //Push camera changes to GPU/OpenGL
-void ShaderManager::updateBasicUBO()
+void ShaderManager::updateBasicUBO() const
 {
 	glBindBuffer(GL_UNIFORM_BUFFER, basicUBO);
 	glBufferData(GL_UNIFORM_BUFFER, 216, &basicUniforms, GL_DYNAMIC_DRAW);

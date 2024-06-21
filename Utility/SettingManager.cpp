@@ -56,7 +56,7 @@ void SettingManager::addEnum(std::string path, int value,std::string desc,std::v
 		{
 			target->childPreferences[a]->description = desc;
 			target->childPreferences[a]->minValue = 0;
-			target->childPreferences[a]->maxValue = names.size();
+			target->childPreferences[a]->maxValue = (float)names.size();
 			target->childPreferences[a]->dropDownNames = std::move(names);
 			return;
 		}
@@ -70,7 +70,8 @@ void SettingManager::addEnum(std::string path, int value,std::string desc,std::v
 	tmp->name = path;
 	tmp->description = desc;
 	tmp->minValue = 0;
-	tmp->maxValue = names.size();
+	//conversion from size_t to float and then later on back to int, because I wanted to use the same 'maxValue' for sliders as for drop down lists...
+	tmp->maxValue = (float)names.size(); 
 	tmp->dropDownNames = std::move(names);
 }
 
@@ -318,19 +319,19 @@ glm::vec4 SettingManager::getColor(const std::string &path) const
 		ss >> buf;
 		if (buf.length() < 1)
 			return ret;
-		ret.r = atof(buf.c_str());
+		ret.r = (float)atof(buf.c_str());
 		ss >> buf;
 		if (buf.length() < 1)
 			return ret;
-		ret.g = atof(buf.c_str());
+		ret.g = (float)atof(buf.c_str());
 		ss >> buf;
 		if (buf.length() < 1)
 			return ret;
-		ret.b = atof(buf.c_str());
+		ret.b = (float)atof(buf.c_str());
 		ss >> buf;
 		if (buf.length() < 1)
 			return ret;
-		ret.a = atof(buf.c_str());
+		ret.a = (float)atof(buf.c_str());
 		return ret;
 	}
 	else
@@ -496,8 +497,8 @@ void PreferenceNode::readFromLine(std::string &line,int lineNumber,PreferenceNod
 		}
 
 		pair->description = meta.substr(0, tabAfterDesc);
-		pair->minValue = atof(meta.substr(tabAfterDesc + 1, tabAfterMin - (tabAfterDesc + 1)).c_str());
-		pair->maxValue = atof(meta.substr(tabAfterMin + 1, meta.length() - (tabAfterMin + 1)).c_str());
+		pair->minValue = (float)atof(meta.substr(tabAfterDesc + 1, tabAfterMin - (tabAfterDesc + 1)).c_str());
+		pair->maxValue = (float)atof(meta.substr(tabAfterMin + 1, meta.length() - (tabAfterMin + 1)).c_str());
 	}
 	else if (type == "string")
 	{
@@ -523,8 +524,8 @@ void PreferenceNode::readFromLine(std::string &line,int lineNumber,PreferenceNod
 		}
 
 		pair->description = meta.substr(0, tabAfterDesc);
-		pair->minValue = atof(meta.substr(tabAfterDesc + 1, tabAfterMin - (tabAfterDesc + 1)).c_str());
-		pair->maxValue = atof(meta.substr(tabAfterMin + 1, meta.length() - (tabAfterMin + 1)).c_str());
+		pair->minValue = (float)atof(meta.substr(tabAfterDesc + 1, tabAfterMin - (tabAfterDesc + 1)).c_str());
+		pair->maxValue = (float)atof(meta.substr(tabAfterMin + 1, meta.length() - (tabAfterMin + 1)).c_str());
 	}
 	else
 	{
@@ -539,7 +540,7 @@ void PreferenceNode::readFromLine(std::string &line,int lineNumber,PreferenceNod
 	if (pair->type == PreferenceBoolean)
 		pair->valueBool = value == "true";
 	else if (pair->type == PreferenceFloat)
-		pair->valueFloat = atof(value.c_str());
+		pair->valueFloat = (float)atof(value.c_str());
 	else if (pair->type == PreferenceInteger)
 		pair->valueInt = atoi(value.c_str());
 	else if (pair->type == PreferenceColor)
@@ -550,19 +551,19 @@ void PreferenceNode::readFromLine(std::string &line,int lineNumber,PreferenceNod
 		ss >> buf;
 		if (buf.length() < 1)
 			return;
-		pair->color[0] = atof(buf.c_str());
+		pair->color[0] = (float)atof(buf.c_str());
 		ss >> buf;
 		if (buf.length() < 1)
 			return;
-		pair->color[1] = atof(buf.c_str());
+		pair->color[1] = (float)atof(buf.c_str());
 		ss >> buf;
 		if (buf.length() < 1)
 			return;
-		pair->color[2] = atof(buf.c_str());
+		pair->color[2] = (float)atof(buf.c_str());
 		ss >> buf;
 		if (buf.length() < 1)
 			return;
-		pair->color[3] = atof(buf.c_str());
+		pair->color[3] = (float)atof(buf.c_str());
 	}
 }
 

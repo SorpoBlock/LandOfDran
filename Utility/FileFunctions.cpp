@@ -1,6 +1,6 @@
 #include "FileFunctions.h"
 
-bool okayFilePath(std::string path)
+bool okayFilePath(const std::string &path)
 {
     //Greater than 2 characters
     //Not start with a . or /
@@ -88,7 +88,7 @@ unsigned int getFileChecksum(const char* filePath)
     return ret;
 }
 
-long GetFileSize(std::string filename)
+long GetFileSize(const std::string &filename)
 {
     if (!doesFileExist(filename))
         return 0;
@@ -97,7 +97,7 @@ long GetFileSize(std::string filename)
     return rc == 0 ? stat_buf.st_size : -1;
 }
 
-std::string getFileFromPath(std::string in)
+std::string getFileFromPath(const std::string &in)
 {
     /*while (in.find("/") != std::string::npos)
         in = in.substr(in.find("/") + 1, (in.length() - in.find("/")) + 1);
@@ -108,7 +108,7 @@ std::string getFileFromPath(std::string in)
     return std::filesystem::path(in).filename().string();
 }
 
-std::string getFolderFromPath(std::string in)
+std::string getFolderFromPath(const std::string &in)
 {
     /*if (in.find("/") == std::string::npos)
         return "";
@@ -134,7 +134,7 @@ std::string addSuffixToFile(std::string in, std::string suffix)
     return in.substr(0, lastPeriod) + suffix + in.substr(lastPeriod, in.length() - lastPeriod);
 }
 
-bool doesFileExist(std::string filePath)
+bool doesFileExist(const std::string &filePath)
 {
     std::ifstream test(filePath.c_str());
     if (test.is_open())

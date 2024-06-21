@@ -9,6 +9,7 @@
 class SettingsMenu : public Window
 {
 	friend class Window;
+	friend class UserInterface;
 
 	std::shared_ptr<SettingManager> settings;
 	std::shared_ptr<InputMap> inputMap;
@@ -20,13 +21,16 @@ class SettingsMenu : public Window
 	//Renders more settings like background color on the gui tab of the settings menu
 	void renderThemeSettings(ImGuiIO* io);
 
-	void render(ImGuiIO* io) override;
-	void init() override;
+	virtual void render(ImGuiIO* io) override;
+	virtual void init() override;
 
 	bool settingsUpdated = false;
 
 	//Will be NoCommand is we're not binding a key
 	InputCommand currentlyBindingFor = InputCommand::NoCommand;
+
+	SettingsMenu(std::shared_ptr< SettingManager> _settings,
+		std::shared_ptr<InputMap> _inputMap);
 
 	public:
 
@@ -36,7 +40,5 @@ class SettingsMenu : public Window
 	//Did someone hit the save button since the last call to this function
 	bool pollForChanges();
 	
-	SettingsMenu(std::shared_ptr< SettingManager> _settings,
-		std::shared_ptr<InputMap> _inputMap);
 	~SettingsMenu();
 };

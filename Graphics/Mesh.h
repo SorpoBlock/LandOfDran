@@ -51,7 +51,7 @@ struct Animation
 	//What time in the model's animation reed does it end
 	float endTime = 0;
 	//Stacks with AnimationPlayback::animationSpeed
-	float defaultSpeed = 0.04;
+	float defaultSpeed = 0.04f;
 	//So the server can play animations by ID
 	int serverID = -1;
 	//I suppose if you were hard coding animations you could use this, but you shouldn't
@@ -239,7 +239,7 @@ class Mesh
 	unsigned int vertexCount = 0;
 
 	//Used for seeing what index to use when reading from vectors in ModelInstance for rendering
-	unsigned int meshIndex = 0;
+	size_t meshIndex = 0;
 
 	std::string name = "";
 
@@ -324,7 +324,7 @@ class Node
 	const Node* parent = nullptr;
 
 	//Position in allNodes
-	unsigned int nodeIndex = 0;
+	size_t nodeIndex = 0;
 
 	/*
 		This is added by Assimp

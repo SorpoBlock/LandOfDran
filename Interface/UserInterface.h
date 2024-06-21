@@ -19,7 +19,7 @@ class Window
 
 	friend class UserInterface;
 
-	//Displayed in titlebar
+	//Displayed in titlebar, can be changed
 	std::string name = "";
 
 	//Child class should set this to true at the end of init()
@@ -32,9 +32,14 @@ class Window
 	//Is window currently open and being rendered
 	bool opened = false;
 	 
+	//The instance that owns this Window
 	UserInterface* userInterface = nullptr;
 
+	explicit Window() = default;
+
 	public:
+
+	virtual ~Window() = default;
 
 	//Opens the window if it was closed
 	void open();
@@ -70,10 +75,17 @@ class UserInterface
 		Call in your SDL_PollEvent loop
 		Returns if InputMap should be suppressed
 	*/
-	void handleInput(SDL_Event& e);
+	void handleInput(SDL_Event& e) const;
 
-	//Windows passed here will be destroyed when UserInterface is
-	void addWindow(std::shared_ptr<Window> window);
+	//Creates a window of a given derived type and returns a shared pointer to it
+	template <typename T,typename ... Args>
+	std::shared_ptr<T> createWindow(Args... args)
+	{
+		std::shared_ptr<T> window(new T(args...));
+		window->userInterface = this;
+		windows.push_back(window);
+		return window;
+	}
 
 	//Call every frame
 	void render();
@@ -88,7 +100,7 @@ class UserInterface
 	std::shared_ptr<Window> getWindowByName(const std::string &name);
 
 	//If mouselock should be forced on
-	bool shouldUnlockMouse();
+	bool shouldUnlockMouse() const;
 
 	//Trigged if you hit escape, ideally, do it again and again until all windows are closed
 	void closeOneWindow();

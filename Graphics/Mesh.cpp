@@ -45,7 +45,7 @@ void Model::printHierarchy(Node * node,int layer) const
 	if (!node)
 		node = rootNode;
 
-	for (unsigned int a = 0; a < layer; a++)
+	for (int a = 0; a < layer; a++)
 		std::cout << "\t";
 	std::cout << node->name << " ID: " << node->nodeIndex << "\n";
 
@@ -54,30 +54,30 @@ void Model::printHierarchy(Node * node,int layer) const
 	glm::quat rot;
 	glm::decompose(node->defaultTransform, scale, rot, trans, skew, perspective);
 
-	for (unsigned int a = 0; a < layer + 1; a++)
+	for (int a = 0; a < layer + 1; a++)
 		std::cout << "\t";
 	std::cout << "--Translation: " << trans.x << "," << trans.y << "," << trans.z << "\n";
 
-	for (unsigned int a = 0; a < layer + 1; a++)
+	for (int a = 0; a < layer + 1; a++)
 		std::cout << "\t";
 	std::cout << "--Rotation: " << rot.w << ", " << rot.x << ", " << rot.y << ", " << rot.z << "\n";
 
-	for (unsigned int a = 0; a < layer + 1; a++)
+	for (int a = 0; a < layer + 1; a++)
 		std::cout << "\t";
 	std::cout << "--Scale: " << scale.x << ", " << scale.y << ", " << scale.z << "\n";
 
-	for (unsigned int a = 0; a < layer + 1; a++)
+	for (int a = 0; a < layer + 1; a++)
 		std::cout << "\t";
 	std::cout << "--Pivot: " << node->rotationPivot.x << "," << node->rotationPivot.y << "," << node->rotationPivot.z << "\n";
 
 	for (unsigned int a = 0; a < node->meshes.size(); a++)
 	{
-		for (unsigned int a = 0; a < layer+1; a++)
+		for (int a = 0; a < layer+1; a++)
 			std::cout << "\t";
 		std::cout << node->meshes[a]->name << ": " << node->meshes[a]->vertexCount << " verts, index: "<<node->meshes[a]->meshIndex<<"\n";
 		if (node->meshes[a]->material)
 		{
-			for (unsigned int a = 0; a < layer + 2; a++)
+			for (int a = 0; a < layer + 2; a++)
 				std::cout << "\t";
 			std::cout << "Material: " <<node->meshes[a]->material->getName() << "\n";
 		}
@@ -192,7 +192,7 @@ void ModelInstance::removeDecal(unsigned int meshId)
 void Node::getFrame(const AnimationPlayback& anim, glm::vec3& pos, glm::mat4& rot) const
 {
 	//Get the key frame after and before our current time
-	for (unsigned int a = 1; a < posFrames.size(); a++)
+	for (int a = 1; a < (int)posFrames.size(); a++)
 	{
 		//Find the first frame with a time greater than our own
 		if (posTimes[a] >= anim.animationTime)
@@ -200,10 +200,14 @@ void Node::getFrame(const AnimationPlayback& anim, glm::vec3& pos, glm::mat4& ro
 			float nextTime = posTimes[a];
 			glm::vec3 nextFrame = posFrames[a];
 
+			int prev = a - 1; //Just needed to suppress a warning, really
+			if (prev < 0)
+				break;
+
 			//Figure out what the previous frame is...
 			//We start by assuming it was literally the previous frame, but...
-			float prevTime = posTimes[a - 1];
-			glm::vec3 prevFrame = posFrames[a - 1];
+			float prevTime = posTimes[prev];
+			glm::vec3 prevFrame = posFrames[prev];
 
 			//How far are we between frames: for interpolation
 			float totalTimeBetween = nextTime - prevTime;
@@ -216,7 +220,7 @@ void Node::getFrame(const AnimationPlayback& anim, glm::vec3& pos, glm::mat4& ro
 	}
 
 	//Get the key frame after and before our current time
-	for (unsigned int a = 1; a < rotFrames.size(); a++)
+	for (int a = 1; a < (int)rotFrames.size(); a++)
 	{
 		//Find the first frame with a time greater than our own
 		if (rotTimes[a] >= anim.animationTime)
@@ -224,10 +228,14 @@ void Node::getFrame(const AnimationPlayback& anim, glm::vec3& pos, glm::mat4& ro
 			float nextTime = rotTimes[a];
 			glm::quat nextFrame = rotFrames[a];
 
+			int prev = a - 1; //Just needed to suppress a warning, really
+			if (prev < 0)
+				break;
+
 			//Figure out what the previous frame is...
 			//We start by assuming it was literally the previous frame, but...
-			float prevTime = rotTimes[a - 1];
-			glm::quat prevFrame = rotFrames[a - 1];
+			float prevTime = rotTimes[prev];
+			glm::quat prevFrame = rotFrames[prev];
 
 			//How far are we between frames: for interpolation
 			float totalTimeBetween = nextTime - prevTime;
@@ -364,7 +372,7 @@ void ModelInstance::calculateMeshTransforms(float deltaT,glm::mat4 currentTransf
 
 	if (debugLayer != -1)
 	{
-		for (unsigned int a = 0; a < debugLayer; a++)
+		for (int a = 0; a < debugLayer; a++)
 			std::cout << "\t";
 		std::cout << currentNode->name << "\n";
 	}
@@ -380,7 +388,7 @@ void ModelInstance::calculateMeshTransforms(float deltaT,glm::mat4 currentTransf
 
 		if (debugLayer != -1)
 		{
-			for (unsigned int a = 0; a < debugLayer + 1; a++)
+			for (int a = 0; a < debugLayer + 1; a++)
 				std::cout << "\t";
 			std::cout << currentNode->meshes[a]->name << "\n";
 
@@ -389,15 +397,15 @@ void ModelInstance::calculateMeshTransforms(float deltaT,glm::mat4 currentTransf
 			glm::quat rot;
 			glm::decompose(currentTransform, scale, rot, trans, skew, perspective);
 
-			for (unsigned int a = 0; a < debugLayer + 1; a++)
+			for (int a = 0; a < debugLayer + 1; a++)
 				std::cout << "\t";
 			std::cout << "--Translation: " << trans.x << "," << trans.y << "," << trans.z << "\n";
 
-			for (unsigned int a = 0; a < debugLayer + 1; a++)
+			for (int a = 0; a < debugLayer + 1; a++)
 				std::cout << "\t";
 			std::cout << "--Rotation: " << rot.w << ", " << rot.x << ", " << rot.y << ", " << rot.z << "\n";
 
-			for (unsigned int a = 0; a < debugLayer + 1; a++)
+			for (int a = 0; a < debugLayer + 1; a++)
 				std::cout << "\t";
 			std::cout << "--Scale: " << scale.x << ", " << scale.y << ", " << scale.z << "\n";
 		}
@@ -1032,7 +1040,7 @@ Model::Model(std::string filePath,TextureManager * textures)
 				}
 
 				target->posFrames.push_back(pos);
-				target->posTimes.push_back(nodeAnim->mPositionKeys[b].mTime);
+				target->posTimes.push_back((float)nodeAnim->mPositionKeys[b].mTime);
 			}
 
 			//Copy rotation keys for all possible animations to the given node
@@ -1041,7 +1049,7 @@ Model::Model(std::string filePath,TextureManager * textures)
 				glm::quat rot(nodeAnim->mRotationKeys[b].mValue.w, nodeAnim->mRotationKeys[b].mValue.x, nodeAnim->mRotationKeys[b].mValue.y, nodeAnim->mRotationKeys[b].mValue.z);
 
 				target->rotFrames.push_back(rot);
-				target->rotTimes.push_back(nodeAnim->mRotationKeys[b].mTime);
+				target->rotTimes.push_back((float)nodeAnim->mRotationKeys[b].mTime);
 			}
 		}
 	}

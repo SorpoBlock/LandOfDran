@@ -189,7 +189,7 @@ void Logger::debug(std::string text)
     info(text);
 }
 
-const std::deque<loggerLine> const* Logger::getStorage()
+const std::deque<loggerLine> * const Logger::getStorage()
 {
     return &storage;
 }

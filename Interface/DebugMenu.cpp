@@ -39,8 +39,8 @@ void DebugMenu::render(ImGuiIO* io)
 		ImGui::BeginChild("debugScroll",ImVec2(windowWidth,200));
 		ImGui::PushTextWrapPos(0.0f);
 
-		const std::deque<loggerLine> const* lastLoggedLines = Logger::getStorage();
-		for (int a = lastLoggedLines->size()-1; a >= 0; a--)
+		const std::deque<loggerLine> * const lastLoggedLines = Logger::getStorage();
+		for (int a = ((int)lastLoggedLines->size())-1; a >= 0; a--)
 		{
 			if (lastLoggedLines->at(a).isDebug && !showVerboseLogging)
 				continue;

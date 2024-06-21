@@ -45,9 +45,9 @@ void Camera::flyStraight(float amount)
 void Camera::flySideways(float amount)
 {
     float y = atan2(direction.x, direction.z);
-    y += 1.57079633;
-    if (y > 6.28318531)
-        y -= 6.28318531;
+    y += 1.57079633f;
+    if (y > 6.28318531f)
+        y -= 6.28318531f;
 
     position = position + glm::vec3(sin(y) * amount, 0, cos(y) * amount);
 }
@@ -55,8 +55,8 @@ void Camera::flySideways(float amount)
 //Look around with the mouse
 void Camera::turn(float relMouseX, float relMouseY)
 {
-    relMouseX *= mouseSensitivity / 100.0;
-    relMouseY *= mouseSensitivity / 100.0;
+    relMouseX *= mouseSensitivity / 100.0f;
+    relMouseY *= mouseSensitivity / 100.0f;
     if (invertMouse)
         relMouseY = -relMouseY;
 
@@ -70,10 +70,10 @@ void Camera::turn(float relMouseX, float relMouseY)
     float p = asin(direction.y);
     float y = atan2(direction.x, direction.z);
     float newP = p + relMouseY;
-    if (newP >= 1.57)
-        newP = 1.57;
-    if (newP <= -1.57)
-        newP = -1.57;
+    if (newP >= 1.57f)
+        newP = 1.57f;
+    if (newP <= -1.57f)
+        newP = -1.57f;
 
     direction = glm::vec3(cos(newP) * sin(y + relMouseX), sin(newP), cos(newP) * cos(y + relMouseX));
 }

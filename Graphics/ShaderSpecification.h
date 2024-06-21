@@ -16,8 +16,8 @@ struct BasicUniforms
 	glm::mat4 ScaleMatrix = glm::mat4(1.0);				//16*4			128
 
 	//Material uniforms:
-	GLint useAlbedo = 0;								//4				192
-	GLint useNormal = 0;								//4				196
+	GLint useAlbedo = 0;								//4				192		after revisions, we got lucky here
+	GLint useNormal = 0;								//4				196		there's nothing oddly sized that requires padding
 	GLint useMetalness = 0;								//4				200
 	GLint useRoughness = 0;								//4				204
 	GLint useHeight = 0;								//4				208
@@ -64,19 +64,19 @@ class ShaderManager
 		Reads a text file to see where we should find the shader files for the above programs
 		Returns true if there was an error with at least one shader compilation
 	*/
-	bool readShaderList(std::string filePath);
+	bool readShaderList(const std::string &filePath);
 	
 	//Push camera changes to GPU/OpenGL, see struct for further description
-	void updateCameraUBO();
+	void updateCameraUBO() const;
 
 	//Sends changes to uniformBufferData to the GPU, see struct for further description
-	void updateBasicUBO();
+	void updateBasicUBO() const;
 
 	/*
 		Associates contained UBOs with their definitions in the OpenGL shaders
 		See function definition for what names they should have in shaders
 	*/
-	void bind(Program* target);
+	void bind(Program* target) const;
 
 	ShaderManager();
 	~ShaderManager();

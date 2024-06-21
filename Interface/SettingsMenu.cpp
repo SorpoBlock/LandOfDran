@@ -100,7 +100,7 @@ void SettingsMenu::renderKeybindsMenu(ImGuiIO* io)
 		float height = ImGui::GetContentRegionAvail().y;
 
 		int flags = ImGuiTableFlags_BordersOuter | ImGuiTableFlags_Resizable | ImGuiTableFlags_ScrollY;
-		if (ImGui::BeginTable("keybinds", 2, flags, ImVec2(width * 0.95, height * 0.90)))
+		if (ImGui::BeginTable("keybinds", 2, flags, ImVec2(width * 0.95f, height * 0.90f)))
 		{
 			ImGui::TableSetupColumn("Command");
 			ImGui::TableSetupColumn("Bound Key");
@@ -115,7 +115,7 @@ void SettingsMenu::renderKeybindsMenu(ImGuiIO* io)
 				ImGui::Text(GetInputCommandString((InputCommand)a).c_str());
 				ImGui::TableNextColumn();
 				//Button you click to bind a key to that
-				if (ImGui::Button(SDL_GetScancodeName(inputMap->getKeyBind((InputCommand)a)), ImVec2(width * 0.95 * 0.5, 20)))
+				if (ImGui::Button(SDL_GetScancodeName(inputMap->getKeyBind((InputCommand)a)), ImVec2(width * 0.95f * 0.5f, 20.f)))
 					currentlyBindingFor = (InputCommand)a;
 			}
 
@@ -212,10 +212,10 @@ void SettingsMenu::render(ImGuiIO* io)
 			{
 				//Add text in the middle of the drop down clarifying what that enum value represents
 				//I.e. 'high' or 'medium' or 'low'
-				ImGui::SliderInt(ptr->description.c_str(), &ptr->valueInt, ptr->minValue, ptr->maxValue - 1, ptr->dropDownNames[ptr->valueInt].c_str());
+				ImGui::SliderInt(ptr->description.c_str(), &ptr->valueInt, (int)ptr->minValue, (int)ptr->maxValue - 1, ptr->dropDownNames[ptr->valueInt].c_str());
 			}
 			else
-				ImGui::SliderInt(ptr->description.c_str(), &ptr->valueInt, ptr->minValue, ptr->maxValue);
+				ImGui::SliderInt(ptr->description.c_str(), &ptr->valueInt, (int)ptr->minValue, (int)ptr->maxValue);
 
 			break;
 		}

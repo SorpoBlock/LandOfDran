@@ -28,7 +28,7 @@ void Texture::bind(TextureLocations loc) const
 void TextureManager::allocateTexture(Texture* target)
 {
 	int getMaxMipLevels = std::max(target->width, target->height);
-	getMaxMipLevels = log2(getMaxMipLevels);
+	getMaxMipLevels = (int)log2(getMaxMipLevels);
 	if (getMaxMipLevels <= 0)
 		getMaxMipLevels = 1;
 
@@ -75,7 +75,7 @@ GLenum getTextureFormatEnum(int channels, bool hdrSpecific)
 
 TextureManager::TextureManager()
 {
-	//16 megabytes, if any textures are larger we can upsize it later
+	//16 megabytes, if any textures are larger we will upsize it later
 	lowDynamicRangeScratchpadSize = 1024 * 1024 * 16;
 	lowDynamicRangeTextureScratchpad = new unsigned char[lowDynamicRangeScratchpadSize];
 }
@@ -99,7 +99,7 @@ Texture::~Texture()
 	glDeleteTextures(1, &handle);
 }
 
-Texture* TextureManager::createTexture(std::string filePath, bool makeMipmaps)
+Texture* TextureManager::createTexture(const std::string &filePath, bool makeMipmaps)
 {
 	scope("TextureManager::createTexture (non-array)");
 
@@ -587,7 +587,7 @@ void TextureManager::addComponent(Texture* target, std::string filePath, int des
 	finishLayer(target);
 }
 
-void Texture::setFilter(GLenum magFilter, GLenum minFilter)
+void Texture::setFilter(GLenum magFilter, GLenum minFilter) const
 {
 	if ((minFilter == GL_LINEAR_MIPMAP_LINEAR 
 		|| minFilter == GL_LINEAR_MIPMAP_NEAREST
@@ -604,12 +604,12 @@ void Texture::setFilter(GLenum magFilter, GLenum minFilter)
 	glBindTexture(textureType, 0);
 }
 
-void Texture::setWrapping(GLenum wrapping)
+void Texture::setWrapping(GLenum wrapping) const
 {
 	setWrapping(wrapping, wrapping, wrapping);
 }
 
-void Texture::setWrapping(GLenum wrapS, GLenum wrapT, GLenum wrapR)
+void Texture::setWrapping(GLenum wrapS, GLenum wrapT, GLenum wrapR) const
 {
 	glBindTexture(textureType, handle);
 	glTexParameteri(textureType, GL_TEXTURE_WRAP_S, wrapS);
@@ -678,7 +678,7 @@ void TextureManager::allocateForDecals(unsigned int dimensions, unsigned int max
 	currentDecalCount++;
 }
 
-void TextureManager::addDecal(std::string filePath,int id)
+void TextureManager::addDecal(const std::string &filePath,int id)
 {
 	scope("TextureManager::addDecal");
 
