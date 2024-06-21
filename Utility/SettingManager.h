@@ -35,6 +35,9 @@ struct PreferencePair
 	float maxValue = 0, minValue = 100;
 	//Used for color preferences only
 	float color[4] = { 1,1,1,1 };
+	
+	//It's just way easier to grab the color var directly for binding to ImGui color pallete
+	float* getColorPtr() const;
 
 	//What kind of value should the string be converted to
 	PreferenceType type = PreferenceString;
@@ -116,17 +119,17 @@ class SettingManager
 		void startPreferenceBindingSearch();
 
 		//Load the settings/preferences from a text file
-		SettingManager(std::string path);
+		SettingManager(const std::string& path);
 
 		//Save the preferences contained within to a file, comments will be lost
-		void exportToFile(std::string path) const;
+		void exportToFile(const std::string& path) const;
 		/*
 			Get a preference by specifying a path to a preference
 			i.e. AvatarPreferences/NodeColors/LeftHand
 			Use / and never \
 			Can return nullptr on bad path
 		*/
-		PreferencePair /*const* const*/* getPreference(std::string path) const;
+		PreferencePair const * getPreference(std::string path) const;
 
 		/*
 			Gets a preference by specifiying a path to a preference
@@ -134,7 +137,7 @@ class SettingManager
 			Use / and never \
 			will return 0 if preference doens't exist
 		*/
-		float getFloat(std::string path) const;
+		float getFloat(const std::string& path) const;
 
 		/*
 			Gets a preference by specifiying a path to a preference
@@ -142,7 +145,7 @@ class SettingManager
 			Use / and never \
 			will return 1,1,1,1 if preference doens't exist
 		*/
-		glm::vec4 getColor(std::string path) const;
+		glm::vec4 getColor(const std::string& path) const;
 
 		/*
 			Gets a preference by specifiying a path to a preference
@@ -150,7 +153,7 @@ class SettingManager
 			Use / and never \
 			will return "" if preference doens't exist
 		*/
-		std::string getString(std::string path) const;
+		std::string getString(const std::string& path) const;
 
 		/*
 			Gets a preference by specifiying a path to a preference
@@ -158,7 +161,7 @@ class SettingManager
 			Use / and never \
 			will return false if preference doens't exist
 		*/
-		bool getBool(std::string path) const;
+		bool getBool(const std::string& path) const;
 
 		/*
 			Gets a preference by specifiying a path to a preference
@@ -166,7 +169,7 @@ class SettingManager
 			Use / and never \
 			will return 0 if preference doens't exist
 		*/
-		int getInt(std::string path) const;
+		int getInt(const std::string &path) const;
 
 		/*
 			Creates nodes on the way to the path
@@ -191,7 +194,7 @@ class SettingManager
 		void addColor(std::string path, glm::vec4 value, bool override = true, std::string desc = "");
 
 		//Returns any preference as a string, or "" if no preference exists at that path
-		std::string operator[] (std::string path) const;
+		std::string operator[] (const std::string &path) const;
 
 		/*
 			Mostly an integer preference under the hood, differs only on how settings UI will be rendered

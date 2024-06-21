@@ -40,13 +40,13 @@ struct RenderContext
 		void setMouseLock(bool locked);
 
 		//Swaps buffers each frame
-		void swap();
+		void swap() const;
 
 		//Sets the screen as the frame/render buffer to draw to
-		void select();
+		void select() const;
 
 		//Clears the screen
-		void clear(float r, float g, float b, float a = 1.0, bool depth = true);
+		void clear(float r, float g, float b, float a = 1.0, bool depth = true) const;
 
 		//Changes screen resolution
 		void setSize(unsigned int x, unsigned int y);

@@ -4,7 +4,7 @@ void UserInterface::updateSettings(std::shared_ptr<SettingManager> settings)
 {
 	ImGuiStyle& style = ImGui::GetStyle();
 
-	PreferencePair* pref = settings->getPreference("gui/textcolor");
+	PreferencePair const * pref = settings->getPreference("gui/textcolor");
 	if (pref)
 		style.Colors[ImGuiCol_Text] = ImVec4(pref->color[0], pref->color[1], pref->color[2], pref->color[3]);
 
@@ -132,7 +132,7 @@ void UserInterface::handleInput(SDL_Event& e)
 	ImGui_ImplSDL2_ProcessEvent(&e);
 }
 
-std::shared_ptr<Window> UserInterface::getWindowByName(std::string name)
+std::shared_ptr<Window> UserInterface::getWindowByName(const std::string &name)
 {
 	for (unsigned int a = 0; a < windows.size(); a++)
 		if (windows[a]->name == name)

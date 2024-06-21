@@ -28,6 +28,12 @@ PreferencePair *SettingManager::nextPreferenceBinding(std::string &path)
 	return ret;
 }
 
+float* PreferencePair::getColorPtr() const
+{
+	//Get non-const ptr to member value from probably const class ptr
+	return (float*)&color; 
+}
+
 void SettingManager::startPreferenceBindingSearch()
 {
 	preferenceSearchIndex = 0;
@@ -291,7 +297,7 @@ void SettingManager::addFloat(std::string path, float value, bool overwrite,std:
 	tmp->maxValue = max;
 }
 
-float SettingManager::getFloat(std::string path) const
+float SettingManager::getFloat(const std::string &path) const
 {
 	PreferencePair const * const pair = getPreference(path);
 	if (pair)
@@ -300,7 +306,7 @@ float SettingManager::getFloat(std::string path) const
 		return 0;
 }
 
-glm::vec4 SettingManager::getColor(std::string path) const
+glm::vec4 SettingManager::getColor(const std::string &path) const
 {
 	glm::vec4 ret(1, 1, 1, 1);
 	PreferencePair const* const pair = getPreference(path);
@@ -331,7 +337,7 @@ glm::vec4 SettingManager::getColor(std::string path) const
 		return ret;
 }
 
-int SettingManager::getInt(std::string path) const
+int SettingManager::getInt(const std::string &path) const
 {
 	PreferencePair const* const pair = getPreference(path);
 	if (pair)
@@ -340,7 +346,7 @@ int SettingManager::getInt(std::string path) const
 		return 0;
 }
 
-std::string SettingManager::getString(std::string path) const
+std::string SettingManager::getString(const std::string &path) const
 {
 	PreferencePair const* const pair = getPreference(path);
 	if (pair)
@@ -349,7 +355,7 @@ std::string SettingManager::getString(std::string path) const
 		return "";
 }
 
-bool SettingManager::getBool(std::string path) const
+bool SettingManager::getBool(const std::string &path) const
 {
 	PreferencePair const* const pair = getPreference(path);
 	if (pair)
@@ -358,7 +364,7 @@ bool SettingManager::getBool(std::string path) const
 		return false;
 }
 
-std::string SettingManager::operator[] (std::string path) const
+std::string SettingManager::operator[] (const std::string &path) const
 {
 	PreferencePair const* const pref = getPreference(path);
 	if (pref)
@@ -367,7 +373,7 @@ std::string SettingManager::operator[] (std::string path) const
 		return "";
 }
 
-PreferencePair /*const* const*/* SettingManager::getPreference(std::string path) const
+PreferencePair const * SettingManager::getPreference(std::string path) const
 {
 	//Saves headaches down the road :)
 	path = lowercase(path);
@@ -560,7 +566,7 @@ void PreferenceNode::readFromLine(std::string &line,int lineNumber,PreferenceNod
 	}
 }
 
-SettingManager::SettingManager(std::string path)
+SettingManager::SettingManager(const std::string &path)
 {
 	scope("SettingManager::SettingManager");
 	debug("Parsing " + path);
@@ -748,7 +754,7 @@ void PreferenceNode::writeToFile(std::ofstream& file,int level) const
 		childNodes[i]->writeToFile(file, level+1);
 }
 
-void SettingManager::exportToFile(std::string path) const
+void SettingManager::exportToFile(const std::string &path) const
 {
 	//This loop exists in case someone changed the options in game
 	for (unsigned int a = 0; a < allNodes.size(); a++)

@@ -70,7 +70,7 @@ struct Animation
 struct AnimationPlayback
 {
 	//Which animation is this playing
-	Animation* animation = nullptr;
+	const Animation * animation = nullptr;
 
 	/*
 		This is incremented by speed* deltaT and the animation frame rounded down
@@ -221,7 +221,7 @@ class Mesh
 	std::vector<ModelInstance*> instances;
 
 	//Assimp can specifiy a material for this particular mesh
-	Material* material = nullptr;
+	const Material * material = nullptr;
 
 	//If the model came with normals when loaded
 	bool hasNormals = false;
@@ -321,7 +321,7 @@ class Node
 	std::vector<Node*> children;
 
 	//Node above
-	Node* parent = nullptr;
+	const Node* parent = nullptr;
 
 	//Position in allNodes
 	unsigned int nodeIndex = 0;

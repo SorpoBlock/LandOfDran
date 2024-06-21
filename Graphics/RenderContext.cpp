@@ -25,21 +25,21 @@ void RenderContext::setMouseLock(bool locked)
 }
 
 //Swaps buffers each frame
-void RenderContext::swap()
+void RenderContext::swap() const
 {
 	if(window)
 		SDL_GL_SwapWindow(window);
 }
 
 //Sets the screen as the frame/render buffer to draw to
-void RenderContext::select()
+void RenderContext::select() const
 {
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	glViewport(0, 0, width, height);
 }
 
 //Clears the screen
-void RenderContext::clear(float r, float g, float b, float a, bool depth)
+void RenderContext::clear(float r, float g, float b, float a, bool depth) const
 {
 	glClearColor(r, g, b, a);
 	if (depth)

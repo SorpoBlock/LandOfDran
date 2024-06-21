@@ -27,53 +27,53 @@ void SettingsMenu::renderThemeSettings(ImGuiIO* io)
 {
 	//These aren't taken from a loop, they're just hardcoded directly for whatever reason
 
-	PreferencePair* pref = settings->getPreference("gui/textcolor");
+	const PreferencePair* pref = settings->getPreference("gui/textcolor");
 	if (pref)
 	{
 		ImGui::Text(ImGui::GetStyleColorName(ImGuiCol_Text));
-		ImGui::ColorEdit4(ImGui::GetStyleColorName(ImGuiCol_Text), pref->color);
+		ImGui::ColorEdit4(ImGui::GetStyleColorName(ImGuiCol_Text), pref->getColorPtr());
 	}
 
 	pref = settings->getPreference("gui/windowcolor");
 	if (pref)
 	{
 		ImGui::Text(ImGui::GetStyleColorName(ImGuiCol_WindowBg));
-		ImGui::ColorEdit4(ImGui::GetStyleColorName(ImGuiCol_WindowBg), pref->color);
+		ImGui::ColorEdit4(ImGui::GetStyleColorName(ImGuiCol_WindowBg), pref->getColorPtr());
 	}
 
 	pref = settings->getPreference("gui/framecolor");
 	if (pref)
 	{
 		ImGui::Text(ImGui::GetStyleColorName(ImGuiCol_FrameBg));
-		ImGui::ColorEdit4(ImGui::GetStyleColorName(ImGuiCol_FrameBg), pref->color);
+		ImGui::ColorEdit4(ImGui::GetStyleColorName(ImGuiCol_FrameBg), pref->getColorPtr());
 	}
 
 	pref = settings->getPreference("gui/framehovercolor");
 	if (pref)
 	{
 		ImGui::Text(ImGui::GetStyleColorName(ImGuiCol_FrameBgHovered));
-		ImGui::ColorEdit4(ImGui::GetStyleColorName(ImGuiCol_FrameBgHovered), pref->color);
+		ImGui::ColorEdit4(ImGui::GetStyleColorName(ImGuiCol_FrameBgHovered), pref->getColorPtr());
 	}
 
 	pref = settings->getPreference("gui/frameclickcolor");
 	if (pref)
 	{
 		ImGui::Text(ImGui::GetStyleColorName(ImGuiCol_FrameBgActive));
-		ImGui::ColorEdit4(ImGui::GetStyleColorName(ImGuiCol_FrameBgActive), pref->color);
+		ImGui::ColorEdit4(ImGui::GetStyleColorName(ImGuiCol_FrameBgActive), pref->getColorPtr());
 	}
 
 	pref = settings->getPreference("gui/titlecolor");
 	if (pref)
 	{
 		ImGui::Text(ImGui::GetStyleColorName(ImGuiCol_TitleBgActive));
-		ImGui::ColorEdit4(ImGui::GetStyleColorName(ImGuiCol_TitleBgActive), pref->color);
+		ImGui::ColorEdit4(ImGui::GetStyleColorName(ImGuiCol_TitleBgActive), pref->getColorPtr());
 	}
 
 	pref = settings->getPreference("gui/highlight");
 	if (pref)
 	{
 		ImGui::Text("Highlight");
-		ImGui::ColorEdit4("Highlight", pref->color);
+		ImGui::ColorEdit4("Highlight", pref->getColorPtr());
 	}
 }
 

@@ -85,7 +85,7 @@ class UserInterface
 	void initAll();
 
 	//Returns nullptr if nothing by that name
-	std::shared_ptr<Window> getWindowByName(std::string name);
+	std::shared_ptr<Window> getWindowByName(const std::string &name);
 
 	//If mouselock should be forced on
 	bool shouldUnlockMouse();

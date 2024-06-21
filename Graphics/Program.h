@@ -111,8 +111,8 @@ class Program
 		void use(bool reset = true) const;
 
 		//Helper function to get the location of a temporary or debug uniform
-		GLint getUniformLocation(std::string name) const;
+		GLint getUniformLocation(const std::string &name) const;
 
 		//Allows us to bind a uniform buffer object to this program
-		void bindUniformBlock(std::string glslName, GLuint UBOhandle, int index) const;
+		void bindUniformBlock(const std::string &glslName, GLuint UBOhandle, int index) const;
 };

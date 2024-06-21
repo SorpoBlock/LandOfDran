@@ -29,7 +29,7 @@ void Program::registerSamplerUniforms()
     glUniform1i(glGetUniformLocation(handle, "CubeMapIrradiance"),  CubeMapIrradiance);*/
 }
 
-void Program::bindUniformBlock(std::string glslName, GLuint UBOhandle, int index) const
+void Program::bindUniformBlock(const std::string &glslName, GLuint UBOhandle, int index) const
 {
     glUniformBlockBinding(handle, glGetUniformBlockIndex(handle, glslName.c_str()), index);
     glBindBufferBase(GL_UNIFORM_BUFFER, index, UBOhandle);
@@ -259,7 +259,7 @@ void Program::use(bool reset) const
         resetUniforms();
 }
 
-GLint Program::getUniformLocation(std::string name) const
+GLint Program::getUniformLocation(const std::string &name) const
 {
     scope("program::getUniformLocation");
     GLint ret = glGetUniformLocation(handle, name.c_str());

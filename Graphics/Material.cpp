@@ -107,7 +107,7 @@ void Material::finishCreation(std::string albedo, std::string normal, std::strin
 		valid = true;
 }
 
-Material::Material(std::string _name,std::string albedo, std::string normal, std::string roughness, std::string metalness, std::string occlusion, TextureManager* textures)
+Material::Material(const std::string &_name, const std::string &albedo, const  std::string &normal, const  std::string &roughness, const  std::string &metalness, const  std::string &occlusion, TextureManager* textures)
 {
 	scope("Material::Material (explicit)");
 
@@ -116,7 +116,7 @@ Material::Material(std::string _name,std::string albedo, std::string normal, std
 	finishCreation(albedo, normal, roughness, metalness, occlusion, textures);
 }
 
-Material::Material(std::string filePath,TextureManager * textures)
+Material::Material(const std::string &filePath,TextureManager * textures)
 {
 	scope("Material::Material (from file)");
 
