@@ -88,12 +88,18 @@ add_executable (LandOfDran
 "Interface/SettingsMenu.h" 
 "Interface/SettingsMenu.cpp" 
 "Interface/DebugMenu.cpp" 
-"Interface/DebugMenu.h" 
+"Interface/DebugMenu.h"  
+"Interface/ServerBrowser.h" 
+"Interface/ServerBrowser.cpp"
  
 "Networking/Server.h" 
 "Networking/Server.cpp" 
 "Networking/Client.cpp" 
-"Networking/Client.h" "NetTypes/DynamicType.h" "NetTypes/DynamicType.cpp" "Networking/JoinedClient.h" "Networking/JoinedClient.cpp")
+"Networking/Client.h" 
+"NetTypes/DynamicType.h" 
+"NetTypes/DynamicType.cpp" 
+"Networking/JoinedClient.h" 
+"Networking/JoinedClient.cpp" "GameLoop/LoopClient.h" "GameLoop/LoopClient.cpp")
 
 #include_directories("C:/Users/Syerjchep/Downloads/enet-2.3.10/include")
 include_directories("C:/Users/Syerjchep/Downloads/enet-1.3.18.tar/enet-1.3.18/include")
