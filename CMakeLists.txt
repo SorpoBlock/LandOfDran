@@ -26,6 +26,7 @@ find_package(SDL2 CONFIG REQUIRED)
 add_executable (LandOfDran 
 "LandOfDran.cpp" 
 "LandOfDran.h" 
+
 "Utility/Logger.h" 
 "Utility/Logger.cpp" 
 "Utility/SettingManager.h" 
@@ -39,8 +40,8 @@ add_executable (LandOfDran
 "Utility/GlobalStartup.cpp"
 "Utility/FileFunctions.h" 
 "Utility/FileFunctions.cpp"
-#"Utility/UserInterfaceFunctions.h" 
-#"Utility/UserInterfaceFunctions.cpp"
+"Utility/ExecutableArguments.h" 
+"Utility/ExecutableArguments.cpp"
 
 "External/CRC.h" 
 "External/stb_image.h" 
@@ -60,8 +61,6 @@ add_executable (LandOfDran
 "External/Imgui/imstb_truetype.h"
 "External/Imgui/imgui_internal.h"
 "External/Imgui/imgui_draw.cpp"
-#"External/enet.h"
-#"External/Imgui/imconfig.h"
  
 "Graphics/RenderContext.h"
 "Graphics/RenderContext.cpp" 
@@ -79,17 +78,22 @@ add_executable (LandOfDran
 "Graphics/Material.cpp" 
 "Graphics/Mesh.h" 
 "Graphics/Mesh.cpp" 
-"Interface/InputMap.h"  
-"Interface/InputMap.cpp" 
 "Graphics/PlayerCamera.h" 
 "Graphics/PlayerCamera.cpp" 
 
- "Interface/UserInterface.cpp" 
- "Interface/UserInterface.h" 
- "Interface/SettingsMenu.h" 
- "Interface/SettingsMenu.cpp" 
- "Interface/DebugMenu.cpp" 
- "Interface/DebugMenu.h")
+"Interface/InputMap.h"  
+"Interface/InputMap.cpp" 
+"Interface/UserInterface.cpp" 
+"Interface/UserInterface.h" 
+"Interface/SettingsMenu.h" 
+"Interface/SettingsMenu.cpp" 
+"Interface/DebugMenu.cpp" 
+"Interface/DebugMenu.h" 
+ 
+"Networking/Server.h" 
+"Networking/Server.cpp" 
+"Networking/Client.cpp" 
+"Networking/Client.h")
 
 #include_directories("C:/Users/Syerjchep/Downloads/enet-2.3.10/include")
 include_directories("C:/Users/Syerjchep/Downloads/enet-1.3.18.tar/enet-1.3.18/include")

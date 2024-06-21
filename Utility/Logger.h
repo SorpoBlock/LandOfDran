@@ -70,6 +70,7 @@ class Logger
         //Keep the last 100 lines of logs along with their logging type
         static std::deque<loggerLine> storage;
 
+        //Prepends timestamp and scope stack to message
         static std::string format(std::string text, bool noLine = false, bool noHeader = false);
 
         std::vector<std::string> scopes;

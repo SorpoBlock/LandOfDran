@@ -20,14 +20,15 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/quaternion.hpp>
 #include <glm/gtx/transform.hpp>
+#include <map>
+#include <stack>
+#include <memory>
+#include "Utility/ExecutableArguments.h"
 #include "Utility/StringFunctions.h"
 #include "Utility/Logger.h"
 #include "Utility/FileFunctions.h"
 #include "Utility/SettingManager.h"
 #include "Graphics/GraphicsHelpers.h"
-#include <map>
-#include <stack>
-#include <memory>
 
 //Used in the titlebar for the window, and for making sure client and server version match in mutliplayer
 #define GAME_VERSION 20
