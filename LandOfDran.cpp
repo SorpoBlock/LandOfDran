@@ -36,18 +36,18 @@ int main(int argc, char* argv[])
 	globalStartup(settings,cmdArgs);
 
 	//Start up for dedicated server or the actual game itself
-	if (!cmdArgs.dedicated)
+	if (cmdArgs.dedicated)
 	{
-		loopClient = new LoopClient(cmdArgs, settings);
-		if (!loopClient->isValid())
+		info("Dedicated flag detected, starting server.");
+
+		loopServer = new LoopServer(cmdArgs, settings);
+		if (!loopServer->isValid())
 			return 0;
 	}
 	else 
 	{
-		info("Dedicated flag detected, starting server.");
-
-		loopServer = new LoopServer(cmdArgs,settings);
-		if (!loopServer->isValid())
+		loopClient = new LoopClient(cmdArgs, settings);
+		if (!loopClient->isValid())
 			return 0;
 	}
 
@@ -68,10 +68,10 @@ int main(int argc, char* argv[])
 	}
 
 	//Deallocate client if this wasn't a dedicated server
-	if (!cmdArgs.dedicated)
-		delete loopClient;
-	else
+	if (cmdArgs.dedicated)
 		delete loopServer;
+	else
+		delete loopClient;
 
 	globalShutdown(cmdArgs);
 	

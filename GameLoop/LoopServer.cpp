@@ -2,7 +2,7 @@
 
 void LoopServer::run(float deltaT, ExecutableArguments& cmdArgs, std::shared_ptr<SettingManager> settings)
 {
-	server->run();
+	server->run(pd);
 }
 
 LoopServer::LoopServer(ExecutableArguments& cmdArgs, std::shared_ptr<SettingManager> settings)

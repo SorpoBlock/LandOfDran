@@ -46,6 +46,9 @@ class Window
 
 	//Opens the window if it was closed
 	void open();
+
+	//Closes window if it was open
+	void close();
 };
 
 /*

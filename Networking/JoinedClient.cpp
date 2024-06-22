@@ -1,10 +1,5 @@
 #include "JoinedClient.h"
 
-void JoinedClient::dataReceived(ENetPacket* packet)
-{
-
-}
-
 void JoinedClient::send(const char* data, unsigned int len, PacketChannel channel)
 {
 	ENetPacket* packet = enet_packet_create(data, len, getFlagsFromChannel(channel));

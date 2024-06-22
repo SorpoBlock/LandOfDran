@@ -115,6 +115,11 @@ void UserInterface::closeOneWindow()
 	}
 }
 
+void Window::close()
+{
+	opened = false;
+}
+
 void Window::open()
 {
 	//TODO: Make new windows appear in upper left corner and slighty offset depending on how many are open

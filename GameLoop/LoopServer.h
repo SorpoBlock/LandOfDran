@@ -26,6 +26,8 @@ public:
 	//Lot less in this so far given no input or rendering on the server...
 	void run(float deltaT, ExecutableArguments& cmdArgs, std::shared_ptr<SettingManager> settings);
 
+	//Called only when the program starts up
 	LoopServer(ExecutableArguments& cmdArgs, std::shared_ptr<SettingManager> settings);
+	//Called only when the program finally shuts down
 	~LoopServer();
 };

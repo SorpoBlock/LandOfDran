@@ -74,7 +74,7 @@ void Client::run(const ClientProgramData& pd, const ExecutableArguments& cmdArgs
 	}
 }
 
-Client::Client(unsigned int _packetHoldTime) : packetHoldTime(_packetHoldTime)
+Client::Client(std::string ip,unsigned int port,unsigned int _packetHoldTime) : packetHoldTime(_packetHoldTime)
 {
 	scope("Client::Client");
 
@@ -86,8 +86,8 @@ Client::Client(unsigned int _packetHoldTime) : packetHoldTime(_packetHoldTime)
 	}
 
 	ENetAddress address;
-	enet_address_set_host(&address, "localhost");
-	address.port = DEFAULT_PORT;
+	enet_address_set_host(&address, ip.c_str());
+	address.port = port;
 
 	peer = enet_host_connect(client, &address, EndOfChannels, 0);
 	if (!peer)
@@ -100,19 +100,24 @@ Client::Client(unsigned int _packetHoldTime) : packetHoldTime(_packetHoldTime)
 	if (enet_host_service(client, &event, 5000) > 0 && ENET_EVENT_TYPE_CONNECT)
 	{
 		info("Connection made!");
+		valid = true;
+		return;
 	}
 	else
 	{
 		error("Could not connect!");
+		valid = false; 
+		return;
 	}
-
-	valid = true;
 }
 
 Client::~Client()
 {
-	if(valid)
+	if (valid)
+	{
+		enet_peer_disconnect(peer,0);
 		enet_host_destroy(client);
+	}
 }
 
 void Client::send(const char* data, unsigned int len, PacketChannel channel)
@@ -124,6 +129,15 @@ void Client::send(const char* data, unsigned int len, PacketChannel channel)
 		error("enet_packet_create failed");
 		return;
 	}
+	if (enet_peer_send(peer, channel, packet) < 0)
+	{
+		scope("JoinedClient::send");
+		error("enet_peer_send failed");
+	}
+}
+
+void Client::send(ENetPacket *packet, PacketChannel channel)
+{
 	if (enet_peer_send(peer, channel, packet) < 0)
 	{
 		scope("JoinedClient::send");

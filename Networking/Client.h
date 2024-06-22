@@ -32,7 +32,8 @@ public:
 	void run(const ClientProgramData & pd, const ExecutableArguments &cmdArgs);
 
 	void send(const char* data, unsigned int len, PacketChannel channel);
+	void send(ENetPacket* packet, PacketChannel channel);
 
-	Client(unsigned int _packetHoldTime);
+	Client(std::string ip,unsigned int port,unsigned int _packetHoldTime);
 	~Client();
 };

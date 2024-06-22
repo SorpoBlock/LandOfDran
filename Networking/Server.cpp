@@ -29,7 +29,25 @@ void Server::broadcast(const char* data, unsigned int len, PacketChannel channel
 	enet_host_broadcast(server, channel, packet);
 }
 
-void Server::run()
+void Server::switchPacketType(JoinedClient const* const source, ENetPacket* packet, const ServerProgramData& pd)
+{
+	FromClientPacketType type = (FromClientPacketType)packet->data[0];
+
+	switch (type)
+	{
+		case ConnectionRequest:
+		{
+			applyConnectionRequest(source,packet,pd);
+			return;
+		}
+
+		case InvalidClient:
+		default:
+			return;
+	}
+}
+
+void Server::run(const ServerProgramData &pd)
 {
 	scope("Server::run");
 
@@ -62,7 +80,7 @@ void Server::run()
 				break;
 			}
 
-			client->dataReceived(netEvent.packet);
+			switchPacketType(client,netEvent.packet,pd);
 			enet_packet_destroy(netEvent.packet);
 
 			break;

@@ -114,7 +114,7 @@ add_executable (LandOfDran
 "Networking/PacketsFromClient/ConnectionRequest.h" 
 "Networking/PacketsFromServer/AcceptConnection.h" 
 "Networking/PacketsFromClient/ConnectionRequest.cpp" 
-"Networking/PacketsFromServer/AcceptConnection.cpp" )
+"Networking/PacketsFromServer/AcceptConnection.cpp"  "Interface/EscapeMenu.h" "Interface/EscapeMenu.cpp" "Networking/ClientPacketCreators.h")
 
 #include_directories("C:/Users/Syerjchep/Downloads/enet-2.3.10/include")
 include_directories("C:/Users/Syerjchep/Downloads/enet-1.3.18.tar/enet-1.3.18/include")

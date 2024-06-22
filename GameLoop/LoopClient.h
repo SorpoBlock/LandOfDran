@@ -4,6 +4,7 @@
 
 #include "../Networking/Client.h"
 #include "ClientProgramData.h"
+#include "../Networking/ClientPacketCreators.h"
 
 /*
 	This is the big bad class that allows us to separate our client playing loop from
@@ -28,10 +29,23 @@ public:
 	//Technically some UI specific calculations might happen during rendering, oh well
 	void renderEverything(float deltaT);
 
+	//Called every frame the program runs. Every frame: in a game, not in a game, loading into a game...
 	void handleInput(float deltaT, ExecutableArguments& cmdArgs, std::shared_ptr<SettingManager> settings);
 
+	//Clean up performed when leaving a server to return to main menu or joining another server
+	void leaveServer();
+
+	//Joining new server from main menu or another server
+	void connectToServer(std::string ip,unsigned int port,std::string userName, ExecutableArguments& cmdArgs, std::shared_ptr<SettingManager> settings);
+
+	//Called every frame the program runs. Every frame: in a game, not in a game, loading into a game...
 	void run(float deltaT,ExecutableArguments& cmdArgs, std::shared_ptr<SettingManager> settings);
 
+	/*
+		Only called when the program starts initially
+		LoopClient is *not* created and destroyed each time you join a server
+	*/
 	LoopClient(ExecutableArguments & cmdArgs,std::shared_ptr<SettingManager> settings);
+	//Only called when the program finally shuts down, *not* called when leaving a server
 	~LoopClient();
 };

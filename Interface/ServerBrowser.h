@@ -10,6 +10,7 @@ class ServerBrowser : public Window
 	friend class UserInterface;
 
 	char serverAddressBuffer[256];
+	char userNameBuffer[256];
 	int serverPort = DEFAULT_PORT;
 	//This is set when user clicks join button and reset when you call getServerData
 	bool serverPicked = false;
@@ -26,7 +27,7 @@ public:
 	bool serverPickReady() const { return serverPicked; }
 
 	//Get the parameters after serverPicked returns true
-	void getServerData(std::string &ip,int &port);
+	void getServerData(std::string &ip,int &port,std::string &username);
 
 	~ServerBrowser();
 };

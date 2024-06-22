@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../LandOfDran.h"
+#include "../GameLoop/ServerProgramData.h"
 
 /*
 	For use with enet_peer_disconnect 
@@ -30,9 +31,6 @@ public:
 
 	//Send a packet to this client
 	void send(const char* data, unsigned int len, PacketChannel channel);
-
-	//Called when data is received from this client
-	void dataReceived(ENetPacket* packet);
 
 	//Create a client from a connection event
 	JoinedClient(ENetEvent& event,unsigned int _netID);

@@ -1,0 +1,54 @@
+#include "EscapeMenu.h"
+
+//Get last button press type since the last time this was called
+EscapeButtonPressed EscapeMenu::getLastButtonPress()
+{
+	EscapeButtonPressed ret = lastButtonPress;
+	lastButtonPress = EscapeButtonPressed::None;
+	return ret;
+}
+
+void EscapeMenu::render(ImGuiIO* io)
+{
+	if (!opened)
+		return;
+
+	if (!ImGui::Begin("Escape Menu", &opened))
+	{
+		ImGui::End();
+		return;
+	}
+
+	if (ImGui::Button("Leave Server"))
+	{
+		lastButtonPress = EscapeButtonPressed::LeaveServer;
+		close();
+	}
+	if (ImGui::Button("Exit Land of Dran"))
+	{
+		lastButtonPress = EscapeButtonPressed::LeaveGame;
+		close();
+	}
+
+	ImGui::End();
+}
+
+void EscapeMenu::init()
+{
+
+}
+
+void EscapeMenu::handleInput(SDL_Event& e, std::shared_ptr<InputMap> input)
+{
+
+}
+
+EscapeMenu::EscapeMenu()
+{
+	name = "Escape Menu";
+}
+
+EscapeMenu::~EscapeMenu()
+{
+
+}

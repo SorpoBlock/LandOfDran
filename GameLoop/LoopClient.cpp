@@ -1,5 +1,43 @@
 #include "LoopClient.h"
 
+void LoopClient::leaveServer()
+{
+	info("Leaving server");
+
+	pd.serverBrowser->open();
+
+	if (!client)
+		return;
+
+	delete client;
+	client = nullptr;
+}
+
+void LoopClient::connectToServer(std::string ip, unsigned int port, std::string userName, ExecutableArguments& cmdArgs, std::shared_ptr<SettingManager> settings)
+{
+	if (cmdArgs.gameState != NotInGame)
+		leaveServer();
+
+	cmdArgs.gameState = Connecting;
+	client = new Client(ip, port, settings->getInt("network/packetholdtime"));
+
+	info("Attempting connection to " + ip + ":" + std::to_string(port));
+
+	//Connection to server failed
+	if (!client->isValid())
+	{
+		cmdArgs.gameState = NotInGame;
+		delete client;
+		client = nullptr;
+		return;
+	}
+
+	//Initial connection to server succeeded
+	pd.serverBrowser->close();
+
+	client->send(makeConnectionRequest(userName), JoinNegotiation);
+}
+
 void LoopClient::handleInput(float deltaT, ExecutableArguments& cmdArgs, std::shared_ptr<SettingManager> settings)
 {
 	pd.input->keystates = SDL_GetKeyboardState(NULL);
@@ -33,9 +71,17 @@ void LoopClient::handleInput(float deltaT, ExecutableArguments& cmdArgs, std::sh
 			//By having one or more guis open, which defeats the purpose of a quick gui close key
 			if (e.key.keysym.sym == SDLK_ESCAPE)
 			{
-				pd.gui->closeOneWindow();
-				if (!pd.context->getMouseLocked() && !pd.gui->getOpenWindowCount())
-					pd.context->setMouseLock(true);
+				if (pd.gui->getOpenWindowCount() == 0)
+				{
+					pd.escapeMenu->open();
+					pd.context->setMouseLock(false);
+				}
+				else
+				{
+					pd.gui->closeOneWindow();
+					if (!pd.context->getMouseLocked() && !pd.gui->getOpenWindowCount())
+						pd.context->setMouseLock(true);
+				}
 			}
 		}
 	}
@@ -57,6 +103,37 @@ void LoopClient::handleInput(float deltaT, ExecutableArguments& cmdArgs, std::sh
 
 	pd.camera->control(deltaT, pd.input);
 	pd.debugMenu->passDetails(pd.camera);
+
+	if (pd.serverBrowser->serverPickReady())
+	{
+		std::string ip,userName;
+		int port;
+		pd.serverBrowser->getServerData(ip, port,userName);
+		connectToServer(ip, port,userName,cmdArgs,settings);
+	}
+
+	EscapeButtonPressed escapeMenuButton = pd.escapeMenu->getLastButtonPress();
+	switch (escapeMenuButton)
+	{
+		case LeaveGame:
+		{
+			if (cmdArgs.gameState != NotInGame)
+				leaveServer();
+			cmdArgs.mainLoopRun = false;
+			return;
+		}
+
+		case LeaveServer:
+		{
+			if (cmdArgs.gameState != NotInGame)
+				leaveServer();
+			break;
+		}
+
+		case None:
+		default:
+			break;
+	}
 }
 
 void LoopClient::renderEverything(float deltaT)
@@ -76,7 +153,8 @@ void LoopClient::renderEverything(float deltaT)
 
 void LoopClient::run(float deltaT,ExecutableArguments& cmdArgs, std::shared_ptr<SettingManager> settings)
 {
-	client->run(pd,cmdArgs); //  <--- networking
+	if(client)
+		client->run(pd,cmdArgs); //  <--- networking
 	handleInput(deltaT,cmdArgs,settings);
 	renderEverything(deltaT);
 }
@@ -95,6 +173,7 @@ LoopClient::LoopClient(ExecutableArguments& cmdArgs, std::shared_ptr<SettingMana
 	pd.gui->updateSettings(settings);
 	pd.settingsMenu = pd.gui->createWindow<SettingsMenu>(settings, pd.input);
 	pd.debugMenu = pd.gui->createWindow<DebugMenu>();
+	pd.escapeMenu = pd.gui->createWindow<EscapeMenu>();
 	pd.serverBrowser = pd.gui->createWindow<ServerBrowser>();
 	pd.serverBrowser->open();
 

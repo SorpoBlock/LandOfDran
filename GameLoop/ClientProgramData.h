@@ -11,6 +11,7 @@
 #include "../Interface/SettingsMenu.h"
 #include "../Interface/DebugMenu.h"
 #include "../Interface/ServerBrowser.h"
+#include "../Interface/EscapeMenu.h"
 
 /*
 	This exists so we can make all of this available to the various PacketsFromServer files since packets can do a wide range of activities
@@ -28,4 +29,5 @@ struct ClientProgramData
 	std::shared_ptr<Camera>			camera = nullptr;
 	std::shared_ptr<TextureManager> textures = nullptr;
 	std::shared_ptr<InputMap>		input = nullptr;
+	std::shared_ptr<EscapeMenu>		escapeMenu = nullptr;
 };

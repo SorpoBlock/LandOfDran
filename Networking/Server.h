@@ -2,6 +2,9 @@
 
 #include "../LandOfDran.h"
 #include "JoinedClient.h"
+#include "../GameLoop/ServerProgramData.h"
+
+#include "PacketsFromClient/ConnectionRequest.h"
 
 /*
 	Handles networking for the server and keeps track of clients that have joined
@@ -31,10 +34,13 @@ public:
 
 	bool isValid() const { return valid; }
 
+	//A big switch statement that routes incomg packet to the appropriate function in PacketsFromClient files depending on type
+	void switchPacketType(JoinedClient const * const source,ENetPacket* packet, const ServerProgramData& pd);
+
 	//Send something to all connected clients
 	void broadcast(const char* data, unsigned int len,PacketChannel channel);
 
-	void run();
+	void run(const ServerProgramData& pd);
 
 	Server(int port);
 	~Server();
