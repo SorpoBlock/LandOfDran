@@ -1,5 +1,17 @@
 #include "Server.h"
 
+void Server::broadcast(const char* data, unsigned int len, PacketChannel channel)
+{
+	ENetPacket* packet = enet_packet_create(data, len, getFlagsFromChannel(channel));
+	if (!packet)
+	{
+		scope("Server::broadcast");
+		error("enet_packet_create failed");
+		return;
+	}
+	enet_host_broadcast(server, channel, packet);
+}
+
 void Server::run()
 {
 	scope("Server::run");
@@ -66,7 +78,7 @@ Server::Server(int port)
 
 	address.host = ENET_HOST_ANY;
 	address.port = port;
-	server = enet_host_create(&address, 32, 2, 0, 0);
+	server = enet_host_create(&address, 32, EndOfChannels, 0, 0);
 
 	if (!server)
 	{

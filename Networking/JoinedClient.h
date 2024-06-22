@@ -28,6 +28,9 @@ public:
 
 	unsigned int getTempID() const { return netID; }
 
+	//Send a packet to this client
+	void send(const char* data, unsigned int len, PacketChannel channel);
+
 	//Called when data is received from this client
 	void dataReceived(ENetPacket* packet);
 

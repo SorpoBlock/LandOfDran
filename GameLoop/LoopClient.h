@@ -34,6 +34,7 @@ class LoopClient
 public:
 
 	//Per land of dran kino agent special request
+	//Technically some UI specific calculations might happen during rendering, oh well
 	void renderEverything(float deltaT);
 
 	void handleInput(float deltaT, ExecutableArguments& cmdArgs, std::shared_ptr<SettingManager> settings);

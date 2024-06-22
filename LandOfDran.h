@@ -28,6 +28,7 @@
 #include "Utility/Logger.h"
 #include "Utility/FileFunctions.h"
 #include "Utility/SettingManager.h"
+#include "Networking/PacketEnums.h"
 #include "Graphics/GraphicsHelpers.h"
 
 //Used in the titlebar for the window, and for making sure client and server version match in mutliplayer

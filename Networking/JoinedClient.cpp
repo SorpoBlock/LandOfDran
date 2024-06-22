@@ -1,8 +1,26 @@
 #include "JoinedClient.h"
 
+void JoinedClient::send(const char* data, unsigned int len, PacketChannel channel)
+{
+	ENetPacket* packet = enet_packet_create(data, len, getFlagsFromChannel(channel));
+	if (!packet)
+	{
+		scope("JoinedClient::send");
+		error("enet_packet_create failed");
+		return;
+	}
+	if(enet_peer_send(peer, channel, packet) < 0)
+	{
+		scope("JoinedClient::send");
+		error("enet_peer_send failed");
+	}
+}
+
 void JoinedClient::dataReceived(ENetPacket* packet)
 {
 	info("Got packet!");
+	std::cout << std::string((char*)packet->data, packet->dataLength) << "\n";
+	send("Hey how's it going", 19, Unreliable);
 }
 
 JoinedClient::JoinedClient(ENetEvent& event,unsigned int _netID)

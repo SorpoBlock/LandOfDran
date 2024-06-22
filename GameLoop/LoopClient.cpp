@@ -29,7 +29,8 @@ void LoopClient::handleInput(float deltaT, ExecutableArguments& cmdArgs, std::sh
 			camera->turn(-(float)e.motion.xrel, -(float)e.motion.yrel);
 		else if (e.type == SDL_KEYDOWN)
 		{
-			client->testSend();
+			std::string msg = "Testing: " + std::to_string(e.key.keysym.scancode);
+			client->send(msg.c_str(), msg.length(),Unreliable);
 
 			//This one is not handled through input map because input map can be suppressed
 			//By having one or more guis open, which defeats the purpose of a quick gui close key

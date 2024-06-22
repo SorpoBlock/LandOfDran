@@ -99,7 +99,7 @@ add_executable (LandOfDran
 "NetTypes/DynamicType.h" 
 "NetTypes/DynamicType.cpp" 
 "Networking/JoinedClient.h" 
-"Networking/JoinedClient.cpp" "GameLoop/LoopClient.h" "GameLoop/LoopClient.cpp")
+"Networking/JoinedClient.cpp" "GameLoop/LoopClient.h" "GameLoop/LoopClient.cpp" "Networking/PacketEnums.h")
 
 #include_directories("C:/Users/Syerjchep/Downloads/enet-2.3.10/include")
 include_directories("C:/Users/Syerjchep/Downloads/enet-1.3.18.tar/enet-1.3.18/include")

@@ -48,8 +48,10 @@ int main(int argc, char* argv[])
 
 	float lastTicks = (float)SDL_GetTicks();
 	
+	//The main loop of the whole program
 	while (cmdArgs.mainLoopRun)
 	{
+		//Milliseconds since last frame
 		float deltaT = ((float)SDL_GetTicks()) - lastTicks;
 		lastTicks = (float)SDL_GetTicks();
 
@@ -60,6 +62,7 @@ int main(int argc, char* argv[])
 			loopClient->run(deltaT,cmdArgs,settings);
 	}
 
+	//Deallocate client if this wasn't a dedicated server
 	if(!cmdArgs.dedicated)
 		delete loopClient;
 

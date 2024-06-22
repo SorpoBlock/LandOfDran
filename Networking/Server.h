@@ -20,6 +20,9 @@ public:
 
 	bool isValid() const { return valid; }
 
+	//Send something to all connected clients
+	void broadcast(const char* data, unsigned int len,PacketChannel channel);
+
 	void run();
 
 	Server(int port);

@@ -19,8 +19,8 @@ public:
 
 	void run();
 
+	void send(const char* data, unsigned int len, PacketChannel channel);
+
 	Client();
 	~Client();
-
-	void testSend();
 };
