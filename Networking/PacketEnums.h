@@ -14,7 +14,7 @@ enum PacketChannel
 	OtherReliable = 2,		//Reliable: Used for anything else that needs a relaible packet
 	ObjectUpdates = 3,		//Unreliable sequenced: Used for SimObject updates, mainly snapshop interpolation
 	Unreliable = 4,			//Unreliable unsequenced: Used for some minor effects like playing sounds
-	EndOfChannels = 5		//Not a channel, used in enet_host_create
+	EndOfChannels = 5		//Not a channel, used in enet_host_create and enet_host_connect
 };
 
 //Each PacketChannel has an ideal type of packet
@@ -34,3 +34,21 @@ inline enet_uint32 getFlagsFromChannel(PacketChannel channel)
 			return 0;
 	}
 }
+
+/*
+	Up to 256 types of packet from client to server
+*/
+enum FromClientPacketType : unsigned char
+{
+	InvalidClient = 0,		//Default value
+	ConnectionRequest = 1	//Client wants to connect, includes their name and login token if not a guest
+};
+
+/*
+	Up to 256 types of packet from server to client
+*/
+enum FromServerPacketType : unsigned char
+{
+	InvalidServer = 0,		//Default value
+	AcceptConnection = 1	//Connection request accepted, say how many types we expect to load
+};

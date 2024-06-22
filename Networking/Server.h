@@ -3,6 +3,9 @@
 #include "../LandOfDran.h"
 #include "JoinedClient.h"
 
+/*
+	Handles networking for the server and keeps track of clients that have joined
+*/
 class Server
 {
 	ENetAddress address;
@@ -17,6 +20,14 @@ class Server
 	std::vector<std::shared_ptr<JoinedClient>> clients;
 
 public:
+
+	//ID that increments each time a client joins, not associated with player land of dran account in any way
+	//Can return nullptr
+	std::shared_ptr<JoinedClient> getClientByNetId(unsigned int id);
+
+	//clients vector index
+	//Can return nullptr
+	std::shared_ptr<JoinedClient> getClientByIndex(unsigned int idx);
 
 	bool isValid() const { return valid; }
 

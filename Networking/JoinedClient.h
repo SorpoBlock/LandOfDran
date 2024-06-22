@@ -12,7 +12,7 @@ enum KickReason
 };
 
 /*
-	These are held by the server and represent a handle to a single person who joined the server
+	These are held by the Server and represent a handle to a single person who joined the server for the duration of their play
 	Don't confuse with Client which is something the client program holds a single instance of
 */
 class JoinedClient
@@ -26,7 +26,7 @@ class JoinedClient
 
 public:
 
-	unsigned int getTempID() const { return netID; }
+	unsigned int getNetId() const { return netID; }
 
 	//Send a packet to this client
 	void send(const char* data, unsigned int len, PacketChannel channel);

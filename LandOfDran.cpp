@@ -2,10 +2,10 @@
 
 #include "LandOfDran.h"
 #include "GameLoop/LoopClient.h"
+#include "GameLoop/LoopServer.h"
 #include "Utility/SettingManager.h"
 #include "Utility/DefaultPreferences.h"
 #include "Utility/GlobalStartup.h"
-#include "Networking/Server.h"
 
 int main(int argc, char* argv[])
 {
@@ -13,8 +13,9 @@ int main(int argc, char* argv[])
 	//is nullptr if dedicated server
 	LoopClient* loopClient = nullptr;
 
-	//and the one thing we will have if we *are* dedicated but *aren't* playing
-	Server* server = nullptr;
+	//Everything needed to *host* the game instead of playing it
+	//is nullptr if not dedicated server
+	LoopServer* loopServer = nullptr;
 
 	Logger::setErrorFile("Logs/error.txt");
 	Logger::setInfoFile("Logs/log.txt");
@@ -36,13 +37,17 @@ int main(int argc, char* argv[])
 
 	//Start up for dedicated server or the actual game itself
 	if (!cmdArgs.dedicated)
-		loopClient = new LoopClient(cmdArgs,settings);
+	{
+		loopClient = new LoopClient(cmdArgs, settings);
+		if (!loopClient->isValid())
+			return 0;
+	}
 	else 
 	{
 		info("Dedicated flag detected, starting server.");
 
-		server = new Server(DEFAULT_PORT);
-		if (!server->isValid())
+		loopServer = new LoopServer(cmdArgs,settings);
+		if (!loopServer->isValid())
 			return 0;
 	}
 
@@ -57,14 +62,16 @@ int main(int argc, char* argv[])
 
 		//Run server, or run game
 		if (cmdArgs.dedicated)
-			server->run();
+			loopServer->run(deltaT,cmdArgs,settings);
 		else
 			loopClient->run(deltaT,cmdArgs,settings);
 	}
 
 	//Deallocate client if this wasn't a dedicated server
-	if(!cmdArgs.dedicated)
+	if (!cmdArgs.dedicated)
 		delete loopClient;
+	else
+		delete loopServer;
 
 	globalShutdown(cmdArgs);
 	

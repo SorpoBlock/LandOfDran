@@ -91,15 +91,30 @@ add_executable (LandOfDran
 "Interface/DebugMenu.h"  
 "Interface/ServerBrowser.h" 
 "Interface/ServerBrowser.cpp"
+
+"NetTypes/DynamicType.h" 
+"NetTypes/DynamicType.cpp" 
  
 "Networking/Server.h" 
 "Networking/Server.cpp" 
 "Networking/Client.cpp" 
 "Networking/Client.h" 
-"NetTypes/DynamicType.h" 
-"NetTypes/DynamicType.cpp" 
 "Networking/JoinedClient.h" 
-"Networking/JoinedClient.cpp" "GameLoop/LoopClient.h" "GameLoop/LoopClient.cpp" "Networking/PacketEnums.h")
+"Networking/JoinedClient.cpp" 
+"Networking/PacketEnums.h" 
+"Networking/HeldServerPacket.h" 
+
+"GameLoop/ClientProgramData.h" 
+"GameLoop/ServerProgramData.h"
+"GameLoop/LoopClient.h" 
+"GameLoop/LoopClient.cpp" 
+"GameLoop/LoopServer.h" 
+"GameLoop/LoopServer.cpp" 
+
+"Networking/PacketsFromClient/ConnectionRequest.h" 
+"Networking/PacketsFromServer/AcceptConnection.h" 
+"Networking/PacketsFromClient/ConnectionRequest.cpp" 
+"Networking/PacketsFromServer/AcceptConnection.cpp" )
 
 #include_directories("C:/Users/Syerjchep/Downloads/enet-2.3.10/include")
 include_directories("C:/Users/Syerjchep/Downloads/enet-1.3.18.tar/enet-1.3.18/include")

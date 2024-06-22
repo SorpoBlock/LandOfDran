@@ -1,5 +1,22 @@
 #include "Server.h"
 
+std::shared_ptr<JoinedClient> Server::getClientByNetId(unsigned int id)
+{
+	for (unsigned int a = 0; a < clients.size(); a++)
+	{
+		if (clients[a]->getNetId() == id)
+			return clients[a];
+	}
+	return nullptr;
+}
+
+std::shared_ptr<JoinedClient> Server::getClientByIndex(unsigned int idx)
+{
+	if (idx >= clients.size())
+		return nullptr;
+	return clients[idx];
+}
+
 void Server::broadcast(const char* data, unsigned int len, PacketChannel channel)
 {
 	ENetPacket* packet = enet_packet_create(data, len, getFlagsFromChannel(channel));

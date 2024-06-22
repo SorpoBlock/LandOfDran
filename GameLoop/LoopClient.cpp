@@ -2,15 +2,15 @@
 
 void LoopClient::handleInput(float deltaT, ExecutableArguments& cmdArgs, std::shared_ptr<SettingManager> settings)
 {
-	input->keystates = SDL_GetKeyboardState(NULL);
+	pd.input->keystates = SDL_GetKeyboardState(NULL);
 
 	//Event loop, mostly just passing stuff to InputMap (in-game controls) and UserInterface (gui controls)
 	SDL_Event e;
 	while (SDL_PollEvent(&e))
 	{
-		if (gui->handleInput(e, input))
-			context->setMouseLock(false);
-		input->handleInput(e);
+		if (pd.gui->handleInput(e, pd.input))
+			pd.context->setMouseLock(false);
+		pd.input->handleInput(e);
 
 		if (e.type == SDL_QUIT)
 		{
@@ -21,65 +21,62 @@ void LoopClient::handleInput(float deltaT, ExecutableArguments& cmdArgs, std::sh
 		{
 			if (e.window.event == SDL_WINDOWEVENT_SIZE_CHANGED)
 			{
-				context->setSize(e.window.data1, e.window.data2);
-				camera->setAspectRatio(context->getResolution().x / context->getResolution().y);
+				pd.context->setSize(e.window.data1, e.window.data2);
+				pd.camera->setAspectRatio(pd.context->getResolution().x / pd.context->getResolution().y);
 			}
 		}
-		else if (e.type == SDL_MOUSEMOTION && context->getMouseLocked())
-			camera->turn(-(float)e.motion.xrel, -(float)e.motion.yrel);
+		else if (e.type == SDL_MOUSEMOTION && pd.context->getMouseLocked())
+			pd.camera->turn(-(float)e.motion.xrel, -(float)e.motion.yrel);
 		else if (e.type == SDL_KEYDOWN)
 		{
-			std::string msg = "Testing: " + std::to_string(e.key.keysym.scancode);
-			client->send(msg.c_str(), msg.length(),Unreliable);
-
 			//This one is not handled through input map because input map can be suppressed
 			//By having one or more guis open, which defeats the purpose of a quick gui close key
 			if (e.key.keysym.sym == SDLK_ESCAPE)
 			{
-				gui->closeOneWindow();
-				if (!context->getMouseLocked() && !gui->getOpenWindowCount())
-					context->setMouseLock(true);
+				pd.gui->closeOneWindow();
+				if (!pd.context->getMouseLocked() && !pd.gui->getOpenWindowCount())
+					pd.context->setMouseLock(true);
 			}
 		}
 	}
 
 	//Interacting with gui, don't move around in-game
-	input->supressed = gui->wantsSuppression();
+	pd.input->supressed = pd.gui->wantsSuppression();
 
 	//Someone just applied setting changes
-	if (settingsMenu->pollForChanges())
+	if (pd.settingsMenu->pollForChanges())
 	{
 		Logger::setDebug(settings->getBool("logger/verbose"));
-		camera->updateSettings(settings);
-		gui->updateSettings(settings);
+		pd.camera->updateSettings(settings);
+		pd.gui->updateSettings(settings);
 	}
 
 	//Various keys were pressed that were bound to certain commands:
-	if (input->pollCommand(MouseLock))
-		context->setMouseLock(!context->getMouseLocked());
+	if (pd.input->pollCommand(MouseLock))
+		pd.context->setMouseLock(!pd.context->getMouseLocked());
 
-	camera->control(deltaT, input);
-	debugMenu->passDetails(camera);
+	pd.camera->control(deltaT, pd.input);
+	pd.debugMenu->passDetails(pd.camera);
 }
 
 void LoopClient::renderEverything(float deltaT)
 {
 	//Start rendering to screen:
-	camera->render(shaders);
+	pd.camera->render(pd.shaders);
 
-	context->select();
-	context->clear(0.2f, 0.2f, 0.2f);
+	pd.context->select();
+	pd.context->clear(0.2f, 0.2f, 0.2f);
 
-	shaders->modelShader->use();
+	pd.shaders->modelShader->use();
 
-	gui->render();
+	pd.gui->render();
 
-	context->swap();
+	pd.context->swap();
 }
 
 void LoopClient::run(float deltaT,ExecutableArguments& cmdArgs, std::shared_ptr<SettingManager> settings)
 {
-	client->run(); //  <--- networking
+	client->run(pd,cmdArgs); //  <--- networking
 	handleInput(deltaT,cmdArgs,settings);
 	renderEverything(deltaT);
 }
@@ -87,45 +84,46 @@ void LoopClient::run(float deltaT,ExecutableArguments& cmdArgs, std::shared_ptr<
 LoopClient::LoopClient(ExecutableArguments& cmdArgs, std::shared_ptr<SettingManager> settings)
 {
 	//This will also populate key-bind specific defaults, so we reexport after
-	input = std::make_shared<InputMap>(settings); 
+	pd.input = std::make_shared<InputMap>(settings);
 	settings->exportToFile("Config/settings.txt");
 
 	info("Not dedicated, initalizing client.");
 
 	//Create our program window
-	context = std::make_shared<RenderContext>(settings);
-	gui = std::make_shared<UserInterface>();
-	gui->updateSettings(settings);
-	settingsMenu = gui->createWindow<SettingsMenu>(settings, input);
-	debugMenu = gui->createWindow<DebugMenu>();
-	serverBrowser = gui->createWindow<ServerBrowser>();
-	serverBrowser->open();
+	pd.context = std::make_shared<RenderContext>(settings);
+	pd.gui = std::make_shared<UserInterface>();
+	pd.gui->updateSettings(settings);
+	pd.settingsMenu = pd.gui->createWindow<SettingsMenu>(settings, pd.input);
+	pd.debugMenu = pd.gui->createWindow<DebugMenu>();
+	pd.serverBrowser = pd.gui->createWindow<ServerBrowser>();
+	pd.serverBrowser->open();
 
-	gui->initAll();
+	pd.gui->initAll();
 
 	//Load all the shaders
-	shaders = std::make_shared<ShaderManager>();
-	shaders->readShaderList("Shaders/shadersList.txt");
+	pd.shaders = std::make_shared<ShaderManager>();
+	pd.shaders->readShaderList("Shaders/shadersList.txt");
 
-	camera = std::make_shared<Camera>(context->getResolution().x / context->getResolution().y);
-	camera->updateSettings(settings);
+	pd.camera = std::make_shared<Camera>(pd.context->getResolution().x / pd.context->getResolution().y);
+	pd.camera->updateSettings(settings);
 
 	//A few test decals
-	textures = std::make_shared<TextureManager>();
-	textures->allocateForDecals(128);
-	textures->finalizeDecals();
+	pd.textures = std::make_shared<TextureManager>();
+	pd.textures->allocateForDecals(128);
+	pd.textures->finalizeDecals();
 
-	client = new Client();
-	if (!client->isValid())
-		return;
+	info("Start up complete");
+
+	valid = true;
 }
 
 LoopClient::~LoopClient()
 {
-	context.reset();
-	gui.reset(); //Will handle indivdual windows
-	shaders.reset();
-	camera.reset();
-	textures.reset();
-	delete client;
+	pd.context.reset();
+	pd.gui.reset(); //Will handle indivdual windows
+	pd.shaders.reset();
+	pd.camera.reset();
+	pd.textures.reset();
+	if(client)
+		delete client;
 }

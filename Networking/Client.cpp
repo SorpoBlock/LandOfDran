@@ -1,11 +1,30 @@
 #include "Client.h"
 
-void Client::run()
+void Client::tryApplyHeldPackets(const ClientProgramData& pd, const ExecutableArguments& cmdArgs)
+{
+	auto iter = packets.begin();
+	while (iter != packets.end())
+	{
+		HeldServerPacket* tmp = *iter;
+		if (tmp->applyPacket(pd,cmdArgs))
+		{
+			delete tmp;
+			tmp = 0;
+			iter = packets.erase(iter);
+		}
+		else
+			++iter;
+	}
+}
+
+void Client::run(const ClientProgramData& pd, const ExecutableArguments& cmdArgs)
 {
 	scope("Client::run");
 
 	if (!valid)
 		return;
+
+	tryApplyHeldPackets(pd,cmdArgs);
 
 	ENetEvent event;
 	int ret = enet_host_service(client, &event, 0);
@@ -22,26 +41,40 @@ void Client::run()
 		{
 			case ENET_EVENT_TYPE_DISCONNECT:
 			{
-				std::cout << "Disconnect!\n";
-				break;
+				info("Lost connection with server!");
+				return;
 			}
 			case ENET_EVENT_TYPE_RECEIVE:
 			{
-				std::cout << "Receive!\n";
-				std::cout << event.channelID << " channel received a packet\n";
-				std::cout << std::string((char*)event.packet->data, event.packet->dataLength) << "\n";
-				break;
+				//Each packet type gets its own file with the function that processes it
+				FromServerPacketType type = (FromServerPacketType)event.packet->data[0];
+				switch (type)
+				{
+					case AcceptConnection:
+						packets.push_back(new AcceptConnectionPacket(packetHoldTime, event.packet));
+						return;
+
+					//Can't process packet
+					case InvalidServer:
+					default:
+						error("Invalid packet type " + std::to_string(type) + " received from server.");
+						enet_packet_destroy(event.packet);
+						return;
+				}
+
+				//Packet will be destroyed in destructor of HeldServerPacket
+				return;
 			}
 			case ENET_EVENT_TYPE_CONNECT:
 			{
 				error("Got some kind of double connection from server!");
-				break;
+				return;
 			}
 		}
 	}
 }
 
-Client::Client()
+Client::Client(unsigned int _packetHoldTime) : packetHoldTime(_packetHoldTime)
 {
 	scope("Client::Client");
 
@@ -56,7 +89,7 @@ Client::Client()
 	enet_address_set_host(&address, "localhost");
 	address.port = DEFAULT_PORT;
 
-	peer = enet_host_connect(client, &address, 2, 0);
+	peer = enet_host_connect(client, &address, EndOfChannels, 0);
 	if (!peer)
 	{
 		error("enet_host_connect failed");
