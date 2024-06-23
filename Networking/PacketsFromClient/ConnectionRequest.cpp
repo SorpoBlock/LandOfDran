@@ -1,7 +1,7 @@
 #include "../Server.h"
 
 /*	
-	Do not attempt to assign a handle to it to other objects directly
+	Do not attempt to assign a handle to JoinedClient to other objects directly
 	Grab a smart pointer from the server for this
 	server->getClientByNetId(source->getNetId());
 	Also do not attempt to delete the JoinedClient, just call kick

@@ -20,7 +20,7 @@ enum KickReason
 class JoinedClient
 {
 	//Unique ID specific to clients, incremented each time one joins, used to associate enet events with a JoinedClient
-	unsigned int netID = -1;
+	netIDType netID = -1;
 
 	ENetPeer* peer = nullptr;
 
@@ -30,7 +30,7 @@ public:
 
 	std::string name = "";
 
-	unsigned int getNetId() const { return netID; }
+	netIDType getNetId() const { return netID; }
 
 	//Send a packet to this client
 	void send(const char* data, unsigned int len, PacketChannel channel) const;

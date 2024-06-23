@@ -15,7 +15,7 @@ class Server
 	bool valid = false;
 
 	//Last netID given to a JoinedClient
-	unsigned int lastNetID = 0;
+	netIDType lastNetID = 0;
 
 	//Each one represents a connected player
 	std::vector<std::shared_ptr<JoinedClient>> clients;
@@ -26,7 +26,7 @@ public:
 
 	//ID that increments each time a client joins, not associated with player land of dran account in any way
 	//Can return nullptr
-	std::shared_ptr<JoinedClient> getClientByNetId(unsigned int id) const;
+	std::shared_ptr<JoinedClient> getClientByNetId(netIDType id) const;
 
 	//clients vector index
 	//Can return nullptr

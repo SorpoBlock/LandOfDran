@@ -2,6 +2,11 @@
 
 #include "enet/enet.h"
 
+//Represents an ID sent from server to client for unambigous identification
+//Every SimObject and SimObjectType should have one that's unique to it within its type
+//Different types of objects can share the same ID
+typedef unsigned int netIDType;
+
 /*
 	For use with enet_host_broadcast and enet_peer_send
 	These channels should be the same between server and client

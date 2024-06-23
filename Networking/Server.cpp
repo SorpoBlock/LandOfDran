@@ -5,7 +5,7 @@ size_t Server::getNumClients() const
 	return clients.size();
 }
 
-std::shared_ptr<JoinedClient> Server::getClientByNetId(unsigned int id) const
+std::shared_ptr<JoinedClient> Server::getClientByNetId(netIDType id) const
 {
 	for (unsigned int a = 0; a < clients.size(); a++)
 	{

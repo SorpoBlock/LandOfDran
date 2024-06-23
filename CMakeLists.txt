@@ -94,6 +94,7 @@ add_executable (LandOfDran
 "Interface/EscapeMenu.h" 
 "Interface/EscapeMenu.cpp" 
 
+"NetTypes/NetType.h" 
 "NetTypes/DynamicType.h" 
 "NetTypes/DynamicType.cpp" 
  
