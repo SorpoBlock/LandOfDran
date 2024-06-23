@@ -30,10 +30,14 @@ public:
 
 	std::string name = "";
 
+	std::string getIP() const { return ip; }
+
 	netIDType getNetId() const { return netID; }
 
 	//Send a packet to this client
 	void send(const char* data, unsigned int len, PacketChannel channel) const;
+
+	void send(ENetPacket* packet, PacketChannel channel) const;
 
 	//Create a client from a connection event
 	JoinedClient(ENetEvent& event,unsigned int _netID);

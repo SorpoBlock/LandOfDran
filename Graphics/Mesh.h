@@ -371,7 +371,15 @@ class Model
 	//What frame of animation should be displayed for an instance when we're not playing any animations on it
 	float animationDefaultTime = 0;
 
+	//For use with creating a btRigidBody box shape, calculated in calculateCollisionBox
+	glm::vec3 collisionHalfExtents = glm::vec3(1, 1, 1);
+	//The offset the visual mesh should have from the collision box, calculated in calculateCollisionBox
+	glm::vec3 collisionOffset = glm::vec3(0, 0, 0);
+
 	public:
+
+	glm::vec3 getColOffset() const { return collisionOffset * baseScale; }
+	glm::vec3 getColHalfExtents() const { return collisionHalfExtents * baseScale; }
 
 	std::string loadedPath = "";
 
@@ -396,11 +404,20 @@ class Model
 	//Calls render on each mesh
 	void render(ShaderManager* graphics,bool useMaterials = true) const;
 
+	//Calculates collisionHalfExtents and collisionOffset, called in constructor
+	void calculateCollisionBox(const aiScene* scene);
+
 	/*
 		File path refers to a text file that describes where the actual model is
 		Flags for how to load it, and other text files describing materials
 	*/
-	Model(std::string filePath, TextureManager* textures);
+	Model(std::string filePath, std::shared_ptr<TextureManager> textures);
+
+	/*
+		Server-side loading for collision meshes
+		The bool argument mostly exists at the moment to make sure you don't accidently call it because you forgot TextureManager
+	*/
+	Model(std::string filePath,bool serverSide);
 
 	~Model();
 };

@@ -27,6 +27,10 @@ class Client
 
 public:
 
+	float getPing() const { return peer->lastRoundTripTime; }
+	float getIncoming() const { return peer->incomingBandwidth; }
+	float getOutgoing() const { return peer->outgoingBandwidth; }
+
 	bool isValid() const { return valid; }
 
 	//Returns true if we were kicked

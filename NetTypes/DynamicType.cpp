@@ -26,18 +26,64 @@ void DynamicType::loadFromPacket(ENetPacket const* const packet)
 
 	std::string filePath = std::string((char*)packet->data + 3 + sizeof(netIDType), filePathLen);
 
-	model = std::make_shared<Model>(filePath);
+	model = std::make_shared<Model>(filePath,true);
+
+	glm::vec3 halfExtents = model->getColHalfExtents();
+	collisionBox = new btBoxShape(g2b3(halfExtents));
+
+	collisionShape = new btCompoundShape();
+	btTransform t;
+	t.setIdentity();
+	t.setOrigin(g2b3(model->getColOffset()));
+	collisionShape->addChildShape(t, collisionBox);
+
+	btScalar masses[1];
+	masses[0] = 1.0;
+	t.setIdentity();
+	collisionShape->calculatePrincipalAxisTransform(masses, t, defaultInertia);
+
+	loaded = true;
+}
+
+void DynamicType::serverSideLoad(const std::string &filePath,netIDType typeID)
+{
+	id = typeID;
+
+	model = std::make_shared<Model>(filePath, true);
+
+	glm::vec3 halfExtents = model->getColHalfExtents();
+	collisionBox = new btBoxShape(g2b3(halfExtents));
+
+	collisionShape = new btCompoundShape();
+	btTransform t;
+	t.setIdentity();
+	t.setOrigin(g2b3(model->getColOffset()));
+	collisionShape->addChildShape(t, collisionBox);
+
+	btScalar masses[1];
+	masses[0] = mass;
+	t.setIdentity();
+	collisionShape->calculatePrincipalAxisTransform(masses, t, defaultInertia);
+
+	loaded = true;
+}
+
+std::shared_ptr<btRigidBody> DynamicType::createBody() const
+{
+	auto ret = std::make_shared<btRigidBody>(mass, defaultMotionState, collisionShape, defaultInertia);
+	ret->setUserIndex(dynamicBody);
+	return ret;
 }
 
 //Create the packet on the server to be passed to loadFromPacket on the client
 ENetPacket* DynamicType::createTypePacket() const
 {
-	ENetPacket* ret = enet_packet_create(NULL, model->loadedPath.length() + sizeof(netIDType) + 3, getFlagsFromChannel(OtherReliable));
+	ENetPacket* ret = enet_packet_create(NULL, model->loadedPath.length() + sizeof(netIDType) + 3, getFlagsFromChannel(JoinNegotiation));
 
 	ret->data[0] = AddSimObjectType;
 	ret->data[1] = DynamicTypeId;
 	memcpy(ret->data + 2, &id, sizeof(netIDType));
-	ret->data[2 + sizeof(netIDType)] = model->loadedPath.length();
+	ret->data[2 + sizeof(netIDType)] = (unsigned char)model->loadedPath.length();
 	memcpy(ret->data + 3 + sizeof(netIDType), model->loadedPath.c_str(), model->loadedPath.length());
 
 	return ret; 
@@ -46,12 +92,20 @@ ENetPacket* DynamicType::createTypePacket() const
 //Doesn't allocate anything, wait for loadFromPacket or server-side construction from lua
 DynamicType::DynamicType() : NetType(DynamicTypeId)
 {
-
+	defaultMotionState = new btDefaultMotionState(btTransform::getIdentity());
 }
 
 //Deallocates model if it exists
 DynamicType::~DynamicType()
 {
+	delete defaultMotionState;
+
+	if (collisionShape)
+		delete collisionShape;
+
+	if (collisionBox)
+		delete collisionBox;
+
 	if (model)
 	{
 		//Not needed this is a destructor lol

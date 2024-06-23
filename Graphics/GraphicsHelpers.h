@@ -14,6 +14,9 @@ glm::vec3 lerp(glm::vec3 x, glm::vec3 y, float t);
 //Calls glm::decompose
 glm::vec3 getTransformFromMatrix(const glm::mat4 &in);
 
+//Calls glm::decompose
+glm::vec3 getScaleFromMatrix(const glm::mat4& in);
+
 //assimp to opengl conversion for 4x4 matrices
 void CopyaiMat(const aiMatrix4x4 &from, glm::mat4& to);
 

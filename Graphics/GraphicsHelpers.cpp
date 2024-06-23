@@ -24,6 +24,15 @@ glm::vec3 getTransformFromMatrix(const glm::mat4 &in)
 	return trans;
 }
 
+glm::vec3 getScaleFromMatrix(const glm::mat4& in)
+{
+	glm::vec3 scale, skew, trans;
+	glm::vec4 perspective;
+	glm::quat rot;
+	glm::decompose(in, scale, rot, trans, skew, perspective);
+	return scale;
+}
+
 glm::quat getRotationFromMatrix(const glm::mat4& in)
 {
 	glm::vec3 scale, skew, trans;

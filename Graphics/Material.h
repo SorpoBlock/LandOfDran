@@ -47,7 +47,7 @@ class Material
 	bool valid = false;
 
 	//Second half of both constructors
-	void finishCreation(std::string albedo, std::string normal, std::string roughness, std::string metalness, std::string occlusion, TextureManager* textures);
+	void finishCreation(std::string albedo, std::string normal, std::string roughness, std::string metalness, std::string occlusion, std::shared_ptr<TextureManager> textures);
 
 	public:
 
@@ -65,13 +65,13 @@ class Material
 		Pass a filepath to a text file containing a description of this material
 		and the filepaths of the indivdual textures it has
 	*/
-	Material(const std::string &filePath, TextureManager* textures);
+	Material(const std::string &filePath, std::shared_ptr<TextureManager>  textures);
 
 	/*
 		Pass the paths for the 5 possible channels directly to make a material
 		Any you don't want to use can be left as empty strings: ""
 	*/
-	Material(const std::string &_name,const std::string &albedo,const std::string &normal,const std::string &roughness,const std::string &metalness,const std::string &occlusion, TextureManager* textures);
+	Material(const std::string &_name,const std::string &albedo,const std::string &normal,const std::string &roughness,const std::string &metalness,const std::string &occlusion, std::shared_ptr<TextureManager> textures);
 
 	~Material();
 };

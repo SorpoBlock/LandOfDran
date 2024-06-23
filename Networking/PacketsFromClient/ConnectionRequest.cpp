@@ -57,13 +57,20 @@ void applyConnectionRequest(JoinedClient * source,Server const * const server, E
 	}
 
 	//Nothing was wrong, you get to connect!
-	char ret[2];
+	char ret[6];
 	ret[0] = AcceptConnection;
 	ret[1] = ConnectionOkay;
-	source->send(ret, 2, JoinNegotiation);
+	unsigned int numTypes = (unsigned int)pd.allNetTypes.size();
+	memcpy(ret + 2, &numTypes, sizeof(unsigned int));
+
+	source->send(ret, 6, JoinNegotiation);
 
 	//Set stuff up for our newly connected client
 	source->name = desiredName;
+
+	//Send types to client:
+	for (size_t a = 0; a < pd.allNetTypes.size(); a++)
+		source->send(pd.allNetTypes[a]->createTypePacket(), JoinNegotiation);
 }
  
 

@@ -1,5 +1,17 @@
 #include "JoinedClient.h"
 
+void JoinedClient::send(ENetPacket* packet, PacketChannel channel) const
+{
+	if (!peer)
+		return;
+
+	if (enet_peer_send(peer, channel, packet) < 0)
+	{
+		scope("JoinedClient::send");
+		error("enet_peer_send failed");
+	}
+}
+
 void JoinedClient::send(const char* data, unsigned int len, PacketChannel channel) const
 {
 	if (!peer)

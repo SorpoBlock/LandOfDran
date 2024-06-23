@@ -117,7 +117,9 @@ add_executable (LandOfDran
 "GameLoop/LoopClient.cpp" 
 "GameLoop/LoopServer.h" 
 "GameLoop/LoopServer.cpp" 
-)
+
+ "Physics/PhysicsWorld.h" 
+ "Physics/PhysicsWorld.cpp")
 
 #include_directories("C:/Users/Syerjchep/Downloads/enet-2.3.10/include")
 include_directories("C:/Users/Syerjchep/Downloads/enet-1.3.18.tar/enet-1.3.18/include")

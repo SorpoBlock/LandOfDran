@@ -1,9 +1,12 @@
 #include "DebugMenu.h"
 
-void DebugMenu::passDetails(std::shared_ptr<Camera> camera)
+void DebugMenu::passDetails(std::shared_ptr<Camera> camera,const NetInfo & netInfo)
 {
 	cameraPosition = camera->getPosition();
 	cameraDirection = camera->getDirection();
+	lastPing = netInfo.ping;
+	incomingData = netInfo.incomingData;
+	outgoingData = netInfo.outgoingData;
 }
 
 void DebugMenu::render(ImGuiIO* io)
@@ -22,6 +25,9 @@ void DebugMenu::render(ImGuiIO* io)
 	if (ImGui::BeginTabItem("Performance"))
 	{
 		ImGui::Text("FPS: %f", io->Framerate);
+		ImGui::Text("Ping: %f", lastPing);
+		ImGui::Text("Incoming Data: %f", incomingData);;
+		ImGui::Text("Outgoing Data: %f", outgoingData);;
 		ImGui::EndTabItem();
 	}
 

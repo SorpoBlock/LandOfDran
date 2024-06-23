@@ -23,8 +23,21 @@ bool AcceptConnectionPacket::applyPacket(const ClientProgramData& pd, const Exec
 		case ConnectionOkay:
 		{
 			pd.serverBrowser->setConnectionNote("");
-			info("Connection accepted!");
-			//do something else
+
+			if (packet->dataLength < 6)
+			{
+				//Not enough bytes for number of types
+				error("Invalid acceptance packet!");
+				return true;
+			}
+
+			info("Join request accepted!");
+
+			//Let the main loop know we're ready to start loading SimObject types, i.e. phase 1
+			pd.getSignals()->startPhaseOneLoading = true;
+			//How many SimObject types will we need to load until we're done with phase 1 loading
+			memcpy(&pd.getSignals()->typesToLoad, packet->data + 2, sizeof(unsigned int));
+
 			return true;
 		}
 	}

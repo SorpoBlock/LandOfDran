@@ -11,6 +11,12 @@ void LoopClient::leaveServer()
 
 	delete client;
 	client = nullptr;
+
+	//It's very possible some or all data structures may not have been initialized or allocated if we disconnected in the middle loading into a new server
+	
+	//Destroy server specific physics
+	if(pd.physicsWorld)
+		pd.physicsWorld.reset();
 }
 
 void LoopClient::connectToServer(std::string ip, unsigned int port, std::string userName, ExecutableArguments& cmdArgs, std::shared_ptr<SettingManager> settings)
@@ -18,13 +24,12 @@ void LoopClient::connectToServer(std::string ip, unsigned int port, std::string 
 	if (cmdArgs.gameState != NotInGame)
 		leaveServer();
 
-	//TODO: Note without some kind of multithreading, this message will never display
+	//TODO: Note without some kind of multithreading, this message will never display in the UI
 	pd.serverBrowser->setConnectionNote("Connecting to server...");
+	info("Attempting connection to " + ip + ":" + std::to_string(port));
 
 	cmdArgs.gameState = Connecting;
 	client = new Client(ip, port, settings->getInt("network/packetholdtime"));
-
-	info("Attempting connection to " + ip + ":" + std::to_string(port));
 
 	//Connection to server failed
 	if (!client->isValid())
@@ -40,6 +45,9 @@ void LoopClient::connectToServer(std::string ip, unsigned int port, std::string 
 	pd.serverBrowser->close();
 
 	client->send(makeConnectionRequest(userName), JoinNegotiation);
+	
+	//From here, further initalization will actually take place in Networking/PacketsFromServer/AcceptConnection.cpp
+	//Assuming the server lets us join, of course
 }
 
 void LoopClient::handleInput(float deltaT, ExecutableArguments& cmdArgs, std::shared_ptr<SettingManager> settings)
@@ -104,9 +112,9 @@ void LoopClient::handleInput(float deltaT, ExecutableArguments& cmdArgs, std::sh
 	//Various keys were pressed that were bound to certain commands:
 	if (pd.input->pollCommand(MouseLock))
 		pd.context->setMouseLock(!pd.context->getMouseLocked());
-
+	
+	//Move camera around
 	pd.camera->control(deltaT, pd.input);
-	pd.debugMenu->passDetails(pd.camera);
 
 	if (pd.serverBrowser->serverPickReady())
 	{
@@ -162,7 +170,28 @@ void LoopClient::run(float deltaT,ExecutableArguments& cmdArgs, std::shared_ptr<
 		if (client->run(pd, cmdArgs)) //  <--- networking
 			leaveServer();			  //If true, we were kicked
 	}
-	handleInput(deltaT,cmdArgs,settings);
+	handleInput(deltaT,cmdArgs,settings); //mouse and keyboard input
+
+	//Send info to debug menu for display
+	NetInfo netInfo;
+	if (client)
+		netInfo = { client->getPing(), client->getIncoming(), client->getOutgoing() };
+	pd.debugMenu->passDetails(pd.camera, netInfo);
+
+	//Process state changes requested from received packets:
+	if (pd.signals.startPhaseOneLoading)
+	{
+		//Server accepted join request
+		//Start up systems needed to play
+		pd.physicsWorld = std::make_shared<PhysicsWorld>();
+	}
+
+	if (pd.physicsWorld)
+		pd.physicsWorld->step(deltaT);
+
+	//All signals this loop processed, reset flags
+	pd.signals.reset();
+
 	renderEverything(deltaT);
 }
 
@@ -199,6 +228,9 @@ LoopClient::LoopClient(ExecutableArguments& cmdArgs, std::shared_ptr<SettingMana
 	pd.textures->finalizeDecals();
 
 	info("Start up complete");
+
+	Model* test = new Model("Assets/brickhead/brickhead.txt", pd.textures);
+	test->baseScale = glm::vec3(0.01f);
 
 	valid = true;
 }

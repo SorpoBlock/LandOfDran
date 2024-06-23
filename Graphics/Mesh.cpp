@@ -774,7 +774,209 @@ std::string stripSillyAssimpNodeNames(std::string in)
 		return in;
 }
 
-Model::Model(std::string filePath,TextureManager * textures) : loadedPath(filePath)
+//Recursivly searches model's node tree looking for a collision mesh using default node transforms, returns true if mesh found
+bool getCollisionTransformMatrix(const aiScene* scene,const aiNode* node, aiMatrix4x4 &startTransform)
+{
+	startTransform = startTransform * node->mTransformation;
+
+	for (unsigned int a = 0; a < node->mNumMeshes; a++)
+	{
+		std::string name = lowercase(scene->mMeshes[node->mMeshes[a]]->mName.C_Str());
+		if (name.find("collision") != std::string::npos)
+			return true;
+	}
+	for (unsigned int a = 0; a < node->mNumChildren; a++)
+	{
+		aiMatrix4x4 childTransform = startTransform;
+		if (getCollisionTransformMatrix(scene, node->mChildren[a], childTransform))
+		{
+			startTransform = childTransform;
+			return true;
+		}
+	}
+
+	return false;
+}
+
+void Model::calculateCollisionBox(const aiScene* scene)
+{
+	//Find the collision mesh, kinda redundant since we do it in getCollisionTransformMatrix
+	aiMesh* colMesh = nullptr;
+	for (unsigned int a = 0; a < scene->mNumMeshes; a++)
+	{
+		std::string name = scene->mMeshes[a]->mName.C_Str();
+		name = lowercase(name);
+		if (name.find("collision") != std::string::npos)
+		{
+			colMesh = scene->mMeshes[a];
+			break;
+		}
+	}
+
+	if (!colMesh)
+	{
+		//No collision mesh, give it a tiny box by default
+		error("No collision mesh found.");
+		return;
+	}
+
+	//Find the default transform for that collision mesh within the larger model
+	aiMatrix4x4 collisionMeshTransform = aiMatrix4x4();
+	if (!getCollisionTransformMatrix(scene, scene->mRootNode, collisionMeshTransform))
+	{
+		//We should have bailed above at this point
+		error("No collision mesh found.");
+		return; 
+	}
+
+	//Find the highest and lowest point in all 3 dimensions for the collision mesh
+	aiVector3D maxPos = aiVector3D(-9999, -9999, -9999);
+	aiVector3D minPos = aiVector3D(9999, 9999, 9999);
+
+	for (unsigned int a = 0; a < colMesh->mNumVertices; a++)
+	{
+		aiVector3D v = colMesh->mVertices[a];
+
+		maxPos.x = std::max(v.x, maxPos.x);
+		maxPos.y = std::max(v.y, maxPos.y);
+		maxPos.z = std::max(v.z, maxPos.z);
+
+		minPos.x = std::min(v.x, minPos.x);
+		minPos.y = std::min(v.y, minPos.y);
+		minPos.z = std::min(v.z, minPos.z);
+	}
+
+	//Move coordinates from mesh space to model space
+	maxPos = collisionMeshTransform * maxPos;
+	minPos = collisionMeshTransform * minPos;
+
+	if (maxPos.x < minPos.x)
+		std::swap(maxPos.x, minPos.x);
+	if (maxPos.y < minPos.y)
+		std::swap(maxPos.y, minPos.y);
+	if (maxPos.z < minPos.z)
+		std::swap(maxPos.z, minPos.z);
+
+	aiVector3D size = maxPos - minPos;
+
+	//Bullet uses *half* extents
+	size /= 2.0;
+	collisionHalfExtents = glm::vec3(size.x, size.y, size.z);
+
+	aiVector3D offset = size + minPos;
+	collisionOffset = glm::vec3(offset.x, offset.y, offset.z);
+}
+
+//Abridged version for server-side loading, namely for collision meshes
+Model::Model(std::string filePath, bool serverSide) : loadedPath(filePath)
+{
+	scope("Model::Model");
+
+	if (!serverSide)
+	{
+		error("Server-side constructor called from client possibly?");
+		return;
+	}
+
+	debug("Loading model descriptor file: " + filePath);
+
+	std::ifstream descriptorFile(filePath.c_str());
+
+	if (!descriptorFile.is_open())
+	{
+		error("Could not open file " + filePath);
+		return;
+	}
+
+	//What Assimp flags does the model creator wish for us to import their model with
+	unsigned int desiredImporterFlags = 0;
+
+	//The relative file path to the actual 3d model file
+	std::string modelPath = "";
+
+	std::string line = "";
+	while (!descriptorFile.eof())
+	{
+		getline(descriptorFile, line);
+
+		//Every line is just two arguments separated by a tab
+
+		if (line.length() < 1)
+			continue;
+
+		if (line.substr(0, 1) == "#")
+			continue;
+
+		size_t firstTab = line.find("\t");
+
+		if (firstTab == std::string::npos)
+		{
+			error("Malformed model import text file: " + line);
+			continue;
+		}
+
+		std::string argument = line.substr(0, firstTab);
+		std::string value = line.substr(firstTab + 1, line.length() - (firstTab + 1)); //value needs to maintain case for flags
+
+		//Getting a few non-importer-flags out of the way:
+		if (argument == "file")
+		{
+			modelPath = getFolderFromPath(filePath) + value;
+			continue;
+		}
+
+		auto flagSearchResult = aiProcessMap.find(argument);
+		//It wasn't a valid assimp flag
+		if (flagSearchResult == aiProcessMap.end())
+		{
+			error("Invalid process flag: " + argument);
+			continue;
+		}
+
+		//To be fair an argument field for these isn't really required since they're false by default...
+		if (lowercase(value) != "true")
+			continue;
+
+		//They specified an additional Assimp import flag to import their model with
+		desiredImporterFlags += flagSearchResult->second;
+	}
+
+	descriptorFile.close();
+
+	if (modelPath.length() < 1)
+	{
+		error("No 'file' line specified to point to the actual model file!");
+		return;
+	}
+
+	debug("Loading model " + filePath + " with flags " + std::to_string(desiredImporterFlags));
+
+	Assimp::Importer importer;
+	const aiScene* scene = importer.ReadFile(modelPath, desiredImporterFlags);
+
+	if (!scene)
+	{
+		error("Problem loaded model file " + modelPath);
+		error(importer.GetErrorString());
+		return;
+	}
+
+	for (unsigned int a = 0; a < scene->mNumMeshes; a++)
+	{
+		aiMesh* src = scene->mMeshes[a];
+		Mesh* tmp = new Mesh(src, this);
+
+		tmp->meshIndex = allMeshes.size();
+		allMeshes.push_back(tmp);
+	}
+
+	rootNode = new Node(scene->mRootNode, this);
+
+	calculateCollisionBox(scene);
+}
+
+//Full constructor for client-side loading, includes materials and animations
+Model::Model(std::string filePath, std::shared_ptr<TextureManager> textures) : loadedPath(filePath)
 {
 	scope("Model::Model");
 
@@ -877,6 +1079,8 @@ Model::Model(std::string filePath,TextureManager * textures) : loadedPath(filePa
 		//They specified an additional Assimp import flag to import their model with
 		desiredImporterFlags += flagSearchResult->second;
 	}
+
+	descriptorFile.close();
 
 	if (modelPath.length() < 1)
 	{
@@ -1059,6 +1263,8 @@ Model::Model(std::string filePath,TextureManager * textures) : loadedPath(filePa
 		error("For now animations should all be on the same track, but LoD animations are then");
 		error("defined in script as being certain time slices of the original animation track.");
 	}
+
+	calculateCollisionBox(scene);
 }
 
 void Mesh::recompileInstances()

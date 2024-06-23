@@ -19,7 +19,7 @@ enum SimObjectType : unsigned char //might be used for packets who knows
 };
 
 /*
-	Abstract base class for net types
+	Abstract base class for net types, permits server iterating over allTypes to send types to clients
 	net types in turn describe types of SimObjects
 */
 class NetType
