@@ -1,7 +1,10 @@
 #include "JoinedClient.h"
 
-void JoinedClient::send(const char* data, unsigned int len, PacketChannel channel)
+void JoinedClient::send(const char* data, unsigned int len, PacketChannel channel) const
 {
+	if (!peer)
+		return;
+
 	ENetPacket* packet = enet_packet_create(data, len, getFlagsFromChannel(channel));
 	if (!packet)
 	{
@@ -30,7 +33,7 @@ JoinedClient::JoinedClient(ENetEvent& event,unsigned int _netID)
 void JoinedClient::kick(KickReason reason)
 {
 	if (peer)
-		enet_peer_disconnect(peer, reason);
+		enet_peer_disconnect_later(peer, reason);
 	peer = nullptr;
 }
 

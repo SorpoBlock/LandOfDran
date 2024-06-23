@@ -19,9 +19,13 @@ class ServerBrowser : public Window
 	virtual void init() override;
 	virtual void handleInput(SDL_Event& e, std::shared_ptr<InputMap> input) override;
 
+	std::string connectionNote = "";
+
 	ServerBrowser();
 
 public:
+
+	void setConnectionNote(const std::string &message);
 
 	//Has the user clicked the join button recently with valid parameters
 	bool serverPickReady() const { return serverPicked; }

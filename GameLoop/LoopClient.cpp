@@ -18,6 +18,9 @@ void LoopClient::connectToServer(std::string ip, unsigned int port, std::string 
 	if (cmdArgs.gameState != NotInGame)
 		leaveServer();
 
+	//TODO: Note without some kind of multithreading, this message will never display
+	pd.serverBrowser->setConnectionNote("Connecting to server...");
+
 	cmdArgs.gameState = Connecting;
 	client = new Client(ip, port, settings->getInt("network/packetholdtime"));
 
@@ -26,6 +29,7 @@ void LoopClient::connectToServer(std::string ip, unsigned int port, std::string 
 	//Connection to server failed
 	if (!client->isValid())
 	{
+		pd.serverBrowser->setConnectionNote("Could not connect");
 		cmdArgs.gameState = NotInGame;
 		delete client;
 		client = nullptr;
@@ -153,8 +157,11 @@ void LoopClient::renderEverything(float deltaT)
 
 void LoopClient::run(float deltaT,ExecutableArguments& cmdArgs, std::shared_ptr<SettingManager> settings)
 {
-	if(client)
-		client->run(pd,cmdArgs); //  <--- networking
+	if (client)
+	{
+		if (client->run(pd, cmdArgs)) //  <--- networking
+			leaveServer();			  //If true, we were kicked
+	}
 	handleInput(deltaT,cmdArgs,settings);
 	renderEverything(deltaT);
 }

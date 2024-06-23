@@ -4,8 +4,6 @@
 #include "JoinedClient.h"
 #include "../GameLoop/ServerProgramData.h"
 
-#include "PacketsFromClient/ConnectionRequest.h"
-
 /*
 	Handles networking for the server and keeps track of clients that have joined
 */
@@ -24,24 +22,29 @@ class Server
 
 public:
 
+	size_t getNumClients() const;
+
 	//ID that increments each time a client joins, not associated with player land of dran account in any way
 	//Can return nullptr
-	std::shared_ptr<JoinedClient> getClientByNetId(unsigned int id);
+	std::shared_ptr<JoinedClient> getClientByNetId(unsigned int id) const;
 
 	//clients vector index
 	//Can return nullptr
-	std::shared_ptr<JoinedClient> getClientByIndex(unsigned int idx);
+	std::shared_ptr<JoinedClient> getClientByIndex(unsigned int idx) const;
 
 	bool isValid() const { return valid; }
 
 	//A big switch statement that routes incomg packet to the appropriate function in PacketsFromClient files depending on type
-	void switchPacketType(JoinedClient const * const source,ENetPacket* packet, const ServerProgramData& pd);
+	void switchPacketType(JoinedClient * source,ENetPacket* packet, const ServerProgramData& pd);
 
 	//Send something to all connected clients
-	void broadcast(const char* data, unsigned int len,PacketChannel channel);
+	void broadcast(const char* data, unsigned int len, PacketChannel channel) const;
 
 	void run(const ServerProgramData& pd);
 
 	Server(int port);
 	~Server();
 };
+
+void applyConnectionRequest(JoinedClient *  source, Server const* const server, ENetPacket const* const packet, const ServerProgramData& pd);
+

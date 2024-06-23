@@ -8,8 +8,9 @@
 */
 enum KickReason
 {
-	OtherReason = 1000,		//Given if the destructor is called on JoinedClient
-	ServerShutdown = 1001	//Broadcast from the destructor of the Server itself
+	OtherReason = 1000,			//Given if the destructor is called on JoinedClient
+	ServerShutdown = 1001,		//Broadcast from the destructor of the Server itself
+	ConnectionRejected = 1002	//See the details of the AcceptConnection packet for more info
 };
 
 /*
@@ -27,10 +28,12 @@ class JoinedClient
 
 public:
 
+	std::string name = "";
+
 	unsigned int getNetId() const { return netID; }
 
 	//Send a packet to this client
-	void send(const char* data, unsigned int len, PacketChannel channel);
+	void send(const char* data, unsigned int len, PacketChannel channel) const;
 
 	//Create a client from a connection event
 	JoinedClient(ENetEvent& event,unsigned int _netID);
@@ -38,6 +41,9 @@ public:
 	//Similar to the destructor, but can be called before it to specify a reason
 	void kick(KickReason reason);
 
-	//Destroy and disconnect a client
+	/*
+		Destroy and disconnect a client
+		JoinedClients should have destruction managed by the Server through shared ptr
+	*/
 	~JoinedClient();
 };

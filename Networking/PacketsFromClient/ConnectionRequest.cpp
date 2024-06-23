@@ -1,7 +1,69 @@
-#include "ConnectionRequest.h"
+#include "../Server.h"
 
-void applyConnectionRequest(JoinedClient const* const source, ENetPacket const* const packet, const ServerProgramData& pd)
+/*	
+	Do not attempt to assign a handle to it to other objects directly
+	Grab a smart pointer from the server for this
+	server->getClientByNetId(source->getNetId());
+	Also do not attempt to delete the JoinedClient, just call kick
+*/
+void applyConnectionRequest(JoinedClient * source,Server const * const server, ENetPacket const* const packet, const ServerProgramData& pd)
 {
-	std::cout << "Got a connection packet!!!: " << std::string((char*)packet->data, packet->dataLength) << "\n";
+	//Invalid empty packet
+	if (packet->dataLength < 3)
+		return;
+
+	//Do they have the same version as the server
+	unsigned int gameVersion = packet->data[1];
+
+	if (gameVersion != GAME_VERSION)
+	{
+		//Kick them, wrong version
+		char ret[2];
+		ret[0] = AcceptConnection;
+		ret[1] = ConnectionWrongVersion;
+		source->send(ret, 2, JoinNegotiation);
+		source->kick(ConnectionRejected);
+		return;
+	}
+
+	//What name would they like to have? (Wouldn't apply if they are logging in which I haven't reimplemented yet)
+	unsigned int desiredNameLength = packet->data[2];
+
+	if (packet->dataLength < 3 + desiredNameLength)
+		return;
+
+	std::string desiredName = std::string((char*)packet->data + 3, desiredNameLength);
+
+	//Do any other currently connected guest (i.e. not logged in) users already have that name?
+	bool nameAlreadyUsed = false;
+	for (unsigned int a = 0; a < server->getNumClients(); a++)
+	{
+		if (server->getClientByIndex(a)->name == desiredName)
+		{
+			nameAlreadyUsed = true;
+			break;
+		}
+	}
+
+	if (nameAlreadyUsed)
+	{
+		//Yes, someone already has that name, kick the new client
+		char ret[2];
+		ret[0] = AcceptConnection;
+		ret[1] = ConnectionNameUsed;
+		source->send(ret, 2, JoinNegotiation);
+		source->kick(ConnectionRejected);
+		return;
+	}
+
+	//Nothing was wrong, you get to connect!
+	char ret[2];
+	ret[0] = AcceptConnection;
+	ret[1] = ConnectionOkay;
+	source->send(ret, 2, JoinNegotiation);
+
+	//Set stuff up for our newly connected client
+	source->name = desiredName;
 }
+ 
 

@@ -17,12 +17,12 @@ void Client::tryApplyHeldPackets(const ClientProgramData& pd, const ExecutableAr
 	}
 }
 
-void Client::run(const ClientProgramData& pd, const ExecutableArguments& cmdArgs)
+bool Client::run(const ClientProgramData& pd, const ExecutableArguments& cmdArgs)
 {
 	scope("Client::run");
 
 	if (!valid)
-		return;
+		return true;
 
 	tryApplyHeldPackets(pd,cmdArgs);
 
@@ -32,7 +32,7 @@ void Client::run(const ClientProgramData& pd, const ExecutableArguments& cmdArgs
 	if (ret < 0)
 	{
 		error("enet_host_server failed");
-		return;
+		return false; //not sure if this should be true / kicked or false, probably won't happen
 	}
 
 	if (ret > 0)
@@ -42,7 +42,7 @@ void Client::run(const ClientProgramData& pd, const ExecutableArguments& cmdArgs
 			case ENET_EVENT_TYPE_DISCONNECT:
 			{
 				info("Lost connection with server!");
-				return;
+				return true;
 			}
 			case ENET_EVENT_TYPE_RECEIVE:
 			{
@@ -52,26 +52,27 @@ void Client::run(const ClientProgramData& pd, const ExecutableArguments& cmdArgs
 				{
 					case AcceptConnection:
 						packets.push_back(new AcceptConnectionPacket(packetHoldTime, event.packet));
-						return;
+						return false;
 
 					//Can't process packet
 					case InvalidServer:
 					default:
 						error("Invalid packet type " + std::to_string(type) + " received from server.");
 						enet_packet_destroy(event.packet);
-						return;
+						return false;
 				}
 
 				//Packet will be destroyed in destructor of HeldServerPacket
-				return;
+				return false;
 			}
 			case ENET_EVENT_TYPE_CONNECT:
 			{
 				error("Got some kind of double connection from server!");
-				return;
+				return false;
 			}
 		}
 	}
+	return false;
 }
 
 Client::Client(std::string ip,unsigned int port,unsigned int _packetHoldTime) : packetHoldTime(_packetHoldTime)

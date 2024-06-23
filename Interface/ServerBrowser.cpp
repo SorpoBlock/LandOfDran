@@ -35,7 +35,17 @@ void ServerBrowser::render(ImGuiIO* io)
 	if(!inputOkay)
 		ImGui::EndDisabled();
 
+	if (connectionNote.length() > 0)
+		ImGui::Text(connectionNote.c_str());
+	else
+		ImGui::NewLine();
+
 	ImGui::End();
+}
+
+void ServerBrowser::setConnectionNote(const std::string& message)
+{
+	connectionNote = message;
 }
 
 void ServerBrowser::getServerData(std::string& ip, int& port,std::string &username)

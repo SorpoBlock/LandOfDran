@@ -1,6 +1,11 @@
 #include "Server.h"
 
-std::shared_ptr<JoinedClient> Server::getClientByNetId(unsigned int id)
+size_t Server::getNumClients() const
+{
+	return clients.size();
+}
+
+std::shared_ptr<JoinedClient> Server::getClientByNetId(unsigned int id) const
 {
 	for (unsigned int a = 0; a < clients.size(); a++)
 	{
@@ -10,14 +15,14 @@ std::shared_ptr<JoinedClient> Server::getClientByNetId(unsigned int id)
 	return nullptr;
 }
 
-std::shared_ptr<JoinedClient> Server::getClientByIndex(unsigned int idx)
+std::shared_ptr<JoinedClient> Server::getClientByIndex(unsigned int idx) const
 {
 	if (idx >= clients.size())
 		return nullptr;
 	return clients[idx];
 }
 
-void Server::broadcast(const char* data, unsigned int len, PacketChannel channel)
+void Server::broadcast(const char* data, unsigned int len, PacketChannel channel) const
 {
 	ENetPacket* packet = enet_packet_create(data, len, getFlagsFromChannel(channel));
 	if (!packet)
@@ -29,7 +34,7 @@ void Server::broadcast(const char* data, unsigned int len, PacketChannel channel
 	enet_host_broadcast(server, channel, packet);
 }
 
-void Server::switchPacketType(JoinedClient const* const source, ENetPacket* packet, const ServerProgramData& pd)
+void Server::switchPacketType(JoinedClient * source, ENetPacket* packet, const ServerProgramData& pd)
 {
 	FromClientPacketType type = (FromClientPacketType)packet->data[0];
 
@@ -37,7 +42,7 @@ void Server::switchPacketType(JoinedClient const* const source, ENetPacket* pack
 	{
 		case ConnectionRequest:
 		{
-			applyConnectionRequest(source,packet,pd);
+			applyConnectionRequest(source,this,packet,pd);
 			return;
 		}
 

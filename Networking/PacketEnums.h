@@ -52,3 +52,11 @@ enum FromServerPacketType : unsigned char
 	InvalidServer = 0,		//Default value
 	AcceptConnection = 1	//Connection request accepted, say how many types we expect to load
 };
+
+//For use with AcceptConnection packets
+enum ConnectionResponse	: unsigned char
+{
+	ConnectionOkay = 1,				//Accepted, includes info on amount of SimObjectTypes
+	ConnectionWrongVersion = 2,		//Rejected, wrong game version
+	ConnectionNameUsed = 3			//Rejected, someone already has your guest name
+};
