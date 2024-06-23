@@ -5,17 +5,17 @@
 /*
 	Types of SimObject, held by SimObject and NetType
 */
-enum SimObjectType
+enum SimObjectType : unsigned char //might be used for packets who knows
 {
-	InvalidSimType = 0,			//Default?
-	DynamicType = 1,			//Objects that can move around the scene, includes projectiles
-	ItemType = 2,				//Derived from dynamic, can be picked up
-	PlayerType = 3,				//Derived from dynamic, can be controlled
-	BrickType = 4,				//Bricks
-	StaticMeshType = 5,			//Objects that don't move each frame, like a brick, but they just have their own mesh
-	LightType = 6,				//Lights can be freestanding or mounted to objects
-	EmitterType = 7,			//Emitters can be freestanding or mounted to objects
-	BrickVehicleType = 8		//Vehicles made from bricks, might not actually have NetType
+	InvalidSimTypeId = 0,			//Default?
+	DynamicTypeId = 1,				//Objects that can move around the scene, includes projectiles
+	ItemTypeId = 2,					//Derived from dynamic, can be picked up
+	PlayerTypeId = 3,				//Derived from dynamic, can be controlled
+	BrickTypeId = 4,				//Bricks
+	StaticMeshTypeId = 5,			//Objects that don't move each frame, like a brick, but they just have their own mesh
+	LightTypeId = 6,				//Lights can be freestanding or mounted to objects
+	EmitterTypeId = 7,				//Emitters can be freestanding or mounted to objects
+	BrickVehicleTypeId = 8			//Vehicles made from bricks, might not actually have NetType
 };
 
 /*
@@ -24,9 +24,13 @@ enum SimObjectType
 */
 class NetType
 {
+	protected:
+
 	bool loaded = false; 
 
-	SimObjectType type = InvalidSimType;
+	SimObjectType type = InvalidSimTypeId;
+
+	netIDType id = -1; //Default value suppresses warning
 
 	public:
 
@@ -38,5 +42,6 @@ class NetType
 	virtual ENetPacket * createTypePacket() const = 0; 
 
 	virtual ~NetType() {};
+	NetType(SimObjectType _type) : type(_type) {}
 };
 

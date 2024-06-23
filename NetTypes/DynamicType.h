@@ -11,10 +11,8 @@
 	Holds at least a reference to a 3d Model that has visual mesh(es) and a collision box
 	ItemType and PlayerType are derived from DynamicType
 */
-class DynamicType : NetType
+class DynamicType : public NetType
 {
-	netIDType id;
-
 	//DynamicType should create and own its Model
 	std::shared_ptr<Model> model = nullptr; 
 
@@ -33,3 +31,6 @@ class DynamicType : NetType
 	//Deallocates model if it exists
 	~DynamicType();
 };
+
+
+

@@ -774,7 +774,7 @@ std::string stripSillyAssimpNodeNames(std::string in)
 		return in;
 }
 
-Model::Model(std::string filePath,TextureManager * textures)
+Model::Model(std::string filePath,TextureManager * textures) : loadedPath(filePath)
 {
 	scope("Model::Model");
 

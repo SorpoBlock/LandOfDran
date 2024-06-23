@@ -373,6 +373,8 @@ class Model
 
 	public:
 
+	std::string loadedPath = "";
+
 	//Add another animation to this Model
 	void addAnimation(Animation& animation);
 

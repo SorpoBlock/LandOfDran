@@ -55,7 +55,8 @@ enum FromClientPacketType : unsigned char
 enum FromServerPacketType : unsigned char
 {
 	InvalidServer = 0,		//Default value
-	AcceptConnection = 1	//Connection request accepted, say how many types we expect to load
+	AcceptConnection = 1,	//Connection request accepted, say how many types we expect to load
+	AddSimObjectType = 2
 };
 
 //For use with AcceptConnection packets

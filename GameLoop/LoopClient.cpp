@@ -205,11 +205,15 @@ LoopClient::LoopClient(ExecutableArguments& cmdArgs, std::shared_ptr<SettingMana
 
 LoopClient::~LoopClient()
 {
+	//Not needed this is a destructor lol
+	//Also this should only be called when the programs shutting down anyway 
 	pd.context.reset();
 	pd.gui.reset(); //Will handle indivdual windows
 	pd.shaders.reset();
 	pd.camera.reset();
 	pd.textures.reset();
+
+	//This one is actually useful because the server will learn we disconnected faster if we do it properly 
 	if(client)
 		delete client;
 }
