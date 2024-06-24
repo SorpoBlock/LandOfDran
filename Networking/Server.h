@@ -2,7 +2,7 @@
 
 #include "../LandOfDran.h"
 #include "JoinedClient.h"
-#include "../GameLoop/ServerProgramData.h"
+//#include "../GameLoop/ServerProgramData.h"
 
 /*
 	Handles networking for the server and keeps track of clients that have joined
@@ -34,17 +34,20 @@ public:
 
 	bool isValid() const { return valid; }
 
-	//A big switch statement that routes incomg packet to the appropriate function in PacketsFromClient files depending on type
-	void switchPacketType(JoinedClient * source,ENetPacket* packet, const ServerProgramData& pd);
+	/*
+		A big switch statement that routes incomg packet to the appropriate function in PacketsFromClient files depending on type
+		pd is only void cause I wanted to avoid circular dependency as SPD includes ObjHolder which includes this
+	*/
+	void switchPacketType(JoinedClient * source,ENetPacket* packet, const void* pd);
 
 	//Send something to all connected clients
 	void broadcast(const char* data, unsigned int len, PacketChannel channel) const;
 
-	void run(const ServerProgramData& pd);
+	void run(const void* pd);
 
 	Server(int port);
 	~Server();
 };
 
-void applyConnectionRequest(JoinedClient *  source, Server const* const server, ENetPacket const* const packet, const ServerProgramData& pd);
+void applyConnectionRequest(JoinedClient *  source, Server const* const server, ENetPacket const* const packet, const void* pdv);
 

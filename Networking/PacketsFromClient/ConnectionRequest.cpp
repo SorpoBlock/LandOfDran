@@ -1,4 +1,5 @@
 #include "../Server.h"
+#include "../../GameLoop/ServerProgramData.h"
 
 /*	
 	Do not attempt to assign a handle to JoinedClient to other objects directly
@@ -6,8 +7,11 @@
 	server->getClientByNetId(source->getNetId());
 	Also do not attempt to delete the JoinedClient, just call kick
 */
-void applyConnectionRequest(JoinedClient * source,Server const * const server, ENetPacket const* const packet, const ServerProgramData& pd)
+void applyConnectionRequest(JoinedClient * source,Server const * const server, ENetPacket const* const packet, const void* pdv)
 {
+	//This is only needed because I needed to avoid a circular dependancy by not including SPD in Server.h
+	const ServerProgramData* pd = (const ServerProgramData*)pdv;
+
 	//Invalid empty packet
 	if (packet->dataLength < 3)
 		return;
@@ -60,7 +64,7 @@ void applyConnectionRequest(JoinedClient * source,Server const * const server, E
 	char ret[6];
 	ret[0] = AcceptConnection;
 	ret[1] = ConnectionOkay;
-	unsigned int numTypes = (unsigned int)pd.allNetTypes.size();
+	unsigned int numTypes = (unsigned int)pd->allNetTypes.size();
 	memcpy(ret + 2, &numTypes, sizeof(unsigned int));
 
 	source->send(ret, 6, JoinNegotiation);
@@ -71,8 +75,8 @@ void applyConnectionRequest(JoinedClient * source,Server const * const server, E
 	info("Client joined as guest with name " + desiredName);
 
 	//Send types to client:
-	for (size_t a = 0; a < pd.allNetTypes.size(); a++)
-		source->send(pd.allNetTypes[a]->createTypePacket(), JoinNegotiation);
+	for (size_t a = 0; a < pd->allNetTypes.size(); a++)
+		source->send(pd->allNetTypes[a]->createTypePacket(), JoinNegotiation);
 }
  
 

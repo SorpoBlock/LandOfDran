@@ -1,7 +1,6 @@
 #pragma once
 
 #include "../LandOfDran.h"
-#include "../GameLoop/ServerProgramData.h"
 
 /*
 	For use with enet_peer_disconnect 

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../Networking/ObjHolder.h"
+#include "../Physics/PhysicsWorld.h"
 
 /*
 	Abstract base class for anything which has state that is maintained by the server
@@ -47,12 +48,12 @@ class SimObject
 	//Never use 'this' always use this
 	std::shared_ptr<SimObject> getMe() const
 	{
-			return me;
+		return me;
 	}
 
 	//Yes, global scope is bad and all but we really can only have one dynamicsWorld and it's needed constantly by everything
 	//The methods I used to use to get around making this global were honestly far worse
-	static btDynamicsWorld* world;
+	static std::shared_ptr<PhysicsWorld> world;
 
 	//Has this object been updated in such a way that we need to resend its properties to clients?
 	virtual bool requiresNetUpdate() const;
@@ -63,6 +64,9 @@ class SimObject
 	//Time in MS since program start
 	uint32_t getCreationTime() const;
 
+	//Called after this object has an id, type, me pointer, and vector index assigned by ObjHolder
+	virtual void onCreation() = 0;
+
 	//How many bytes would this add to a packet creating objects if it was added to it
 	virtual unsigned int getCreationPacketBytes() const = 0;
 
@@ -70,10 +74,10 @@ class SimObject
 	virtual unsigned int getUpdatePacketBytes() const = 0;
 
 	//Add getCreationPacketBytes() worth of data to the given packet with all the data needed for the client to create it
-	virtual void addToCreationPacket(ENetPacket* packet) const = 0;
+	virtual void addToCreationPacket(enet_uint8* dest) const = 0;
 
 	//Add getUpdatePacketBytes() worth of data to the given packet with all the data needed for the client to update it
-	virtual void addToUpdatePacket(ENetPacket* packet) const = 0;
+	virtual void addToUpdatePacket(enet_uint8* dest) const = 0;
 
 	virtual ~SimObject();
 };

@@ -4,6 +4,7 @@
 
 /*
 	Types of SimObject, held by SimObject and NetType
+	This is to net code as RigidBodyUserIndex is to physics code
 */
 enum SimObjectType : unsigned char //might be used for packets who knows
 {
@@ -33,6 +34,8 @@ class NetType
 	netIDType id = -1; //Default value suppresses warning
 
 	public:
+
+	const netIDType &getID() const { return id; }
 
 	//Net types as opposed to SimObjects always just get their own packet
 	//This is the packet from createTypePacket

@@ -141,7 +141,6 @@ class ObjHolder
 	//Pass nullptr as server if this is being called from the client
 	ObjHolder(SimObjectType _type,Server *_server = nullptr) : type(_type), server(_server)
 	{
-		netIDType ObjHolder<T>::lastNetID = 0;
 		ObjHolder<T>::lastNetID = 0;
 
 		if (type == InvalidSimTypeId)

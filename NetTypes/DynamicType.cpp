@@ -68,9 +68,9 @@ void DynamicType::serverSideLoad(const std::string &filePath,netIDType typeID)
 	loaded = true;
 }
 
-std::shared_ptr<btRigidBody> DynamicType::createBody() const
+btRigidBody* DynamicType::createBody() const
 {
-	auto ret = std::make_shared<btRigidBody>(mass, defaultMotionState, collisionShape, defaultInertia);
+	auto ret = new btRigidBody(mass, defaultMotionState, collisionShape, defaultInertia);
 	ret->setUserIndex(dynamicBody);
 	return ret;
 }

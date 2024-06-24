@@ -100,6 +100,8 @@ add_executable (LandOfDran
 
  "SimObjects/SimObject.h" 
  "SimObjects/SimObject.cpp"
+ "SimObjects/Dynamic.h" 
+ "SimObjects/Dynamic.cpp" 
  
 "Networking/Server.h" 
 "Networking/Server.cpp" 
@@ -111,6 +113,8 @@ add_executable (LandOfDran
 "Networking/HeldServerPacket.h" 
 "Networking/ClientPacketCreators.h"
 "Networking/ObjHolder.h"
+ "Networking/Quantization.h" 
+ "Networking/Quantization.cpp"
 
 "Networking/PacketsFromServer/AcceptConnection.h" 
 "Networking/PacketsFromServer/AcceptConnection.cpp"  
@@ -127,7 +131,7 @@ add_executable (LandOfDran
 "GameLoop/LoopServer.cpp" 
 
  "Physics/PhysicsWorld.h" 
- "Physics/PhysicsWorld.cpp" )
+ "Physics/PhysicsWorld.cpp"  )
 
 #include_directories("C:/Users/Syerjchep/Downloads/enet-2.3.10/include")
 include_directories("C:/Users/Syerjchep/Downloads/enet-1.3.18.tar/enet-1.3.18/include")

@@ -45,7 +45,7 @@ class DynamicType : public NetType
 	virtual ENetPacket* createTypePacket() const override;
 
 	//Creates a physics object using this type's collision shape
-	std::shared_ptr<btRigidBody> createBody() const;
+	btRigidBody* createBody() const;
 
 	//Doesn't allocate anything, wait for loadFromPacket or server-side construction from lua
 	DynamicType();
