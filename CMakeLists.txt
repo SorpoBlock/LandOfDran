@@ -97,6 +97,9 @@ add_executable (LandOfDran
 "NetTypes/NetType.h" 
 "NetTypes/DynamicType.h" 
 "NetTypes/DynamicType.cpp" 
+
+ "SimObjects/SimObject.h" 
+ "SimObjects/SimObject.cpp"
  
 "Networking/Server.h" 
 "Networking/Server.cpp" 
@@ -107,8 +110,13 @@ add_executable (LandOfDran
 "Networking/PacketEnums.h" 
 "Networking/HeldServerPacket.h" 
 "Networking/ClientPacketCreators.h"
+"Networking/ObjHolder.h"
+
 "Networking/PacketsFromServer/AcceptConnection.h" 
 "Networking/PacketsFromServer/AcceptConnection.cpp"  
+ "Networking/PacketsFromServer/AddSimObjectType.h" 
+ "Networking/PacketsFromServer/AddSimObjectType.cpp" 
+
 "Networking/PacketsFromClient/ConnectionRequest.cpp" 
 
 "GameLoop/ClientProgramData.h" 
@@ -119,7 +127,7 @@ add_executable (LandOfDran
 "GameLoop/LoopServer.cpp" 
 
  "Physics/PhysicsWorld.h" 
- "Physics/PhysicsWorld.cpp" "Networking/PacketsFromServer/AddSimObjectType.h" "Networking/PacketsFromServer/AddSimObjectType.cpp")
+ "Physics/PhysicsWorld.cpp" )
 
 #include_directories("C:/Users/Syerjchep/Downloads/enet-2.3.10/include")
 include_directories("C:/Users/Syerjchep/Downloads/enet-1.3.18.tar/enet-1.3.18/include")
