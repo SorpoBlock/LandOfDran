@@ -376,6 +376,9 @@ class Model
 	//The offset the visual mesh should have from the collision box, calculated in calculateCollisionBox
 	glm::vec3 collisionOffset = glm::vec3(0, 0, 0);
 
+	//Loaded server side, no animations or textures expected
+	bool serverSide = false;
+
 	public:
 
 	glm::vec3 getColOffset() const { return collisionOffset * baseScale; }
@@ -417,7 +420,7 @@ class Model
 		Server-side loading for collision meshes
 		The bool argument mostly exists at the moment to make sure you don't accidently call it because you forgot TextureManager
 	*/
-	Model(std::string filePath,bool serverSide);
+	Model(std::string filePath,bool _serverSide);
 
 	~Model();
 };

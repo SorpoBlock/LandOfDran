@@ -54,6 +54,10 @@ bool Client::run(const ClientProgramData& pd, const ExecutableArguments& cmdArgs
 						packets.push_back(new AcceptConnectionPacket(packetHoldTime, event.packet));
 						return false;
 
+					case AddSimObjectType:
+						packets.push_back(new AddSimObjectTypePacket(packetHoldTime, event.packet));
+						return false;
+
 					//Can't process packet
 					case InvalidServer:
 					default:

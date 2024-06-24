@@ -4,6 +4,7 @@ void LoopClient::leaveServer()
 {
 	info("Leaving server");
 
+	pd.serverBrowser->setConnectionNote("");
 	pd.serverBrowser->open();
 
 	if (!client)
@@ -14,6 +15,9 @@ void LoopClient::leaveServer()
 
 	//It's very possible some or all data structures may not have been initialized or allocated if we disconnected in the middle loading into a new server
 	
+	pd.simulation.dynamicTypes.clear();
+	pd.signals.typesToLoad = 0; //Disable progress bar in server browser UI until next join
+
 	//Destroy server specific physics
 	if(pd.physicsWorld)
 		pd.physicsWorld.reset();
@@ -178,6 +182,9 @@ void LoopClient::run(float deltaT,ExecutableArguments& cmdArgs, std::shared_ptr<
 		netInfo = { client->getPing(), client->getIncoming(), client->getOutgoing() };
 	pd.debugMenu->passDetails(pd.camera, netInfo);
 
+	//Progress loading SimObject types
+	pd.serverBrowser->passLoadProgress(pd.signals.typesToLoad, pd.simulation.dynamicTypes.size());
+
 	//Process state changes requested from received packets:
 	if (pd.signals.startPhaseOneLoading)
 	{
@@ -228,9 +235,6 @@ LoopClient::LoopClient(ExecutableArguments& cmdArgs, std::shared_ptr<SettingMana
 	pd.textures->finalizeDecals();
 
 	info("Start up complete");
-
-	Model* test = new Model("Assets/brickhead/brickhead.txt", pd.textures);
-	test->baseScale = glm::vec3(0.01f);
 
 	valid = true;
 }

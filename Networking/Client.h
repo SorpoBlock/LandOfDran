@@ -3,6 +3,7 @@
 #include "../LandOfDran.h"
 #include "HeldServerPacket.h"
 #include "PacketsFromServer/AcceptConnection.h"
+#include "PacketsFromServer/AddSimObjectType.h"
 #include "../GameLoop/ClientProgramData.h"
 
 /*

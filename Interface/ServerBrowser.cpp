@@ -40,7 +40,19 @@ void ServerBrowser::render(ImGuiIO* io)
 	else
 		ImGui::NewLine();
 
+	if (desiredTypes != 0)
+	{
+		float progress = ((float)loadedTypes) / ((float)desiredTypes);
+		ImGui::ProgressBar(progress);
+	}
+
 	ImGui::End();
+}
+
+void ServerBrowser::passLoadProgress(int _desiredTypes, int _loadedTypes)
+{
+	desiredTypes = _desiredTypes;
+	loadedTypes = _loadedTypes;
 }
 
 void ServerBrowser::setConnectionNote(const std::string& message)
@@ -70,7 +82,9 @@ ServerBrowser::ServerBrowser()
 {
 	name = "Server Browser";
 
-	serverAddressBuffer[0] = 0; //Ensure recognition as empty string
+	const char* defaultAddress = "localhost";
+	memcpy(serverAddressBuffer, defaultAddress, strlen(defaultAddress));
+	serverAddressBuffer[9] = 0; 
 
 	const char* defaultName = "Guest";
 	memcpy(userNameBuffer, defaultName, strlen(defaultName));

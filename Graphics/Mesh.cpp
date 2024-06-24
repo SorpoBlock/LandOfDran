@@ -868,8 +868,8 @@ void Model::calculateCollisionBox(const aiScene* scene)
 }
 
 //Abridged version for server-side loading, namely for collision meshes
-Model::Model(std::string filePath, bool serverSide) : loadedPath(filePath)
-{
+Model::Model(std::string filePath, bool _serverSide) : loadedPath(filePath), serverSide(_serverSide)
+{ 
 	scope("Model::Model");
 
 	if (!serverSide)
@@ -925,6 +925,12 @@ Model::Model(std::string filePath, bool serverSide) : loadedPath(filePath)
 			continue;
 		}
 
+		if (argument == "material")
+		{
+			//Server-side doesn't need materials
+			continue;
+		}
+
 		auto flagSearchResult = aiProcessMap.find(argument);
 		//It wasn't a valid assimp flag
 		if (flagSearchResult == aiProcessMap.end())
@@ -961,7 +967,7 @@ Model::Model(std::string filePath, bool serverSide) : loadedPath(filePath)
 		return;
 	}
 
-	for (unsigned int a = 0; a < scene->mNumMeshes; a++)
+	/*for (unsigned int a = 0; a < scene->mNumMeshes; a++)
 	{
 		aiMesh* src = scene->mMeshes[a];
 		Mesh* tmp = new Mesh(src, this);
@@ -970,13 +976,13 @@ Model::Model(std::string filePath, bool serverSide) : loadedPath(filePath)
 		allMeshes.push_back(tmp);
 	}
 
-	rootNode = new Node(scene->mRootNode, this);
+	rootNode = new Node(scene->mRootNode, this);*/
 
 	calculateCollisionBox(scene);
 }
 
 //Full constructor for client-side loading, includes materials and animations
-Model::Model(std::string filePath, std::shared_ptr<TextureManager> textures) : loadedPath(filePath)
+Model::Model(std::string filePath, std::shared_ptr<TextureManager> textures) : loadedPath(filePath), serverSide(false)
 {
 	scope("Model::Model");
 

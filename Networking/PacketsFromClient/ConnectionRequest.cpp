@@ -68,6 +68,8 @@ void applyConnectionRequest(JoinedClient * source,Server const * const server, E
 	//Set stuff up for our newly connected client
 	source->name = desiredName;
 
+	info("Client joined as guest with name " + desiredName);
+
 	//Send types to client:
 	for (size_t a = 0; a < pd.allNetTypes.size(); a++)
 		source->send(pd.allNetTypes[a]->createTypePacket(), JoinNegotiation);

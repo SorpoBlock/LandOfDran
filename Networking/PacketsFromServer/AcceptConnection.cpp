@@ -22,7 +22,7 @@ bool AcceptConnectionPacket::applyPacket(const ClientProgramData& pd, const Exec
 		}
 		case ConnectionOkay:
 		{
-			pd.serverBrowser->setConnectionNote("");
+			pd.serverBrowser->setConnectionNote("Connection accepted, loading...");
 
 			if (packet->dataLength < 6)
 			{

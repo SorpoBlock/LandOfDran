@@ -15,6 +15,11 @@ class ServerBrowser : public Window
 	//This is set when user clicks join button and reset when you call getServerData
 	bool serverPicked = false;
 
+	//Set with passLoadProgress, from cmdArgs signals typesToLoad
+	int desiredTypes = 0;
+	//Set with passLoadProgress, from cmdArgs simulation dynamicTypes.size
+	int loadedTypes = 0;
+
 	virtual void render(ImGuiIO* io) override;
 	virtual void init() override;
 	virtual void handleInput(SDL_Event& e, std::shared_ptr<InputMap> input) override;
@@ -24,6 +29,9 @@ class ServerBrowser : public Window
 	ServerBrowser();
 
 public:
+
+	//Pass progress loading into a server here so the UI can display it
+	void passLoadProgress(int _desiredTypes, int _loadedTypes);
 
 	void setConnectionNote(const std::string &message);
 
