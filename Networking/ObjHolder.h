@@ -3,6 +3,10 @@
 #include "../NetTypes/NetType.h"
 #include "Server.h"
 
+//Basically we wanna make sure packets are under the MTU if possible,
+//but I'm not positive how much overhead ENet adds to packets
+#define MTU ENET_HOST_DEFAULT_MTU - 20
+
 //I wanted this to be a .tpp file since it's just templated code, but I guess MSVC doesn't like those
 
 /*
@@ -62,6 +66,19 @@ class ObjHolder
 		allObjects.back()->onCreation();
 		recentCreations.push_back(allObjects.back());
 		return allObjects.back();
+	}
+
+	//Force the ID of the next created object to be a certain ID
+	//This is used because the client gets object ids from the server
+	inline void clientSetNextId(const netIDType& netID)
+	{
+		if (server)
+		{
+			error("clientSetNextId should only be called from the client!");
+			return;
+		}
+
+		lastNetID = netID;
 	}
 
 	//Returns nullptr if object not found by that ID
@@ -136,6 +153,62 @@ class ObjHolder
 		}
 		else*/
 			return allObjects[idx];
+	}
+
+	//Call on client when they confirm phase 1 loading is complete
+	void sendAll(JoinedClient const *client) const
+	{
+		int toSend = allObjects.size();
+		int sent = 0;
+
+		//Send as many packets as needed to send all objects to the client
+		//without any one packet exceeding the MTU
+		while (toSend > 0)
+		{
+			int sentThisPacket = 0;
+			int bytesThisPacket = 0;
+
+			//I guess if one object was somehow larger than like 1300 bytes this would stall lol
+			for (unsigned int a = sent; a < allObjects.size(); a++)
+			{
+				//Only using one byte to encode amount of objects in the packet
+				if (sentThisPacket >= 255)
+					break;
+
+				sentThisPacket++;
+				bytesThisPacket += allObjects[a]->getCreationPacketBytes();
+
+				if (bytesThisPacket > MTU)
+				{
+					sentThisPacket--;
+					bytesThisPacket -= allObjects[a]->getCreationPacketBytes();
+					break;
+				}
+			}
+
+			//Three extra bytes, packet type, simobject type, amount of objects
+			ENetPacket* packet = enet_packet_create(NULL, bytesThisPacket + 3, getFlagsFromChannel(OtherReliable));
+			packet->data[0] = FromServerPacketType::AddSimObjects;
+			packet->data[1] = SimObjectType::DynamicTypeId;
+			packet->data[2] = sentThisPacket;
+			int byteIterator = 3;
+
+			for (unsigned int a = sent; a < sent + sentThisPacket; a++)
+			{
+				allObjects[a]->addToCreationPacket(packet->data + byteIterator);
+				byteIterator += allObjects[a]->getCreationPacketBytes();
+			}
+
+			client->send(packet, OtherReliable);
+			toSend -= sentThisPacket;
+			sent += sentThisPacket;
+		}
+	}
+
+	//Sends all recent creations, deletions, and updates to objects it manages to all connected clients
+	void sendRecent()
+	{
+
 	}
 
 	//Pass nullptr as server if this is being called from the client

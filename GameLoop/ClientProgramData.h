@@ -14,6 +14,8 @@
 #include "../Interface/EscapeMenu.h"
 #include "../Physics/PhysicsWorld.h"
 #include "../NetTypes/DynamicType.h"
+#include "../SimObjects/Dynamic.h"
+#include "../Networking/ObjHolder.h"
 
 /*
 	This exists so we can make all of this available to the various PacketsFromServer files since packets can do a wide range of activities
@@ -41,10 +43,13 @@ struct ClientProgramData
 		//These two are set by AcceptConnection.cpp
 		bool startPhaseOneLoading = false;
 		unsigned int typesToLoad = 0;
+		//Set by AddSimObjectType
+		bool finishedPhaseOneLoading = false;
 
 		//Call this after each frame
 		void reset()
 		{
+			finishedPhaseOneLoading = false;
 			startPhaseOneLoading = false;
 		}
 	} signals;
@@ -55,6 +60,7 @@ struct ClientProgramData
 	/*
 		SimObjects and SimObjectTypes
 		Any in-game object that has state managed by the server
+		Created on server join, deleted when leaving server
 	*/
 	struct SimulationData
 	{
@@ -62,7 +68,7 @@ struct ClientProgramData
 		std::vector<std::shared_ptr<DynamicType>> dynamicTypes;
 
 		//Objects (object holders):
-
+		ObjHolder<Dynamic>* dynamics = nullptr;
 
 	} simulation;
 

@@ -6,6 +6,7 @@
 #include "../Physics/PhysicsWorld.h"
 
 #include "NetType.h"
+#include "../GameLoop/ClientProgramData.h"
 
 /*
 	Objects that can move around the scene, includes projectiles
@@ -33,13 +34,18 @@ class DynamicType : public NetType
 
 	public:
 
+	std::shared_ptr<Model>  getModel() const { return model; }
+
+	//Calls underlying model->render
+	void render(std::shared_ptr<ShaderManager> graphics, bool useMaterials = true) const;
+
 	//Called from lua scripts generally, file is relative path to text file containing model loading settings 
 	//Increment ID after using
 	void serverSideLoad(const std::string &filePath, netIDType typeID);
 
 	//Net types as opposed to SimObjects always just get their own packet
 	//This is the packet from createTypePacket
-	virtual void loadFromPacket(ENetPacket const* const packet) override;
+	virtual void loadFromPacket(ENetPacket const* const packet, const ClientProgramData &pd) override;
 
 	//Create the packet on the server to be passed to loadFromPacket on the client
 	virtual ENetPacket* createTypePacket() const override;

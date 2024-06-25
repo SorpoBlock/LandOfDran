@@ -24,3 +24,12 @@ inline ENetPacket* makeConnectionRequest(std::string name)
 
 	return ret;
 }
+
+//One byte lets the server know we finished phase one loading
+inline ENetPacket* makeLoadingFinished()
+{
+	char theSmallestPacketEver[1];
+	theSmallestPacketEver[0] = LoadingFinished;
+	ENetPacket* ret = enet_packet_create(theSmallestPacketEver, 1, getFlagsFromChannel(OtherReliable));
+	return ret;
+}

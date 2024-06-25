@@ -215,7 +215,7 @@ Material::~Material()
 		PBRArrayTexture->markForCleanup();
 }
 
-void Material::use(ShaderManager* shaders) const
+void Material::use(std::shared_ptr<ShaderManager> shaders) const
 {
 	if (!valid)
 		return;

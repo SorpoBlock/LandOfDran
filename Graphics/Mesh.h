@@ -273,7 +273,7 @@ class Mesh
 	void recompileInstances();
 
 	//Render all instances of this particular mesh
-	void render(ShaderManager* graphics, bool useMaterials = true) const;
+	void render(std::shared_ptr<ShaderManager> graphics, bool useMaterials = true) const;
 };
 
 class Node
@@ -381,6 +381,8 @@ class Model
 
 	public:
 
+	bool isServerSide() const { return serverSide;  }
+
 	glm::vec3 getColOffset() const { return collisionOffset * baseScale; }
 	glm::vec3 getColHalfExtents() const { return collisionHalfExtents * baseScale; }
 
@@ -405,7 +407,7 @@ class Model
 	void setDefaultFrame(float time);
 
 	//Calls render on each mesh
-	void render(ShaderManager* graphics,bool useMaterials = true) const;
+	void render(std::shared_ptr<ShaderManager> graphics,bool useMaterials = true) const;
 
 	//Calculates collisionHalfExtents and collisionOffset, called in constructor
 	void calculateCollisionBox(const aiScene* scene);

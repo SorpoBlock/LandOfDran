@@ -46,7 +46,8 @@ inline enet_uint32 getFlagsFromChannel(PacketChannel channel)
 enum FromClientPacketType : unsigned char
 {
 	InvalidClient = 0,		//Default value
-	ConnectionRequest = 1	//Client wants to connect, includes their name and login token if not a guest
+	ConnectionRequest = 1,	//Client wants to connect, includes their name and login token if not a guest
+	LoadingFinished = 2		//Let server know we loaded all types and can start receiving actual object updates now
 };
 
 /*
@@ -56,7 +57,10 @@ enum FromServerPacketType : unsigned char
 {
 	InvalidServer = 0,		//Default value
 	AcceptConnection = 1,	//Connection request accepted, say how many types we expect to load
-	AddSimObjectType = 2
+	AddSimObjectType = 2,
+	AddSimObjects = 3,
+	UpdateSimObjects = 4,
+	DeleteSimObjects = 5
 };
 
 //For use with AcceptConnection packets

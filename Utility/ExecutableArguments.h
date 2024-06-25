@@ -12,8 +12,7 @@ enum GameState
 	NotInGame = 0,			//We're in the main menu or something
 	Connecting = 1,			//Attempting to connect to a server
 	LoadingTypes = 2,		//We're loading types of objects
-	LoadingObjects = 3,		//We're preloading all pre-existing objects
-	InGame = 4				//We're finished loading and playing the game
+	InGame = 3				//We're finished loading and are playing the game
 };
 
 /*

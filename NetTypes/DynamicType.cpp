@@ -7,7 +7,7 @@
 	1 byte			- relative file path to model length
 	1-255 bytes		- relative file path to model
 */
-void DynamicType::loadFromPacket(ENetPacket const* const packet)
+void DynamicType::loadFromPacket(ENetPacket const* const packet, const ClientProgramData& pd)
 {
 	//packet type and simobject type were already processed to get to this point
 
@@ -26,7 +26,7 @@ void DynamicType::loadFromPacket(ENetPacket const* const packet)
 
 	std::string filePath = std::string((char*)packet->data + 3 + sizeof(netIDType), filePathLen);
 
-	model = std::make_shared<Model>(filePath,true);
+	model = std::make_shared<Model>(filePath,pd.textures);
 
 	glm::vec3 halfExtents = model->getColHalfExtents();
 	collisionBox = new btBoxShape(g2b3(halfExtents));
@@ -43,6 +43,11 @@ void DynamicType::loadFromPacket(ENetPacket const* const packet)
 	collisionShape->calculatePrincipalAxisTransform(masses, t, defaultInertia);
 
 	loaded = true;
+}
+
+void DynamicType::render(std::shared_ptr<ShaderManager> graphics, bool useMaterials) const
+{
+	model->render(graphics, useMaterials);
 }
 
 void DynamicType::serverSideLoad(const std::string &filePath,netIDType typeID)

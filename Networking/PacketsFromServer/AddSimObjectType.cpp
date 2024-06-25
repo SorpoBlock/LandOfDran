@@ -2,8 +2,6 @@
 
 bool AddSimObjectTypePacket::applyPacket(const ClientProgramData& pd, const ExecutableArguments& cmdArgs)
 {
-	info("packet!");
-
 	/*
 		1 byte  - type of packet (AddSimObjectType)
 		1 byte  - type of SimObject type (dynamic, brick, emitter...)
@@ -30,6 +28,10 @@ bool AddSimObjectTypePacket::applyPacket(const ClientProgramData& pd, const Exec
 			error("Invalid SimObject type for AddSimObjectTypePacket");
 			return true;
 	}
+
+	//Check to see if that was the last type the server sent, if so let the server know we finished loading
+	if (pd.getSimulation()->dynamicTypes.size() == pd.signals.typesToLoad)
+		pd.getSignals()->finishedPhaseOneLoading = true;
 
 	return true;
 }

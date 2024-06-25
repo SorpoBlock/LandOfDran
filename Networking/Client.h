@@ -4,6 +4,7 @@
 #include "HeldServerPacket.h"
 #include "PacketsFromServer/AcceptConnection.h"
 #include "PacketsFromServer/AddSimObjectType.h"
+#include "PacketsFromServer/AddSimObjects.h"
 #include "../GameLoop/ClientProgramData.h"
 
 /*

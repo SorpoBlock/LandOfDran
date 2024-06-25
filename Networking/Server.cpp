@@ -45,6 +45,11 @@ void Server::switchPacketType(JoinedClient * source, ENetPacket* packet, const v
 			applyConnectionRequest(source,this,packet,pd);
 			return;
 		}
+		case LoadingFinished:
+		{
+			clientFinishedLoading(source, this, packet, pd);
+			return;
+		}
 
 		case InvalidClient:
 		default:

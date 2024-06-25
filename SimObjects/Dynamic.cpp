@@ -9,6 +9,12 @@ Dynamic::Dynamic(std::shared_ptr<DynamicType> _type, const btVector3& initialPos
 	t.setIdentity();
 	t.setOrigin(initialPos);
 	body->setWorldTransform(t);
+
+	if (!type->getModel()->isServerSide())
+	{
+		modelInstance = new ModelInstance(type->getModel().get());
+		modelInstance->setModelTransform(glm::translate(glm::vec3(initialPos.x(), initialPos.y(), initialPos.z())));
+	}
 }
 
 void Dynamic::onCreation()
@@ -57,8 +63,10 @@ void Dynamic::addToCreationPacket(enet_uint8 * dest) const
 	addQuaternion(dest + sizeof(netIDType) * 2 + PositionBytes, quat);
 }
 
-void Dynamic::addToUpdatePacket(enet_uint8 * dest) const
+void Dynamic::addToUpdatePacket(enet_uint8 * dest)
 {
+	requiresUpdate = false;
+
 	const btTransform &t = body->getWorldTransform();
 	const glm::vec3 &pos = glm::vec3(t.getOrigin().x(), t.getOrigin().y(), t.getOrigin().z());
 	const glm::quat &quat = glm::quat(t.getRotation().w(), t.getRotation().x(), t.getRotation().y(), t.getRotation().z());
@@ -69,6 +77,9 @@ void Dynamic::addToUpdatePacket(enet_uint8 * dest) const
 
 Dynamic::~Dynamic()
 {
+	if (modelInstance)
+		delete modelInstance;
+
 	if (body)
 	{
 		if (body->getUserPointer())

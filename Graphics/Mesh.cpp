@@ -667,7 +667,7 @@ Mesh::~Mesh()
 	glDeleteVertexArrays(1, &vao);
 }
 
-void Mesh::render(ShaderManager* graphics, bool useMaterials) const
+void Mesh::render(std::shared_ptr<ShaderManager> graphics, bool useMaterials) const
 {
 	if (nonRenderingMesh)
 		return;
@@ -1307,7 +1307,7 @@ void Model::updateAll(float deltaT)
 		allMeshes[a]->recompileInstances();
 }
 
-void Model::render(ShaderManager* graphics,bool useMaterials) const
+void Model::render(std::shared_ptr<ShaderManager> graphics,bool useMaterials) const
 {
 	for (unsigned int a = 0; a < allMeshes.size(); a++)
 		allMeshes[a]->render(graphics, useMaterials);

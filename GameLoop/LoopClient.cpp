@@ -10,6 +10,12 @@ void LoopClient::leaveServer()
 	if (!client)
 		return;
 
+	if (pd.simulation.dynamics)
+	{
+		delete pd.simulation.dynamics;
+		pd.simulation.dynamics = nullptr;
+	}
+
 	delete client;
 	client = nullptr;
 
@@ -19,8 +25,11 @@ void LoopClient::leaveServer()
 	pd.signals.typesToLoad = 0; //Disable progress bar in server browser UI until next join
 
 	//Destroy server specific physics
-	if(pd.physicsWorld)
+	if (pd.physicsWorld)
+	{
 		pd.physicsWorld.reset();
+		SimObject::world = nullptr;
+	}
 }
 
 void LoopClient::connectToServer(std::string ip, unsigned int port, std::string userName, ExecutableArguments& cmdArgs, std::shared_ptr<SettingManager> settings)
@@ -162,6 +171,9 @@ void LoopClient::renderEverything(float deltaT)
 
 	pd.shaders->modelShader->use();
 
+	for (unsigned int a = 0; a < pd.simulation.dynamicTypes.size(); a++)
+		pd.simulation.dynamicTypes[a]->render(pd.shaders);
+
 	pd.gui->render();
 
 	pd.context->swap();
@@ -186,18 +198,33 @@ void LoopClient::run(float deltaT,ExecutableArguments& cmdArgs, std::shared_ptr<
 	pd.serverBrowser->passLoadProgress(pd.signals.typesToLoad, pd.simulation.dynamicTypes.size());
 
 	//Process state changes requested from received packets:
+
+	//Phase one loading started
 	if (pd.signals.startPhaseOneLoading)
-	{
+	{ 
 		//Server accepted join request
 		//Start up systems needed to play
 		pd.physicsWorld = std::make_shared<PhysicsWorld>();
+		SimObject::world = pd.physicsWorld;
+		cmdArgs.gameState = LoadingTypes; 
 	}
+
+	//Phase one loading done
+	if (pd.signals.finishedPhaseOneLoading)
+	{
+		//Create holders for objects now that we will start receiving data about them
+		pd.simulation.dynamics = new ObjHolder<Dynamic>(DynamicTypeId);
+
+		ENetPacket* finishedLoading = makeLoadingFinished();
+		client->send(finishedLoading, OtherReliable);
+		cmdArgs.gameState = InGame;
+	}
+
+	//All signals from packets processed for this frame, reset flags
+	pd.signals.reset();
 
 	if (pd.physicsWorld)
 		pd.physicsWorld->step(deltaT);
-
-	//All signals this loop processed, reset flags
-	pd.signals.reset();
 
 	renderEverything(deltaT);
 }

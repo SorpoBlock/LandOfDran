@@ -77,7 +77,7 @@ class SimObject
 	virtual void addToCreationPacket(enet_uint8* dest) const = 0;
 
 	//Add getUpdatePacketBytes() worth of data to the given packet with all the data needed for the client to update it
-	virtual void addToUpdatePacket(enet_uint8* dest) const = 0;
+	virtual void addToUpdatePacket(enet_uint8* dest) = 0;
 
 	virtual ~SimObject();
 };

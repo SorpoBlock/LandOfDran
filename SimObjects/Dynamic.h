@@ -44,7 +44,7 @@ class Dynamic : public SimObject
 	virtual void addToCreationPacket(enet_uint8 * dest) const override;
 
 	//Add getUpdatePacketBytes() worth of data to the given packet with all the data needed for the client to update it
-	virtual void addToUpdatePacket(enet_uint8 * dest) const override;
+	virtual void addToUpdatePacket(enet_uint8 * dest) override;
 
 	~Dynamic();
 };
