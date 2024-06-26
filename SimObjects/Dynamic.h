@@ -12,8 +12,16 @@
 class Dynamic : public SimObject
 {
 	friend ObjHolder<Dynamic>;
-
+	 
 	protected:
+
+	/*
+		The last transform we sent with addToUpdatePacket
+	*/
+	btTransform lastSentTransform = btTransform::getIdentity();
+	
+	//Time with SDL_GetTicks that we sent lastSentTransform
+	unsigned int lastSentTime = 0;
 
 	/*
 		Determines its physical appearance and physics properties
@@ -33,6 +41,19 @@ class Dynamic : public SimObject
 	btRigidBody* body = nullptr;
 
 	public:
+
+	//Server only, used to set physics body position
+	void setPosition(const btVector3& pos);
+
+	//Server only, used to set physics body linear veclotiy
+	void setVelocity(const btVector3& vel);
+
+	btVector3 getVelocity();
+
+	//Client only, used to add a transform to the snapshot interpolator for eventual rendering
+	void addTransform(glm::vec3 pos, glm::quat rot);
+
+	virtual bool requiresNetUpdate() const override;
 
 	//How many bytes would this add to a packet creating objects if it was added to it
 	virtual unsigned int getCreationPacketBytes() const override;

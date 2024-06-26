@@ -34,6 +34,11 @@ void Server::broadcast(const char* data, unsigned int len, PacketChannel channel
 	enet_host_broadcast(server, channel, packet);
 }
 
+void Server::broadcast(ENetPacket* packet, PacketChannel channel) const
+{
+	enet_host_broadcast(server, channel, packet);
+}
+
 void Server::switchPacketType(JoinedClient * source, ENetPacket* packet, const void* pd)
 {
 	FromClientPacketType type = (FromClientPacketType)packet->data[0];

@@ -42,6 +42,7 @@ public:
 
 	//Send something to all connected clients
 	void broadcast(const char* data, unsigned int len, PacketChannel channel) const;
+	void broadcast(ENetPacket* packet, PacketChannel channel) const;
 
 	void run(const void* pd);
 

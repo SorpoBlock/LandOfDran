@@ -84,6 +84,9 @@ class ObjHolder
 	//Returns nullptr if object not found by that ID
 	const inline std::shared_ptr<T> find(const netIDType& netID) const
 	{
+		if (allObjects.size() == 0)
+			return nullptr;
+
 		auto hasNetID = [&netID](const std::shared_ptr<T>& query) { return query->netID == netID; };
 		auto it = std::find_if(allObjects.begin(), allObjects.end(), hasNetID);
 		return it != allObjects.end() ? *it : nullptr;
@@ -142,7 +145,7 @@ class ObjHolder
 	}
 
 	//Principle way of getting objects, outside of lua scripts and client packets that use netIDs
-	inline const std::shared_ptr<T>& operator[](const std::size_t& idx) const
+	inline std::shared_ptr<T> operator[](const std::size_t& idx) const
 	{
 		//This will mostly be used in loops so I'm not too worried about out of bounds indexing 
 		/*scope("objHolder[]");
@@ -153,6 +156,12 @@ class ObjHolder
 		}
 		else*/
 			return allObjects[idx];
+	}
+
+	//Array operator sometimes doesn't compile
+	inline std::shared_ptr<T> get(const std::size_t& idx) const
+	{
+		return allObjects[idx];
 	}
 
 	//Call on client when they confirm phase 1 loading is complete
@@ -193,7 +202,7 @@ class ObjHolder
 			packet->data[2] = sentThisPacket;
 			int byteIterator = 3;
 
-			for (unsigned int a = sent; a < sent + sentThisPacket; a++)
+			for (int a = sent; a < sent + sentThisPacket; a++)
 			{
 				allObjects[a]->addToCreationPacket(packet->data + byteIterator);
 				byteIterator += allObjects[a]->getCreationPacketBytes();
@@ -208,7 +217,180 @@ class ObjHolder
 	//Sends all recent creations, deletions, and updates to objects it manages to all connected clients
 	void sendRecent()
 	{
+		if (server->getNumClients() == 0)
+		{
+			recentCreations.clear();
+			recentlyDeletedIDs.clear();
+			return;
+		}
 
+		//Send recently created objects to all connected clients:
+
+		int toSend = recentCreations.size();
+		int sent = 0;
+
+		//Send as many packets as needed to send all objects to the client
+		//without any one packet exceeding the MTU
+		while (toSend > 0)
+		{
+			int sentThisPacket = 0;
+			int bytesThisPacket = 0;
+
+			//I guess if one object was somehow larger than like 1300 bytes this would stall lol
+			for (unsigned int a = sent; a < recentCreations.size(); a++)
+			{
+				//Only using one byte to encode amount of objects in the packet
+				if (sentThisPacket >= 255)
+					break;
+
+				sentThisPacket++;
+				bytesThisPacket += recentCreations[a]->getCreationPacketBytes();
+
+				if (bytesThisPacket > MTU)
+				{
+					sentThisPacket--;
+					bytesThisPacket -= recentCreations[a]->getCreationPacketBytes();
+					break;
+				}
+			}
+
+			if (sentThisPacket == 0)
+				break;
+
+			//Three extra bytes, packet type, simobject type, amount of objects
+			ENetPacket* packet = enet_packet_create(NULL, bytesThisPacket + 3, getFlagsFromChannel(OtherReliable));
+			packet->data[0] = FromServerPacketType::AddSimObjects;
+			packet->data[1] = SimObjectType::DynamicTypeId;
+			packet->data[2] = sentThisPacket;
+			int byteIterator = 3;
+
+			for (int a = sent; a < sent + sentThisPacket; a++)
+			{
+				recentCreations[a]->addToCreationPacket(packet->data + byteIterator);
+				byteIterator += recentCreations[a]->getCreationPacketBytes();
+			}
+
+			server->broadcast(packet, OtherReliable);
+			toSend -= sentThisPacket;
+			sent += sentThisPacket;
+		}
+
+		recentCreations.clear();
+
+		//Send recently deleted objects(' IDs) to all connected clients:
+
+		toSend = recentlyDeletedIDs.size();
+		sent = 0;
+
+		//Send as many packets as needed to send all objects to the client
+		//without any one packet exceeding the MTU
+		while (toSend > 0)
+		{
+			int sentThisPacket = 0;
+			int bytesThisPacket = 0;
+
+			for (unsigned int a = sent; a < recentCreations.size(); a++)
+			{
+				//Only using one byte to encode amount of objects in the packet
+				if (sentThisPacket >= 255)
+					break;
+
+				sentThisPacket++;
+				bytesThisPacket += sizeof(netIDType);
+
+				if (bytesThisPacket > MTU)
+				{
+					sentThisPacket--;
+					bytesThisPacket -= sizeof(netIDType);
+					break;
+				}
+			}
+
+			if (sentThisPacket == 0)
+				break;
+
+			//Three extra bytes, packet type, simobject type, amount of objects
+			ENetPacket* packet = enet_packet_create(NULL, bytesThisPacket + 3, getFlagsFromChannel(OtherReliable));
+			packet->data[0] = FromServerPacketType::DeleteSimObjects;
+			packet->data[1] = SimObjectType::DynamicTypeId;
+			packet->data[2] = sentThisPacket;
+			int byteIterator = 3;
+
+			for (int a = sent; a < sent + sentThisPacket; a++)
+			{
+				memcpy(packet->data + byteIterator, &recentlyDeletedIDs[a], sizeof(netIDType));
+				byteIterator += sizeof(netIDType);
+			}
+
+			server->broadcast(packet, OtherReliable);
+			toSend -= sentThisPacket;
+			sent += sentThisPacket;
+		}
+
+		recentlyDeletedIDs.clear();
+
+		//Send any pending object updates to all connected clients:
+
+		toSend = allObjects.size();
+		sent = 0;
+
+		//Send as many packets as needed to send all objects to the client
+		//without any one packet exceeding the MTU
+		while (toSend > 0)
+		{
+			//Didn't need updates, didn't move or get changed since last time
+			int skippedThisPacket = 0;
+			//Did need updates
+			int sentThisPacket = 0;
+			int bytesThisPacket = 0;
+
+			//I guess if one object was somehow larger than like 1300 bytes this would stall lol
+			for (unsigned int a = sent; a < allObjects.size(); a++)
+			{
+				//Only using one byte to encode amount of objects in the packet
+				if (sentThisPacket >= 255)
+					break;
+
+				if (!allObjects[a]->requiresNetUpdate())
+				{
+					skippedThisPacket++;
+					continue;
+				}
+
+				sentThisPacket++;
+				bytesThisPacket += allObjects[a]->getUpdatePacketBytes();
+
+				if (bytesThisPacket > MTU)
+				{
+					sentThisPacket--;
+					bytesThisPacket -= allObjects[a]->getUpdatePacketBytes();
+					break;
+				}
+			}
+
+			//Not a break: we may have just skipped every object in this packet
+			if (sentThisPacket == 0)
+				continue;
+
+			//Three extra bytes, packet type, simobject type, amount of objects
+			ENetPacket* packet = enet_packet_create(NULL, bytesThisPacket + 3, getFlagsFromChannel(OtherReliable));
+			packet->data[0] = FromServerPacketType::UpdateSimObjects;
+			packet->data[1] = SimObjectType::DynamicTypeId;
+			packet->data[2] = sentThisPacket;
+			int byteIterator = 3;
+
+			for (int a = sent; a < sent + sentThisPacket; a++)
+			{
+				if (!allObjects[a]->requiresNetUpdate())
+					continue;
+				allObjects[a]->addToUpdatePacket(packet->data + byteIterator);
+				byteIterator += allObjects[a]->getUpdatePacketBytes();
+			}
+
+			server->broadcast(packet, OtherReliable);
+			toSend -= (sentThisPacket + skippedThisPacket);
+			sent += (sentThisPacket + skippedThisPacket);
+		}
 	}
 
 	//Pass nullptr as server if this is being called from the client

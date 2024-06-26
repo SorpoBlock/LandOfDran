@@ -3,6 +3,7 @@
 void LoopServer::run(float deltaT, ExecutableArguments& cmdArgs, std::shared_ptr<SettingManager> settings)
 {
 	server->run(&pd); //   <---- networking
+	pd.dynamics->sendRecent();
 	pd.physicsWorld->step(deltaT);
 }
 
@@ -24,6 +25,7 @@ LoopServer::LoopServer(ExecutableArguments& cmdArgs, std::shared_ptr<SettingMana
 	pd.dynamicTypes.push_back(testType);
 	pd.allNetTypes.push_back(testType);
 	auto testObject = pd.dynamics->create(testType, btVector3(0, 0, 0));
+	//End test
 
 	valid = true;
 }

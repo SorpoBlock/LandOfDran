@@ -5,6 +5,7 @@
 #include "PacketsFromServer/AcceptConnection.h"
 #include "PacketsFromServer/AddSimObjectType.h"
 #include "PacketsFromServer/AddSimObjects.h"
+#include "PacketsFromServer/UpdateSimObjects.h"
 #include "../GameLoop/ClientProgramData.h"
 #include "../GameLoop/Simulation.h"
 
@@ -30,9 +31,9 @@ class Client
 
 public:
 
-	float getPing() const { return peer->lastRoundTripTime; }
-	float getIncoming() const { return peer->incomingBandwidth; }
-	float getOutgoing() const { return peer->outgoingBandwidth; }
+	float getPing() const		{ return (float)peer->lastRoundTripTime; }
+	float getIncoming() const	{ return (float)peer->incomingBandwidth; }
+	float getOutgoing() const	{ return (float)peer->outgoingBandwidth; }
 
 	bool isValid() const { return valid; }
 

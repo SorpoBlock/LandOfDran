@@ -59,7 +59,7 @@ class PhysicsWorld
 	//I think it returns how many substeps were used or something? 
 	int step(float deltaT)
 	{
-		return world->stepSimulation(deltaT / 1000.0);
+		return world->stepSimulation(deltaT / 1000.0f);
 	}
 
 	PhysicsWorld()
