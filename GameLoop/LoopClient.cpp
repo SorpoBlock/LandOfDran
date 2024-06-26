@@ -10,10 +10,10 @@ void LoopClient::leaveServer()
 	if (!client)
 		return;
 
-	if (pd.simulation.dynamics)
+	if (simulation.dynamics)
 	{
-		delete pd.simulation.dynamics;
-		pd.simulation.dynamics = nullptr;
+		delete simulation.dynamics;
+		simulation.dynamics = nullptr;
 	}
 
 	delete client;
@@ -21,7 +21,7 @@ void LoopClient::leaveServer()
 
 	//It's very possible some or all data structures may not have been initialized or allocated if we disconnected in the middle loading into a new server
 	
-	pd.simulation.dynamicTypes.clear();
+	simulation.dynamicTypes.clear();
 	pd.signals.typesToLoad = 0; //Disable progress bar in server browser UI until next join
 
 	//Destroy server specific physics
@@ -163,6 +163,11 @@ void LoopClient::handleInput(float deltaT, ExecutableArguments& cmdArgs, std::sh
 
 void LoopClient::renderEverything(float deltaT)
 {
+	//Technically rendering related calculations based on previously inputted transform data
+	for (unsigned int a = 0; a < simulation.dynamicTypes.size(); a++)
+		simulation.dynamicTypes[a]->getModel()->updateAll(deltaT);
+
+
 	//Start rendering to screen:
 	pd.camera->render(pd.shaders);
 
@@ -171,8 +176,8 @@ void LoopClient::renderEverything(float deltaT)
 
 	pd.shaders->modelShader->use();
 
-	for (unsigned int a = 0; a < pd.simulation.dynamicTypes.size(); a++)
-		pd.simulation.dynamicTypes[a]->render(pd.shaders);
+	for (unsigned int a = 0; a < simulation.dynamicTypes.size(); a++)
+		simulation.dynamicTypes[a]->render(pd.shaders);
 
 	pd.gui->render();
 
@@ -183,7 +188,7 @@ void LoopClient::run(float deltaT,ExecutableArguments& cmdArgs, std::shared_ptr<
 {
 	if (client)
 	{
-		if (client->run(pd, cmdArgs)) //  <--- networking
+		if (client->run(pd,simulation, cmdArgs)) //  <--- networking
 			leaveServer();			  //If true, we were kicked
 	}
 	handleInput(deltaT,cmdArgs,settings); //mouse and keyboard input
@@ -195,7 +200,7 @@ void LoopClient::run(float deltaT,ExecutableArguments& cmdArgs, std::shared_ptr<
 	pd.debugMenu->passDetails(pd.camera, netInfo);
 
 	//Progress loading SimObject types
-	pd.serverBrowser->passLoadProgress(pd.signals.typesToLoad, pd.simulation.dynamicTypes.size());
+	pd.serverBrowser->passLoadProgress(pd.signals.typesToLoad, simulation.dynamicTypes.size());
 
 	//Process state changes requested from received packets:
 
@@ -213,7 +218,7 @@ void LoopClient::run(float deltaT,ExecutableArguments& cmdArgs, std::shared_ptr<
 	if (pd.signals.finishedPhaseOneLoading)
 	{
 		//Create holders for objects now that we will start receiving data about them
-		pd.simulation.dynamics = new ObjHolder<Dynamic>(DynamicTypeId);
+		simulation.dynamics = new ObjHolder<Dynamic>(DynamicTypeId);
 
 		ENetPacket* finishedLoading = makeLoadingFinished();
 		client->send(finishedLoading, OtherReliable);

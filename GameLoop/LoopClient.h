@@ -4,6 +4,7 @@
 
 #include "../Networking/Client.h"
 #include "ClientProgramData.h"
+#include "Simulation.h"
 #include "../Networking/ClientPacketCreators.h"
 
 /*
@@ -14,6 +15,10 @@ class LoopClient
 {
 	//Stuff we need to *play* the game, as opposed to host it, except our net interface itself
 	ClientProgramData pd;
+
+	//Anything with state specific to and maintained by the current server we're playing on
+	Simulation simulation;
+
 	//Network connection manager, its methods take ClientProgramData as a parameter, so it's separate
 	//This could be nullptr so be careful, cmdArgs should be NotInGame if that's the case as well
 	Client* client = nullptr;

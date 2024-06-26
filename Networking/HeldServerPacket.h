@@ -2,6 +2,7 @@
 
 #include "../LandOfDran.h"
 #include "../GameLoop/ClientProgramData.h"
+#include "../GameLoop/Simulation.h"
 
 /*
 	This is a special abstract struct to wrap packets *from* the server *on* the client
@@ -28,5 +29,5 @@ public:
 	virtual ~HeldServerPacket() {}
 
 	//Returns true if the packet can be discarded (it was applied or it expired)
-	virtual bool applyPacket(const ClientProgramData& pd, const ExecutableArguments& cmdArgs) = 0;
+	virtual bool applyPacket(const ClientProgramData& pd,Simulation &simulation, const ExecutableArguments& cmdArgs) = 0;
 };

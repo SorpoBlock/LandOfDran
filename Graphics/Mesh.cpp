@@ -1289,6 +1289,9 @@ void Mesh::recompileInstances()
 		colors.push_back(instances[a]->MeshColors[meshIndex]);
 	}
 
+	if (transforms.size() == 0)
+		return;
+
 	glBindBuffer(GL_ARRAY_BUFFER, buffers[ModelTransform]);
 	glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(glm::mat4) * transforms.size(), &transforms[0][0][0]);
 

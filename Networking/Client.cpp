@@ -1,12 +1,12 @@
 #include "Client.h"
 
-void Client::tryApplyHeldPackets(const ClientProgramData& pd, const ExecutableArguments& cmdArgs)
+void Client::tryApplyHeldPackets(const ClientProgramData& pd, Simulation& simulation, const ExecutableArguments& cmdArgs)
 {
 	auto iter = packets.begin();
 	while (iter != packets.end())
 	{
 		HeldServerPacket* tmp = *iter;
-		if (tmp->applyPacket(pd,cmdArgs))
+		if (tmp->applyPacket(pd,simulation,cmdArgs))
 		{
 			delete tmp;
 			tmp = 0;
@@ -17,14 +17,14 @@ void Client::tryApplyHeldPackets(const ClientProgramData& pd, const ExecutableAr
 	}
 }
 
-bool Client::run(const ClientProgramData& pd, const ExecutableArguments& cmdArgs)
+bool Client::run(const ClientProgramData& pd,Simulation &simulation, const ExecutableArguments& cmdArgs)
 {
 	scope("Client::run");
 
 	if (!valid)
 		return true;
 
-	tryApplyHeldPackets(pd,cmdArgs);
+	tryApplyHeldPackets(pd,simulation,cmdArgs);
 
 	ENetEvent event;
 	int ret = enet_host_service(client, &event, 0);

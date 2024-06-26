@@ -1,6 +1,6 @@
 #include "AddSimObjectType.h"
 
-bool AddSimObjectTypePacket::applyPacket(const ClientProgramData& pd, const ExecutableArguments& cmdArgs)
+bool AddSimObjectTypePacket::applyPacket(const ClientProgramData& pd, Simulation& simulation, const ExecutableArguments& cmdArgs)
 {
 	/*
 		1 byte  - type of packet (AddSimObjectType)
@@ -18,8 +18,8 @@ bool AddSimObjectTypePacket::applyPacket(const ClientProgramData& pd, const Exec
 		case DynamicTypeId:
 		{
 			auto newType = std::make_shared<DynamicType>();
-			newType->loadFromPacket(packet);
-			pd.getSimulation()->dynamicTypes.push_back(newType);
+			newType->loadFromPacket(packet,pd);
+			simulation.dynamicTypes.push_back(newType);
 			break;
 		}
 
@@ -30,7 +30,7 @@ bool AddSimObjectTypePacket::applyPacket(const ClientProgramData& pd, const Exec
 	}
 
 	//Check to see if that was the last type the server sent, if so let the server know we finished loading
-	if (pd.getSimulation()->dynamicTypes.size() == pd.signals.typesToLoad)
+	if (simulation.dynamicTypes.size() == pd.signals.typesToLoad)
 		pd.getSignals()->finishedPhaseOneLoading = true;
 
 	return true;

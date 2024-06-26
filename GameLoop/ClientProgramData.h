@@ -13,13 +13,10 @@
 #include "../Interface/ServerBrowser.h"
 #include "../Interface/EscapeMenu.h"
 #include "../Physics/PhysicsWorld.h"
-#include "../NetTypes/DynamicType.h"
-#include "../SimObjects/Dynamic.h"
-#include "../Networking/ObjHolder.h"
 
 /*
 	This exists so we can make all of this available to the various PacketsFromServer files since packets can do a wide range of activities
-	and may need access to most of the game state
+	and may need access to most of the game state 
 	It's owned by LoopClient and passed through Client to various packet processing methods
 */
 struct ClientProgramData
@@ -56,22 +53,4 @@ struct ClientProgramData
 
 	//You should be able to edit the signals from received packets function bodies, just not the pointers to essential software systems
 	PacketSignals * getSignals() const { return const_cast<PacketSignals*>(&signals); }
-
-	/*
-		SimObjects and SimObjectTypes
-		Any in-game object that has state managed by the server
-		Created on server join, deleted when leaving server
-	*/
-	struct SimulationData
-	{
-		//Types:
-		std::vector<std::shared_ptr<DynamicType>> dynamicTypes;
-
-		//Objects (object holders):
-		ObjHolder<Dynamic>* dynamics = nullptr;
-
-	} simulation;
-
-	//Similar to getSignals, packets need to be able to create and destroy objects
-	SimulationData* getSimulation() const { return const_cast<SimulationData*>(&simulation); }
 };

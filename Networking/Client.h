@@ -6,6 +6,7 @@
 #include "PacketsFromServer/AddSimObjectType.h"
 #include "PacketsFromServer/AddSimObjects.h"
 #include "../GameLoop/ClientProgramData.h"
+#include "../GameLoop/Simulation.h"
 
 /*
 	This is the networking interface that the client program should have one instance of, that managers sending and receiving from the server
@@ -25,7 +26,7 @@ class Client
 	std::vector<HeldServerPacket*> packets;
 
 	//Try applying each held packet and deleting any that expired or have been applied
-	void tryApplyHeldPackets(const ClientProgramData& pd, const ExecutableArguments& cmdArgs);
+	void tryApplyHeldPackets(const ClientProgramData& pd, Simulation& simulation, const ExecutableArguments& cmdArgs);
 
 public:
 
@@ -36,7 +37,7 @@ public:
 	bool isValid() const { return valid; }
 
 	//Returns true if we were kicked
-	bool run(const ClientProgramData & pd, const ExecutableArguments &cmdArgs);
+	bool run(const ClientProgramData & pd,Simulation &simulation, const ExecutableArguments &cmdArgs);
 
 	void send(const char* data, unsigned int len, PacketChannel channel);
 	void send(ENetPacket* packet, PacketChannel channel);

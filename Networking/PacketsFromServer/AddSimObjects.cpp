@@ -1,6 +1,6 @@
 #include "AddSimObjects.h"
 
-bool AddSimObjectsPacket::applyPacket(const ClientProgramData& pd, const ExecutableArguments& cmdArgs)
+bool AddSimObjectsPacket::applyPacket(const ClientProgramData& pd, Simulation& simulation, const ExecutableArguments& cmdArgs)
 {
 	//Too short to have any objects
 	if (packet->dataLength < 4)
@@ -27,11 +27,11 @@ bool AddSimObjectsPacket::applyPacket(const ClientProgramData& pd, const Executa
 				byteIterator += QuaternionBytes;
 
 				std::shared_ptr<DynamicType> foundType = nullptr;
-				for (unsigned int i = 0; i < pd.simulation.dynamicTypes.size(); i++)
+				for (unsigned int i = 0; i < simulation.dynamicTypes.size(); i++)
 				{
-					if (pd.simulation.dynamicTypes[i]->getID() == type)
+					if (simulation.dynamicTypes[i]->getID() == type)
 					{
-						foundType = pd.simulation.dynamicTypes[i];
+						foundType = simulation.dynamicTypes[i];
 						break;
 					}
 				}
@@ -43,8 +43,8 @@ bool AddSimObjectsPacket::applyPacket(const ClientProgramData& pd, const Executa
 					continue;
 				}
 
-				pd.simulation.dynamics->clientSetNextId(id);
-				pd.simulation.dynamics->create(foundType, btVector3(pos.x,pos.y,pos.z));
+				simulation.dynamics->clientSetNextId(id);
+				simulation.dynamics->create(foundType, btVector3(pos.x,pos.y,pos.z));
 
 				if (byteIterator >= packet->dataLength)
 					break;

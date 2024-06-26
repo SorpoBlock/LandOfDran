@@ -1,6 +1,6 @@
 #include "AcceptConnection.h"
 
-bool AcceptConnectionPacket::applyPacket(const ClientProgramData& pd, const ExecutableArguments& cmdArgs)
+bool AcceptConnectionPacket::applyPacket(const ClientProgramData& pd, Simulation& simulation, const ExecutableArguments& cmdArgs)
 {
 	//Invalid empty packet
 	if (packet->dataLength < 2)
