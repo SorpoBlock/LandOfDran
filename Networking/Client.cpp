@@ -70,6 +70,10 @@ bool Client::run(const ClientProgramData& pd,Simulation &simulation, const Execu
 						packets.push_back(new DeleteSimObjectsPacket(packetHoldTime, event.packet));
 						return false;
 
+					case ChatMessageFromServer:
+						packets.push_back(new ChatMessagePacket(packetHoldTime, event.packet));
+						return false;
+
 					//Can't process packet
 					case InvalidServer:
 					default:

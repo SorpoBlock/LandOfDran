@@ -1,0 +1,4 @@
+albedo	scuffed-plastic-albedo.png
+occlusion	scuffed-plastic-ao.png
+normal	scuffed-plastic-normal.png
+roughness	scuffed-plastic-rough.png

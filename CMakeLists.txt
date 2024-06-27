@@ -133,6 +133,7 @@ add_executable (LandOfDran
 
 "Networking/PacketsFromClient/ConnectionRequest.cpp" 
  "Networking/PacketsFromClient/FinishedLoading.cpp" 
+ "Networking/PacketsFromClient/ChatMessageSent.cpp"
 
 "GameLoop/ClientProgramData.h" 
 "GameLoop/ServerProgramData.h"   
@@ -143,7 +144,7 @@ add_executable (LandOfDran
 "GameLoop/LoopServer.cpp" 
 
  "Physics/PhysicsWorld.h" 
- "Physics/PhysicsWorld.cpp")
+ "Physics/PhysicsWorld.cpp"  "Networking/PacketsFromServer/ChatMessageFromServer.h" "Networking/PacketsFromServer/ChatMessageFromServer.cpp")
 
 #include_directories("C:/Users/Syerjchep/Downloads/enet-2.3.10/include")
 include_directories("C:/Users/Syerjchep/Downloads/enet-1.3.18.tar/enet-1.3.18/include")

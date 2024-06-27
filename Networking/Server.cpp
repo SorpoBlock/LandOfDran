@@ -55,6 +55,11 @@ void Server::switchPacketType(JoinedClient * source, ENetPacket* packet, const v
 			clientFinishedLoading(source, this, packet, pd);
 			return;
 		}
+		case ChatMessage:
+		{
+			chatMessageSent(source, this, packet, pd);
+			return;
+		}
 
 		case InvalidClient:
 		default:

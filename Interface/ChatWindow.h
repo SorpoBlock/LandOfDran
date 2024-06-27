@@ -10,12 +10,19 @@ class ChatWindow : public Window
 	bool scrollLock = true;
 
 	char messageBuffer[256] = { 0 };
+	std::string chatMessage = "";
+	bool chatMessageWaiting = false;
 
 public:
 	void addMessage(const std::string &message);
 
 	ChatWindow();
 	~ChatWindow();
+
+	bool hasChatMessage() const { return chatMessageWaiting; }
+
+	//Resets hasChatMessage
+	std::string getChatMessage() { chatMessageWaiting = false; return chatMessage; }
 
 	virtual void render(ImGuiIO* io) override;
 	virtual void init() override;

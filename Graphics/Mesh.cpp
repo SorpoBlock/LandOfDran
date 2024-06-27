@@ -925,6 +925,12 @@ Model::Model(std::string filePath, bool _serverSide) : loadedPath(filePath), ser
 			continue;
 		}
 
+		if (argument == "singlematerial")
+		{
+			//Server-side doesn't need materials
+			continue;
+		}
+
 		if (argument == "material")
 		{
 			//Server-side doesn't need materials
@@ -1124,6 +1130,8 @@ Model::Model(std::string filePath, std::shared_ptr<TextureManager> textures) : l
 		for (unsigned int a = 0; a < scene->mNumMaterials; a++)
 		{
 			aiMaterial* src = scene->mMaterials[a];
+
+			std::cout<<src->GetName().C_Str()<<std::endl;	
 
 			auto matPair = materialOverrides.find(src->GetName().C_Str());
 			if (matPair != materialOverrides.end())

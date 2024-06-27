@@ -30,6 +30,18 @@ inline ENetPacket* makeLoadingFinished()
 {
 	char theSmallestPacketEver[1];
 	theSmallestPacketEver[0] = LoadingFinished;
-	ENetPacket* ret = enet_packet_create(theSmallestPacketEver, 1, getFlagsFromChannel(OtherReliable));
+	ENetPacket* ret = enet_packet_create(theSmallestPacketEver, 1, getFlagsFromChannel(JoinNegotiation));
+	return ret;
+}
+
+//Send a chat message to the server
+inline ENetPacket* makeChatMessage(const std::string &message)
+{
+	ENetPacket* ret = enet_packet_create(NULL, message.length() + 2, getFlagsFromChannel(OtherReliable));
+
+	ret->data[0] = (unsigned char)ChatMessage;
+	ret->data[1] = (unsigned char)message.length();
+	memcpy(ret->data + 2, message.c_str(), message.length());
+
 	return ret;
 }

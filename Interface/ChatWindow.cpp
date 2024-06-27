@@ -37,13 +37,21 @@ void ChatWindow::render(ImGuiIO* io)
 
 	ImGui::Checkbox("Scroll Lock", &scrollLock);
 
-	ImGui::InputText("Message", messageBuffer, 256);
+	bool chatSubmitted = false;
+
+	if (ImGui::InputText("Message", messageBuffer, 256, ImGuiInputTextFlags_EnterReturnsTrue))
+		chatSubmitted = true; //Pressed return while typing
+
 	if(ImGui::Button("Send"))
+		chatSubmitted = true; //Hit send button
+
+	if(chatSubmitted)
 	{
 		if(strlen(messageBuffer) > 0)
 		{
-			addMessage(messageBuffer);
-			messageBuffer[0] = '\0';
+			chatMessage = messageBuffer;
+			chatMessageWaiting = true;
+			messageBuffer[0] = 0;
 		}
 	}
 
@@ -65,6 +73,7 @@ void ChatWindow::init()
 
 }
 
+//Handle return key to send chat message
 void ChatWindow::handleInput(SDL_Event& e, std::shared_ptr<InputMap> input)
 {
 

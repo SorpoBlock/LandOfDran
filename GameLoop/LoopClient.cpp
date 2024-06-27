@@ -198,7 +198,10 @@ void LoopClient::run(float deltaT,ExecutableArguments& cmdArgs, std::shared_ptr<
 		if (client->run(pd,simulation, cmdArgs)) //  <--- networking
 			leaveServer();			  //If true, we were kicked
 	}
+
 	handleInput(deltaT,cmdArgs,settings); //mouse and keyboard input
+
+	// --- UI Updates and Requests ---
 
 	//Send info to debug menu for display
 	NetInfo netInfo;
@@ -206,10 +209,16 @@ void LoopClient::run(float deltaT,ExecutableArguments& cmdArgs, std::shared_ptr<
 		netInfo = { client->getPing(), client->getIncoming(), client->getOutgoing() };
 	pd.debugMenu->passDetails(pd.camera, netInfo);
 
+	if (pd.chatWindow->hasChatMessage())
+	{
+		ENetPacket *chat = makeChatMessage(pd.chatWindow->getChatMessage());
+		client->send(chat, OtherReliable);
+	}
+
 	//Progress loading SimObject types
 	pd.serverBrowser->passLoadProgress(pd.signals.typesToLoad, simulation.dynamicTypes.size());
 
-	//Process state changes requested from received packets:
+	// --- State changes requested from packets ---
 
 	//Phase one loading started
 	if (pd.signals.startPhaseOneLoading)
@@ -234,6 +243,8 @@ void LoopClient::run(float deltaT,ExecutableArguments& cmdArgs, std::shared_ptr<
 
 	//All signals from packets processed for this frame, reset flags
 	pd.signals.reset();
+
+	// --- End packet requests ---
 
 	if (pd.physicsWorld)
 		pd.physicsWorld->step(deltaT);

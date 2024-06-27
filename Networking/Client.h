@@ -7,6 +7,7 @@
 #include "PacketsFromServer/AddSimObjects.h"
 #include "PacketsFromServer/UpdateSimObjects.h"
 #include "PacketsFromServer/DeleteSimObjects.h"
+#include "PacketsFromServer/ChatMessageFromServer.h"
 #include "../GameLoop/ClientProgramData.h"
 #include "../GameLoop/Simulation.h"
 
