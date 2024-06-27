@@ -3,6 +3,7 @@
 #include "../Networking/ObjHolder.h"
 #include "../SimObjects/SimObject.h"
 #include "../NetTypes/DynamicType.h"
+#include "../Graphics/Interpolator.h"
 #include "../Networking/Quantization.h"
 
 /*
@@ -42,6 +43,11 @@ class Dynamic : public SimObject
 
 	public:
 
+	void updateSnapshot();
+
+	//Client only
+	Interpolator interpolator;
+
 	//Server only, used to set physics body position
 	void setPosition(const btVector3& pos);
 
@@ -49,9 +55,6 @@ class Dynamic : public SimObject
 	void setVelocity(const btVector3& vel);
 
 	btVector3 getVelocity();
-
-	//Client only, used to add a transform to the snapshot interpolator for eventual rendering
-	void addTransform(glm::vec3 pos, glm::quat rot);
 
 	virtual bool requiresNetUpdate() const override;
 

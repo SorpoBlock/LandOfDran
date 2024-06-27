@@ -156,6 +156,14 @@ bool UserInterface::handleInput(SDL_Event& e,std::shared_ptr<InputMap> input)
 		return true;
 	}
 
+	if(e.key.keysym.scancode == input->getKeyBind(OpenChatWindow))
+	{
+		auto tmp = getWindowByName("Chat Window");
+		if (tmp)
+			tmp->open();
+		return true;
+	}
+
 	return false;
 }
 

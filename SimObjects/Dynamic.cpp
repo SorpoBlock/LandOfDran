@@ -48,6 +48,11 @@ unsigned int Dynamic::getUpdatePacketBytes() const
 	return PositionBytes + QuaternionBytes + sizeof(netIDType);
 }
 
+void Dynamic::updateSnapshot()
+{
+	modelInstance->setModelTransform(glm::translate(interpolator.getPosition()) * glm::toMat4(interpolator.getRotation()));
+}
+
 void Dynamic::setPosition(const btVector3& pos)
 {
 	btTransform t = body->getWorldTransform();
@@ -65,12 +70,6 @@ btVector3 Dynamic::getVelocity()
 	return body->getLinearVelocity();
 }
 
-void Dynamic::addTransform(glm::vec3 pos, glm::quat rot)
-{
-	//TODO: Snapshot interpolator
-	modelInstance->setModelTransform(glm::translate(pos) * glm::toMat4(rot));
-}
-
 bool Dynamic::requiresNetUpdate() const
 {
 	//For dynamics requiresUpdate means a change to something like a decal, or a node color
@@ -80,7 +79,7 @@ bool Dynamic::requiresNetUpdate() const
 	const btTransform& t = body->getWorldTransform();
 
 	//If the object has moved more than 0.14 studs
-	if (t.getOrigin().distance2(lastSentTransform.getOrigin()) > 0.02)
+	if (t.getOrigin().distance2(lastSentTransform.getOrigin()) > 0.005)
 		return true;
 
 	//More than like 8 degrees difference in rotation?

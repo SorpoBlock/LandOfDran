@@ -5,6 +5,13 @@ void LoopServer::run(float deltaT, ExecutableArguments& cmdArgs, std::shared_ptr
 	server->run(&pd); //   <---- networking
 	pd.dynamics->sendRecent();
 	pd.physicsWorld->step(deltaT);
+
+	if (pd.dynamics->get(0))
+		pd.dynamics->get(0)->setVelocity(btVector3(0, 0, 5));
+
+	//Cap server framerate at 40fps
+	if (deltaT < 25)
+		SDL_Delay(25 - deltaT);
 }
 
 LoopServer::LoopServer(ExecutableArguments& cmdArgs, std::shared_ptr<SettingManager> settings)

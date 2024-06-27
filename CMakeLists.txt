@@ -79,7 +79,9 @@ add_executable (LandOfDran
 "Graphics/Mesh.h" 
 "Graphics/Mesh.cpp" 
 "Graphics/PlayerCamera.h" 
-"Graphics/PlayerCamera.cpp" 
+"Graphics/PlayerCamera.cpp"  
+ "Graphics/Interpolator.h" 
+ "Graphics/Interpolator.cpp" 
 
 "Interface/InputMap.h"  
 "Interface/InputMap.cpp" 
@@ -93,6 +95,8 @@ add_executable (LandOfDran
 "Interface/ServerBrowser.cpp"
 "Interface/EscapeMenu.h" 
 "Interface/EscapeMenu.cpp" 
+ "Interface/ChatWindow.h" 
+ "Interface/ChatWindow.cpp"
 
 "NetTypes/NetType.h" 
 "NetTypes/DynamicType.h" 
@@ -120,18 +124,26 @@ add_executable (LandOfDran
 "Networking/PacketsFromServer/AcceptConnection.cpp"  
  "Networking/PacketsFromServer/AddSimObjectType.h" 
  "Networking/PacketsFromServer/AddSimObjectType.cpp" 
+ "Networking/PacketsFromServer/UpdateSimObjects.h" 
+ "Networking/PacketsFromServer/UpdateSimObjects.cpp" 
+ "Networking/PacketsFromServer/DeleteSimObjects.h" 
+ "Networking/PacketsFromServer/DeleteSimObjects.cpp"
+ "Networking/PacketsFromServer/AddSimObjects.h" 
+ "Networking/PacketsFromServer/AddSimObjects.cpp" 
 
 "Networking/PacketsFromClient/ConnectionRequest.cpp" 
+ "Networking/PacketsFromClient/FinishedLoading.cpp" 
 
 "GameLoop/ClientProgramData.h" 
-"GameLoop/ServerProgramData.h"
+"GameLoop/ServerProgramData.h"   
+ "GameLoop/Simulation.h" 
 "GameLoop/LoopClient.h" 
 "GameLoop/LoopClient.cpp" 
 "GameLoop/LoopServer.h" 
 "GameLoop/LoopServer.cpp" 
 
  "Physics/PhysicsWorld.h" 
- "Physics/PhysicsWorld.cpp"   "Networking/PacketsFromClient/FinishedLoading.cpp" "Networking/PacketsFromServer/AddSimObjects.h" "Networking/PacketsFromServer/AddSimObjects.cpp" "GameLoop/Simulation.h" "Networking/PacketsFromServer/UpdateSimObjects.h" "Networking/PacketsFromServer/UpdateSimObjects.cpp")
+ "Physics/PhysicsWorld.cpp")
 
 #include_directories("C:/Users/Syerjchep/Downloads/enet-2.3.10/include")
 include_directories("C:/Users/Syerjchep/Downloads/enet-1.3.18.tar/enet-1.3.18/include")

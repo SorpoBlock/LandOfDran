@@ -13,6 +13,7 @@ std::string GetInputCommandString(InputCommand command)
         case MouseLock: return "Toggle Mouse Lock";
         case OpenOptionsMenu: return "Open Settings";
         case OpenDebugWindow: return "Open Debug Window";
+        case OpenChatWindow: return "Open Chat Window";
         default: return "Other error";
     }
 }
@@ -56,6 +57,7 @@ InputMap::InputMap(std::shared_ptr<SettingManager> settings)
         bindKey(MouseLock, SDL_SCANCODE_M);
         bindKey(OpenOptionsMenu, SDL_SCANCODE_O);
         bindKey(OpenDebugWindow, SDL_SCANCODE_GRAVE);
+        bindKey(OpenChatWindow, SDL_SCANCODE_C);
 
         for (unsigned int a = 1; a < InputCommand::EndOfCommands; a++)
             settings->addInt("keybinds/" + std::to_string(a), keyForCommand[a]);

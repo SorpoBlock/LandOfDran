@@ -3,7 +3,7 @@
 #include "../HeldServerPacket.h"
 
 /*
-	This packet comes from DynamicType::createTypePacket on the server
+	This packet comes from Dynamic::addToCreationPacket on the server
 */
 struct AddSimObjectsPacket : public HeldServerPacket
 {

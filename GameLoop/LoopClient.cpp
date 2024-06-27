@@ -163,6 +163,13 @@ void LoopClient::handleInput(float deltaT, ExecutableArguments& cmdArgs, std::sh
 
 void LoopClient::renderEverything(float deltaT)
 {
+	//TODO: Get rid of this
+	if (simulation.dynamics)
+	{
+		for (unsigned a = 0; a < simulation.dynamics->size(); a++)
+			simulation.dynamics->get(a)->updateSnapshot();
+	}
+
 	//Technically rendering related calculations based on previously inputted transform data
 	for (unsigned int a = 0; a < simulation.dynamicTypes.size(); a++)
 		simulation.dynamicTypes[a]->getModel()->updateAll(deltaT);
@@ -250,6 +257,7 @@ LoopClient::LoopClient(ExecutableArguments& cmdArgs, std::shared_ptr<SettingMana
 	pd.debugMenu = pd.gui->createWindow<DebugMenu>();
 	pd.escapeMenu = pd.gui->createWindow<EscapeMenu>();
 	pd.serverBrowser = pd.gui->createWindow<ServerBrowser>();
+	pd.chatWindow = pd.gui->createWindow<ChatWindow>();
 	pd.serverBrowser->open();
 
 	pd.gui->initAll();

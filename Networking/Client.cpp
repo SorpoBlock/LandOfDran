@@ -66,6 +66,10 @@ bool Client::run(const ClientProgramData& pd,Simulation &simulation, const Execu
 						packets.push_back(new UpdateSimObjectsPacket(packetHoldTime, event.packet));
 						return false;
 
+					case DeleteSimObjects:
+						packets.push_back(new DeleteSimObjectsPacket(packetHoldTime, event.packet));
+						return false;
+
 					//Can't process packet
 					case InvalidServer:
 					default:

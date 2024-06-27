@@ -6,6 +6,7 @@
 #include "PacketsFromServer/AddSimObjectType.h"
 #include "PacketsFromServer/AddSimObjects.h"
 #include "PacketsFromServer/UpdateSimObjects.h"
+#include "PacketsFromServer/DeleteSimObjects.h"
 #include "../GameLoop/ClientProgramData.h"
 #include "../GameLoop/Simulation.h"
 

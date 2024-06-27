@@ -1292,6 +1292,34 @@ void Mesh::recompileInstances()
 	if (transforms.size() == 0)
 		return;
 
+	//Allocated buffer space used up
+	//Allocate at least one more 'page' of instances in this meshes buffers
+	if (transforms.size() >= instancesAllocated)
+	{
+		size_t preExpansionSize = transforms.size();
+		//Round up to the next multiple of page size
+		instancesAllocated = (unsigned int)(std::ceil(((float)preExpansionSize) / ((float)InstanceBufferPageSize)) * InstanceBufferPageSize);
+
+		//Dummy data for unused part of last page
+		for (size_t a = preExpansionSize; a < instancesAllocated; a++)
+		{
+			transforms.push_back(glm::mat4(1.0));
+			flags.push_back(0);
+			colors.push_back(glm::vec4(0, 0, 0, 0));
+		}
+
+		glBindBuffer(GL_ARRAY_BUFFER, buffers[ModelTransform]);
+		glBufferData(GL_ARRAY_BUFFER,sizeof(glm::mat4) * instancesAllocated, &transforms[0][0][0],GL_DYNAMIC_DRAW);
+
+		glBindBuffer(GL_ARRAY_BUFFER, buffers[InstanceFlags]);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(int) * instancesAllocated, &flags[0], GL_DYNAMIC_DRAW);
+
+		glBindBuffer(GL_ARRAY_BUFFER, buffers[PreColor]);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec4) * instancesAllocated, &colors[0][0], GL_DYNAMIC_DRAW);
+
+		return;
+	}
+
 	glBindBuffer(GL_ARRAY_BUFFER, buffers[ModelTransform]);
 	glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(glm::mat4) * transforms.size(), &transforms[0][0][0]);
 

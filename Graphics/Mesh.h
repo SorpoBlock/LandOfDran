@@ -7,7 +7,7 @@
 #include <assimp/postprocess.h>
 
 //How many instances for an instanced mesh we allocate space for at a time, don't set to 0
-#define InstanceBufferPageSize 1000
+#define InstanceBufferPageSize 10
 
 /*
 	Determines what order the various per-vertex variables

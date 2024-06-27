@@ -112,6 +112,23 @@ class ObjHolder
 		}
 	}
 
+	//Used to delete an object using ID given to us by the server, principally from DeleteSimObjects packet
+	inline void destroyByID(netIDType id)
+	{
+		auto hasID = [&id](const std::shared_ptr<T>& query) { return query->getID() == id; };
+		auto it = std::find_if(allObjects.begin(), allObjects.end(), hasID);
+		if (it != allObjects.end())
+		{
+			recentlyDeletedIDs.push_back((*it)->netID);
+			allObjects.erase(it);
+		}
+		else
+		{
+			scope("objHolder::destroy");
+			error("Pointer not found in objHolder");
+		}
+	}
+
 	//Exchange netID (i.e. from incoming client packet, lua callback) for vector index
 	//Honestly no clue when this would be needed
 	const inline size_t findIdx(const netIDType& netID) const
@@ -373,7 +390,7 @@ class ObjHolder
 				continue;
 
 			//Three extra bytes, packet type, simobject type, amount of objects
-			ENetPacket* packet = enet_packet_create(NULL, bytesThisPacket + 3, getFlagsFromChannel(OtherReliable));
+			ENetPacket* packet = enet_packet_create(NULL, bytesThisPacket + 3, getFlagsFromChannel(Unreliable));
 			packet->data[0] = FromServerPacketType::UpdateSimObjects;
 			packet->data[1] = SimObjectType::DynamicTypeId;
 			packet->data[2] = sentThisPacket;
@@ -383,11 +400,12 @@ class ObjHolder
 			{
 				if (!allObjects[a]->requiresNetUpdate())
 					continue;
+				std::cout << SDL_GetTicks() << "\n";
 				allObjects[a]->addToUpdatePacket(packet->data + byteIterator);
 				byteIterator += allObjects[a]->getUpdatePacketBytes();
 			}
 
-			server->broadcast(packet, OtherReliable);
+			server->broadcast(packet, Unreliable);
 			toSend -= (sentThisPacket + skippedThisPacket);
 			sent += (sentThisPacket + skippedThisPacket);
 		}

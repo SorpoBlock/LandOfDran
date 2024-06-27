@@ -2,6 +2,9 @@
 
 bool AddSimObjectsPacket::applyPacket(const ClientProgramData& pd, Simulation& simulation, const ExecutableArguments& cmdArgs)
 {
+	if (cmdArgs.gameState != InGame)
+		return false;
+
 	//Too short to have any objects
 	if (packet->dataLength < 4)
 		return true;

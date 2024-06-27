@@ -13,6 +13,7 @@
 #include "../Interface/ServerBrowser.h"
 #include "../Interface/EscapeMenu.h"
 #include "../Physics/PhysicsWorld.h"
+#include "../Interface/ChatWindow.h"
 
 /*
 	This exists so we can make all of this available to the various PacketsFromServer files since packets can do a wide range of activities
@@ -31,6 +32,7 @@ struct ClientProgramData
 	std::shared_ptr<TextureManager> textures = nullptr;
 	std::shared_ptr<InputMap>		input = nullptr;
 	std::shared_ptr<EscapeMenu>		escapeMenu = nullptr;
+	std::shared_ptr<ChatWindow>		chatWindow = nullptr;
 	std::shared_ptr<PhysicsWorld>	physicsWorld = nullptr;
 
 	//The rest of this struct is passed as const to various PacketsFromServer functions
