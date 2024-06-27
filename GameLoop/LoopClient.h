@@ -38,7 +38,7 @@ public:
 	void handleInput(float deltaT, ExecutableArguments& cmdArgs, std::shared_ptr<SettingManager> settings);
 
 	//Clean up performed when leaving a server to return to main menu or joining another server
-	void leaveServer();
+	void leaveServer(ExecutableArguments& cmdArgs);
 
 	//Joining new server from main menu or another server
 	void connectToServer(std::string ip,unsigned int port,std::string userName, ExecutableArguments& cmdArgs, std::shared_ptr<SettingManager> settings);

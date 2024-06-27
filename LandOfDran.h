@@ -30,6 +30,7 @@
 #include "Utility/SettingManager.h"
 #include "Networking/PacketEnums.h"
 #include "Graphics/GraphicsHelpers.h"
+#include <chrono>
 
 //Used in the titlebar for the window, and for making sure client and server version match in mutliplayer
 #define GAME_VERSION 20

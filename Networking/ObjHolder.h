@@ -400,7 +400,7 @@ class ObjHolder
 			{
 				if (!allObjects[a]->requiresNetUpdate())
 					continue;
-				std::cout << SDL_GetTicks() << "\n";
+				//std::cout << SDL_GetTicks() << "\n";
 				allObjects[a]->addToUpdatePacket(packet->data + byteIterator);
 				byteIterator += allObjects[a]->getUpdatePacketBytes();
 			}

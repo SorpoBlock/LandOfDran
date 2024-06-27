@@ -18,6 +18,9 @@ class LoopServer
 
 	bool valid = false;
 
+	//Testing only:
+	float spin = 0;
+
 public:
 
 	//Constructor have any issues?

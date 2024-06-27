@@ -29,12 +29,13 @@ void populateDefaults(std::shared_ptr<SettingManager> settings)
 	settings->addBool("input/invertmousey",			false, false,	"Invert mouse Y axis");
 	
 	//Network settings
-	settings->addInt("network/incomingbandwidth",		0, false, 		"ENet incoming assumption, 0 for dynamic",0,500000);
-	settings->addInt("network/outgoingbandwidth",		0, false, 		"ENet outgoing assumption, 0 for dynamic",0,500000);
-	settings->addString("network/guestname",			"Guest", false,	"Guest name if not logged in");
+	//settings->addInt("network/incomingbandwidth",		0, false, 		"ENet incoming assumption, 0 for dynamic",0,500000);
+	//settings->addInt("network/outgoingbandwidth",		0, false, 		"ENet outgoing assumption, 0 for dynamic",0,500000);
+	settings->addString("network/username",			"Guest", false,	"Guest name if not logged in");
 	settings->addString("network/lastip",			"localhost", false, "Last IP connected to");
 	settings->addInt("network/port",				DEFAULT_PORT, false, "Hosting port", 1, 65535);
-	settings->addInt("network/packetholdtime",		10000, false, "Max packet hold time MS", 1, 65535);
+	//settings->addInt("network/packetholdtime",		10000, false, "Max packet hold time MS", 1, 65535);
+	settings->addInt("network/snapshotbuffer",			4, true,  "Snapshot buffer size", 2, 8);
 	
 	//GUI Settings
 	settings->addFloat("gui/opacity",				0.75f, false,		"HUD Opacity",0,1);

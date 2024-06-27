@@ -12,9 +12,11 @@ void ServerBrowser::render(ImGuiIO* io)
 	}
 
 	ImGui::Text("Naturally, this is just a placeholder.");
-	ImGui::InputText("IP", serverAddressBuffer, 256);
+	if (ImGui::InputText("IP", serverAddressBuffer, 256, ImGuiInputTextFlags_EnterReturnsTrue))
+		serverPicked = true; //Hit enter while this text box is selected
 	ImGui::InputInt("Port", &serverPort);
-	ImGui::InputText("Username", userNameBuffer, 256);
+	if (ImGui::InputText("Username", userNameBuffer, 256, ImGuiInputTextFlags_EnterReturnsTrue))
+		serverPicked = true; //Hit enter while this text box is selected
 
 	bool inputOkay = true;
 
@@ -28,8 +30,11 @@ void ServerBrowser::render(ImGuiIO* io)
 	if (userName.length() < 1 || userName.length() > 64)
 		inputOkay = false;
 
-	if(!inputOkay)
+	if (!inputOkay)
+	{
+		serverPicked = false;
 		ImGui::BeginDisabled();
+	}
 	if (ImGui::Button("Join Server"))
 		serverPicked = true;
 	if(!inputOkay)
@@ -47,6 +52,15 @@ void ServerBrowser::render(ImGuiIO* io)
 	}
 
 	ImGui::End();
+}
+
+void ServerBrowser::passDefaultSettings(std::string ip, int port, std::string username)
+{
+	memcpy(serverAddressBuffer, ip.c_str(), ip.length());
+	serverAddressBuffer[ip.length()] = 0;
+	serverPort = port;
+	memcpy(userNameBuffer, username.c_str(), username.length());
+	userNameBuffer[username.length()] = 0;
 }
 
 void ServerBrowser::passLoadProgress(int _desiredTypes, int _loadedTypes)

@@ -30,8 +30,8 @@ bool UpdateSimObjectsPacket::applyPacket(const ClientProgramData& pd, Simulation
 			std::shared_ptr<Dynamic> toUpdate = simulation.dynamics->find(id);
 			if (toUpdate)
 			{
-				std::cout << SDL_GetTicks() << "\n";
-				toUpdate->interpolator.addSnapshot(pos, rot);
+				//std::cout << SDL_GetTicks() << "\n";
+				toUpdate->interpolator.addSnapshot(pos, rot, simulation.idealBufferSize);
 			}
 
 			if (byteIterator >= packet->dataLength)

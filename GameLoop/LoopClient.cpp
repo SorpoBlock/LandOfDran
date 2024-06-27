@@ -1,10 +1,9 @@
 #include "LoopClient.h"
 
-void LoopClient::leaveServer()
+void LoopClient::leaveServer(ExecutableArguments& cmdArgs)
 {
 	info("Leaving server");
 
-	pd.serverBrowser->setConnectionNote("");
 	pd.serverBrowser->open();
 
 	if (!client)
@@ -30,16 +29,24 @@ void LoopClient::leaveServer()
 		pd.physicsWorld.reset();
 		SimObject::world = nullptr;
 	}
+
+	cmdArgs.gameState = NotInGame;
 }
 
 void LoopClient::connectToServer(std::string ip, unsigned int port, std::string userName, ExecutableArguments& cmdArgs, std::shared_ptr<SettingManager> settings)
 {
 	if (cmdArgs.gameState != NotInGame)
-		leaveServer();
+		leaveServer(cmdArgs);
 
 	//TODO: Note without some kind of multithreading, this message will never display in the UI
 	pd.serverBrowser->setConnectionNote("Connecting to server...");
 	info("Attempting connection to " + ip + ":" + std::to_string(port));
+
+	//TODO: Make it so I can do this without having to re-write descriptions
+	settings->addString("network/username", userName, true, "Guest name if not logged in");
+	settings->addString("network/lastip", ip, true, "Last IP connected to");
+	settings->addInt("network/port", port, true, "Connection port");
+	settings->exportToFile("Config/settings.txt");
 
 	cmdArgs.gameState = Connecting;
 	client = new Client(ip, port, settings->getInt("network/packetholdtime"));
@@ -53,9 +60,6 @@ void LoopClient::connectToServer(std::string ip, unsigned int port, std::string 
 		client = nullptr;
 		return;
 	}
-
-	//Initial connection to server succeeded
-	pd.serverBrowser->close();
 
 	client->send(makeConnectionRequest(userName), JoinNegotiation);
 	
@@ -77,6 +81,7 @@ void LoopClient::handleInput(float deltaT, ExecutableArguments& cmdArgs, std::sh
 
 		if (e.type == SDL_QUIT)
 		{
+			leaveServer(cmdArgs);
 			cmdArgs.mainLoopRun = false;
 			break;
 		}
@@ -120,6 +125,7 @@ void LoopClient::handleInput(float deltaT, ExecutableArguments& cmdArgs, std::sh
 		Logger::setDebug(settings->getBool("logger/verbose"));
 		pd.camera->updateSettings(settings);
 		pd.gui->updateSettings(settings);
+		simulation.idealBufferSize = settings->getInt("network/snapshotbuffer");
 	}
 
 	//Various keys were pressed that were bound to certain commands:
@@ -143,7 +149,7 @@ void LoopClient::handleInput(float deltaT, ExecutableArguments& cmdArgs, std::sh
 		case LeaveGame:
 		{
 			if (cmdArgs.gameState != NotInGame)
-				leaveServer();
+				leaveServer(cmdArgs);
 			cmdArgs.mainLoopRun = false;
 			return;
 		}
@@ -151,7 +157,7 @@ void LoopClient::handleInput(float deltaT, ExecutableArguments& cmdArgs, std::sh
 		case LeaveServer:
 		{
 			if (cmdArgs.gameState != NotInGame)
-				leaveServer();
+				leaveServer(cmdArgs);
 			break;
 		}
 
@@ -196,7 +202,7 @@ void LoopClient::run(float deltaT,ExecutableArguments& cmdArgs, std::shared_ptr<
 	if (client)
 	{
 		if (client->run(pd,simulation, cmdArgs)) //  <--- networking
-			leaveServer();			  //If true, we were kicked
+			leaveServer(cmdArgs);			  //If true, we were kicked
 	}
 
 	handleInput(deltaT,cmdArgs,settings); //mouse and keyboard input
@@ -238,7 +244,11 @@ void LoopClient::run(float deltaT,ExecutableArguments& cmdArgs, std::shared_ptr<
 
 		ENetPacket* finishedLoading = makeLoadingFinished();
 		client->send(finishedLoading, OtherReliable);
+
 		cmdArgs.gameState = InGame;
+
+		pd.serverBrowser->setConnectionNote("");
+		pd.serverBrowser->close();
 	}
 
 	//All signals from packets processed for this frame, reset flags
@@ -260,6 +270,8 @@ LoopClient::LoopClient(ExecutableArguments& cmdArgs, std::shared_ptr<SettingMana
 
 	info("Not dedicated, initalizing client.");
 
+	simulation.idealBufferSize = settings->getInt("network/snapshotbuffer");
+
 	//Create our program window
 	pd.context = std::make_shared<RenderContext>(settings);
 	pd.gui = std::make_shared<UserInterface>();
@@ -269,6 +281,7 @@ LoopClient::LoopClient(ExecutableArguments& cmdArgs, std::shared_ptr<SettingMana
 	pd.escapeMenu = pd.gui->createWindow<EscapeMenu>();
 	pd.serverBrowser = pd.gui->createWindow<ServerBrowser>();
 	pd.chatWindow = pd.gui->createWindow<ChatWindow>();
+	pd.serverBrowser->passDefaultSettings(settings->getString("network/lastip"), settings->getInt("network/port"), settings->getString("network/username"));
 	pd.serverBrowser->open();
 
 	pd.gui->initAll();

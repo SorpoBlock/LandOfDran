@@ -6,12 +6,10 @@ void LoopServer::run(float deltaT, ExecutableArguments& cmdArgs, std::shared_ptr
 	pd.dynamics->sendRecent();
 	pd.physicsWorld->step(deltaT);
 
+	//Testing only:
+	spin += deltaT * 0.002f;
 	if (pd.dynamics->get(0))
-		pd.dynamics->get(0)->setVelocity(btVector3(0, 0, 5));
-
-	//Cap server framerate at 40fps
-	if (deltaT < 25)
-		SDL_Delay(25 - deltaT);
+		pd.dynamics->get(0)->setVelocity(btVector3(sin(spin)*10.0,0,cos(spin)*10.0));
 }
 
 LoopServer::LoopServer(ExecutableArguments& cmdArgs, std::shared_ptr<SettingManager> settings)

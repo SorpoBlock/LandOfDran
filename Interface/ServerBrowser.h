@@ -30,6 +30,9 @@ class ServerBrowser : public Window
 
 public:
 
+	//Pass in last used values into input fields
+	void passDefaultSettings(std::string ip, int port, std::string username);
+
 	//Pass progress loading into a server here so the UI can display it
 	void passLoadProgress(int _desiredTypes, int _loadedTypes);
 

@@ -5,6 +5,7 @@
 #include "../NetTypes/DynamicType.h"
 #include "../Graphics/Interpolator.h"
 #include "../Networking/Quantization.h"
+#include "../Utility/GlobalStartup.h" //getTicksMS
 
 /*
 	Dynamics are basically any object that can move around with physics

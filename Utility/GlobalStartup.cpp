@@ -1,22 +1,28 @@
 #include "GlobalStartup.h"
 
+//What time the application started
+std::chrono::time_point<std::chrono::high_resolution_clock> start;
+
+float getTicksMS()
+{
+    return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start).count();
+}
+
 //Calls functions like SDL_Init and such that don't return anything (important)
 bool globalStartup(std::shared_ptr<SettingManager> settings,const ExecutableArguments &cmdArgs)
 {
-    info("Starting Enet");
+    start = std::chrono::high_resolution_clock::now();
+
+   info("Starting Enet");
    if (enet_initialize() != 0)
-    {
+   {
         error("Could not start up Enet");
         return true;
-    }
+   }
 
    //No graphics or UI if running headless
    if (cmdArgs.dedicated)
-   {
-       //TODO: I feel like we don't need to start all of SDL just for SDL_GetTicks lmao
-       SDL_Init(SDL_INIT_TIMER);
        return false; //Everything's okay so far!
-   }
 
 	info("Starting SDL");
 	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS | SDL_INIT_TIMER) != 0)
@@ -71,11 +77,7 @@ void globalShutdown(const ExecutableArguments& cmdArgs)
 
     //No graphics or UI if running headless
     if (cmdArgs.dedicated)
-    {
-        info("Shutting down SDL");
-        SDL_Quit();
         return;
-    }
 
     info("Shutting down Imgui");
     ImGui_ImplOpenGL3_Shutdown();

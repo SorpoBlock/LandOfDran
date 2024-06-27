@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../LandOfDran.h"
+#include "../Utility/GlobalStartup.h" //getTicksMS
 
 struct Snapshot
 {
@@ -21,7 +22,7 @@ class Interpolator
 
 	public:
 
-	void addSnapshot(const glm::vec3& pos, const glm::quat& rot);
+	void addSnapshot(const glm::vec3& pos, const glm::quat& rot, float idealBufferSize);
 	glm::vec3 getPosition();
 	glm::quat getRotation();
 };

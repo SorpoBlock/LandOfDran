@@ -11,6 +11,11 @@
 */
 struct Simulation
 {
+	/*
+		How many snapshots to hold onto, so we don't need to poll SettingsManager each updateSimObjects packet
+	*/
+	float idealBufferSize = 5.0;
+
 	//Types:
 	std::vector<std::shared_ptr<DynamicType>> dynamicTypes;
 
