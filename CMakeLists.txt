@@ -20,6 +20,7 @@ find_package(CURL CONFIG REQUIRED)
 find_package(OpenGL REQUIRED)
 find_package(OpenAL CONFIG REQUIRED)
 find_package(SDL2 CONFIG REQUIRED)
+find_package(Lua REQUIRED)
 #find_package(unofficial-enet CONFIG REQUIRED)
 
 # Add source to this project's executable.
@@ -144,10 +145,11 @@ add_executable (LandOfDran
 "GameLoop/LoopServer.cpp" 
 
  "Physics/PhysicsWorld.h" 
- "Physics/PhysicsWorld.cpp"  "Networking/PacketsFromServer/ChatMessageFromServer.h" "Networking/PacketsFromServer/ChatMessageFromServer.cpp")
+ "Physics/PhysicsWorld.cpp"  "Networking/PacketsFromServer/ChatMessageFromServer.h" "Networking/PacketsFromServer/ChatMessageFromServer.cpp" "LuaFunctions/Dynamic.cpp" "LuaFunctions/Dynamic.h" "Networking/PacketsFromClient/AttemptEvalLogin.cpp" "Networking/PacketsFromServer/EvalLoginResponse.h" "Networking/PacketsFromServer/EvalLoginResponse.cpp")
 
 #include_directories("C:/Users/Syerjchep/Downloads/enet-2.3.10/include")
 include_directories("C:/Users/Syerjchep/Downloads/enet-1.3.18.tar/enet-1.3.18/include")
+target_include_directories(LandOfDran PRIVATE ${LUA_INCLUDE_DIR})
 
 #target_link_libraries(LandOfDran PRIVATE unofficial::enet::enet)
 target_link_libraries(LandOfDran PRIVATE ZLIB::ZLIB)
@@ -161,6 +163,7 @@ target_link_libraries(LandOfDran PRIVATE assimp::assimp)
 #target_link_libraries(LandOfDran PRIVATE "C:/Users/Syerjchep/Downloads/enet-2.3.10/build/release/enet_shared.lib")
 target_link_libraries(LandOfDran PRIVATE wsock32 ws2_32 winmm)
 target_link_libraries(LandOfDran PRIVATE "C:/Users/Syerjchep/Downloads/enet-1.3.18.tar/enet-1.3.18/enet64.lib")
+target_link_libraries(LandOfDran PRIVATE ${LUA_LIBRARIES})
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)
   set_property(TARGET LandOfDran PROPERTY CXX_STANDARD 20)

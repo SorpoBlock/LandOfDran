@@ -45,3 +45,14 @@ inline ENetPacket* makeChatMessage(const std::string &message)
 
 	return ret;
 }
+
+//Try to log into the server's eval console
+inline ENetPacket* attemptEvalLogin(const std::string &password)
+{
+	ENetPacket* ret = enet_packet_create(NULL, password.length() + 2, getFlagsFromChannel(OtherReliable));
+	ret->data[0] = (unsigned char)EvalLogin;
+	ret->data[1] = (unsigned char)password.length();
+	memcpy(ret->data + 2, password.c_str(), password.length());
+
+	return ret;
+}

@@ -27,6 +27,9 @@ class JoinedClient
 
 public:
 
+	//Did they log in with the eval password?
+	bool isAdmin = false;
+
 	std::string name = "";
 
 	std::string getIP() const { return ip; }

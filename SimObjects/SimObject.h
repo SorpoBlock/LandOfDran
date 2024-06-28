@@ -30,12 +30,6 @@ class SimObject
 		since the last time updates were sent out on this object type
 	*/
 	bool requiresUpdate = false;
-	
-	/*
-		Set when we formally delete it using ObjHolder, though theroetically bad lua code may still hold this object in memory via shared_ptrs
-		If this is true any Lua call on it will cause an error
-	*/
-	bool deleted = false;
 
 	/*
 		Set by ObjHolder on creation

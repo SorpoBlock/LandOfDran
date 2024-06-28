@@ -35,10 +35,5 @@ void chatMessageSent(JoinedClient * source, Server const * const server, ENetPac
 		message = message.substr(0, 255);
 	}
 
-	//Send the message to all clients
-	ENetPacket * ret = enet_packet_create(NULL, messageLength + 2, getFlagsFromChannel(OtherReliable));
-	ret->data[0] = (unsigned char)ChatMessageFromServer;
-	ret->data[1] = (unsigned char)messageLength;
-	memcpy(ret->data + 2, message.c_str(), messageLength);
-	server->broadcast(ret, OtherReliable);
+	server->broadcastChat(message);
 }

@@ -15,7 +15,16 @@ netIDType ObjHolder<Dynamic>::lastNetID = 0;
 */
 struct ServerProgramData
 {
+
+	//Allow people to run Lua commands remotely with a password
+	bool useEvalPassword = false;
+
+	//The password, only works if useEvalPassword is true
+	std::string evalPassword = "changeme";
+
 	std::shared_ptr<PhysicsWorld>	physicsWorld = nullptr;
+	
+	lua_State * luaState = nullptr;
 
 	//Includes all of the types from each of the vectors below, used to send them all quickly when someone joins and needs types
 	std::vector<std::shared_ptr<NetType>> allNetTypes;

@@ -1,4 +1,5 @@
 #include "Dynamic.h"
+#include "Dynamic.h"
 
 Dynamic::Dynamic(std::shared_ptr<DynamicType> _type, const btVector3& initialPos) : type(_type)
 {

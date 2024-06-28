@@ -60,11 +60,26 @@ void Server::switchPacketType(JoinedClient * source, ENetPacket* packet, const v
 			chatMessageSent(source, this, packet, pd);
 			return;
 		}
+		case EvalLogin:
+		{
+			attemptEvalLogin(source, this, packet, pd);
+			return;
+		}
 
 		case InvalidClient:
 		default:
+			error("Invalid packet from client " + std::to_string(type));
 			return;
 	}
+}
+
+void Server::broadcastChat(std::string message) const
+{
+	ENetPacket* ret = enet_packet_create(NULL, message.length() + 2, getFlagsFromChannel(OtherReliable));
+	ret->data[0] = (unsigned char)ChatMessageFromServer;
+	ret->data[1] = (unsigned char)message.length();
+	memcpy(ret->data + 2, message.c_str(), message.length());
+	broadcast(ret, OtherReliable);
 }
 
 void Server::run(const void* pd)
@@ -110,10 +125,18 @@ void Server::run(const void* pd)
 			//We could just jump directly to the joined client with the data pointer but we'd need to iterate the vector anyway to remove it
 			auto iter = clients.begin();
 			while (iter != clients.end())
-			{
+			{ 
 				std::shared_ptr<JoinedClient> client = *iter;
+
 				if (client.get() == (JoinedClient*)netEvent.peer->data)
 				{
+					if (client->name.length() > 0)
+					{
+						std::string message = client->name + " disconnected.";
+						broadcastChat(message);
+						info(message);
+					}
+
 					client.reset();
 					clients.erase(iter);
 					break;

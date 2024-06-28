@@ -53,6 +53,4 @@ JoinedClient::~JoinedClient()
 {
 	//Won't do anything if they disconnected already
 	kick(KickReason::OtherReason);
-
-	info("Client left");
 }

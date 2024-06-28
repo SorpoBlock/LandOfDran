@@ -84,7 +84,7 @@ glm::quat Interpolator::getRotation()
 		}
 	}
 
-	std::cout<<"No snapshots to interpolate between\n";
+	//std::cout<<"No snapshots to interpolate between\n";
 	return glm::quat(1, 0, 0, 0);
 }
 

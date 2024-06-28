@@ -74,6 +74,10 @@ bool Client::run(const ClientProgramData& pd,Simulation &simulation, const Execu
 						packets.push_back(new ChatMessagePacket(packetHoldTime, event.packet));
 						return false;
 
+					case EvalLoginResponse:
+						packets.push_back(new EvalLoginResponsePacket(packetHoldTime, event.packet));
+						return false;
+
 					//Can't process packet
 					case InvalidServer:
 					default:

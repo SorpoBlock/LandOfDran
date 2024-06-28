@@ -49,6 +49,7 @@ enum FromClientPacketType : unsigned char
 	ConnectionRequest = 1,	//Client wants to connect, includes their name and login token if not a guest
 	LoadingFinished = 2,	//Let server know we loaded all types and can start receiving actual object updates now
 	ChatMessage = 3,		//Send a chat message to the server
+	EvalLogin = 4,			//Try to log into the server's eval console with admin password
 };
 
 /*
@@ -63,6 +64,7 @@ enum FromServerPacketType : unsigned char
 	UpdateSimObjects = 4,
 	DeleteSimObjects = 5,
 	ChatMessageFromServer = 6,
+	EvalLoginResponse = 7	//Response to EvalLogin, did you get the password right?
 };
 
 //For use with AcceptConnection packets

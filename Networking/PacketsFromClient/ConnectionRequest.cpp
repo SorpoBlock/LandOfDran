@@ -73,6 +73,7 @@ void applyConnectionRequest(JoinedClient * source,Server const * const server, E
 	source->name = desiredName;
 
 	info("Client joined as guest with name " + desiredName);
+	server->broadcastChat(desiredName + " connected.");
 
 	//Send types to client:
 	for (size_t a = 0; a < pd->allNetTypes.size(); a++)

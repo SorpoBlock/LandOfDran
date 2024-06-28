@@ -60,4 +60,8 @@ void populateDefaults(std::shared_ptr<SettingManager> settings)
 	settings->addBool("graphics/shadowcolor",		true, false, 	"Use colored shadows");
 	settings->addEnum("graphics/godrayquality",		1, 	 			"God ray samples", 	{"None","32 samples","64 samples","96 samples","128 samples"});
 	settings->addEnum("graphics/spritedensity",		1, 				"Sprite density",	{"Low","Medium","High","Very High"});
+
+	//Hosting settings
+	settings->addBool("hosting/useevalpassword",	false, false,	"Enable password for remote Lua execution");
+	settings->addString("hosting/evalpassword",	"changeme", false, "Lua console password");	
 }

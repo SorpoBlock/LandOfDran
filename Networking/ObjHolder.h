@@ -3,6 +3,13 @@
 #include "../NetTypes/NetType.h"
 #include "Server.h"
 
+extern "C" 
+{
+	#include <lua.h>
+	#include <lualib.h>
+	#include <lauxlib.h>
+}
+
 //Basically we wanna make sure packets are under the MTU if possible,
 //but I'm not positive how much overhead ENet adds to packets
 #define MTU ENET_HOST_DEFAULT_MTU - 20
@@ -49,7 +56,123 @@ class ObjHolder
 	//Will be nullptr if this is the client
 	std::shared_ptr<Server> server = nullptr;
 
+	std::string metatableName = "";
+
 	public:
+
+	/*
+		Creates a lua global variable with name provided that is a table with functions provided
+		Assigned to all Lua objects created by this ObjHolder's pushLua function
+	*/
+	void makeLuaMetatable(lua_State* const L,const std::string& name, luaL_Reg *functions)
+	{
+		luaL_newmetatable(L, metatableName.c_str());
+		luaL_setfuncs(L, functions, 0);
+		lua_pushvalue(L, -1);
+		lua_setfield(L, -1, "__index");
+		lua_setglobal(L, metatableName.c_str());
+
+		metatableName = name;
+
+		delete functions;
+	}
+
+	/*
+		Lua representations of SimObjects are tables with:
+		- type: integer, the SimObjectType of the object
+		- ptr: lightuserdata, a pointer to a weak_ptr to the object
+		- id: integer, the netID of the object
+		A metatable that handles function calls and comparison behavior
+	*/
+	std::shared_ptr<T> popLua(lua_State* const L) const
+	{
+		scope("popLua");
+
+		if (!lua_istable(L, -1))
+		{
+			lua_pop(L, 1);
+			error("No table for supposed SimObject");
+			return nullptr;
+		}
+
+		lua_getfield(L, -1, "type");
+		if(!lua_isinteger(L, -1))
+		{
+			lua_pop(L, 2);
+			error("No type field for supposed SimObject");
+			return nullptr;
+		}
+
+		SimObjectType poppedType = (SimObjectType)lua_tointeger(L, -1);
+		lua_pop(L, 1);
+
+		if (poppedType != type)
+		{
+			lua_pop(L, 1);
+			error("SimObject type mismatch, invalid Lua cast");
+			return nullptr;
+		}
+
+		lua_getfield(L, -1, "ptr");
+		if(!lua_isuserdata(L, -1))
+		{
+			lua_pop(L, 2);
+			error("No ptr field for supposed SimObject");
+			return nullptr;
+		}
+
+		std::weak_ptr<T> *obj = (std::weak_ptr<T>*)lua_touserdata(L, -1);
+		lua_pop(L, 1);
+
+		if (!obj)
+		{
+			lua_pop(L, 1);
+			error("Lua userdata for SimObject weak_ptr not set");
+			return nullptr;
+		}
+
+		if(obj->expired())
+		{
+			lua_getfield(L, -1, "id");
+			if (lua_isinteger(L, -1))
+				error("SimObject with ID " + std::to_string(lua_tointeger(L, -1)) + " was deleted");
+			else
+				error("SimObject was deleted, could not get ID");
+
+			lua_pop(L, 2);
+			return nullptr;
+		}
+
+		return obj->lock();
+	}
+
+	//See note for its companion function: popLua
+	void pushLua(lua_State* const L,std::shared_ptr<T> obj)
+	{
+		if (metatableName == "")
+		{
+			error("No metatable set for ObjHolder");
+			return;
+		}
+
+		//Set class metatable
+		lua_newtable(L);
+		lua_getglobal(L, metatableName.c_str());
+		lua_setmetatable(L, -2);
+
+		//Push class-unique server ID
+		lua_pushinteger(L, obj->netID);
+		lua_setfield(L, -2, "id");
+
+		//Allow unambigious type checking
+		lua_pushinteger(L, type);
+		lua_setfield(L, -2, "type");
+
+		//Lua will automatically deallocate the space for the weak_ptr itself when the table is garbage collected
+		std::weak_ptr<T> *userdata = (std::weak_ptr<T>*)lua_newuserdata(L, sizeof(std::weak_ptr<T>));
+		(*userdata) = obj;
+		lua_setfield(L, -2, "ptr");
+	}
 
 	/*
 		Templated factory method for creating an object
@@ -139,17 +262,14 @@ class ObjHolder
 	}
 
 	/*
-		No guarentee the memory is actually deallocated here
-		In particular, Lua variables may still hold onto a copy of the shared_ptr
-		This would be the fault of bad Lua, and its safest to just let it retain that memory to avoid a crash
-		In that case, the object will have a flag deleted = true that will cause any Lua calls on it to throw an error
+		Attempt to canonically destroy the object, could still exist in memory with shared_ptrs
+		Lua objects hold weak_ptrs and will not prohibit deallocation
 	*/
 	inline void destroy(std::shared_ptr<T>& idx)
 	{
 		auto it = std::find(allObjects.begin(), allObjects.end(), idx);
 		if (it != allObjects.end())
 		{
-			(*it)->deleted = true;
 			recentlyDeletedIDs.push_back((*it)->netID);
 			allObjects.erase(it);
 			idx.reset();

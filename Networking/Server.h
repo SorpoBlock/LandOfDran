@@ -44,6 +44,9 @@ public:
 	void broadcast(const char* data, unsigned int len, PacketChannel channel) const;
 	void broadcast(ENetPacket* packet, PacketChannel channel) const;
 
+	//Send a chat message to everyone!
+	void broadcastChat(std::string message) const;
+
 	void run(const void* pd);
 
 	Server(int port);
@@ -53,3 +56,4 @@ public:
 void applyConnectionRequest(JoinedClient *  source, Server const* const server, ENetPacket const* const packet, const void* pdv);
 void clientFinishedLoading(JoinedClient* source, Server const* const server, ENetPacket const* const packet, const void* pdv);
 void chatMessageSent(JoinedClient * source, Server const* const server, ENetPacket const* const packet, const void* pdv);
+void attemptEvalLogin(JoinedClient * source, Server const* const server, ENetPacket const* const packet, const void* pdv);

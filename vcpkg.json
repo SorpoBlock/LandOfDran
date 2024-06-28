@@ -3,13 +3,14 @@
     "assimp",
     "bullet3",
     "curl",
+    "enet",
     "glew",
     "glm",
     "openal-soft",
     "opengl",
     "sdl2",
     "zlib",
-    "enet"
+    "lua"
   ],
   "overrides": [
     {

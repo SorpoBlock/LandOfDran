@@ -9,6 +9,9 @@ void LoopClient::leaveServer(ExecutableArguments& cmdArgs)
 	if (!client)
 		return;
 
+	//Will need to log in again to get eval access
+	pd.debugMenu->reset();
+
 	if (simulation.dynamics)
 	{
 		delete simulation.dynamics;
@@ -128,6 +131,16 @@ void LoopClient::handleInput(float deltaT, ExecutableArguments& cmdArgs, std::sh
 		simulation.idealBufferSize = settings->getInt("network/snapshotbuffer");
 	}
 
+	if (pd.debugMenu->passwordSubmitted())
+	{
+		std::string password = pd.debugMenu->getPassword();
+		info(password);
+		if (cmdArgs.gameState != InGame)
+			pd.debugMenu->adminLoginComment = "Not in a server!";
+		else
+			client->send(attemptEvalLogin(password), OtherReliable);
+	}
+
 	//Various keys were pressed that were bound to certain commands:
 	if (pd.input->pollCommand(MouseLock))
 		pd.context->setMouseLock(!pd.context->getMouseLocked());
@@ -179,7 +192,6 @@ void LoopClient::renderEverything(float deltaT)
 	//Technically rendering related calculations based on previously inputted transform data
 	for (unsigned int a = 0; a < simulation.dynamicTypes.size(); a++)
 		simulation.dynamicTypes[a]->getModel()->updateAll(deltaT);
-
 
 	//Start rendering to screen:
 	pd.camera->render(pd.shaders);

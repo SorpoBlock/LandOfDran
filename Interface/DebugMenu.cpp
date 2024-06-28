@@ -9,6 +9,20 @@ void DebugMenu::passDetails(std::shared_ptr<Camera> camera,const NetInfo & netIn
 	outgoingData = netInfo.outgoingData;
 }
 
+void DebugMenu::reset()
+{
+	autheticated = false;
+	lastLoggedLines.clear();
+	adminLoginComment = "";
+	consoleCommandBuffer[0] = 0;
+	passwordBuffer[0] = 0;
+}
+
+void DebugMenu::addLogLine(loggerLine line)
+{
+	lastLoggedLines.push_back(line);
+}
+
 void DebugMenu::render(ImGuiIO* io)
 {
 	if (!opened)
@@ -40,54 +54,77 @@ void DebugMenu::render(ImGuiIO* io)
 
 	if (ImGui::BeginTabItem("Console"))
 	{
-		ImGui::BeginGroup();
-		float windowWidth = ImGui::GetContentRegionAvail().x;
-		ImGui::BeginChild("debugScroll",ImVec2(windowWidth,200));
-		ImGui::PushTextWrapPos(0.0f);
-
-		const std::deque<loggerLine> * const lastLoggedLines = Logger::getStorage();
-		for (int a = ((int)lastLoggedLines->size())-1; a >= 0; a--)
+		if (!autheticated)
 		{
-			if (lastLoggedLines->at(a).isDebug && !showVerboseLogging)
-				continue;
-
-			if(lastLoggedLines->at(a).isError)
-				ImGui::TextColored(ImVec4(1, 0, 0, 1), lastLoggedLines->at(a).text.c_str());
-			else if(lastLoggedLines->at(a).isDebug)
-				ImGui::TextColored(ImVec4(1,1,1,0.5), lastLoggedLines->at(a).text.c_str());
-			else
+			ImGui::Text("You need to log into the server as admin to use this feature.");
+			bool passSubmit = false;
+			if (ImGui::InputText("Password", passwordBuffer, 256, ImGuiInputTextFlags_Password | ImGuiInputTextFlags_EnterReturnsTrue))
+				passSubmit = true;
+			if (ImGui::Button("Authenticate"))
+				passSubmit = true;
+			if (strlen(passwordBuffer) < 1)
 			{
-				if (lastLoggedLines->at(a).text.length() > 6)
-				{
-					if(lastLoggedLines->at(a).text.substr(0,6) == "INPUT ")
-					{
-						ImGui::TextColored(ImVec4(0, 1, 0, 1), lastLoggedLines->at(a).text.substr(6).c_str());
-						continue;
-					}
-				}
-				ImGui::Text(lastLoggedLines->at(a).text.c_str());
+				if (passSubmit)
+					adminLoginComment = "Please enter a password";
+				passSubmit = false;
 			}
+			wantsToAuthenticate = passSubmit;
+			if(strlen(adminLoginComment.c_str()) > 0)
+				ImGui::Text(adminLoginComment.c_str());
 		}
-
-		if (scrollToBottom)
-			ImGui::SetScrollY(ImGui::GetScrollMaxY());
-
-		ImGui::PopTextWrapPos();
-		ImGui::EndChild();
-		ImGui::EndGroup();
-
-		ImGui::Checkbox("Verbose", &showVerboseLogging);
-		ImGui::SameLine();
-		ImGui::Checkbox("Scroll lock", &scrollToBottom);
-		
-		if (ImGui::InputText("<- Lua", consoleCommandBuffer, 256, ImGuiInputTextFlags_EnterReturnsTrue))
+		else
 		{
-			std::string command = (consoleCommandBuffer);
-			if (command.length() > 0)
+			ImGui::BeginGroup();
+			float windowWidth = ImGui::GetContentRegionAvail().x;
+			ImGui::BeginChild("debugScroll", ImVec2(windowWidth, 200));
+			ImGui::PushTextWrapPos(0.0f);
+
+			//This line would be for showing client side logs
+			//const std::deque<loggerLine> * const lastLoggedLines = Logger::getStorage();
+
+			for (int a = ((int)lastLoggedLines.size()) - 1; a >= 0; a--)
 			{
-				info("INPUT " + command);
-				error("Not implemented yet.");
-				consoleCommandBuffer[0] = 0;
+				if (lastLoggedLines.at(a).isDebug && !showVerboseLogging)
+					continue;
+
+				if (lastLoggedLines.at(a).isError)
+					ImGui::TextColored(ImVec4(1, 0, 0, 1), lastLoggedLines.at(a).text.c_str());
+				else if (lastLoggedLines.at(a).isDebug)
+					ImGui::TextColored(ImVec4(1, 1, 1, 0.5), lastLoggedLines.at(a).text.c_str());
+				else
+				{
+					if (lastLoggedLines.at(a).text.length() > 6)
+					{
+						if (lastLoggedLines.at(a).text.substr(0, 6) == "INPUT ")
+						{
+							ImGui::TextColored(ImVec4(0, 1, 0, 1), lastLoggedLines.at(a).text.substr(6).c_str());
+							continue;
+						}
+					}
+					ImGui::Text(lastLoggedLines.at(a).text.c_str());
+				}
+			}
+
+			if (scrollToBottom)
+				ImGui::SetScrollY(ImGui::GetScrollMaxY());
+
+			ImGui::PopTextWrapPos();
+			ImGui::EndChild();
+			ImGui::EndGroup();
+
+			ImGui::Checkbox("Verbose", &showVerboseLogging);
+			ImGui::SameLine();
+			ImGui::Checkbox("Scroll lock", &scrollToBottom);
+
+			if (ImGui::InputText("<- Lua", consoleCommandBuffer, 256, ImGuiInputTextFlags_EnterReturnsTrue))
+			{
+				std::string command = (consoleCommandBuffer);
+				if (command.length() > 0)
+				{
+					info("INPUT " + command);
+					error("Not implemented yet.");
+					consoleCommandBuffer[0] = 0;
+				}
 			}
 		}
 
@@ -112,6 +149,7 @@ DebugMenu::DebugMenu()
 {
 	name = "Debug Menu";
 	consoleCommandBuffer[0] = 0;
+	passwordBuffer[0] = 0;	
 }
 
 DebugMenu::~DebugMenu()
