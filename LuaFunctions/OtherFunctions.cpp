@@ -27,8 +27,6 @@ std::string makeStringFromArgs(lua_State* L)
 
 	std::string ret = "";
 
-	std::cout << args << " args\n";
-
 	for (unsigned int a = 1; a < args+1; a++)
 	{
 		if (lua_isstring(L, a))
@@ -59,9 +57,52 @@ std::string makeStringFromArgs(lua_State* L)
 			continue;
 		}
 
+		std::cout << "On top before: " << lua_gettop(L) << "\n";
 		if (lua_istable(L, a))
 		{
+			lua_getfield(L, a, "ptr");
+			if (lua_isuserdata(L, -1))
+			{
+				lua_pop(L, 1); //ptr
+
+				lua_getfield(L, a, "type");
+				if(lua_isinteger(L,-1))
+				{
+					SimObjectType type = (SimObjectType)lua_tointeger(L, -1);
+					lua_pop(L, 1); //type
+					switch (type)
+					{
+						case DynamicTypeId:
+						{
+							lua_getfield(L, a, "id");
+							int id = lua_tointeger(L, -1);
+							lua_pop(L, 1); //id
+
+							ret += "[Dynamic " + std::to_string(id)+"]";
+							break;
+						}
+
+						case InvalidSimTypeId:
+						default:
+							ret += "[Unknown Simobject]";
+					}
+					std::cout << "On top after 1: " << lua_gettop(L) << "\n";
+					continue;
+				}
+				else
+				{
+					ret += "[Unknown Userdata]";
+					lua_pop(L, 1); //type
+					std::cout << "On top after 2: " << lua_gettop(L) << "\n";
+					continue;
+				}
+			}
+			else
+				lua_pop(L, 1); //ptr
+
+
 			ret += "[table]";
+			std::cout << "On top after 3: " << lua_gettop(L) << "\n";
 			continue;
 		}
 

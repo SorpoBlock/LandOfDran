@@ -11,6 +11,7 @@
 
 #include "../LandOfDran.h"
 #include "../Utility/ExecutableArguments.h"
+#include "../NetTypes/NetType.h"
 
 extern ExecutableArguments* LUA_args;
 
