@@ -11,6 +11,9 @@
 */
 struct Simulation
 {
+	//Only stored if we succesfully managed to log in to the server we're currently playing on
+	std::string evalPassword = "";
+
 	/*
 		How many snapshots to hold onto, so we don't need to poll SettingsManager each updateSimObjects packet
 	*/

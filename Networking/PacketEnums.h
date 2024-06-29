@@ -50,7 +50,12 @@ enum FromClientPacketType : unsigned char
 	LoadingFinished = 2,	//Let server know we loaded all types and can start receiving actual object updates now
 	ChatMessage = 3,		//Send a chat message to the server
 	EvalLogin = 4,			//Try to log into the server's eval console with admin password
+	EvalCommand = 5			//Send a Lua command to the server
 };
+
+//Used with ConsoleLine packet
+#define LogFlag_Error 1
+#define LogFlag_Debug 2
 
 /*
 	Up to 256 types of packet from server to client
@@ -64,7 +69,8 @@ enum FromServerPacketType : unsigned char
 	UpdateSimObjects = 4,
 	DeleteSimObjects = 5,
 	ChatMessageFromServer = 6,
-	EvalLoginResponse = 7	//Response to EvalLogin, did you get the password right?
+	EvalLoginResponse = 7,	//Response to EvalLogin, did you get the password right?
+	ConsoleLine = 8,		//A line of text from the server's logger to clients that have admin
 };
 
 //For use with AcceptConnection packets

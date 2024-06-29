@@ -15,6 +15,7 @@ bool EvalLoginResponsePacket::applyPacket(const ClientProgramData& pd, Simulatio
 	else if (packet->data[1] == 0)
 	{
 		pd.debugMenu->adminLoginComment = "Wrong password!";
+		simulation.evalPassword = "";
 	}
 	else
 		error("Strange response for EvalLoginResponse packet from server");

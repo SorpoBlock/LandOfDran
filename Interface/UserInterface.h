@@ -29,6 +29,7 @@ class Window
 	//Called by UserInterface on start up
 	virtual void init() = 0;
 	//Called by UserInterface every frame
+	//Important to note a lot of input actually gets handled in the render call due to how ImGui is written and is stored in various ways for later polling
 	virtual void render(ImGuiIO* io) = 0;
 	//In SDL_PollEvent loop
 	virtual void handleInput(SDL_Event& e, std::shared_ptr<InputMap> input) = 0;

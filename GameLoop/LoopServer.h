@@ -4,6 +4,7 @@
 
 #include "../Networking/Server.h"
 #include "ServerProgramData.h"
+#include "../LuaFunctions/OtherFunctions.h"
 
 /*
 	This is the big bad class that allows us to separate our server hosting loop from

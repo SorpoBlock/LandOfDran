@@ -40,8 +40,8 @@ void DebugMenu::render(ImGuiIO* io)
 	{
 		ImGui::Text("FPS: %f", io->Framerate);
 		ImGui::Text("Ping: %f", lastPing);
-		ImGui::Text("Incoming Data: %f", incomingData);;
-		ImGui::Text("Outgoing Data: %f", outgoingData);;
+		ImGui::Text("Incoming Data: %f", incomingData);
+		ImGui::Text("Outgoing Data: %f", outgoingData);
 		ImGui::EndTabItem();
 	}
 
@@ -71,6 +71,7 @@ void DebugMenu::render(ImGuiIO* io)
 			wantsToAuthenticate = passSubmit;
 			if(strlen(adminLoginComment.c_str()) > 0)
 				ImGui::Text(adminLoginComment.c_str());
+			//Login will be started in ClientLoop::run
 		}
 		else
 		{
@@ -82,7 +83,8 @@ void DebugMenu::render(ImGuiIO* io)
 			//This line would be for showing client side logs
 			//const std::deque<loggerLine> * const lastLoggedLines = Logger::getStorage();
 
-			for (int a = ((int)lastLoggedLines.size()) - 1; a >= 0; a--)
+			//Display a list of text lines with flags for their color
+			for (int a = 0; a < lastLoggedLines.size(); a++)
 			{
 				if (lastLoggedLines.at(a).isDebug && !showVerboseLogging)
 					continue;
@@ -105,6 +107,7 @@ void DebugMenu::render(ImGuiIO* io)
 				}
 			}
 
+			//Scroll lock button
 			if (scrollToBottom)
 				ImGui::SetScrollY(ImGui::GetScrollMaxY());
 
@@ -112,17 +115,44 @@ void DebugMenu::render(ImGuiIO* io)
 			ImGui::EndChild();
 			ImGui::EndGroup();
 
+			//Options
 			ImGui::Checkbox("Verbose", &showVerboseLogging);
 			ImGui::SameLine();
 			ImGui::Checkbox("Scroll lock", &scrollToBottom);
+			ImGui::SameLine();
+			ImGui::Checkbox("Enter to submit", &enterBehavior);
 
-			if (ImGui::InputText("<- Lua", consoleCommandBuffer, 256, ImGuiInputTextFlags_EnterReturnsTrue))
+			//Place last command in the text box again
+			if(ImGui::Button("Repeat"))
+				strcpy(consoleCommandBuffer, lastCommand.c_str());
+
+			bool wantsSubmit = false;
+			
+			ImGui::SameLine();
+			if (ImGui::Button("Submit"))
+				wantsSubmit = true;
+
+			ImGui::SameLine();
+			ImGui::TextDisabled("(?)");
+			if (ImGui::BeginItemTooltip())
 			{
-				std::string command = (consoleCommandBuffer);
+				ImGui::PushTextWrapPos(ImGui::GetFontSize() * 35.0f);
+				ImGui::TextUnformatted("If enter to submit is checked, you can hit CTRL+Enter for a new line. Normal enter will submit the command. Hit the Repeat button to put the last command in the text box.");
+				ImGui::PopTextWrapPos();
+				ImGui::EndTooltip();
+			}
+
+			if (ImGui::InputTextMultiline("<- Lua", consoleCommandBuffer, 10000, ImVec2(windowWidth * 0.9, 200), ImGuiInputTextFlags_EnterReturnsTrue | (enterBehavior ? ImGuiInputTextFlags_CtrlEnterForNewLine : 0) | ImGuiInputTextFlags_AllowTabInput))
+				wantsSubmit = true; //Hit enter/return while typing
+
+			if(wantsSubmit)
+			{
+				std::string command = std::string(consoleCommandBuffer);
 				if (command.length() > 0)
 				{
-					info("INPUT " + command);
-					error("Not implemented yet.");
+					luaCommandWaiting = true;
+					waitingLuaCommand = command;
+					lastCommand = command;
 					consoleCommandBuffer[0] = 0;
 				}
 			}

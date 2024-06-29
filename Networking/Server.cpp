@@ -65,11 +65,36 @@ void Server::switchPacketType(JoinedClient * source, ENetPacket* packet, const v
 			attemptEvalLogin(source, this, packet, pd);
 			return;
 		}
+		case EvalCommand :
+		{
+			parseEvalCommand(source, this, packet, pd);
+			return;
+		}
 
 		case InvalidClient:
 		default:
 			error("Invalid packet from client " + std::to_string(type));
 			return;
+	}
+}
+
+//Send something from the logger to any client with admin
+void Server::updateAdminConsoles(const loggerLine &message) const
+{
+	for (unsigned int a = 0; a < getNumClients();  a++)
+	{
+		if (!clients[a]->isAdmin)
+			continue;
+
+		//TODO: Honestly no clue if it's safe to send the same allocated packet to multiple clients
+		//Since ENet 'takes management' of the packets memory after you send it to a client
+		ENetPacket* packet = enet_packet_create(NULL, message.text.length() + 3, getFlagsFromChannel(OtherReliable));
+		packet->data[0] = (unsigned char)ConsoleLine;
+		packet->data[1] = (message.isError ? LogFlag_Error : 0) | (message.isDebug ? LogFlag_Debug : 0);
+		packet->data[2] = (unsigned char)message.text.length();
+		memcpy(packet->data + 3, message.text.c_str(), message.text.length());
+
+		clients[a]->send(packet, OtherReliable);
 	}
 }
 

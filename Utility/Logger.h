@@ -60,7 +60,7 @@ class Logger
         static Logger& get();
 
         //Gets last logStorageLines lines of logged text
-        static const std::deque<loggerLine> * const getStorage();
+        static std::deque<loggerLine> * const getStorage();
 
         //Make sure there can't ever be more than one logger at a time
         Logger(Logger const&) = delete;

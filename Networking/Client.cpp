@@ -78,6 +78,10 @@ bool Client::run(const ClientProgramData& pd,Simulation &simulation, const Execu
 						packets.push_back(new EvalLoginResponsePacket(packetHoldTime, event.packet));
 						return false;
 
+					case ConsoleLine:
+						packets.push_back(new ConsoleLinePacket(packetHoldTime, event.packet));
+						return false;
+
 					//Can't process packet
 					case InvalidServer:
 					default:

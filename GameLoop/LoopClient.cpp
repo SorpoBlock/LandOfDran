@@ -22,9 +22,11 @@ void LoopClient::leaveServer(ExecutableArguments& cmdArgs)
 	client = nullptr;
 
 	//It's very possible some or all data structures may not have been initialized or allocated if we disconnected in the middle loading into a new server
-	
+
 	simulation.dynamicTypes.clear();
 	pd.signals.typesToLoad = 0; //Disable progress bar in server browser UI until next join
+	
+	simulation.evalPassword = "";
 
 	//Destroy server specific physics
 	if (pd.physicsWorld)
@@ -135,10 +137,17 @@ void LoopClient::handleInput(float deltaT, ExecutableArguments& cmdArgs, std::sh
 	{
 		std::string password = pd.debugMenu->getPassword();
 		info(password);
+		simulation.evalPassword = password;
 		if (cmdArgs.gameState != InGame)
 			pd.debugMenu->adminLoginComment = "Not in a server!";
 		else
 			client->send(attemptEvalLogin(password), OtherReliable);
+	}
+
+	if (pd.debugMenu->isCommandWaiting())
+	{
+		std::string command = pd.debugMenu->getLuaCommand();
+		client->send(evalCommand(simulation.evalPassword, command), OtherReliable);
 	}
 
 	//Various keys were pressed that were bound to certain commands:

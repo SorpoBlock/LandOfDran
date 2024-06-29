@@ -9,6 +9,7 @@
 #include "PacketsFromServer/DeleteSimObjects.h"
 #include "PacketsFromServer/ChatMessageFromServer.h"
 #include "PacketsFromServer/EvalLoginResponse.h"
+#include "PacketsFromServer/DisplayConsoleLine.h"
 #include "../GameLoop/ClientProgramData.h"
 #include "../GameLoop/Simulation.h"
 

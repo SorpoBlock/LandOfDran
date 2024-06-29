@@ -30,8 +30,12 @@ class DebugMenu : public Window
 
 	bool showVerboseLogging = false;
 	bool scrollToBottom = true;
+	bool enterBehavior = true;
 
-	char consoleCommandBuffer[256];
+	//Last command sent, can be retrieved with repeat button
+	std::string lastCommand = "";
+
+	char consoleCommandBuffer[10000];
 	char passwordBuffer[256];
 
 	//You can comment this out and use the local variable in render if you want client-side stuff to be logged instead
@@ -44,9 +48,17 @@ class DebugMenu : public Window
 	//Has the user entered a password to authenticate?
 	bool wantsToAuthenticate = false;
 
+	//We typed something in the lua console and we have authenticated
+	bool luaCommandWaiting = false;
+	std::string waitingLuaCommand = "";
+
 	DebugMenu();
 
 public:
+
+	bool isCommandWaiting() const { return luaCommandWaiting; }
+
+	std::string getLuaCommand() { luaCommandWaiting = false; return waitingLuaCommand; }
 
 	void authenticate() { wantsToAuthenticate = false; autheticated = true; }
 

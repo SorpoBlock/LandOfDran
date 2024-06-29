@@ -56,3 +56,19 @@ inline ENetPacket* attemptEvalLogin(const std::string &password)
 
 	return ret;
 }
+
+inline ENetPacket *evalCommand(const std::string& password, const std::string &command)
+{
+	ENetPacket* ret = enet_packet_create(NULL, command.length() + password.length() + 4, getFlagsFromChannel(OtherReliable));
+	ret->data[0] = (unsigned char)EvalCommand;
+
+	unsigned short commandLength = command.length();
+	memcpy(ret->data + 1, &commandLength, sizeof(unsigned short));
+
+	memcpy(ret->data + 3, command.c_str(), command.length());
+	ret->data[command.length() + 3] = (unsigned char)password.length();
+	memcpy(ret->data + command.length() + 4, password.c_str(), password.length());
+	//TODO: Hash password
+
+	return ret;
+}
