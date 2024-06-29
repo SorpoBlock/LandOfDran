@@ -35,6 +35,8 @@ void LoopClient::leaveServer(ExecutableArguments& cmdArgs)
 		SimObject::world = nullptr;
 	}
 
+	pd.context->setMouseLock(false);
+
 	cmdArgs.gameState = NotInGame;
 }
 
@@ -136,7 +138,6 @@ void LoopClient::handleInput(float deltaT, ExecutableArguments& cmdArgs, std::sh
 	if (pd.debugMenu->passwordSubmitted())
 	{
 		std::string password = pd.debugMenu->getPassword();
-		info(password);
 		simulation.evalPassword = password;
 		if (cmdArgs.gameState != InGame)
 			pd.debugMenu->adminLoginComment = "Not in a server!";
@@ -222,8 +223,15 @@ void LoopClient::run(float deltaT,ExecutableArguments& cmdArgs, std::shared_ptr<
 {
 	if (client)
 	{
-		if (client->run(pd,simulation, cmdArgs)) //  <--- networking
-			leaveServer(cmdArgs);			  //If true, we were kicked
+		KickReason reason = client->run(pd, simulation, cmdArgs); //  <--- networking, process packets
+		if(reason != NotKicked) 
+		{
+			//We lost connection somehow
+			leaveServer(cmdArgs);
+
+			//Show pop-up
+			pd.serverBrowser->setKickReason(reason);
+		}
 	}
 
 	handleInput(deltaT,cmdArgs,settings); //mouse and keyboard input

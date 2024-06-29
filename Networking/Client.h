@@ -28,6 +28,9 @@ class Client
 
 	bool valid = false;
 
+	//If the server kicked us first, don't bother making sure the server acknowledges our disconnection
+	bool alreadyDisconnected = false;
+
 	std::vector<HeldServerPacket*> packets;
 
 	//Try applying each held packet and deleting any that expired or have been applied
@@ -41,8 +44,8 @@ public:
 
 	bool isValid() const { return valid; }
 
-	//Returns true if we were kicked
-	bool run(const ClientProgramData & pd,Simulation &simulation, const ExecutableArguments &cmdArgs);
+	//Returns NotKicked unless the client is disconnected
+	KickReason run(const ClientProgramData & pd,Simulation &simulation, const ExecutableArguments &cmdArgs);
 
 	void send(const char* data, unsigned int len, PacketChannel channel);
 	void send(ENetPacket* packet, PacketChannel channel);

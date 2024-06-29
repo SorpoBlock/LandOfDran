@@ -16,7 +16,7 @@ struct NetInfo
 class DebugMenu : public Window
 {
 	friend class Window;
-	friend class UserInterface;
+	friend class UserInterface; 
 
 	glm::vec3 cameraPosition = glm::vec3(0,0,0);
 	glm::vec3 cameraDirection = glm::vec3(0,0,0);

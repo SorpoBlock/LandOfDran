@@ -61,18 +61,18 @@ class ObjHolder
 	public:
 
 	/*
-		Creates a lua global variable with name provided that is a table with functions provided
+		Creates a lua global variable with name provided that is a table with functions provided 
 		Assigned to all Lua objects created by this ObjHolder's pushLua function
 	*/
 	void makeLuaMetatable(lua_State* const L,const std::string& name, luaL_Reg *functions)
 	{
+		metatableName = name;
+
 		luaL_newmetatable(L, metatableName.c_str());
 		luaL_setfuncs(L, functions, 0);
 		lua_pushvalue(L, -1);
 		lua_setfield(L, -1, "__index");
 		lua_setglobal(L, metatableName.c_str());
-
-		metatableName = name;
 
 		delete functions;
 	}
@@ -170,7 +170,7 @@ class ObjHolder
 
 		//Lua will automatically deallocate the space for the weak_ptr itself when the table is garbage collected
 		std::weak_ptr<T> *userdata = (std::weak_ptr<T>*)lua_newuserdata(L, sizeof(std::weak_ptr<T>));
-		(*userdata) = obj;
+		new(userdata) std::weak_ptr<T>(obj);
 		lua_setfield(L, -2, "ptr");
 	}
 
@@ -182,12 +182,13 @@ class ObjHolder
 	std::shared_ptr<T> create(Args... args)
 	{
 		std::shared_ptr<T> tmp(new T(args...));
+		tmp->me = tmp;
 		allObjects.push_back(std::move(tmp));
 		allObjects.back()->netID = lastNetID++;
 		allObjects.back()->creationTime = SDL_GetTicks();
-		allObjects.back()->me = allObjects.back();
 		allObjects.back()->onCreation();
-		recentCreations.push_back(allObjects.back());
+		if(server)
+			recentCreations.push_back(allObjects.back());
 		return allObjects.back();
 	}
 
@@ -226,6 +227,9 @@ class ObjHolder
 		if (it != allObjects.end())
 		{
 			recentlyDeletedIDs.push_back((*it)->netID);
+			(*it)->requestDestruction();
+			(*it)->me.reset();
+			(*it).reset();
 			allObjects.erase(it);
 		}
 		else
@@ -243,6 +247,9 @@ class ObjHolder
 		if (it != allObjects.end())
 		{
 			recentlyDeletedIDs.push_back((*it)->netID);
+			(*it)->requestDestruction();
+			(*it)->me.reset();
+			(*it).reset();
 			allObjects.erase(it);
 		}
 		else
@@ -271,6 +278,9 @@ class ObjHolder
 		if (it != allObjects.end())
 		{
 			recentlyDeletedIDs.push_back((*it)->netID);
+			(*it)->requestDestruction();
+			(*it)->me.reset();
+			(*it).reset();
 			allObjects.erase(it);
 			idx.reset();
 		}
@@ -426,7 +436,7 @@ class ObjHolder
 			int sentThisPacket = 0;
 			int bytesThisPacket = 0;
 
-			for (unsigned int a = sent; a < recentCreations.size(); a++)
+			for (unsigned int a = sent; a < recentlyDeletedIDs.size(); a++)
 			{
 				//Only using one byte to encode amount of objects in the packet
 				if (sentThisPacket >= 255)
@@ -441,7 +451,7 @@ class ObjHolder
 					bytesThisPacket -= sizeof(netIDType);
 					break;
 				}
-			}
+			} 
 
 			if (sentThisPacket == 0)
 				break;

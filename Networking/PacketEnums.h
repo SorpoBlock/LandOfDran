@@ -8,6 +8,18 @@
 typedef unsigned int netIDType;
 
 /*
+	For use with enet_peer_disconnect
+*/
+enum KickReason
+{
+	NotKicked = 0,				//Default value, Client::run ran and did not report being kicked
+	OtherReason = 1000,			//Given if the destructor is called on JoinedClient
+	ServerShutdown = 1001,		//Broadcast from the destructor of the Server itself
+	ConnectionRejected = 1002,	//See the details of the AcceptConnection packet for more info
+	LuaKick = 1003,				//Kicked by Lua script
+};
+
+/*
 	For use with enet_host_broadcast and enet_peer_send
 	These channels should be the same between server and client
 	Their values are arbitrary, it only matters that they're consistant

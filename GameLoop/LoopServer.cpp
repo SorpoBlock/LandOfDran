@@ -24,6 +24,9 @@ LoopServer::LoopServer(ExecutableArguments& cmdArgs, std::shared_ptr<SettingMana
 	if (!server->isValid())
 		return;
 
+	LUA_args = &cmdArgs;
+	LUA_pd = &pd;
+
 	pd.evalPassword = settings->getString("hosting/evalpassword");
 	pd.useEvalPassword = settings->getBool("hosting/useevalpassword");
 	if (pd.evalPassword == " " || pd.evalPassword == "changeme" || pd.evalPassword.length() < 1)
@@ -40,7 +43,7 @@ LoopServer::LoopServer(ExecutableArguments& cmdArgs, std::shared_ptr<SettingMana
 	SimObject::world = pd.physicsWorld;
 
 	pd.dynamics = new ObjHolder<Dynamic>(SimObjectType::DynamicTypeId, server);
-	pd.dynamics->makeLuaMetatable(pd.luaState, "metatable_dynamic", getDynamicFunctions());
+	pd.dynamics->makeLuaMetatable(pd.luaState, "metatable_dynamic", getDynamicFunctions(pd.luaState));
 
 	//Test:
 	auto testType = std::make_shared<DynamicType>();
@@ -55,6 +58,9 @@ LoopServer::LoopServer(ExecutableArguments& cmdArgs, std::shared_ptr<SettingMana
 
 LoopServer::~LoopServer()
 {
+	LUA_args = nullptr;
+	LUA_pd = nullptr;
+
 	pd.physicsWorld.reset();
 	SimObject::world = nullptr;
 

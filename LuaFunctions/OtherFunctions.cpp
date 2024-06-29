@@ -1,5 +1,20 @@
 #include "OtherFunctions.h"
 
+ExecutableArguments* LUA_args = nullptr;
+
+static int LUA_shutdown(lua_State* L)
+{
+	if (LUA_args)
+	{
+		info("shutdown() called");
+		LUA_args->mainLoopRun = false;
+	}
+	else
+		error("LUA_args not set");
+
+	return 0;
+}
+
 //Common part of LUA_info/error/debug
 std::string makeStringFromArgs(lua_State* L)
 {
@@ -12,58 +27,54 @@ std::string makeStringFromArgs(lua_State* L)
 
 	std::string ret = "";
 
-	for (unsigned int a = 0; a < args; a++)
+	std::cout << args << " args\n";
+
+	for (unsigned int a = 1; a < args+1; a++)
 	{
-		if (lua_isstring(L, -1))
+		if (lua_isstring(L, a))
 		{
-			const char *str = lua_tostring(L, -1);
+			const char *str = lua_tostring(L, a);
 			if (str)
 				ret += std::string(str);
 			else
 				ret += "[invalid string]";
-
-			lua_pop(L, 1);
 			continue;
 		}
 
-		if (lua_isboolean(L, -1))
+		if (lua_isboolean(L, a))
 		{
-			ret += lua_toboolean(L, -1) ? "true" : "false";
-			lua_pop(L, 1);
+			ret += lua_toboolean(L, a) ? "true" : "false";
 			continue;
 		}
 
-		if (lua_isnil(L, -1))
+		if (lua_isnil(L, a))
 		{
 			ret += "[nil]";
-			lua_pop(L, 1);
 			continue;
 		}
 
-		if (lua_isnumber(L, -1))
+		if (lua_isnumber(L, a))
 		{
-			ret += std::to_string(lua_tonumber(L, -1));
-			lua_pop(L, 1);
+			ret += std::to_string(lua_tonumber(L, a));
 			continue;
 		}
 
-		if (lua_istable(L, -1))
+		if (lua_istable(L, a))
 		{
 			ret += "[table]";
-			lua_pop(L, 1);
 			continue;
 		}
 
-		if (lua_isfunction(L, -1))
+		if (lua_isfunction(L, a))
 		{
 			ret += "[function]";
-			lua_pop(L, 1);
 			continue;
 		}
 
 		ret += "[unknown]";
-		lua_pop(L, 1);
 	}
+
+	lua_pop(L, args);
 
 	return ret;
 }
@@ -103,4 +114,5 @@ void registerOtherFunctions(lua_State* L)
 	lua_register(L, "info", LUA_info);
 	lua_register(L, "error", LUA_error);
 	lua_register(L, "debug", LUA_debug);
+	lua_register(L, "shutdown", LUA_shutdown);
 }

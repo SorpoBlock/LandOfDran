@@ -57,6 +57,9 @@ void applyConnectionRequest(JoinedClient * source,Server const * const server, E
 		ret[1] = ConnectionNameUsed;
 		source->send(ret, 2, JoinNegotiation);
 		source->kick(ConnectionRejected);
+
+		info("Client " + source->getIP() + " choose already used name " + desiredName + ", kicking.");
+
 		return;
 	}
 

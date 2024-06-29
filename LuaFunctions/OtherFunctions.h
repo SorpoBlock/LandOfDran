@@ -10,6 +10,9 @@
 */
 
 #include "../LandOfDran.h"
+#include "../Utility/ExecutableArguments.h"
+
+extern ExecutableArguments* LUA_args;
 
 extern "C"
 {
@@ -22,6 +25,8 @@ extern "C"
 static int LUA_info(lua_State* L);
 static int LUA_error(lua_State* L);
 static int LUA_debug(lua_State* L);
+
+static int LUA_shutdown(lua_State* L);
 
 //Register all funcs in this file
 void registerOtherFunctions(lua_State* L);

@@ -5,6 +5,12 @@
 #include "../Networking/Server.h"
 #include "ServerProgramData.h"
 #include "../LuaFunctions/OtherFunctions.h"
+#include "../LuaFunctions/Dynamic.h"
+
+//LoopServer is responsible for managing all of this
+//Global state that only exists for lua functions to use:
+extern ExecutableArguments* LUA_args;
+extern ServerProgramData* LUA_pd;
 
 /*
 	This is the big bad class that allows us to separate our server hosting loop from

@@ -17,12 +17,12 @@ void Client::tryApplyHeldPackets(const ClientProgramData& pd, Simulation& simula
 	}
 }
 
-bool Client::run(const ClientProgramData& pd,Simulation &simulation, const ExecutableArguments& cmdArgs)
+KickReason Client::run(const ClientProgramData& pd,Simulation &simulation, const ExecutableArguments& cmdArgs)
 {
 	scope("Client::run");
 
-	if (!valid)
-		return true;
+	if (!valid) //Not really a kick but we can't use this client anyway
+		return KickReason::OtherReason;
 
 	tryApplyHeldPackets(pd,simulation,cmdArgs);
 
@@ -32,7 +32,7 @@ bool Client::run(const ClientProgramData& pd,Simulation &simulation, const Execu
 	if (ret < 0)
 	{
 		error("enet_host_server failed");
-		return false; //not sure if this should be true / kicked or false, probably won't happen
+		return NotKicked; //enet error, not sure if this should be true / kicked or false, probably won't happen
 	}
 
 	if (ret > 0)
@@ -41,8 +41,14 @@ bool Client::run(const ClientProgramData& pd,Simulation &simulation, const Execu
 		{
 			case ENET_EVENT_TYPE_DISCONNECT:
 			{
-				info("Lost connection with server!");
-				return true;
+				alreadyDisconnected = true;
+
+				//Lack of a kick reason because the server didn't intentionally kick us
+				if(event.data == 0)
+					event.data = KickReason::OtherReason;
+
+				info("Lost connection with server! Code: " + std::to_string(event.data));
+				return (KickReason)event.data;
 			}
 			case ENET_EVENT_TYPE_RECEIVE:
 			{
@@ -52,55 +58,55 @@ bool Client::run(const ClientProgramData& pd,Simulation &simulation, const Execu
 				{
 					case AcceptConnection:
 						packets.push_back(new AcceptConnectionPacket(packetHoldTime, event.packet));
-						return false;
+						return NotKicked;
 
 					case AddSimObjectType:
 						packets.push_back(new AddSimObjectTypePacket(packetHoldTime, event.packet));
-						return false;
+						return NotKicked;
 
 					case AddSimObjects:
 						packets.push_back(new AddSimObjectsPacket(packetHoldTime, event.packet));
-						return false;
+						return NotKicked;
 
 					case UpdateSimObjects:
 						packets.push_back(new UpdateSimObjectsPacket(packetHoldTime, event.packet));
-						return false;
+						return NotKicked;
 
 					case DeleteSimObjects:
 						packets.push_back(new DeleteSimObjectsPacket(packetHoldTime, event.packet));
-						return false;
+						return NotKicked;
 
 					case ChatMessageFromServer:
 						packets.push_back(new ChatMessagePacket(packetHoldTime, event.packet));
-						return false;
+						return NotKicked;
 
 					case EvalLoginResponse:
 						packets.push_back(new EvalLoginResponsePacket(packetHoldTime, event.packet));
-						return false;
+						return NotKicked;
 
 					case ConsoleLine:
 						packets.push_back(new ConsoleLinePacket(packetHoldTime, event.packet));
-						return false;
+						return NotKicked;
 
 					//Can't process packet
 					case InvalidServer:
 					default:
 						error("Invalid packet type " + std::to_string(type) + " received from server.");
 						enet_packet_destroy(event.packet);
-						return false;
+						return NotKicked;
 				}
 
 				//Packet will be destroyed in destructor of HeldServerPacket
-				return false;
+				return NotKicked;
 			}
 			case ENET_EVENT_TYPE_CONNECT:
 			{
 				error("Got some kind of double connection from server!");
-				return false;
+				return NotKicked;
 			}
 		}
 	}
-	return false;
+	return NotKicked;
 }
 
 Client::Client(std::string ip,unsigned int port,unsigned int _packetHoldTime) : packetHoldTime(_packetHoldTime)
@@ -144,7 +150,21 @@ Client::~Client()
 {
 	if (valid)
 	{
-		enet_peer_disconnect(peer,0);
+		if (!alreadyDisconnected)
+		{
+			enet_peer_disconnect(peer, 0);
+
+			//Run the client for a little while longer to make sure the server acknowledges the disconnect
+			ENetEvent event;
+			if (enet_host_service(client, &event, 1500) > 0)
+			{
+				if (event.type == ENET_EVENT_TYPE_DISCONNECT)
+					info("Server acknowledged disconnect");
+			}
+
+		}
+		
+		enet_peer_reset(peer);
 		enet_host_destroy(client);
 	}
 }

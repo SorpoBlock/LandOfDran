@@ -197,6 +197,11 @@ Server::~Server()
 	for (unsigned int a = 0; a < clients.size(); a++)
 		clients[a]->kick(KickReason::ServerShutdown);
 
+	//Give disconnection packets time to send to clients
+	ENetEvent event;
+	for(int a = 0; a<10; a++)
+		enet_host_service(server, &event, 100);
+
 	if (valid)
 		enet_host_destroy(server);
 }

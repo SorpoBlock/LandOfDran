@@ -5,6 +5,40 @@ void ServerBrowser::render(ImGuiIO* io)
 	if (!opened)
 		return;
 
+	//Server browser window will already display errors relating to not being able to connect
+	if (lastKickReason == KickReason::ConnectionRejected)
+		lastKickReason = NotKicked;
+
+	//Server just disconnected us, show a pop-up to the user with why until they acknowledge it
+	if (lastKickReason != NotKicked)
+	{
+		ImGui::OpenPopup("Disconnected");
+		ImVec2 center = ImGui::GetMainViewport()->GetCenter();
+		ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+		if (ImGui::BeginPopupModal("Disconnected", NULL, ImGuiWindowFlags_AlwaysAutoResize))
+		{
+			std::string message = "";
+
+			switch (lastKickReason)
+			{
+			case KickReason::LuaKick:
+				message = "You were kicked by someone using an add-on.";
+				break;
+			case KickReason::ServerShutdown:
+				message = "The server has shut down.";
+				break;
+			case KickReason::OtherReason:
+				message = "Connected for an unknown reason, server may have been forcibly stopped.";
+				break;
+			}
+
+			ImGui::Text(message.c_str());
+			if (ImGui::Button("Cancel")) //acknowledged
+				lastKickReason = NotKicked;
+			ImGui::EndPopup();
+		}
+	}
+
 	if (!ImGui::Begin("Server Browser", &opened))
 	{
 		ImGui::End();

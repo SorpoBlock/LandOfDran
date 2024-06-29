@@ -124,6 +124,11 @@ void Dynamic::addToUpdatePacket(enet_uint8 * dest)
 	addQuaternion(dest + PositionBytes + sizeof(netIDType), quat);
 }
 
+void Dynamic::requestDestruction()
+{
+	((std::shared_ptr<SimObject>*)body->getUserPointer())->reset();
+}
+
 Dynamic::~Dynamic()
 {
 	if (modelInstance)

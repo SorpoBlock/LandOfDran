@@ -26,9 +26,14 @@ class ServerBrowser : public Window
 
 	std::string connectionNote = "";
 
+	//Display a pop-up with connection loss info if disconnected
+	KickReason lastKickReason = KickReason::NotKicked;
+
 	ServerBrowser();
 
 public:
+
+	void setKickReason(KickReason reason) { lastKickReason = reason; }
 
 	//Pass in last used values into input fields
 	void passDefaultSettings(std::string ip, int port, std::string username);

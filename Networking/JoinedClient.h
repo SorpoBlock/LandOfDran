@@ -3,16 +3,6 @@
 #include "../LandOfDran.h"
 
 /*
-	For use with enet_peer_disconnect 
-*/
-enum KickReason
-{
-	OtherReason = 1000,			//Given if the destructor is called on JoinedClient
-	ServerShutdown = 1001,		//Broadcast from the destructor of the Server itself
-	ConnectionRejected = 1002	//See the details of the AcceptConnection packet for more info
-};
-
-/*
 	These are held by the Server and represent a handle to a single person who joined the server for the duration of their play
 	Don't confuse with Client which is something the client program holds a single instance of
 */
