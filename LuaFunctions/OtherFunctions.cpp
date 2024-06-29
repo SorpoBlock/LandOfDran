@@ -57,7 +57,6 @@ std::string makeStringFromArgs(lua_State* L)
 			continue;
 		}
 
-		std::cout << "On top before: " << lua_gettop(L) << "\n";
 		if (lua_istable(L, a))
 		{
 			lua_getfield(L, a, "ptr");
@@ -86,14 +85,12 @@ std::string makeStringFromArgs(lua_State* L)
 						default:
 							ret += "[Unknown Simobject]";
 					}
-					std::cout << "On top after 1: " << lua_gettop(L) << "\n";
 					continue;
 				}
 				else
 				{
 					ret += "[Unknown Userdata]";
 					lua_pop(L, 1); //type
-					std::cout << "On top after 2: " << lua_gettop(L) << "\n";
 					continue;
 				}
 			}
@@ -102,7 +99,6 @@ std::string makeStringFromArgs(lua_State* L)
 
 
 			ret += "[table]";
-			std::cout << "On top after 3: " << lua_gettop(L) << "\n";
 			continue;
 		}
 

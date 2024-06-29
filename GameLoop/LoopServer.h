@@ -6,6 +6,7 @@
 #include "ServerProgramData.h"
 #include "../LuaFunctions/OtherFunctions.h"
 #include "../LuaFunctions/Dynamic.h"
+#include "../LuaFunctions/Scheduler.h"
 
 //LoopServer is responsible for managing all of this
 //Global state that only exists for lua functions to use:
@@ -22,6 +23,8 @@ class LoopServer
 	ServerProgramData pd;
 	//Network connection manager, its methods take ClientProgramData as a parameter, so it's separate
 	Server* server = nullptr;
+	//Essentially a singleton class that just handles the Lua schedule and cancel functions, just needs to be run in main loop
+	LuaScheduler* scheduler = nullptr;
 
 	bool valid = false;
 
