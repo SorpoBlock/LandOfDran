@@ -14,6 +14,9 @@ class SimObject
 
 	protected:
 
+	//Called by objHolder when destroy is first called, gives object an oppertunity to reset smart pointers it might have
+	virtual void requestDestruction() = 0;
+
 	explicit SimObject();
 
 	//Set by ObjHolder in milliseconds since program start:

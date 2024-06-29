@@ -42,6 +42,9 @@ class Dynamic : public SimObject
 	//Physics object
 	btRigidBody* body = nullptr;
 
+	//Called by objHolder when destroy is first called, gives object an oppertunity to reset smart pointers it might have
+	virtual void requestDestruction() override;
+
 	public:
 
 	void updateSnapshot();
