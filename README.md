@@ -38,10 +38,10 @@ It only requires system default libraries and is somewhat small and cross platfo
 
 ## Community
 
-# Website / forum
+### Website / forum
 
 https://dran.land
 
-# Discord
+### Discord
 
 https://discord.com/invite/X9pPq2z9us
