@@ -530,11 +530,11 @@ class ObjHolder
 			packet->data[2] = sentThisPacket;
 			int byteIterator = 3;
 
-			for (int a = sent; a < sent + sentThisPacket; a++)
+			for (int a = sent; a < sent + sentThisPacket + skippedThisPacket; a++)
 			{
 				if (!allObjects[a]->requiresNetUpdate())
 					continue;
-
+	
 				allObjects[a]->addToUpdatePacket(packet->data + byteIterator);
 				byteIterator += allObjects[a]->getUpdatePacketBytes();
 			}

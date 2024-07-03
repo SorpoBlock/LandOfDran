@@ -2,6 +2,7 @@
 
 bool UpdateSimObjectsPacket::applyPacket(const ClientProgramData& pd, Simulation& simulation, const ExecutableArguments& cmdArgs)
 {
+	//TODO: Have server not send updates until we confirm we've loaded in
 	if (cmdArgs.gameState != InGame)
 		return true;
 
@@ -30,7 +31,6 @@ bool UpdateSimObjectsPacket::applyPacket(const ClientProgramData& pd, Simulation
 			std::shared_ptr<Dynamic> toUpdate = simulation.dynamics->find(id);
 			if (toUpdate)
 			{
-				//std::cout << SDL_GetTicks() << "\n";
 				toUpdate->interpolator.addSnapshot(pos, rot, simulation.idealBufferSize);
 			}
 

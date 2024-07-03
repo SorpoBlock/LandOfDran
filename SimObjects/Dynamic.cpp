@@ -101,8 +101,13 @@ bool Dynamic::requiresNetUpdate() const
 		return true;
 
 	//Even if the object isn't moving much at all we should still send out an update every once in a while
-	if (SDL_GetTicks() - lastSentTime > 500)
+	/*if (SDL_GetTicks() - lastSentTime > 500)
+	{
+		std::cout << "Time\n";
 		return true;
+	}
+	This causes crashes cause the time can increment between the time we check and the time we send the packet
+	*/
 
 	return false;
 }
