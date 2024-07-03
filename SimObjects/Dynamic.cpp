@@ -13,6 +13,8 @@ Dynamic::Dynamic(std::shared_ptr<DynamicType> _type, const btVector3& initialPos
 
 	if (!type->getModel()->isServerSide())
 	{
+		//TODO: Pass initial rotation as well
+		interpolator.addSnapshot(b2g3(initialPos), glm::quat(1, 0, 0, 0), 4);
 		modelInstance = new ModelInstance(type->getModel().get());
 		modelInstance->setModelTransform(glm::translate(glm::vec3(initialPos.x(), initialPos.y(), initialPos.z())));
 	}
@@ -35,6 +37,7 @@ unsigned int Dynamic::getCreationPacketBytes() const
 		4 bytes - dyanamic type ID
 		position
 		rotation
+		scale
 	*/
 	return PositionBytes + QuaternionBytes + sizeof(netIDType) * 2;
 }
@@ -61,14 +64,24 @@ void Dynamic::setPosition(const btVector3& pos)
 	body->setWorldTransform(t);
 }
 
+void Dynamic::activate() const
+{
+	body->activate();
+}
+
 void Dynamic::setVelocity(const btVector3& vel)
 {
 	body->setLinearVelocity(vel);
 }
 
-btVector3 Dynamic::getVelocity()
+btVector3 Dynamic::getVelocity() const
 {
 	return body->getLinearVelocity();
+}
+
+btVector3 Dynamic::getPosition() const
+{
+	return body->getWorldTransform().getOrigin();
 }
 
 bool Dynamic::requiresNetUpdate() const
@@ -84,7 +97,7 @@ bool Dynamic::requiresNetUpdate() const
 		return true;
 
 	//More than like 8 degrees difference in rotation?
-	if (t.getRotation().dot(lastSentTransform.getRotation()) < 0.99)
+	if (body->getAngularVelocity().length2() > 0.1)
 		return true;
 
 	//Even if the object isn't moving much at all we should still send out an update every once in a while

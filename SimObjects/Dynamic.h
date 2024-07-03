@@ -58,7 +58,11 @@ class Dynamic : public SimObject
 	//Server only, used to set physics body linear veclotiy
 	void setVelocity(const btVector3& vel);
 
-	btVector3 getVelocity();
+	void activate() const;
+
+	btVector3 getVelocity() const;
+
+	btVector3 getPosition() const;
 
 	virtual bool requiresNetUpdate() const override;
 

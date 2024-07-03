@@ -4,7 +4,7 @@
 
 #include "../Graphics/Mesh.h"
 #include "../Physics/PhysicsWorld.h"
-
+#include "../Networking/Quantization.h"
 #include "NetType.h"
 #include "../GameLoop/ClientProgramData.h"
 
@@ -34,6 +34,8 @@ class DynamicType : public NetType
 
 	public:
 
+	const glm::vec3& getScale() const { return model->baseScale; }
+
 	std::shared_ptr<Model>  getModel() const { return model; }
 
 	//Calls underlying model->render
@@ -41,7 +43,7 @@ class DynamicType : public NetType
 
 	//Called from lua scripts generally, file is relative path to text file containing model loading settings 
 	//Increment ID after using
-	void serverSideLoad(const std::string &filePath, netIDType typeID);
+	void serverSideLoad(const std::string &filePath, netIDType typeID, glm::vec3 baseScale);
 
 	//Net types as opposed to SimObjects always just get their own packet
 	//This is the packet from createTypePacket

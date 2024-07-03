@@ -26,7 +26,10 @@ void DynamicType::loadFromPacket(ENetPacket const* const packet, const ClientPro
 
 	std::string filePath = std::string((char*)packet->data + 3 + sizeof(netIDType), filePathLen);
 
-	model = std::make_shared<Model>(filePath,pd.textures);
+	glm::vec3 baseScale;
+	getPosition(packet->data + 3 + sizeof(netIDType) + filePathLen, baseScale);
+
+	model = std::make_shared<Model>(filePath,pd.textures,baseScale);
 
 	glm::vec3 halfExtents = model->getColHalfExtents();
 	collisionBox = new btBoxShape(g2b3(halfExtents));
@@ -50,11 +53,11 @@ void DynamicType::render(std::shared_ptr<ShaderManager> graphics, bool useMateri
 	model->render(graphics, useMaterials);
 }
 
-void DynamicType::serverSideLoad(const std::string &filePath,netIDType typeID)
+void DynamicType::serverSideLoad(const std::string &filePath,netIDType typeID,glm::vec3 baseScale)
 {
 	id = typeID;
 
-	model = std::make_shared<Model>(filePath, true);
+	model = std::make_shared<Model>(filePath, true, baseScale);
 
 	glm::vec3 halfExtents = model->getColHalfExtents();
 	collisionBox = new btBoxShape(g2b3(halfExtents));
@@ -80,16 +83,26 @@ btRigidBody* DynamicType::createBody() const
 	return ret;
 }
 
-//Create the packet on the server to be passed to loadFromPacket on the client
+/*
+	Create the packet on the server to be passed to loadFromPacket on the client
+	1 byte   - Packet type
+	1 byte   - SimObject type
+	4 bytes  - object id
+	1 byte   - string length of relative file path
+	? bytes  - relative file path
+	12 bytes - base scale of model
+*/
 ENetPacket* DynamicType::createTypePacket() const
 {
-	ENetPacket* ret = enet_packet_create(NULL, model->loadedPath.length() + sizeof(netIDType) + 3, getFlagsFromChannel(JoinNegotiation));
+	unsigned int packetSize = model->loadedPath.length() + sizeof(netIDType) + 3 + PositionBytes;
+	ENetPacket* ret = enet_packet_create(NULL, packetSize, getFlagsFromChannel(JoinNegotiation));
 
 	ret->data[0] = AddSimObjectType;
 	ret->data[1] = DynamicTypeId;
 	memcpy(ret->data + 2, &id, sizeof(netIDType));
 	ret->data[2 + sizeof(netIDType)] = (unsigned char)model->loadedPath.length();
 	memcpy(ret->data + 3 + sizeof(netIDType), model->loadedPath.c_str(), model->loadedPath.length());
+	addPosition(ret->data + 3 + sizeof(netIDType) + model->loadedPath.length(), getScale()); 
 
 	return ret; 
 }

@@ -368,7 +368,7 @@ void ModelInstance::calculateMeshTransforms(float deltaT,glm::mat4 currentTransf
 	{
 		currentNode = type->rootNode;
 		progressAnimations(deltaT);
-	}
+	} 
 
 	if (debugLayer != -1)
 	{
@@ -868,7 +868,7 @@ void Model::calculateCollisionBox(const aiScene* scene)
 }
 
 //Abridged version for server-side loading, namely for collision meshes
-Model::Model(std::string filePath, bool _serverSide) : loadedPath(filePath), serverSide(_serverSide)
+Model::Model(std::string filePath, bool _serverSide, glm::vec3 _baseScale) : loadedPath(filePath), serverSide(_serverSide), baseScale(_baseScale)
 { 
 	scope("Model::Model");
 
@@ -988,7 +988,7 @@ Model::Model(std::string filePath, bool _serverSide) : loadedPath(filePath), ser
 }
 
 //Full constructor for client-side loading, includes materials and animations
-Model::Model(std::string filePath, std::shared_ptr<TextureManager> textures) : loadedPath(filePath), serverSide(false)
+Model::Model(std::string filePath, std::shared_ptr<TextureManager> textures,glm::vec3 _baseScale) : loadedPath(filePath), serverSide(false), baseScale(_baseScale)
 {
 	scope("Model::Model");
 

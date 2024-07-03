@@ -45,10 +45,21 @@ LoopServer::LoopServer(ExecutableArguments& cmdArgs, std::shared_ptr<SettingMana
 
 	//Test:
 	auto testType = std::make_shared<DynamicType>();
-	testType->serverSideLoad("Assets/brickhead/brickhead.txt",pd.dynamicTypes.size());
+	testType->serverSideLoad("Assets/brickhead/brickhead.txt",pd.dynamicTypes.size(),glm::vec3(0.02));
 	pd.dynamicTypes.push_back(testType);
 	pd.allNetTypes.push_back(testType);
 	//End test
+
+	info("Loading serverstart.lua");
+
+	if (luaL_dofile(pd.luaState, "serverstart.lua"))
+	{
+		error("Error loading serverstart.lua: " + std::string(lua_tostring(pd.luaState, -1)));
+		valid = false;
+		return;
+	}
+
+	info("Server running");
 
 	valid = true;
 }

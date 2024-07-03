@@ -416,13 +416,13 @@ class Model
 		File path refers to a text file that describes where the actual model is
 		Flags for how to load it, and other text files describing materials
 	*/
-	Model(std::string filePath, std::shared_ptr<TextureManager> textures);
+	Model(std::string filePath, std::shared_ptr<TextureManager> textures,glm::vec3 _baseScale);
 
 	/*
 		Server-side loading for collision meshes
 		The bool argument mostly exists at the moment to make sure you don't accidently call it because you forgot TextureManager
 	*/
-	Model(std::string filePath,bool _serverSide);
+	Model(std::string filePath,bool _serverSide,glm::vec3 _baseScale);
 
 	~Model();
 };

@@ -15,6 +15,12 @@ inline btVector3 g2b3(const glm::vec3 &in)
 	return btVector3(in.x, in.y, in.z);
 }
 
+//btVector3 to glm::vec3
+inline glm::vec3 b2g3(const btVector3 &in)
+{
+	return glm::vec3(in.x(), in.y(), in.z());
+}
+
 /*
 	Passed to btRigidBody through setUserIndex
 	You can getUserIndex to figure out what type of pointer the btRigidBody's getUserData is meant to be

@@ -517,7 +517,11 @@ class ObjHolder
 
 			//Not a break: we may have just skipped every object in this packet
 			if (sentThisPacket == 0)
+			{	
+				toSend -= skippedThisPacket;
+				sent += skippedThisPacket;
 				continue;
+			}
 
 			//Three extra bytes, packet type, simobject type, amount of objects
 			ENetPacket* packet = enet_packet_create(NULL, bytesThisPacket + 3, getFlagsFromChannel(Unreliable));
@@ -530,7 +534,7 @@ class ObjHolder
 			{
 				if (!allObjects[a]->requiresNetUpdate())
 					continue;
-				//std::cout << SDL_GetTicks() << "\n";
+
 				allObjects[a]->addToUpdatePacket(packet->data + byteIterator);
 				byteIterator += allObjects[a]->getUpdatePacketBytes();
 			}
