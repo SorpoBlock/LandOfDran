@@ -17,6 +17,10 @@ class JoinedClient
 
 public:
 
+	//Points to itself, used to pass to lua functions pretty much
+	//Derivitive of a shared_ptr the server holds for all clients
+	std::shared_ptr<JoinedClient> me;
+
 	//Did they log in with the eval password?
 	bool isAdmin = false;
 
@@ -33,6 +37,8 @@ public:
 
 	//Create a client from a connection event
 	JoinedClient(ENetEvent& event,unsigned int _netID);
+
+	void sendChat(std::string message) const;
 
 	//Similar to the destructor, but can be called before it to specify a reason
 	void kick(KickReason reason);

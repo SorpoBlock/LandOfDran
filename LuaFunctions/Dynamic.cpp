@@ -40,7 +40,7 @@ static int LUA_createDynamic(lua_State* L)
 	return 1;
 }
 
-static int LUA_destroyDynamic(lua_State* L)
+static int LUA_dynamicDestroy(lua_State* L)
 {
 	scope("(LUA) dynamic:destroy");
 
@@ -337,6 +337,79 @@ static int getNumDynamics(lua_State* L)
 	return 1;
 }
 
+static int LUA_dynamicSetAngularVelocity(lua_State* L)
+{
+	scope("(LUA) dynamic:setAngularVelocity");
+
+	int args = lua_gettop(L);
+
+	if (args != 4)
+	{
+		error("Expected 4 arguments dynamic:setAngularVelocity(x,y,z)");
+		return 0;
+	}
+
+	if (!LUA_pd->dynamics)
+	{
+		error("dynamics ObjHolder is null");
+		return 0;
+	}
+
+	float z = lua_tonumber(L, -1);
+	lua_pop(L, 1);
+	float y = lua_tonumber(L, -1);
+	lua_pop(L, 1);
+	float x = lua_tonumber(L, -1);
+	lua_pop(L, 1);
+
+	std::shared_ptr<Dynamic> dynamic = LUA_pd->dynamics->popLua(L);
+
+	if (!dynamic)
+	{
+		error("Invalid dynamic object passed, was it deleted already?");
+		return 0;
+	}
+
+	dynamic->setAngularVelocity(btVector3(x, y, z));
+	dynamic->activate();
+
+	return 0;
+}
+
+static int LUA_dynamicGetAngularVelocity(lua_State * L)
+{
+	scope("(LUA) dynamic:getAngularVelocity");
+
+	int args = lua_gettop(L);
+
+	if (args != 1)
+	{
+		error("Expected 1 arguments dynamic:getAngularVelocity()");
+		return 0;
+	}
+
+	if (!LUA_pd->dynamics)
+	{
+		error("dynamics ObjHolder is null");
+		return 0;
+	}
+
+	std::shared_ptr<Dynamic> dynamic = LUA_pd->dynamics->popLua(L);
+
+	if (!dynamic)
+	{
+		error("Invalid dynamic object passed, was it deleted already?");
+		return 0;
+	}
+
+	btVector3 vel = dynamic->getAngularVelocity();
+	lua_pushnumber(L, vel.x());
+	lua_pushnumber(L, vel.y());
+	lua_pushnumber(L, vel.z());
+
+	return 3;
+}
+
 luaL_Reg* getDynamicFunctions(lua_State *L)
 {
 	//Register dynamic global functions:
@@ -346,16 +419,21 @@ luaL_Reg* getDynamicFunctions(lua_State *L)
 	lua_register(L, "getNumDynamics", getNumDynamics);
 
 	//Create table of dynamic metatable functions:
-	luaL_Reg* regs = new luaL_Reg[7];
+	luaL_Reg* regs = new luaL_Reg[9];
 
 	int iter = 0;
-	regs[iter++] = { "destroy",     LUA_destroyDynamic };
+	regs[iter++] = { "destroy",     LUA_dynamicDestroy };
 	regs[iter++] = { "getVelocity", LUA_dynamicGetVelocity };
 	regs[iter++] = { "getPosition", LUA_dynamicGetPosition };
 	regs[iter++] = { "setPosition", LUA_dynamicSetPosition };
 	regs[iter++] = { "setVelocity", LUA_dynamicSetVelocity };
+	regs[iter++] = { "setAngularVelocity", LUA_dynamicSetAngularVelocity };
+	regs[iter++] = { "getAngularVelocity", LUA_dynamicGetAngularVelocity };
 	regs[iter++] = { "activate",    LUA_dynamicActivate };
 	regs[iter++] = { NULL, NULL };
 
 	return regs;
 }
+
+
+

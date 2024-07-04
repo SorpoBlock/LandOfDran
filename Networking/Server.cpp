@@ -107,7 +107,7 @@ void Server::broadcastChat(std::string message) const
 	broadcast(ret, OtherReliable);
 }
 
-void Server::run(const void* pd)
+void Server::run(const void* pd, lua_State* L, EventManager * eventManager)
 {
 	scope("Server::run");
 
@@ -128,6 +128,7 @@ void Server::run(const void* pd)
 		case ENET_EVENT_TYPE_CONNECT:
 		{
 			clients.push_back(std::make_shared<JoinedClient>(netEvent,lastNetID));
+			clients.back()->me = clients.back();
 			lastNetID++;
 			break;
 		}
@@ -155,8 +156,15 @@ void Server::run(const void* pd)
 
 				if (client.get() == (JoinedClient*)netEvent.peer->data)
 				{
+					client->me.reset();
+
 					if (client->name.length() > 0)
 					{
+						lua_pushnumber(L, client->getNetId());
+						lua_pushstring(L, client->name.c_str());
+						eventManager->callEvent(L, "ClientLeave", 2);
+						lua_settop(L, 0); //Don't need to do anything with returned ID or name
+
 						std::string message = client->name + " disconnected.";
 						broadcastChat(message);
 						info(message);

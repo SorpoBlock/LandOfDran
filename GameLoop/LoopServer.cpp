@@ -4,7 +4,7 @@
 
 void LoopServer::run(float deltaT, ExecutableArguments& cmdArgs, std::shared_ptr<SettingManager> settings)
 {
-	server->run(&pd); //   <---- networking
+	server->run(&pd,pd.luaState,pd.eventManager); //   <---- networking
 	pd.dynamics->sendRecent();
 	pd.physicsWorld->step(deltaT);
 
@@ -18,6 +18,7 @@ void LoopServer::run(float deltaT, ExecutableArguments& cmdArgs, std::shared_ptr
 LoopServer::LoopServer(ExecutableArguments& cmdArgs, std::shared_ptr<SettingManager> settings)
 {
 	server = new Server(DEFAULT_PORT);
+	LUA_server = server;
 	if (!server->isValid())
 		return;
 
@@ -35,6 +36,8 @@ LoopServer::LoopServer(ExecutableArguments& cmdArgs, std::shared_ptr<SettingMana
 	luaL_openlibs(pd.luaState);
 	registerOtherFunctions(pd.luaState);
 	scheduler = new LuaScheduler(pd.luaState);
+	pd.eventManager = new EventManager(pd.luaState);
+	registerClientFunctions(pd.luaState);
 
 	///Server just has one physics world that's started when the program starts and stays until shutdown, unlike client
 	pd.physicsWorld = std::make_shared<PhysicsWorld>();
@@ -66,6 +69,7 @@ LoopServer::LoopServer(ExecutableArguments& cmdArgs, std::shared_ptr<SettingMana
 
 LoopServer::~LoopServer()
 {
+	delete pd.eventManager;
 	delete scheduler;
 
 	LUA_args = nullptr;
@@ -80,4 +84,5 @@ LoopServer::~LoopServer()
 	pd.allNetTypes.clear();
 
 	delete server;
+	LUA_server = nullptr;
 }

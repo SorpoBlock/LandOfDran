@@ -17,7 +17,8 @@ enum SimObjectType : unsigned char //might be used for packets who knows
 	StaticMeshTypeId = 5,			//Objects that don't move each frame, like a brick, but they just have their own mesh
 	LightTypeId = 6,				//Lights can be freestanding or mounted to objects
 	EmitterTypeId = 7,				//Emitters can be freestanding or mounted to objects
-	BrickVehicleTypeId = 8			//Vehicles made from bricks, might not actually have NetType
+	BrickVehicleTypeId = 8,			//Vehicles made from bricks, might not actually have NetType
+	ClientTypeId = 9,				//Not currently an actual SimObject child class
 };
 
 /*

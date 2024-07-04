@@ -7,6 +7,7 @@
 #include "../LuaFunctions/OtherFunctions.h"
 #include "../LuaFunctions/Dynamic.h"
 #include "../LuaFunctions/Scheduler.h"
+#include "../LuaFunctions/ClientLua.h"
 
 //LoopServer is responsible for managing all of this
 //Global state that only exists for lua functions to use:

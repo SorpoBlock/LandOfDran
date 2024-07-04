@@ -74,9 +74,19 @@ void Dynamic::setVelocity(const btVector3& vel)
 	body->setLinearVelocity(vel);
 }
 
+void Dynamic::setAngularVelocity(const btVector3& vel)
+{
+	body->setAngularVelocity(vel);
+}
+
 btVector3 Dynamic::getVelocity() const
 {
 	return body->getLinearVelocity();
+}
+
+btVector3 Dynamic::getAngularVelocity() const
+{
+	return body->getAngularVelocity();
 }
 
 btVector3 Dynamic::getPosition() const

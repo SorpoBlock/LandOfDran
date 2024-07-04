@@ -1,5 +1,14 @@
 #include "JoinedClient.h"
 
+void JoinedClient::sendChat(std::string message) const
+{
+	ENetPacket* ret = enet_packet_create(NULL, message.length() + 2, getFlagsFromChannel(OtherReliable));
+	ret->data[0] = (unsigned char)ChatMessageFromServer;
+	ret->data[1] = (unsigned char)message.length();
+	memcpy(ret->data + 2, message.c_str(), message.length());
+	send(ret, OtherReliable);
+}
+
 void JoinedClient::send(ENetPacket* packet, PacketChannel channel) const
 {
 	if (!peer)

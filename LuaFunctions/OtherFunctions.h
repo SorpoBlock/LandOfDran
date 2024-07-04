@@ -22,6 +22,9 @@ extern "C"
 	#include <lauxlib.h>
 }
 
+//Not callable from lua, used for debugging C++ calls to Lua
+void stackDump(lua_State* L);
+
 //Logger wrapper functions
 static int LUA_info(lua_State* L);
 static int LUA_error(lua_State* L);

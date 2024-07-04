@@ -2,6 +2,7 @@
 
 #include "../Server.h"
 #include "../../GameLoop/ServerProgramData.h"
+#include "../../LuaFunctions/ClientLua.h"
 
 /*	
 	Do not attempt to assign a handle to JoinedClient to other objects directly
@@ -28,8 +29,37 @@ void chatMessageSent(JoinedClient * source, Server const * const server, ENetPac
 	message = source->name + ": " + message;
 	info(message.c_str());
 
+	//Push arguments to event
+	pushClientLua(pd->luaState, source->me);
+	lua_pushstring(pd->luaState, message.c_str());
+	//Trigger lua functions
+	pd->eventManager->callEvent(pd->luaState, "ClientChat", 2);
+	//Either return values will be correct, or they will be zero, do nothing special if lua functions messed up the event
+	if (lua_gettop(pd->luaState) != 0)
+	{
+		if (!lua_isstring(pd->luaState, -1))
+			error("First returned value for ClientChat event was not a string!");
+		else
+		{
+			//Lua can alter client's chat messages
+			const char* newMsg = lua_tostring(pd->luaState, -1);
+			if(newMsg)
+				message = std::string(newMsg);
+			else
+				error("First returned value for ClientChat event was invalid string");
+		}
+
+		lua_settop(pd->luaState, 0);
+	}
+
 	messageLength = message.length();
-	if(messageLength > 255)
+
+	//Lua may have deleted the chat message
+	if (messageLength < 1)
+		return;
+
+	//Or made it too long
+	if (messageLength > 255)
 	{
 		messageLength = 255;
 		message = message.substr(0, 255);

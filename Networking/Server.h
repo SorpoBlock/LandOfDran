@@ -2,6 +2,7 @@
 
 #include "../LandOfDran.h"
 #include "JoinedClient.h"
+#include "../LuaFunctions/EventManager.h"
 //#include "../GameLoop/ServerProgramData.h"
 
 /*
@@ -49,8 +50,10 @@ public:
 
 	//Send something from the logger to any client with admin
 	void updateAdminConsoles(const loggerLine &message) const;
-
-	void run(const void* pd);
+	
+	//eventManager and luaState are just to call ClientLeave event
+	//eventManager is included in pd as well for use in packet functions
+	void run(const void* pd,lua_State *L, EventManager* eventManager);
 
 	Server(int port);
 	~Server();

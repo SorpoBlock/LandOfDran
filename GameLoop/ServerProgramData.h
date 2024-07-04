@@ -5,7 +5,7 @@
 #include "../Networking/ObjHolder.h"
 #include "../NetTypes/DynamicType.h"
 #include "../SimObjects/Dynamic.h"
-
+#include "../LuaFunctions/EventManager.h"
 #include "../Physics/PhysicsWorld.h"
 
 netIDType ObjHolder<Dynamic>::lastNetID = 0;
@@ -15,7 +15,6 @@ netIDType ObjHolder<Dynamic>::lastNetID = 0;
 */
 struct ServerProgramData
 {
-
 	//Allow people to run Lua commands remotely with a password
 	bool useEvalPassword = false;
 
@@ -25,6 +24,7 @@ struct ServerProgramData
 	std::shared_ptr<PhysicsWorld>	physicsWorld = nullptr;
 	
 	lua_State * luaState = nullptr;
+	EventManager * eventManager = nullptr;
 
 	//Includes all of the types from each of the vectors below, used to send them all quickly when someone joins and needs types
 	std::vector<std::shared_ptr<NetType>> allNetTypes;
