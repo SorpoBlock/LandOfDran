@@ -36,6 +36,14 @@ It only requires system default libraries and is somewhat small and cross platfo
 
 ### Unix
 
+Hope to upload a few minor code and cmakelist changes soon that should make getting this working on debian/ubuntu as easy as:
+
+1. Run `sudo apt-get install liblua5.4-dev libenet-dev zlib1g-dev libbullet-dev libassimp-dev libsdl2-dev mesa-utils libglew-dev` to get the required dependencies.
+2. Clone repo / unzip to folder
+3. Navigate to folder in terminal
+4. `cmake build`
+5. `make`
+
 ## Community
 
 ### Website / forum
