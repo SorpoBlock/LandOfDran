@@ -1,5 +1,7 @@
 ﻿# CMakeList.txt : CMake project for LandOfDran, include source and define
-# project specific logic here.
+# 
+# Note: Ubuntu/Debian build should work out of the box just do cmake build
+# Windows build however needs some work as it's specific to my home set up and vcpkg
 #
 cmake_minimum_required (VERSION 3.8)
 
@@ -11,14 +13,43 @@ endif()
 
 project (LandOfDran)
 
-include(C:/Users/Syerjchep/vcpkg/scripts/buildsystems/vcpkg.cmake)
+if(UNIX AND NOT APPLE)
+	FIND_PATH( GLEW_INCLUDE_PATH GL/glew.h
+	/usr/include
+	/usr/local/include
+	/sw/include
+	/opt/local/include
+	DOC "The directory where GL/glew.h resides")
+	FIND_LIBRARY( GLEW_LIBRARY
+	NAMES GLEW glew
+	PATHS
+	/usr/lib64
+	/usr/lib
+	/usr/local/lib64
+	/usr/local/lib
+	/sw/lib
+	/opt/local/lib
+	DOC "The GLEW library")
+
+	IF (GLEW_INCLUDE_PATH)
+	SET( GLEW_FOUND 1 CACHE STRING "Set to 1 if GLEW is found, 0 otherwise")
+	ELSE (GLEW_INCLUDE_PATH)
+	SET( GLEW_FOUND 0 CACHE STRING "Set to 1 if GLEW is found, 0 otherwise")
+	ENDIF (GLEW_INCLUDE_PATH)
+
+	MARK_AS_ADVANCED( GLEW_FOUND )
+
+	FIND_PATH( ENET_INCLUDE_PATH /usr/include )
+	FIND_LIBRARY( ENET_LIBRARY /usr/lib/x86_64-linux-gnu )
+else()
+	include(C:/Users/Syerjchep/vcpkg/scripts/buildsystems/vcpkg.cmake)
+	find_package(glew CONFIG REQUIRED)
+endif()
+
 find_package(ZLIB REQUIRED)
-find_package(glew CONFIG REQUIRED)
 find_package(assimp CONFIG REQUIRED)
 find_package(Bullet CONFIG REQUIRED)
-find_package(CURL CONFIG REQUIRED)
 find_package(OpenGL REQUIRED)
-find_package(OpenAL CONFIG REQUIRED)
 find_package(SDL2 CONFIG REQUIRED)
 find_package(Lua REQUIRED)
 #find_package(unofficial-enet CONFIG REQUIRED)
@@ -147,23 +178,26 @@ add_executable (LandOfDran
  "Physics/PhysicsWorld.h" 
  "Physics/PhysicsWorld.cpp"  "Networking/PacketsFromServer/ChatMessageFromServer.h" "Networking/PacketsFromServer/ChatMessageFromServer.cpp" "LuaFunctions/Dynamic.cpp" "LuaFunctions/Dynamic.h" "Networking/PacketsFromClient/AttemptEvalLogin.cpp" "Networking/PacketsFromServer/EvalLoginResponse.h" "Networking/PacketsFromServer/EvalLoginResponse.cpp" "Networking/PacketsFromClient/EvalCommand.cpp" "Networking/PacketsFromServer/DisplayConsoleLine.h" "Networking/PacketsFromServer/DisplayConsoleLine.cpp" "LuaFunctions/OtherFunctions.h" "LuaFunctions/OtherFunctions.cpp" "LuaFunctions/Scheduler.h" "LuaFunctions/Scheduler.cpp" "LuaFunctions/EventManager.h" "LuaFunctions/EventManager.cpp" "LuaFunctions/ClientLua.h" "LuaFunctions/ClientLua.cpp")
 
-#include_directories("C:/Users/Syerjchep/Downloads/enet-2.3.10/include")
-include_directories("C:/Users/Syerjchep/Downloads/enet-1.3.18.tar/enet-1.3.18/include")
 target_include_directories(LandOfDran PRIVATE ${LUA_INCLUDE_DIR})
 
-#target_link_libraries(LandOfDran PRIVATE unofficial::enet::enet)
 target_link_libraries(LandOfDran PRIVATE ZLIB::ZLIB)
 target_link_libraries(LandOfDran PRIVATE SDL2::SDL2 SDL2::SDL2main)
-target_link_libraries(LandOfDran PRIVATE OpenAL::OpenAL)
-target_link_libraries(LandOfDran PRIVATE GLEW::glew)
 target_link_libraries(LandOfDran PRIVATE OpenGL::GL)
-target_link_libraries(LandOfDran PRIVATE CURL::libcurl)
-target_link_libraries(LandOfDran PRIVATE ${BULLET_LIBRARIES})
 target_link_libraries(LandOfDran PRIVATE assimp::assimp)
-#target_link_libraries(LandOfDran PRIVATE "C:/Users/Syerjchep/Downloads/enet-2.3.10/build/release/enet_shared.lib")
-target_link_libraries(LandOfDran PRIVATE wsock32 ws2_32 winmm)
-target_link_libraries(LandOfDran PRIVATE "C:/Users/Syerjchep/Downloads/enet-1.3.18.tar/enet-1.3.18/enet64.lib")
 target_link_libraries(LandOfDran PRIVATE ${LUA_LIBRARIES})
+
+if(UNIX AND NOT APPLE)
+	target_include_directories(LandOfDran PRIVATE /usr/include/bullet)
+	target_link_libraries(LandOfDran PRIVATE GLEW)
+	target_link_libraries(LandOfDran PRIVATE BulletDynamics BulletCollision LinearMath)
+	target_link_libraries(LandOfDran PRIVATE enet)
+else()
+	target_link_libraries(LandOfDran PRIVATE GLEW::glew)
+	target_link_libraries(LandOfDran PRIVATE ${BULLET_LIBRARIES})
+	target_link_libraries(LandOfDran PRIVATE wsock32 ws2_32 winmm)
+	include_directories("C:/Users/Syerjchep/Downloads/enet-1.3.18.tar/enet-1.3.18/include")
+	target_link_libraries(LandOfDran PRIVATE "C:/Users/Syerjchep/Downloads/enet-1.3.18.tar/enet-1.3.18/enet64.lib")
+endif()
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)
   set_property(TARGET LandOfDran PROPERTY CXX_STANDARD 20)

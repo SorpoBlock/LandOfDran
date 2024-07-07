@@ -5,3 +5,9 @@ build/
 build*
 CMakePresets.json
 vcpkg-configuration.json
+CMakeFiles/
+CMakeCache.txt
+LandOfDran
+Makefile
+cmake_install.cmake
+
