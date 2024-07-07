@@ -10,4 +10,7 @@ CMakeCache.txt
 LandOfDran
 Makefile
 cmake_install.cmake
+Logs/
+Config/
+imgui.ini
 
