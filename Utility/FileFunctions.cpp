@@ -92,9 +92,14 @@ long GetFileSize(const std::string &filename)
 {
     if (!doesFileExist(filename))
         return 0;
-    struct stat stat_buf;
-    int rc = stat(filename.c_str(), &stat_buf);
-    return rc == 0 ? stat_buf.st_size : -1;
+        
+    
+    std::ifstream in(filename.c_str(), std::ifstream::ate | std::ifstream::binary);
+    return in.tellg(); 
+    
+    //struct stat stat_buf;
+    //int rc = stat(filename.c_str(), &stat_buf);
+    //return rc == 0 ? stat_buf.st_size : -1;
 }
 
 std::string getFileFromPath(const std::string &in)

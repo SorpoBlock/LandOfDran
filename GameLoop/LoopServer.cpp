@@ -2,6 +2,9 @@
 
 #include "../LuaFunctions/Dynamic.h"
 
+template <>
+netIDType ObjHolder<Dynamic>::lastNetID = 0;
+
 void LoopServer::run(float deltaT, ExecutableArguments& cmdArgs, std::shared_ptr<SettingManager> settings)
 {
 	server->run(&pd,pd.luaState,pd.eventManager); //   <---- networking

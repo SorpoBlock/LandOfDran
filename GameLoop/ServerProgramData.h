@@ -8,8 +8,6 @@
 #include "../LuaFunctions/EventManager.h"
 #include "../Physics/PhysicsWorld.h"
 
-netIDType ObjHolder<Dynamic>::lastNetID = 0;
-
 /*
 	Struct holds state that may be needed to process packets from the client
 */
