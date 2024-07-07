@@ -1,6 +1,7 @@
 vcpkg_installed*
 .vs*
 out*
+build/
 build*
 CMakePresets.json
 vcpkg-configuration.json
