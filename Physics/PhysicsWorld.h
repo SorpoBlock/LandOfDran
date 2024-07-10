@@ -52,6 +52,9 @@ class PhysicsWorld
 
 	public:
 
+	btRigidBody *doRaycast(const btVector3 &start,const btVector3 &end,btRigidBody *ignore,btVector3 &hitPos,btVector3 &hitNormal);
+	btRigidBody *doRaycast(const btVector3 &start,const btVector3 &end,btRigidBody *ignore);
+
 	void addBody(btRigidBody* body)
 	{
 		world->addRigidBody(body);
