@@ -236,11 +236,11 @@ static int LUA_clientIsAdmin(lua_State* L)
 	return 1;
 }
 
-static int LUA_clientSetPlayer(lua_State* L)
+static int LUA_clientGiveControl(lua_State* L)
 {
 	if (lua_gettop(L) != 2)
 	{
-		error("Expected 2 arguments client:setPlayer(player)");
+		error("Expected 2 arguments client:giveControl(dynamic)");
 		return 0;
 	}
 
@@ -248,7 +248,7 @@ static int LUA_clientSetPlayer(lua_State* L)
 
 	if (!player)
 	{
-		error("Invalid player object passed to client:setPlayer");
+		error("Invalid dynamic passed to client:giveControl");
 		return 0;
 	}
 
@@ -256,7 +256,7 @@ static int LUA_clientSetPlayer(lua_State* L)
 
 	if (!jc)
 	{
-		error("Invalid client object A passed to client:setPlayer");
+		error("Invalid client object A passed to client:giveControl");
 		return 0;
 	}
 
@@ -264,20 +264,28 @@ static int LUA_clientSetPlayer(lua_State* L)
 
 	if (!client)
 	{
-		error("Invalid client object B passed to client:setPlayer");
+		error("Invalid client object B passed to client:giveControl");
 		return 0;
 	}
 
-	client->player = player;
+	client->controlledObjects.push_back(player);
 
 	return 0;
 }
 
-static int LUA_clientGetPlayer(lua_State* L)
+static int LUA_clientRemoveControl(lua_State* L)
 {
-	if (lua_gettop(L) != 1)
+	if (lua_gettop(L) != 2)
 	{
-		error("Expected 1 argument client:getPlayer()");
+		error("Expected 2 arguments client:removeControl(dynamic)");
+		return 0;
+	}
+
+	std::shared_ptr<Dynamic> player = LUA_pd->dynamics->popLua(L);
+
+	if (!player)
+	{
+		error("Invalid dynamic passed to client:removeControl");
 		return 0;
 	}
 
@@ -285,7 +293,7 @@ static int LUA_clientGetPlayer(lua_State* L)
 
 	if (!jc)
 	{
-		error("Invalid client object A passed to client:getPlayer");
+		error("Invalid client object A passed to client:removeControl");
 		return 0;
 	}
 
@@ -293,17 +301,79 @@ static int LUA_clientGetPlayer(lua_State* L)
 
 	if (!client)
 	{
-		error("Invalid client object B passed to client:getPlayer");
+		error("Invalid client object B passed to client:removeControl");
 		return 0;
 	}
 
-	if (!client->player)
+  	client->controlledObjects.erase(std::remove(client->controlledObjects.begin(), client->controlledObjects.end(), player), client->controlledObjects.end());
+
+	return 0;
+}
+
+static int LUA_clientGetNumControlled(lua_State* L)
+{
+	if (lua_gettop(L) != 1)
 	{
-		lua_pushnil(L);
-		return 1;
+		error("Expected 1 argument client:getNumControlled()");
+		return 0;
 	}
 
-	LUA_pd->dynamics->pushLua(L, client->player);
+	std::shared_ptr<JoinedClient> jc = popClientLua(L);
+
+	if (!jc)
+	{
+		error("Invalid client object A passed to client:getNumControlled");
+		return 0;
+	}
+
+	std::shared_ptr<ClientData> client = LUA_pd->getClient(jc);
+
+	if (!client)
+	{
+		error("Invalid client object B passed to client:getNumControlled");
+		return 0;
+	}
+
+	lua_pushinteger(L, client->controlledObjects.size());
+
+	return 1;
+}
+
+
+static int LUA_clientGetControlledIdx(lua_State* L)
+{
+	if (lua_gettop(L) != 2)
+	{
+		error("Expected 1 argument client:getControlledIdx(index)");
+		return 0;
+	}
+
+	int index = lua_tointeger(L,-1);
+	lua_pop(L,1);
+
+	std::shared_ptr<JoinedClient> jc = popClientLua(L);
+
+	if (!jc)
+	{
+		error("Invalid client object A passed to client:getControlledIdx");
+		return 0;
+	}
+
+	std::shared_ptr<ClientData> client = LUA_pd->getClient(jc);
+
+	if (!client)
+	{
+		error("Invalid client object B passed to client:getControlledIdx");
+		return 0;
+	}
+
+	if(index < 0 || index >= client->controlledObjects.size())
+	{
+		error("Index " + std::to_string(index) + " out of bounds for client:getControlledIdx");
+		return 0;
+	}
+	
+	LUA_pd->dynamics->pushLua(L, client->controlledObjects[index]);
 
 	return 1;
 }
@@ -321,8 +391,10 @@ void registerClientFunctions(lua_State* L)
 		{ "getIP", LUA_clientGetIP },
 		{ "getID", LUA_clientGetID },
 		{ "isAdmin", LUA_clientIsAdmin },
-		{ "setPlayer", LUA_clientSetPlayer },
-		{ "getPlayer", LUA_clientGetPlayer },
+		{ "addControl", LUA_clientAddControl },
+		{ "removeControl", LUA_clientRemoveControl },
+		{ "getControlledIdx", LUA_clientGetControlledIdx },
+		{ "getNumControlled", LUA_clientGetNumControlled },
 		{ NULL, NULL }
 	};
 
