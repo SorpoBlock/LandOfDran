@@ -34,19 +34,22 @@ function otherJoin(client)
 	
 	--Make it so the object cannot rotate on its own / through collisions
 	dynamic:setAngularFactor(0,0,0)
+
+	--Could be messed with
+	--dynamic:setGravity(0,30,0)
 	
 	--Let client be authoritative for the position/rotation of this object, simulating its physics
 	client:addControl(dynamic)
 	
 	--Set up motion controls:
-	--Cmd name, movement type...
+	--Cmd name, movement type, needsTouchGround...
 	--Relative to camera dir: x-axis sin phase shift, x-axis multipler, y-axis, z-axis
-	dynamic:setMovementControl("forward" , "relative",  0.0,  1.0, 0.0, 0.0, -1.5707,  1.0)
-	dynamic:setMovementControl("backward" ,"relative",  0.0, -1.0, 0.0, 0.0, -1.5707, -1.0)
-	dynamic:setMovementControl("right" ,   "relative",  1.5707,  1.0, 0.0, 0.0, 0.0,  1.0)
-	dynamic:setMovementControl("left" ,    "relative",  1.5707, -1.0, 0.0, 0.0, 0.0, -1.0)
+	dynamic:setMovementControl("forward" , true, "relative",  0.0,  1.0, 0.0, 0.0, -1.5707,  1.0)
+	dynamic:setMovementControl("backward" , true,"relative",  0.0, -1.0, 0.0, 0.0, -1.5707, -1.0)
+	dynamic:setMovementControl("right" , true,   "relative",  1.5707,  1.0, 0.0, 0.0, 0.0,  1.0)
+	dynamic:setMovementControl("left" , true,    "relative",  1.5707, -1.0, 0.0, 0.0, 0.0, -1.0)
 	--Absolute: x-velocity, y-velocity, z-velocity
-	dynamic:setMovementControl("jump" ,    "absolute",  0.0, 30.0, 0.0)
+	dynamic:setMovementControl("jump" , true,    "absolute-set",  0.0, 30.0, 0.0)
 	
 	--50ms ramp up for moving if we're on the ground, 600ms if we're flying
 	dyanmic:setMovementBlendSpeed(50,600)
@@ -56,6 +59,11 @@ function otherJoin(client)
 	dynamic:setAnimation("backward","walk",1.0)
 	dynamic:setAnimation("left",    "walk",1.0)
 	dynamic:setAnimation("right",   "walk",1.0)
+
+	--Have client's camera follow object around
+	client:bindCamera(dynamic)
+	client:setThirdPersonEnabled(true,30.0) -- Maximum distance away from object
+	client:setFirstPersonEnabled(true) -- These are both enabled by default
 	
 end
 
