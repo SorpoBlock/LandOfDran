@@ -59,6 +59,7 @@ public:
 	~Server();
 };
 
+void handleDisconnect(JoinedClient * client,Server * server, const void* pdv, lua_State* L, EventManager* eventManager);
 void applyConnectionRequest(JoinedClient *  source, Server const* const server, ENetPacket const* const packet, const void* pdv);
 void clientFinishedLoading(JoinedClient* source, Server const* const server, ENetPacket const* const packet, const void* pdv);
 void chatMessageSent(JoinedClient * source, Server const* const server, ENetPacket const* const packet, const void* pdv);

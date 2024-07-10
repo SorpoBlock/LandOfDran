@@ -17,6 +17,9 @@ class JoinedClient
 
 public:
 
+	//Set this to ClientData I guess
+	void* userData = nullptr;
+
 	//Points to itself, used to pass to lua functions pretty much
 	//Derivitive of a shared_ptr the server holds for all clients
 	std::shared_ptr<JoinedClient> me;

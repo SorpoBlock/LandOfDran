@@ -1,5 +1,6 @@
 #include "../Server.h"
 #include "../../GameLoop/ServerProgramData.h"
+#include "../../GameLoop/ClientData.h"
 
 /*	
 	Do not attempt to assign a handle to JoinedClient to other objects directly
@@ -81,6 +82,8 @@ void applyConnectionRequest(JoinedClient * source,Server const * const server, E
 	//Send types to client:
 	for (size_t a = 0; a < pd->allNetTypes.size(); a++)
 		source->send(pd->allNetTypes[a]->createTypePacket(), JoinNegotiation);
+
+	pd->makeClient(source->me);
 }
  
 

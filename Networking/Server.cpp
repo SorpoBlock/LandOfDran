@@ -151,25 +151,14 @@ void Server::run(const void* pd, lua_State* L, EventManager * eventManager)
 			//We could just jump directly to the joined client with the data pointer but we'd need to iterate the vector anyway to remove it
 			auto iter = clients.begin();
 			while (iter != clients.end())
-			{ 
+			{
 				std::shared_ptr<JoinedClient> client = *iter;
 
 				if (client.get() == (JoinedClient*)netEvent.peer->data)
 				{
+					handleDisconnect((JoinedClient*)netEvent.peer->data,this,pd,L,eventManager);
+
 					client->me.reset();
-
-					if (client->name.length() > 0)
-					{
-						lua_pushnumber(L, client->getNetId());
-						lua_pushstring(L, client->name.c_str());
-						eventManager->callEvent(L, "ClientLeave", 2);
-						lua_settop(L, 0); //Don't need to do anything with returned ID or name
-
-						std::string message = client->name + " disconnected.";
-						broadcastChat(message);
-						info(message);
-					}
-
 					client.reset();
 					clients.erase(iter);
 					break;

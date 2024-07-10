@@ -222,6 +222,20 @@ static int LUA_clientGetID(lua_State* L)
 	return 1;
 }
 
+static int LUA_clientIsAdmin(lua_State* L)
+{
+	if (lua_gettop(L) != 1)
+	{
+		error("Expected 1 argument client:isAdmin()");
+		return 0;
+	}
+
+	std::shared_ptr<JoinedClient> client = popClientLua(L);
+	lua_pushboolean(L, client->isAdmin);
+
+	return 1;
+}
+
 void registerClientFunctions(lua_State* L)
 {
 	//Register client global functions:
@@ -234,6 +248,7 @@ void registerClientFunctions(lua_State* L)
 		{ "getName", LUA_clientGetName },
 		{ "getIP", LUA_clientGetIP },
 		{ "getID", LUA_clientGetID },
+		{ "isAdmin", LUA_clientIsAdmin },
 		{ NULL, NULL }
 	};
 

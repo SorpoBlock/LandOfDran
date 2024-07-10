@@ -5,6 +5,7 @@
 #include "../Networking/ObjHolder.h"
 
 /*
+	Client only
 	SimObjects and SimObjectTypes
 	Any in-game object that has state managed by the server
 	Created on server join, deleted when leaving server

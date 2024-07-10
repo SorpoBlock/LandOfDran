@@ -7,6 +7,7 @@
 #include "../SimObjects/Dynamic.h"
 #include "../LuaFunctions/EventManager.h"
 #include "../Physics/PhysicsWorld.h"
+#include "ClientData.h"
 
 /*
 	Struct holds state that may be needed to process packets from the client
@@ -32,4 +33,51 @@ struct ServerProgramData
 	//ObjHolders created and destroyed with ServerLoop class
 	//All dynamic objects:
 	ObjHolder<Dynamic>* dynamics = nullptr;
+
+	//All clients:
+	std::vector<std::shared_ptr<ClientData>> clients;
+
+	//Basically JoinedClient is lower level and used by the server for networking
+	//ClientData contains references to a JoinedClient but also anything else that client 'owns' like a player, a camera, bricks, etc.
+	void makeClient(std::shared_ptr<JoinedClient> src) const
+	{
+		auto client = std::make_shared<ClientData>();
+		client->me = client;
+		client->client = src;
+		src->userData = client.get();
+		std::vector<std::shared_ptr<ClientData>>* c = const_cast<std::vector<std::shared_ptr<ClientData>>*>( & clients);
+		c->push_back(client);
+	}
+
+	std::shared_ptr<ClientData> getClient(std::shared_ptr<JoinedClient> source)
+	{
+		if (!source->userData)
+			return nullptr;
+
+		ClientData* ret = (ClientData*)source->userData;
+		if (!ret)
+			return nullptr;
+
+		return ret->me;
+	}
+
+	void removeClient(std::shared_ptr<JoinedClient> src) const
+	{
+		if (!src->userData)
+			return;
+
+		std::vector<std::shared_ptr<ClientData>>* c = const_cast<std::vector<std::shared_ptr<ClientData>>*>(&clients);
+		for (unsigned int a = 0; a < c->size(); a++)
+		{
+			if (c->at(a).get() == src->userData)
+			{
+				src->userData = nullptr;
+				c->at(a)->me.reset();
+				c->at(a)->client.reset();
+				c->at(a)->player.reset();
+				c->erase(c->begin() + a);
+				return;
+			}
+		}
+	}
 };
