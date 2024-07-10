@@ -13,5 +13,6 @@ struct ClientData
 	//Lower level networking stuff
 	std::shared_ptr<JoinedClient> client;
 
-	std::shared_ptr<Dynamic> player;
+	//Physics objects like the player that this client handles primary simulation of
+	std::vector<std::shared_ptr<Dynamic>> controlledObjects;
 };
