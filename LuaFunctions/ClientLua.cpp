@@ -50,7 +50,7 @@ std::shared_ptr<JoinedClient> popClientLua(lua_State* L)
 	if (poppedType != ClientTypeId)
 	{
 		lua_pop(L, 1);
-		error("JoinedClient type mismatch, invalid Lua cast");
+		error("JoinedClient type mismatch: " + std::to_string(poppedType)+", invalid Lua cast");
 		return nullptr;
 	}
 
@@ -236,6 +236,78 @@ static int LUA_clientIsAdmin(lua_State* L)
 	return 1;
 }
 
+static int LUA_clientSetPlayer(lua_State* L)
+{
+	if (lua_gettop(L) != 2)
+	{
+		error("Expected 2 arguments client:setPlayer(player)");
+		return 0;
+	}
+
+	std::shared_ptr<Dynamic> player = LUA_pd->dynamics->popLua(L);
+
+	if (!player)
+	{
+		error("Invalid player object passed to client:setPlayer");
+		return 0;
+	}
+
+	std::shared_ptr<JoinedClient> jc = popClientLua(L);
+
+	if (!jc)
+	{
+		error("Invalid client object A passed to client:setPlayer");
+		return 0;
+	}
+
+	std::shared_ptr<ClientData> client = LUA_pd->getClient(jc);
+
+	if (!client)
+	{
+		error("Invalid client object B passed to client:setPlayer");
+		return 0;
+	}
+
+	client->player = player;
+
+	return 0;
+}
+
+static int LUA_clientGetPlayer(lua_State* L)
+{
+	if (lua_gettop(L) != 1)
+	{
+		error("Expected 1 argument client:getPlayer()");
+		return 0;
+	}
+
+	std::shared_ptr<JoinedClient> jc = popClientLua(L);
+
+	if (!jc)
+	{
+		error("Invalid client object A passed to client:getPlayer");
+		return 0;
+	}
+
+	std::shared_ptr<ClientData> client = LUA_pd->getClient(jc);
+
+	if (!client)
+	{
+		error("Invalid client object B passed to client:getPlayer");
+		return 0;
+	}
+
+	if (!client->player)
+	{
+		lua_pushnil(L);
+		return 1;
+	}
+
+	LUA_pd->dynamics->pushLua(L, client->player);
+
+	return 1;
+}
+
 void registerClientFunctions(lua_State* L)
 {
 	//Register client global functions:
@@ -249,6 +321,8 @@ void registerClientFunctions(lua_State* L)
 		{ "getIP", LUA_clientGetIP },
 		{ "getID", LUA_clientGetID },
 		{ "isAdmin", LUA_clientIsAdmin },
+		{ "setPlayer", LUA_clientSetPlayer },
+		{ "getPlayer", LUA_clientGetPlayer },
 		{ NULL, NULL }
 	};
 

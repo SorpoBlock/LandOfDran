@@ -143,6 +143,7 @@ class ObjHolder
 			return nullptr;
 		}
 
+		lua_pop(L, 1);
 		return obj->lock();
 	}
 

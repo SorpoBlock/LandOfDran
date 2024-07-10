@@ -37,8 +37,9 @@ struct ServerProgramData
 	//All clients:
 	std::vector<std::shared_ptr<ClientData>> clients;
 
-	//Basically JoinedClient is lower level and used by the server for networking
+	//Basically JoinedClient is lower level and used by the server for networking, ClientData is passed to server-side packet functions
 	//ClientData contains references to a JoinedClient but also anything else that client 'owns' like a player, a camera, bricks, etc.
+	//Called in Server::run
 	void makeClient(std::shared_ptr<JoinedClient> src) const
 	{
 		auto client = std::make_shared<ClientData>();
@@ -49,6 +50,7 @@ struct ServerProgramData
 		c->push_back(client);
 	}
 
+	//O(1) access to client data in packet functions, can return nullptr
 	std::shared_ptr<ClientData> getClient(std::shared_ptr<JoinedClient> source)
 	{
 		if (!source->userData)
@@ -61,6 +63,7 @@ struct ServerProgramData
 		return ret->me;
 	}
 
+	//Called in Server::run when client leaves
 	void removeClient(std::shared_ptr<JoinedClient> src) const
 	{
 		if (!src->userData)
@@ -71,6 +74,12 @@ struct ServerProgramData
 		{
 			if (c->at(a).get() == src->userData)
 			{
+				//These objects don't have to dissapear if Lua modders don't want them to
+				//But we need to clarify all of these objects are *ownly* owned by Lua now
+				if (c->at(a)->player)
+					c->at(a)->player.reset();
+
+				//Get rid of ClientData and JoinedClient structures themselves
 				src->userData = nullptr;
 				c->at(a)->me.reset();
 				c->at(a)->client.reset();

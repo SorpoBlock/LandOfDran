@@ -9,8 +9,10 @@ extern "C"
 
 #include "../Networking/Server.h"
 #include "../NetTypes/NetType.h"
+#include "../GameLoop/ServerProgramData.h"
 
 extern Server *LUA_server;
+extern ServerProgramData* LUA_pd;
 
 //TODO: Merge these with the ObjHolder functions that basically do the exact same thing
 void pushClientLua(lua_State *L,std::shared_ptr<JoinedClient> client);

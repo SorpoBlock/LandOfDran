@@ -46,6 +46,13 @@ bool AddSimObjectsPacket::applyPacket(const ClientProgramData& pd, Simulation& s
 					continue;
 				}
 
+				/*
+					TODO: Server can sometimes send objects twice if they are created right when the client joins
+					Once in sendRecentCreations and once in sendAll, this extra check really shouldn't be needed
+				*/
+				if(simulation.dynamics->find(id))
+					continue;
+
 				simulation.dynamics->clientSetNextId(id);
 				simulation.dynamics->create(foundType, btVector3(pos.x,pos.y,pos.z));
 
