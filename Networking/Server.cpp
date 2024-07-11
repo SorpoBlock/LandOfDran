@@ -70,6 +70,11 @@ void Server::switchPacketType(JoinedClient * source, ENetPacket* packet, const v
 			parseEvalCommand(source, this, packet, pd);
 			return;
 		}
+		case ControlledPhysics:
+		{
+			applyPhysicsAdjustment(source, this, packet, pd);
+			return;
+		}
 
 		case InvalidClient:
 		default:

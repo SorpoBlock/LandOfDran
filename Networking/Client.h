@@ -12,6 +12,7 @@
 #include "PacketsFromServer/DisplayConsoleLine.h"
 #include "PacketsFromServer/TakeOverPhysics.h"
 #include "PacketsFromServer/CameraSettings.h"
+#include "PacketsFromServer/MovementSettings.h"
 #include "../GameLoop/ClientProgramData.h"
 #include "../GameLoop/Simulation.h"
 

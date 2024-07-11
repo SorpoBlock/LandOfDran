@@ -62,7 +62,8 @@ enum FromClientPacketType : unsigned char
 	LoadingFinished = 2,	//Let server know we loaded all types and can start receiving actual object updates now
 	ChatMessage = 3,		//Send a chat message to the server
 	EvalLogin = 4,			//Try to log into the server's eval console with admin password
-	EvalCommand = 5			//Send a Lua command to the server
+	EvalCommand = 5,		//Send a Lua command to the server
+	ControlledPhysics = 6	//Client to server transform updates for objects in simulation.controlledObjects
 };
 
 //Used with ConsoleLine packet
@@ -91,6 +92,7 @@ enum FromServerPacketType : unsigned char
 	ConsoleLine = 8,		//A line of text from the server's logger to clients that have admin
 	TakeOverPhysics = 9,	//Server wants client to take over (or relinquish) physics simulation of this object, probably the client's player or a driven car
 	CameraSettings = 10,	//Tell client to bind/unbind camera to object or change other settings
+	MovementSettings = 11,	//Player controller movement parameters
 };
 
 //For use with AcceptConnection packets

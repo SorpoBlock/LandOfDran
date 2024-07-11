@@ -168,6 +168,8 @@ class ModelInstance
 
 	public:
 
+	bool getHidden() const { return hidden; }
+
 	void setHidden(bool _hidden);
 
 	//Change the position/scale/rotation for the whole model instance

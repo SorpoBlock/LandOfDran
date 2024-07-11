@@ -49,7 +49,7 @@ PhysicsWorld::~PhysicsWorld()
   delete pairCallback;
 }
 
-btRigidBody *PhysicsWorld::doRaycast(const btVector3 &start,const btVector3 &end,btRigidBody *ignore,btVector3 &hitPos,btVector3 &hitNormal)
+btRigidBody *PhysicsWorld::doRaycast(const btVector3 &start,const btVector3 &end,btRigidBody *ignore,btVector3 &hitPos,btVector3 &hitNormal) const
 {
   btCollisionWorld::AllHitsRayResultCallback ground(start,end);
   world->rayTest(start,end,ground);
@@ -83,7 +83,7 @@ btRigidBody *PhysicsWorld::doRaycast(const btVector3 &start,const btVector3 &end
       return nullptr;
 }
 
-btRigidBody *PhysicsWorld::doRaycast(const btVector3 &start,const btVector3 &end,btRigidBody *ignore)
+btRigidBody *PhysicsWorld::doRaycast(const btVector3 &start,const btVector3 &end,btRigidBody *ignore) const
 {
   btVector3 pos,norm;
   return doRaycast(start,end,ignore,pos,norm);

@@ -118,6 +118,10 @@ KickReason Client::run(const ClientProgramData& pd,Simulation &simulation, const
 					case CameraSettings:
 						packets.push_back(new CameraSettingsPacket(packetHoldTime, event.packet));
 						return NotKicked;
+						 
+					case MovementSettings:
+						packets.push_back(new MovementSettingsPacket(packetHoldTime, event.packet));
+						return NotKicked;
 
 					//Can't process packet
 					case InvalidServer:

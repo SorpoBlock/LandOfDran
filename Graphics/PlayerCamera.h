@@ -32,7 +32,16 @@ class Camera
 	float mouseSensitivity = 1.0;
 	bool invertMouse = false;
 
+	bool firstPerson = true;
+
+	float thirdPersonDistance = 30.0;
+
 	public:
+
+	float maxThirdPersonDistance = 30.0;
+
+	void setFirstPerson(bool _firstPerson);
+	void swapPerson();
 
 	//See CameraSettingsPacket
 	std::weak_ptr<Dynamic> target;
@@ -60,7 +69,7 @@ class Camera
 	void turn(float relMouseX, float relMouseY);
 
 	//Call once per frame
-	void render(std::shared_ptr<ShaderManager> graphics);
+	void render(std::shared_ptr<ShaderManager> graphics, float deltaT, const std::shared_ptr<PhysicsWorld>  world);
 
 	void setFOV(float fov);
 

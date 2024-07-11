@@ -4,6 +4,7 @@
 #include "../SimObjects/Dynamic.h"
 #include "../Networking/ObjHolder.h"
 #include "../Graphics/PlayerCamera.h"
+#include "../GameLoop/PlayerController.h"
 
 /*
 	Client only
@@ -28,6 +29,9 @@ struct Simulation
 
 	//See TakeOverPhysicsPacket which can add or remove to this list
 	std::vector<std::shared_ptr<Dynamic>> controlledDynamics;
+
+	//Probably a lot of overlap between targets and controlledDynamics
+	std::vector<std::shared_ptr<PlayerController>> controllers;
 
 	//Objects (object holders):
 	ObjHolder<Dynamic>* dynamics = nullptr;

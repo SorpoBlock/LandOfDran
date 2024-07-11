@@ -25,17 +25,22 @@ class LoopClient
 
 	bool valid = false;
 
-public:
-
-	//Constructor have any issues?
-	bool isValid() const { return valid; }
-
 	//Per land of dran kino agent special request
 	//Technically some UI specific calculations might happen during rendering, oh well
 	void renderEverything(float deltaT);
 
 	//Called every frame the program runs. Every frame: in a game, not in a game, loading into a game...
 	void handleInput(float deltaT, ExecutableArguments& cmdArgs, std::shared_ptr<SettingManager> settings);
+
+	unsigned int lastSentControlledObjects = 0;
+
+	//Send simulation.controlledObjects physics/transform data to server
+	void sendControlledObjects();
+
+public:
+
+	//Constructor have any issues?
+	bool isValid() const { return valid; }
 
 	//Clean up performed when leaving a server to return to main menu or joining another server
 	void leaveServer(ExecutableArguments& cmdArgs);

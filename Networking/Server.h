@@ -65,3 +65,4 @@ void clientFinishedLoading(JoinedClient* source, Server const* const server, ENe
 void chatMessageSent(JoinedClient * source, Server const* const server, ENetPacket const* const packet, const void* pdv);
 void attemptEvalLogin(JoinedClient * source, Server const* const server, ENetPacket const* const packet, const void* pdv);
 void parseEvalCommand(JoinedClient * source, Server const* const server, ENetPacket const* const packet, const void* pdv);
+void applyPhysicsAdjustment(JoinedClient * source, Server const* const server, ENetPacket const* const packet, const void* pdv);

@@ -12,6 +12,9 @@ void LoopClient::leaveServer(ExecutableArguments& cmdArgs)
 	//Will need to log in again to get eval access
 	pd.debugMenu->reset();
 
+	simulation.controllers.clear();
+	simulation.controlledDynamics.clear();
+
 	if (simulation.dynamics)
 	{
 		delete simulation.dynamics;
@@ -188,6 +191,9 @@ void LoopClient::handleInput(float deltaT, ExecutableArguments& cmdArgs, std::sh
 		default:
 			break;
 	}
+
+	if (pd.input->pollCommand(FirstThirdPerson))
+		simulation.camera->swapPerson();
 }
 
 void LoopClient::renderEverything(float deltaT)
@@ -204,7 +210,7 @@ void LoopClient::renderEverything(float deltaT)
 		simulation.dynamicTypes[a]->getModel()->updateAll(deltaT);
 
 	//Start rendering to screen:
-	simulation.camera->render(pd.shaders);
+	simulation.camera->render(pd.shaders,deltaT,pd.physicsWorld);
 
 	pd.context->select();
 	pd.context->clear(0.2f, 0.2f, 0.2f);
@@ -219,10 +225,35 @@ void LoopClient::renderEverything(float deltaT)
 	pd.context->swap();
 }
 
+void LoopClient::sendControlledObjects()
+{
+	if(getTicksMS() - lastSentControlledObjects < 40)
+		return;
+
+	lastSentControlledObjects = getTicksMS();
+
+	//We're simulating these objects for the server, send updates on their transforms back to the server
+	for (int i = 0; i < simulation.controlledDynamics.size(); i++)
+	{
+		std::shared_ptr<Dynamic> d = simulation.controlledDynamics[i];
+
+		//TODO: Do this through objHolder I guess? Ideally there'd never be more than like 1 or 2 of these per client tho
+		if (!d->requiresNetUpdate())
+			continue;
+
+		ENetPacket* update = enet_packet_create(NULL, d->getUpdatePacketBytes() + 1, getFlagsFromChannel(OtherReliable));
+		update->data[0] = (unsigned char)ControlledPhysics;
+		d->addToUpdatePacket(update->data + 1);
+		client->send(update, OtherReliable);
+	}
+}
+
 void LoopClient::run(float deltaT,ExecutableArguments& cmdArgs, std::shared_ptr<SettingManager> settings)
 {
 	if (client)
 	{
+		//We're in game, equivlent to gameState == InGame
+
 		KickReason reason = client->run(pd, simulation, cmdArgs); //  <--- networking, process packets
 		if(reason != NotKicked) 
 		{
@@ -232,6 +263,18 @@ void LoopClient::run(float deltaT,ExecutableArguments& cmdArgs, std::shared_ptr<
 			//Show pop-up
 			pd.serverBrowser->setKickReason(reason);
 		}
+
+		sendControlledObjects();
+	}
+
+	//Go through player controllers, remove any that are bound to now deleted dynamics 
+	auto ctrlIter = simulation.controllers.begin();
+	while (ctrlIter != simulation.controllers.end())
+	{
+		if ((*ctrlIter)->control(pd.input,deltaT))
+			ctrlIter = simulation.controllers.erase(ctrlIter);
+		else
+			++ctrlIter;
 	}
 
 	handleInput(deltaT,cmdArgs,settings); //mouse and keyboard input

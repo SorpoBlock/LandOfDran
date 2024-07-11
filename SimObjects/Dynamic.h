@@ -44,6 +44,8 @@ class Dynamic : public SimObject
 
 	public:
 
+	bool getHidden() const { return modelInstance->getHidden(); };
+
 	void setHidden(bool hidden) { modelInstance->setHidden(hidden); };
 
 	const std::shared_ptr<DynamicType>& getType() const { return type; }

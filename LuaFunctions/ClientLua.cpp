@@ -498,6 +498,47 @@ static int LUA_clientStaticCamera(lua_State* L)
 	jc->send(ret, OtherReliable);
 }
 
+static int LUA_clientSetDefaultController(lua_State* L)
+{
+	if (lua_gettop(L) != 2)
+	{
+		error("Expected 2 arguments client:setDefaultController(dynamic)");
+		return 0;
+	}
+
+	std::shared_ptr<Dynamic> player = LUA_pd->dynamics->popLua(L);
+
+	if (!player)
+	{
+		error("Invalid dynamic passed to client:setDefaultController");
+		return 0;
+	}
+
+	std::shared_ptr<JoinedClient> jc = popClientLua(L);
+
+	if (!jc)
+	{
+		error("Invalid client object A passed to client:setDefaultController");
+		return 0;
+	}
+
+	std::shared_ptr<ClientData> client = LUA_pd->getClient(jc);
+
+	if (!client)
+	{
+		error("Invalid client object B passed to client:setDefaultController");
+		return 0;
+	}
+
+	ENetPacket* ret = enet_packet_create(NULL, 1 + sizeof(netIDType), getFlagsFromChannel(OtherReliable));
+	ret->data[0] = (unsigned char)MovementSettings;
+	netIDType id = player->getID();
+	memcpy(ret->data + 1, &id, sizeof(netIDType));
+	jc->send(ret, OtherReliable);
+
+	return 0;
+}
+
 void registerClientFunctions(lua_State* L)
 {
 	//Register client global functions:
@@ -517,6 +558,7 @@ void registerClientFunctions(lua_State* L)
 		{ "getNumControlled", LUA_clientGetNumControlled },
 		{ "bindCamera", LUA_clientBindCamera },
 		{ "staticCamera", LUA_clientStaticCamera },
+		{ "setDefaultController", LUA_clientSetDefaultController },
 		{ NULL, NULL }
 	};
 

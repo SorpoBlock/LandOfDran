@@ -5,6 +5,9 @@ bool CameraSettingsPacket::applyPacket(const ClientProgramData& pd, Simulation& 
 	if (cmdArgs.gameState != InGame)
 		return false;
 
+	if (packet->dataLength < 2)
+		return true;
+
 	int packetIter = 1;
 	unsigned char flags =   packet->data[packetIter++];
 	bool boundToObject =	flags & CameraFlag_BoundToObject;
@@ -17,6 +20,9 @@ bool CameraSettingsPacket::applyPacket(const ClientProgramData& pd, Simulation& 
 	float maxFollowDistance;
 	if (boundToObject)
 	{
+		if(packet->dataLength < (packetIter + sizeof(netIDType) + sizeof(float)))
+			return false;
+
 		memcpy(&objectId, packet->data + packetIter, sizeof(netIDType));
 		packetIter += sizeof(netIDType);
 
@@ -26,11 +32,16 @@ bool CameraSettingsPacket::applyPacket(const ClientProgramData& pd, Simulation& 
 
 		memcpy(&maxFollowDistance, packet->data + packetIter, sizeof(float));
 		packetIter += sizeof(float);
+
+		simulation.camera->maxThirdPersonDistance = maxFollowDistance;
 	}
 
 	glm::vec3 camPos;
 	if (lockCamPos)
 	{
+		if(packet->dataLength < (packetIter + sizeof(float) * 3))
+			return false;
+
 		memcpy(&camPos.x, packet->data + packetIter, sizeof(float));
 		packetIter += sizeof(float);
 		memcpy(&camPos.y, packet->data + packetIter, sizeof(float));
@@ -42,6 +53,9 @@ bool CameraSettingsPacket::applyPacket(const ClientProgramData& pd, Simulation& 
 	glm::vec3 camDir;
 	if (lockCamDir)
 	{
+		if (packet->dataLength < (packetIter + sizeof(float) * 3))
+			return false;
+
 		memcpy(&camDir.x, packet->data + packetIter, sizeof(float));
 		packetIter += sizeof(float);
 		memcpy(&camDir.y, packet->data + packetIter, sizeof(float));
@@ -53,6 +67,9 @@ bool CameraSettingsPacket::applyPacket(const ClientProgramData& pd, Simulation& 
 	glm::vec3 upVec;
 	if (!lockUpVec && !boundToObject)
 	{
+		if (packet->dataLength < (packetIter + sizeof(float) * 3))
+			return false;
+
 		memcpy(&upVec.x, packet->data + packetIter, sizeof(float));
 		packetIter += sizeof(float);
 		memcpy(&upVec.y, packet->data + packetIter, sizeof(float));
@@ -66,10 +83,7 @@ bool CameraSettingsPacket::applyPacket(const ClientProgramData& pd, Simulation& 
 		prevTarget->setHidden(false);
 
 	if (boundToObject)
-	{
 		simulation.camera->target = target;
-		target->setHidden(true);
-	}
 	else
 		simulation.camera->target.reset();
 

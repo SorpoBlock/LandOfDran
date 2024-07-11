@@ -17,7 +17,8 @@ enum InputCommand
     OpenOptionsMenu = 6,
     OpenDebugWindow = 7,
     OpenChatWindow = 8,
-    EndOfCommands = 9
+    FirstThirdPerson = 9,
+    EndOfCommands = 10
 };
 
 //For user interface

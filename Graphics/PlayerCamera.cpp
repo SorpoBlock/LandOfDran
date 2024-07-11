@@ -1,5 +1,15 @@
 #include "PlayerCamera.h"
 
+void Camera::swapPerson()
+{
+    setFirstPerson(!firstPerson);
+}
+
+void Camera::setFirstPerson(bool _firstPerson)
+{
+	firstPerson = _firstPerson;
+}   
+
 void Camera::control(float deltaT,std::shared_ptr<InputMap> input)
 {
     if (!(freePosition && target.expired()))
@@ -123,7 +133,7 @@ void Camera::turn(float relMouseX, float relMouseY)
 }
 
 //Call once per frame
-void Camera::render(std::shared_ptr<ShaderManager> graphics)
+void Camera::render(std::shared_ptr<ShaderManager> graphics,float deltaT,const std::shared_ptr<PhysicsWorld> world)
 {
     if(!target.expired())
 	{
@@ -169,6 +179,27 @@ void Camera::render(std::shared_ptr<ShaderManager> graphics)
             else
                 nominalUp = glm::vec3(0, 1, 0);
         }
+
+        if (!firstPerson)
+        {
+            //Bit of a zoom out effect
+            thirdPersonDistance += deltaT * 0.1f;
+            thirdPersonDistance = std::min(thirdPersonDistance, maxThirdPersonDistance);
+
+            btVector3 hitPos, hitNormal;
+            if(world->doRaycast(g2b3(position), g2b3(position - direction * glm::vec3(thirdPersonDistance)),targetLock->body, hitPos, hitNormal))
+                thirdPersonDistance = std::min(glm::length(position - b2g3(hitPos)),thirdPersonDistance);
+        }
+        else
+        {
+            thirdPersonDistance -= deltaT * 0.1f;
+            thirdPersonDistance = std::max(thirdPersonDistance, 0.0f);
+        }
+
+        position -= direction * glm::vec3(thirdPersonDistance);
+
+        if((thirdPersonDistance < 5.0) != targetLock->getHidden())
+            targetLock->setHidden(thirdPersonDistance < 5.0);
 	}
 
     viewMatrix = glm::lookAt(position, position + direction, nominalUp);

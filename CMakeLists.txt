@@ -198,7 +198,7 @@ add_executable (LandOfDran
 "LuaFunctions/Dynamic.h" 
 
 "Physics/PhysicsWorld.h" 
-"Physics/PhysicsWorld.cpp"   "Networking/PacketsFromServer/TakeOverPhysics.h" "Networking/PacketsFromServer/TakeOverPhysics.cpp" "Networking/PacketsFromServer/CameraSettings.h" "Networking/PacketsFromServer/CameraSettings.cpp")
+"Physics/PhysicsWorld.cpp"   "Networking/PacketsFromServer/TakeOverPhysics.h" "Networking/PacketsFromServer/TakeOverPhysics.cpp" "Networking/PacketsFromServer/CameraSettings.h" "Networking/PacketsFromServer/CameraSettings.cpp" "Networking/PacketsFromClient/ControlledPhysics.cpp" "Networking/PacketsFromServer/MovementSettings.h" "Networking/PacketsFromServer/MovementSettings.cpp" "GameLoop/PlayerController.h")
 
 target_include_directories(LandOfDran PRIVATE ${LUA_INCLUDE_DIR})
 
