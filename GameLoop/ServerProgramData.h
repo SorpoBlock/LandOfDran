@@ -75,15 +75,13 @@ struct ServerProgramData
 			if (c->at(a).get() == src->userData)
 			{
 				//These objects don't have to dissapear if Lua modders don't want them to
-				//But we need to clarify all of these objects are *ownly* owned by Lua now
-				if (c->at(a)->player)
-					c->at(a)->player.reset();
+				//But we need to clarify all of these objects are *only* owned by Lua now
+				c->at(a)->controlledObjects.clear();
 
 				//Get rid of ClientData and JoinedClient structures themselves
 				src->userData = nullptr;
 				c->at(a)->me.reset();
 				c->at(a)->client.reset();
-				c->at(a)->player.reset();
 				c->erase(c->begin() + a);
 				return;
 			}

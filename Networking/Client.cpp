@@ -1,5 +1,28 @@
 #include "Client.h"
 
+float Client::getIncoming() 
+{ 
+	if(getTicksMS() - lastIncomingQueryTime > 1000)
+	{
+		lastIncoming = (float)client->totalReceivedData / (1024.0f * 1.0f);
+		lastIncomingQueryTime = getTicksMS();
+		client->totalReceivedData = 0;
+	}
+
+	return lastIncoming; 
+}
+float Client::getOutgoing() 
+{
+	if (getTicksMS() - lastOutgoingQueryTime > 1000)
+	{
+		lastOutgoing = (float)client->totalSentData / (1024.0f * 1.0f);
+		lastOutgoingQueryTime = getTicksMS();
+		client->totalSentData = 0;
+	}
+
+	return lastOutgoing;
+}
+
 void Client::tryApplyHeldPackets(const ClientProgramData& pd, Simulation& simulation, const ExecutableArguments& cmdArgs)
 {
 	auto iter = packets.begin();
@@ -86,6 +109,14 @@ KickReason Client::run(const ClientProgramData& pd,Simulation &simulation, const
 
 					case ConsoleLine:
 						packets.push_back(new ConsoleLinePacket(packetHoldTime, event.packet));
+						return NotKicked;
+
+					case TakeOverPhysics:
+						packets.push_back(new TakeOverPhysicsPacket(packetHoldTime, event.packet));
+						return NotKicked;
+
+					case CameraSettings:
+						packets.push_back(new CameraSettingsPacket(packetHoldTime, event.packet));
 						return NotKicked;
 
 					//Can't process packet

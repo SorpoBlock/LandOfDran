@@ -2,6 +2,9 @@
 
 void Camera::control(float deltaT,std::shared_ptr<InputMap> input)
 {
+    if (!(freePosition && target.expired()))
+        return;
+
     //Test camera controls, no-clip camera
     float speed = 0.015f;
 
@@ -20,6 +23,29 @@ void Camera::updateSettings(std::shared_ptr<SettingManager> settings)
     mouseSensitivity = settings->getFloat("input/mousesensitivity");
     invertMouse = settings->getBool("input/invertmousey");
 }
+
+void Camera::setPosition(const glm::vec3& pos)
+{
+    position = pos;
+}
+
+void Camera::setDirection(const glm::vec3& dir)
+{
+    direction = dir;
+
+    //If either of the coords are exactly 0 the shader will stop rendering anything
+    if (std::abs(direction.x) < 0.001)
+        direction.x = 0.001;
+    if (std::abs(direction.y) < 0.001)
+        direction.y = 0.001;
+    if (std::abs(direction.z) < 0.001)
+        direction.z = 0.001;
+}
+
+void Camera::setUp(const glm::vec3& up)
+{
+	nominalUp = up;
+}   
 
 glm::vec3 Camera::getPosition()
 {
@@ -70,6 +96,9 @@ void Camera::flySideways(float amount)
 //Look around with the mouse
 void Camera::turn(float relMouseX, float relMouseY)
 {
+    if (!freeDirection)
+        return;
+
     relMouseX *= mouseSensitivity / 100.0f;
     relMouseY *= mouseSensitivity / 100.0f;
     if (invertMouse)
@@ -96,6 +125,52 @@ void Camera::turn(float relMouseX, float relMouseY)
 //Call once per frame
 void Camera::render(std::shared_ptr<ShaderManager> graphics)
 {
+    if(!target.expired())
+	{
+        std::shared_ptr<Dynamic> targetLock = target.lock();
+        if (targetLock->clientControlled)
+        {
+            btTransform t = targetLock->body->getWorldTransform();
+            position = b2g3(t.getOrigin());
+
+            glm::vec3 eyePos = targetLock->getType()->getModel()->getEyePosition();
+            glm::vec4 homoEyePos = glm::toMat4(targetLock->interpolator.getRotation()) * glm::vec4(eyePos, 1);
+            position += glm::vec3(homoEyePos.x, homoEyePos.y, homoEyePos.z);
+
+            const btQuaternion &q = t.getRotation();
+            glm::quat quat = glm::quat(q.getW(), q.getX(), q.getY(), q.getZ());
+            glm::vec4 homoDir = glm::toMat4(quat) * glm::vec4(0, 0, 1, 0);
+            if (!freeDirection)
+                direction = glm::vec3(homoDir.x, homoDir.y, homoDir.z);
+            if(freeUpVector)
+			{
+				glm::vec4 homoUp = glm::toMat4(quat) * glm::vec4(0, 1, 0, 0);
+				nominalUp = glm::vec3(homoUp.x, homoUp.y, homoUp.z);
+			}
+            else
+                nominalUp = glm::vec3(0, 1, 0);
+        }
+        else
+        {
+            position = targetLock->interpolator.getPosition();
+
+            glm::vec3 eyePos = targetLock->getType()->getModel()->getEyePosition();
+            glm::vec4 homoEyePos = glm::toMat4(targetLock->interpolator.getRotation()) * glm::vec4(eyePos, 1);
+            position += glm::vec3(homoEyePos.x, homoEyePos.y, homoEyePos.z);
+
+            glm::vec4 homoDir = glm::toMat4(targetLock->interpolator.getRotation()) * glm::vec4(0, 0, 1, 0);
+            if(!freeDirection)
+                direction = glm::vec3(homoDir.x, homoDir.y, homoDir.z);
+            if(freeUpVector)
+            {
+                glm::vec4 homoUp = glm::toMat4(targetLock->interpolator.getRotation()) * glm::vec4(0, 1, 0, 0);
+				nominalUp = glm::vec3(homoUp.x, homoUp.y, homoUp.z);
+			}
+            else
+                nominalUp = glm::vec3(0, 1, 0);
+        }
+	}
+
     viewMatrix = glm::lookAt(position, position + direction, nominalUp);
     angleMatrix = glm::lookAt(glm::vec3(0, 0, 0), direction, nominalUp);
 

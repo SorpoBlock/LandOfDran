@@ -49,12 +49,24 @@ unsigned int Dynamic::getUpdatePacketBytes() const
 		position
 		rotation
 	*/
-	return PositionBytes + QuaternionBytes + sizeof(netIDType);
+	return PositionBytes*3 + QuaternionBytes + sizeof(netIDType);
 }
 
 void Dynamic::updateSnapshot()
 {
-	modelInstance->setModelTransform(glm::translate(interpolator.getPosition()) * glm::toMat4(interpolator.getRotation()));
+	if (clientControlled)
+	{
+		const btTransform& t = body->getWorldTransform();
+		const btVector3& v = t.getOrigin();
+		const btQuaternion &q = t.getRotation();
+		modelInstance->setModelTransform(glm::translate(glm::vec3(v.x(), v.y(), v.z())) * glm::toMat4(glm::quat(q.w(), q.x(), q.y(), q.z())));
+	}
+	else
+	{
+		const glm::vec3& pos = interpolator.getPosition();
+		const glm::quat &quat = interpolator.getRotation();
+		modelInstance->setModelTransform(glm::translate(pos) * glm::toMat4(quat));
+	}
 }
 
 void Dynamic::setPosition(const btVector3& pos)
@@ -146,10 +158,14 @@ void Dynamic::addToUpdatePacket(enet_uint8 * dest)
 
 	const glm::vec3 &pos = glm::vec3(lastSentTransform.getOrigin().x(), lastSentTransform.getOrigin().y(), lastSentTransform.getOrigin().z());
 	const glm::quat &quat = glm::quat(lastSentTransform.getRotation().w(), lastSentTransform.getRotation().x(), lastSentTransform.getRotation().y(), lastSentTransform.getRotation().z());
+	const glm::vec3 &linVel = glm::vec3(body->getLinearVelocity().x(), body->getLinearVelocity().y(), body->getLinearVelocity().z());
+	const glm::vec3 &angVel = glm::vec3(body->getAngularVelocity().x(), body->getAngularVelocity().y(), body->getAngularVelocity().z());
 
 	memcpy(dest, &netID, sizeof(netIDType));
-	addPosition(dest + sizeof(netIDType), pos);
-	addQuaternion(dest + PositionBytes + sizeof(netIDType), quat);
+	addPosition(dest +   sizeof(netIDType), pos);
+	addQuaternion(dest + sizeof(netIDType) + PositionBytes, quat);
+	addPosition(dest +   sizeof(netIDType) + PositionBytes + QuaternionBytes, linVel);
+	addPosition(dest +   sizeof(netIDType) + PositionBytes + QuaternionBytes + PositionBytes, angVel);
 }
 
 void Dynamic::requestDestruction()

@@ -97,11 +97,11 @@ void LoopClient::handleInput(float deltaT, ExecutableArguments& cmdArgs, std::sh
 			if (e.window.event == SDL_WINDOWEVENT_SIZE_CHANGED)
 			{
 				pd.context->setSize(e.window.data1, e.window.data2);
-				pd.camera->setAspectRatio(pd.context->getResolution().x / pd.context->getResolution().y);
+				simulation.camera->setAspectRatio(pd.context->getResolution().x / pd.context->getResolution().y);
 			}
 		}
 		else if (e.type == SDL_MOUSEMOTION && pd.context->getMouseLocked())
-			pd.camera->turn(-(float)e.motion.xrel, -(float)e.motion.yrel);
+			simulation.camera->turn(-(float)e.motion.xrel, -(float)e.motion.yrel);
 		else if (e.type == SDL_KEYDOWN)
 		{
 			//This one is not handled through input map because input map can be suppressed
@@ -130,7 +130,7 @@ void LoopClient::handleInput(float deltaT, ExecutableArguments& cmdArgs, std::sh
 	if (pd.settingsMenu->pollForChanges())
 	{
 		Logger::setDebug(settings->getBool("logger/verbose"));
-		pd.camera->updateSettings(settings);
+		simulation.camera->updateSettings(settings);
 		pd.gui->updateSettings(settings);
 		simulation.idealBufferSize = settings->getInt("network/snapshotbuffer");
 	}
@@ -156,7 +156,7 @@ void LoopClient::handleInput(float deltaT, ExecutableArguments& cmdArgs, std::sh
 		pd.context->setMouseLock(!pd.context->getMouseLocked());
 	
 	//Move camera around
-	pd.camera->control(deltaT, pd.input);
+	simulation.camera->control(deltaT, pd.input);
 
 	if (pd.serverBrowser->serverPickReady())
 	{
@@ -204,7 +204,7 @@ void LoopClient::renderEverything(float deltaT)
 		simulation.dynamicTypes[a]->getModel()->updateAll(deltaT);
 
 	//Start rendering to screen:
-	pd.camera->render(pd.shaders);
+	simulation.camera->render(pd.shaders);
 
 	pd.context->select();
 	pd.context->clear(0.2f, 0.2f, 0.2f);
@@ -242,7 +242,7 @@ void LoopClient::run(float deltaT,ExecutableArguments& cmdArgs, std::shared_ptr<
 	NetInfo netInfo;
 	if (client)
 		netInfo = { client->getPing(), client->getIncoming(), client->getOutgoing() };
-	pd.debugMenu->passDetails(pd.camera, netInfo);
+	pd.debugMenu->passDetails(simulation.camera->getPosition(),simulation.camera->getDirection(), netInfo);
 
 	if (pd.chatWindow->hasChatMessage())
 	{
@@ -319,8 +319,8 @@ LoopClient::LoopClient(ExecutableArguments& cmdArgs, std::shared_ptr<SettingMana
 	pd.shaders = std::make_shared<ShaderManager>();
 	pd.shaders->readShaderList("Shaders/shadersList.txt");
 
-	pd.camera = std::make_shared<Camera>(pd.context->getResolution().x / pd.context->getResolution().y);
-	pd.camera->updateSettings(settings);
+	simulation.camera = std::make_shared<Camera>(pd.context->getResolution().x / pd.context->getResolution().y);
+	simulation.camera->updateSettings(settings);
 
 	//A few test decals
 	pd.textures = std::make_shared<TextureManager>();
@@ -339,7 +339,6 @@ LoopClient::~LoopClient()
 	pd.context.reset();
 	pd.gui.reset(); //Will handle indivdual windows
 	pd.shaders.reset();
-	pd.camera.reset();
 	pd.textures.reset();
 
 	//This one is actually useful because the server will learn we disconnected faster if we do it properly 

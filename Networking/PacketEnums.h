@@ -69,6 +69,12 @@ enum FromClientPacketType : unsigned char
 #define LogFlag_Error 1
 #define LogFlag_Debug 2
 
+//Use with CameraSettings packet
+#define CameraFlag_BoundToObject 1
+#define CameraFlag_LockDirection 2
+#define CameraFlag_LockPosition 4
+#define CameraFlag_LockUpVector 8
+
 /*
 	Up to 256 types of packet from server to client
 */
@@ -83,6 +89,8 @@ enum FromServerPacketType : unsigned char
 	ChatMessageFromServer = 6,
 	EvalLoginResponse = 7,	//Response to EvalLogin, did you get the password right?
 	ConsoleLine = 8,		//A line of text from the server's logger to clients that have admin
+	TakeOverPhysics = 9,	//Server wants client to take over (or relinquish) physics simulation of this object, probably the client's player or a driven car
+	CameraSettings = 10,	//Tell client to bind/unbind camera to object or change other settings
 };
 
 //For use with AcceptConnection packets

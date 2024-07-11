@@ -10,6 +10,8 @@
 #include "PacketsFromServer/ChatMessageFromServer.h"
 #include "PacketsFromServer/EvalLoginResponse.h"
 #include "PacketsFromServer/DisplayConsoleLine.h"
+#include "PacketsFromServer/TakeOverPhysics.h"
+#include "PacketsFromServer/CameraSettings.h"
 #include "../GameLoop/ClientProgramData.h"
 #include "../GameLoop/Simulation.h"
 
@@ -36,11 +38,18 @@ class Client
 	//Try applying each held packet and deleting any that expired or have been applied
 	void tryApplyHeldPackets(const ClientProgramData& pd, Simulation& simulation, const ExecutableArguments& cmdArgs);
 
+	//For DebugMenu to show bandwidth usage over last second
+	float lastIncomingQueryTime = 0;
+	float lastOutgoingQueryTime = 0;
+	float lastIncoming = 0;
+	float lastOutgoing = 0;
+
 public:
 
+	float getIncoming();
+	float getOutgoing();
+
 	float getPing() const		{ return (float)peer->lastRoundTripTime; }
-	float getIncoming() const	{ return (float)peer->incomingBandwidth; }
-	float getOutgoing() const	{ return (float)peer->outgoingBandwidth; }
 
 	bool isValid() const { return valid; }
 

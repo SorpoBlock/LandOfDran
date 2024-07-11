@@ -7,7 +7,6 @@
 #include "../Graphics/Mesh.h"
 #include "../Graphics/RenderContext.h"
 #include "../Interface/InputMap.h"
-#include "../Graphics/PlayerCamera.h"
 #include "../Interface/SettingsMenu.h"
 #include "../Interface/DebugMenu.h"
 #include "../Interface/ServerBrowser.h"
@@ -28,7 +27,6 @@ struct ClientProgramData
 	std::shared_ptr<DebugMenu>		debugMenu = nullptr;
 	std::shared_ptr<ServerBrowser>	serverBrowser = nullptr;
 	std::shared_ptr<ShaderManager>	shaders = nullptr;
-	std::shared_ptr<Camera>			camera = nullptr;
 	std::shared_ptr<TextureManager> textures = nullptr;
 	std::shared_ptr<InputMap>		input = nullptr;
 	std::shared_ptr<EscapeMenu>		escapeMenu = nullptr;

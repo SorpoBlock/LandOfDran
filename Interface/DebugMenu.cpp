@@ -1,12 +1,14 @@
 #include "DebugMenu.h"
 
-void DebugMenu::passDetails(std::shared_ptr<Camera> camera,const NetInfo & netInfo)
+void DebugMenu::passDetails(const glm::vec3 &camPos,const glm::vec3 &camDir,const NetInfo & netInfo)
 {
-	cameraPosition = camera->getPosition();
-	cameraDirection = camera->getDirection();
+	cameraPosition = camPos;
+	cameraDirection = camDir;
 	lastPing = netInfo.ping;
 	incomingData = netInfo.incomingData;
 	outgoingData = netInfo.outgoingData;
+	maxIncoming = std::max(maxIncoming, incomingData);
+	maxOutgoing = std::max(maxOutgoing, outgoingData);
 }
 
 void DebugMenu::reset()
@@ -16,6 +18,8 @@ void DebugMenu::reset()
 	adminLoginComment = "";
 	consoleCommandBuffer[0] = 0;
 	passwordBuffer[0] = 0;
+	maxIncoming = 0;
+	maxOutgoing = 0;
 }
 
 void DebugMenu::addLogLine(loggerLine line)
@@ -40,8 +44,11 @@ void DebugMenu::render(ImGuiIO* io)
 	{
 		ImGui::Text("FPS: %f", io->Framerate);
 		ImGui::Text("Ping: %f", lastPing);
-		ImGui::Text("Incoming Data: %f", incomingData);
-		ImGui::Text("Outgoing Data: %f", outgoingData);
+		ImGui::Text("Incoming Data: %f kB/sec", incomingData);
+		ImGui::Text("Incoming Data Max: %f kB/sec", maxIncoming);
+		ImGui::Text("Outgoing Data: %f kB/sec", outgoingData);
+		ImGui::Text("Outgoing Data Max: %f kB/sec", maxOutgoing);
+		ImGui::Text("Run time: %f seconds", getTicksMS()/1000.0f);
 		ImGui::EndTabItem();
 	}
 

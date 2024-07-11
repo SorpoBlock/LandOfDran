@@ -3,6 +3,7 @@
 #include "../NetTypes/DynamicType.h"
 #include "../SimObjects/Dynamic.h"
 #include "../Networking/ObjHolder.h"
+#include "../Graphics/PlayerCamera.h"
 
 /*
 	Client only
@@ -20,8 +21,13 @@ struct Simulation
 	*/
 	float idealBufferSize = 5.0;
 
+	std::shared_ptr<Camera>			camera = nullptr;
+
 	//Types:
 	std::vector<std::shared_ptr<DynamicType>> dynamicTypes;
+
+	//See TakeOverPhysicsPacket which can add or remove to this list
+	std::vector<std::shared_ptr<Dynamic>> controlledDynamics;
 
 	//Objects (object holders):
 	ObjHolder<Dynamic>* dynamics = nullptr;

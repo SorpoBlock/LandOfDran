@@ -121,6 +121,9 @@ class ModelInstance
 	//The transform for the entire model instance
 	glm::mat4 wholeModelTransform = glm::mat4(1.0);
 
+	//Used to hide this entire instance, i.e. we don't want to see our own player model most of the time
+	bool hidden = false;
+
 	/*
 		These are calculated in calculateMeshTransforms per Mesh based on:
   		The node hierarchy as imported from Assimp with any baked in hierarchical transformations
@@ -164,6 +167,8 @@ class ModelInstance
 	void setFlags(int meshId, unsigned int flags);
 
 	public:
+
+	void setHidden(bool _hidden);
 
 	//Change the position/scale/rotation for the whole model instance
 	void setModelTransform(glm::mat4 &&transform);
@@ -379,7 +384,12 @@ class Model
 	//Loaded server side, no animations or textures expected
 	bool serverSide = false;
 
+	//If a camera is bound to this, offset it by this much
+	glm::vec3 eyePosition = glm::vec3(0, 1, 0);
+
 	public:
+
+	glm::vec3 getEyePosition() const { return eyePosition * baseScale; }
 
 	bool isServerSide() const { return serverSide;  }
 

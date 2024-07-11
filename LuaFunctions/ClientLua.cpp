@@ -268,6 +268,14 @@ static int LUA_clientGiveControl(lua_State* L)
 		return 0;
 	}
 
+	//Give physics simulation control for this object to client
+	ENetPacket* ret = enet_packet_create(NULL, 2 + sizeof(netIDType), getFlagsFromChannel(OtherReliable));
+	ret->data[0] = (unsigned char)TakeOverPhysics;
+	ret->data[1] = (unsigned char)1; //Add
+	netIDType netID = player->getID();
+	memcpy(ret->data + 2, &netID, sizeof(netIDType));
+	client->client->send(ret, OtherReliable);
+
 	client->controlledObjects.push_back(player);
 
 	return 0;
@@ -305,6 +313,14 @@ static int LUA_clientRemoveControl(lua_State* L)
 		return 0;
 	}
 
+	//Turn old player back into a normal server-controlled object, if it existed
+	ENetPacket* ret = enet_packet_create(NULL, 2 + sizeof(netIDType), getFlagsFromChannel(OtherReliable));
+	ret->data[0] = (unsigned char)TakeOverPhysics;
+	ret->data[1] = (unsigned char)0; //Remove
+	netIDType netID = player->getID();
+	memcpy(ret->data + 2, &netID, sizeof(netIDType));
+	client->client->send(ret, OtherReliable);
+
   	client->controlledObjects.erase(std::remove(client->controlledObjects.begin(), client->controlledObjects.end(), player), client->controlledObjects.end());
 
 	return 0;
@@ -338,7 +354,6 @@ static int LUA_clientGetNumControlled(lua_State* L)
 
 	return 1;
 }
-
 
 static int LUA_clientGetControlledIdx(lua_State* L)
 {
@@ -378,6 +393,111 @@ static int LUA_clientGetControlledIdx(lua_State* L)
 	return 1;
 }
 
+static int LUA_clientBindCamera(lua_State* L)
+{
+	if(lua_gettop(L) != 4)
+	{
+		error("Expected 4 arguments client:bindCamera(dynamic,fixUpVector,maxFollowDistance)");
+		return 0;
+	}
+
+	float maxFollowDistnace = lua_tonumber(L, -1);
+	lua_pop(L, 1);
+
+	bool fixUpVector = lua_toboolean(L, -1);
+	lua_pop(L, 1);
+
+	std::shared_ptr<Dynamic> object = LUA_pd->dynamics->popLua(L);
+	if (!object)
+	{
+		error("Invalid dynamic passed to client:bindCamera");
+		return 0;
+	}
+
+	std::shared_ptr<JoinedClient> jc = popClientLua(L);
+	if (!jc)
+	{
+		error("Invalid client object A passed to client:bindCamera");
+		return 0;
+	}
+
+	std::shared_ptr<ClientData> client = LUA_pd->getClient(jc);
+	if (!client)
+	{
+		error("Invalid client object B passed to client:bindCamera");
+		return 0;
+	}
+
+	//Send camera settings to client
+
+	ENetPacket* ret = enet_packet_create(NULL, 2 + sizeof(netIDType) + sizeof(float), getFlagsFromChannel(OtherReliable));
+	ret->data[0] = (unsigned char)CameraSettings;
+	ret->data[1] = (unsigned char)CameraFlag_BoundToObject | (fixUpVector ? CameraFlag_LockUpVector : 0);
+	netIDType netID = object->getID();
+	memcpy(ret->data + 2, &netID, sizeof(netIDType));
+	memcpy(ret->data + 2 + sizeof(netIDType), &maxFollowDistnace, sizeof(float));
+	client->client->send(ret, OtherReliable);
+}
+
+static int LUA_clientStaticCamera(lua_State* L)
+{
+	if (lua_gettop(L) != 4 && lua_gettop(L) != 7)
+	{
+		error("Expected 4 or 7 arguments client:staticCamera(posX,posY,posZ) client:staticCamera(posX,posY,posZ,dirX,dirY,dirZ)");
+		return 0;
+	}
+
+	int packetSize = 2 + sizeof(float) * 3;
+	float pX=0,pY=0,pZ=0,dX=0,dY=0,dZ=0;
+
+	if (lua_gettop(L) == 7)
+	{
+		packetSize += sizeof(float) * 3;
+
+		dZ = lua_tonumber(L, -1);
+		lua_pop(L, 1);
+		dY = lua_tonumber(L, -1);
+		lua_pop(L, 1);
+		dX = lua_tonumber(L, -1);
+		lua_pop(L, 1);
+	}
+
+	pZ = lua_tonumber(L, -1);
+	lua_pop(L, 1);
+	pY = lua_tonumber(L, -1);
+	lua_pop(L, 1);
+	pX = lua_tonumber(L, -1);
+	lua_pop(L, 1);
+
+	std::shared_ptr<JoinedClient> jc = popClientLua(L);
+	if (!jc)
+	{
+		error("Invalid client object A passed to client:staticCamera");
+		return 0;
+	}
+
+	ENetPacket* ret = enet_packet_create(NULL, packetSize, getFlagsFromChannel(OtherReliable));
+	ret->data[0] = (unsigned char)CameraSettings;
+	
+	if(packetSize == sizeof(float) * 3 + 2)
+		ret->data[1] = (unsigned char)CameraFlag_LockPosition;
+	else
+		ret->data[1] = (unsigned char)(CameraFlag_LockPosition | CameraFlag_LockDirection);
+	
+	memcpy(ret->data + 2 + sizeof(float) * 0, &pX, sizeof(float));
+	memcpy(ret->data + 2 + sizeof(float) * 1, &pY, sizeof(float));
+	memcpy(ret->data + 2 + sizeof(float) * 2, &pZ, sizeof(float));
+
+	if (packetSize == sizeof(float) * 6 + 2)
+	{
+		memcpy(ret->data + 2 + sizeof(float) * 3, &dX, sizeof(float));
+		memcpy(ret->data + 2 + sizeof(float) * 4, &dY, sizeof(float));
+		memcpy(ret->data + 2 + sizeof(float) * 5, &dZ, sizeof(float));
+	}
+
+	jc->send(ret, OtherReliable);
+}
+
 void registerClientFunctions(lua_State* L)
 {
 	//Register client global functions:
@@ -391,10 +511,12 @@ void registerClientFunctions(lua_State* L)
 		{ "getIP", LUA_clientGetIP },
 		{ "getID", LUA_clientGetID },
 		{ "isAdmin", LUA_clientIsAdmin },
-		{ "addControl", LUA_clientAddControl },
+		{ "giveControl", LUA_clientGiveControl },
 		{ "removeControl", LUA_clientRemoveControl },
 		{ "getControlledIdx", LUA_clientGetControlledIdx },
 		{ "getNumControlled", LUA_clientGetNumControlled },
+		{ "bindCamera", LUA_clientBindCamera },
+		{ "staticCamera", LUA_clientStaticCamera },
 		{ NULL, NULL }
 	};
 

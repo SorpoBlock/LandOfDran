@@ -39,13 +39,20 @@ class Dynamic : public SimObject
 	//Client only: holds buffer data for instanced mesh rendering
 	ModelInstance* modelInstance = nullptr;
 
-	//Physics object
-	btRigidBody* body = nullptr;
-
 	//Called by objHolder when destroy is first called, gives object an oppertunity to reset smart pointers it might have
 	virtual void requestDestruction() override;
 
 	public:
+
+	void setHidden(bool hidden) { modelInstance->setHidden(hidden); };
+
+	const std::shared_ptr<DynamicType>& getType() const { return type; }
+
+	//Physics object
+	btRigidBody* body = nullptr;
+
+	//Client only, true if object is in Simulation::controlledDynamics
+	bool clientControlled = false;
 
 	void updateSnapshot();
 

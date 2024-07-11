@@ -87,6 +87,12 @@ void Model::printHierarchy(Node * node,int layer) const
 		printHierarchy(node->children[a], layer + 1);
 }
 
+void ModelInstance::setHidden(bool _hidden)
+{
+	hidden = _hidden;
+	wholeModelTransformUpdated = true;
+}
+
 void ModelInstance::setModelTransform(glm::mat4 &&transform)
 {
 	//Used to update transformUpdated and anythingUpdated, but now wholeModelTransform is exempt
@@ -427,6 +433,16 @@ void ModelInstance::performMeshBufferUpdates()
 	{
 		if (type->allMeshes[a]->nonRenderingMesh)
 			continue;
+
+		if (hidden)
+		{
+			//Setting all points of GL_POSITION in a prim to the same value is defined behavior in opengl shaders and will discard the prim
+			glm::mat4 meshTransform = glm::mat4(0.0);
+			glBindBuffer(GL_ARRAY_BUFFER, type->allMeshes[a]->buffers[ModelTransform]);
+			glBufferSubData(GL_ARRAY_BUFFER, sizeof(glm::mat4) * bufferOffset, sizeof(glm::mat4), &meshTransform[0][0]);
+
+			continue;
+		}
 
 		if (transformUpdated || playingAnimations.size() > 0)
 		{
@@ -865,6 +881,9 @@ void Model::calculateCollisionBox(const aiScene* scene)
 
 	aiVector3D offset = size + minPos;
 	collisionOffset = glm::vec3(offset.x, offset.y, offset.z);
+
+	//This can be manually set later, or you can add a mesh with the name "eye" to your model
+	eyePosition = glm::vec3(0, size.y * 1.85, 0);
 }
 
 //Abridged version for server-side loading, namely for collision meshes
@@ -1292,7 +1311,10 @@ void Mesh::recompileInstances()
 
 	for (unsigned int a = 0; a < instances.size(); a++)
 	{
-		transforms.push_back(instances[a]->wholeModelTransform * instances[a]->MeshTransforms[meshIndex]);
+		if (instances[a]->hidden)
+			transforms.push_back(glm::mat4(0.0));
+		else
+			transforms.push_back(instances[a]->wholeModelTransform * instances[a]->MeshTransforms[meshIndex]);
 		flags.push_back(instances[a]->MeshFlags[meshIndex]);
 		colors.push_back(instances[a]->MeshColors[meshIndex]);
 	}

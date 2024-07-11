@@ -4,6 +4,7 @@
 
 #include "ShaderSpecification.h"
 #include "../Interface/InputMap.h"
+#include "../SimObjects/Dynamic.h"
 
 class Camera
 {
@@ -32,6 +33,18 @@ class Camera
 	bool invertMouse = false;
 
 	public:
+
+	//See CameraSettingsPacket
+	std::weak_ptr<Dynamic> target;
+	bool freePosition = true;	//Only used if target is nullptr
+	bool freeDirection = true; //same
+	bool freeUpVector = false;  //Upvector can be explicitly set if unlocked and there's no target object
+
+	void setPosition(const glm::vec3& pos);
+
+	void setDirection(const glm::vec3& dir);
+
+	void setUp(const glm::vec3& up);
 
 	void control(float deltaT,std::shared_ptr<InputMap> input);
 
