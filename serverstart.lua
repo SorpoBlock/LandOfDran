@@ -11,8 +11,10 @@ function join(client)
 	
 	--Create a player for the client
 	dynamic = createDynamic(0,0,50,0)
+	dynamic:setAngularFactor(0,0,0);
 	client:giveControl(dynamic)
 	client:bindCamera(dynamic,true,20)
+	client:setDefaultController(dynamic)
 	
 	return client
 end

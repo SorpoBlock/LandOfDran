@@ -44,6 +44,10 @@ class Dynamic : public SimObject
 
 	public:
 
+	void play(int id,bool loop) { modelInstance->playAnimation(id, loop); }
+
+	void stop(int id) { modelInstance->stopAnimation(id); }
+
 	bool getHidden() const { return modelInstance->getHidden(); };
 
 	void setHidden(bool hidden) { modelInstance->setHidden(hidden); };

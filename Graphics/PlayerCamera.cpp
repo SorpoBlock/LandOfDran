@@ -187,8 +187,11 @@ void Camera::render(std::shared_ptr<ShaderManager> graphics,float deltaT,const s
             thirdPersonDistance = std::min(thirdPersonDistance, maxThirdPersonDistance);
 
             btVector3 hitPos, hitNormal;
-            if(world->doRaycast(g2b3(position), g2b3(position - direction * glm::vec3(thirdPersonDistance)),targetLock->body, hitPos, hitNormal))
-                thirdPersonDistance = std::min(glm::length(position - b2g3(hitPos)),thirdPersonDistance);
+            if (world)
+            {
+                if (world->doRaycast(g2b3(position), g2b3(position - direction * glm::vec3(thirdPersonDistance)), targetLock->body, hitPos, hitNormal))
+                    thirdPersonDistance = std::min(glm::length(position - b2g3(hitPos)), thirdPersonDistance);
+            }
         }
         else
         {

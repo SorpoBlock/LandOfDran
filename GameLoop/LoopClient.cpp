@@ -271,7 +271,7 @@ void LoopClient::run(float deltaT,ExecutableArguments& cmdArgs, std::shared_ptr<
 	auto ctrlIter = simulation.controllers.begin();
 	while (ctrlIter != simulation.controllers.end())
 	{
-		if ((*ctrlIter)->control(pd.input,deltaT))
+		if ((*ctrlIter)->control(pd.input,simulation.camera,deltaT))
 			ctrlIter = simulation.controllers.erase(ctrlIter);
 		else
 			++ctrlIter;
@@ -287,7 +287,7 @@ void LoopClient::run(float deltaT,ExecutableArguments& cmdArgs, std::shared_ptr<
 		netInfo = { client->getPing(), client->getIncoming(), client->getOutgoing() };
 	pd.debugMenu->passDetails(simulation.camera->getPosition(),simulation.camera->getDirection(), netInfo);
 
-	if (pd.chatWindow->hasChatMessage())
+	if (pd.chatWindow->hasChatMessage() && client)
 	{
 		ENetPacket *chat = makeChatMessage(pd.chatWindow->getChatMessage());
 		client->send(chat, OtherReliable);

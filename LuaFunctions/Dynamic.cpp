@@ -110,6 +110,45 @@ static int LUA_dynamicSetVelocity(lua_State* L)
 	return 0;
 }
 
+static int LUA_dynamicSetAngularFactor(lua_State* L)
+{
+	scope("(LUA) dynamic:setAngularFactor");
+
+	int args = lua_gettop(L);
+
+	if (args != 4)
+	{
+		error("Expected 4 arguments dynamic:setAngularFactor(x,y,z)");
+		return 0;
+	}
+
+	if (!LUA_pd->dynamics)
+	{
+		error("dynamics ObjHolder is null");
+		return 0;
+	}
+
+	float z = lua_tonumber(L, -1);
+	lua_pop(L, 1);
+	float y = lua_tonumber(L, -1);
+	lua_pop(L, 1);
+	float x = lua_tonumber(L, -1);
+	lua_pop(L, 1);
+
+	std::shared_ptr<Dynamic> dynamic = LUA_pd->dynamics->popLua(L);
+
+	if (!dynamic)
+	{
+		error("Invalid dynamic object passed, was it deleted already?");
+		return 0;
+	}
+
+	dynamic->body->setAngularFactor(btVector3(x, y, z));
+	dynamic->activate();
+
+	return 0;
+}
+
 static int LUA_dynamicGetVelocity(lua_State* L)
 {
 	scope("(LUA) dynamic:getVelocity");
@@ -419,7 +458,7 @@ luaL_Reg* getDynamicFunctions(lua_State *L)
 	lua_register(L, "getNumDynamics", getNumDynamics);
 
 	//Create table of dynamic metatable functions:
-	luaL_Reg* regs = new luaL_Reg[9];
+	luaL_Reg* regs = new luaL_Reg[10];
 
 	int iter = 0;
 	regs[iter++] = { "destroy",     LUA_dynamicDestroy };
@@ -429,6 +468,7 @@ luaL_Reg* getDynamicFunctions(lua_State *L)
 	regs[iter++] = { "setVelocity", LUA_dynamicSetVelocity };
 	regs[iter++] = { "setAngularVelocity", LUA_dynamicSetAngularVelocity };
 	regs[iter++] = { "getAngularVelocity", LUA_dynamicGetAngularVelocity };
+	regs[iter++] = { "setAngularFactor", LUA_dynamicSetAngularFactor };
 	regs[iter++] = { "activate",    LUA_dynamicActivate };
 	regs[iter++] = { NULL, NULL };
 
