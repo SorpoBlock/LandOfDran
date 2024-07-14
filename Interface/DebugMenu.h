@@ -26,6 +26,8 @@ class DebugMenu : public Window
 	float maxIncoming = 0.0;
 	float maxOutgoing = 0.0;
 
+	std::vector<std::string> extraLines;
+
 	virtual void render(ImGuiIO* io) override;
 	virtual void init() override;
 	virtual void handleInput(SDL_Event& e, std::shared_ptr<InputMap> input) override;
@@ -57,6 +59,9 @@ class DebugMenu : public Window
 	DebugMenu();
 
 public:
+
+	//I got tired of extending passDetails for each new thing
+	void addExtraLine(const std::string& line) { extraLines.push_back(line); }
 
 	bool isCommandWaiting() const { return luaCommandWaiting; }
 

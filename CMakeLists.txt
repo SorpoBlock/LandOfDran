@@ -169,12 +169,20 @@ add_executable (LandOfDran
 "Networking/PacketsFromServer/EvalLoginResponse.cpp" 
 "Networking/PacketsFromServer/DisplayConsoleLine.h" 
 "Networking/PacketsFromServer/DisplayConsoleLine.cpp" 
+"Networking/PacketsFromServer/TakeOverPhysics.h" 
+"Networking/PacketsFromServer/TakeOverPhysics.cpp" 
+"Networking/PacketsFromServer/CameraSettings.h" 
+"Networking/PacketsFromServer/CameraSettings.cpp" 
+"Networking/PacketsFromServer/MovementSettings.h" 
+"Networking/PacketsFromServer/MovementSettings.cpp" 
 
 "Networking/PacketsFromClient/ConnectionRequest.cpp" 
 "Networking/PacketsFromClient/FinishedLoading.cpp" 
 "Networking/PacketsFromClient/ChatMessageSent.cpp"
 "Networking/PacketsFromClient/AttemptEvalLogin.cpp" 
 "Networking/PacketsFromClient/EvalCommand.cpp" 
+"Networking/PacketsFromClient/ControlledPhysics.cpp" 
+"Networking/PacketsFromClient/MovementInputs.cpp"
 
 "GameLoop/ClientProgramData.h" 
 "GameLoop/ServerProgramData.h"   
@@ -185,6 +193,8 @@ add_executable (LandOfDran
 "GameLoop/LoopServer.cpp" 
 "GameLoop/ClientData.h" 
 "GameLoop/ClientData.cpp"
+"GameLoop/PlayerController.h" 
+"GameLoop/PlayerController.cpp"
 
 "LuaFunctions/OtherFunctions.h" 
 "LuaFunctions/OtherFunctions.cpp" 
@@ -198,7 +208,7 @@ add_executable (LandOfDran
 "LuaFunctions/Dynamic.h" 
 
 "Physics/PhysicsWorld.h" 
-"Physics/PhysicsWorld.cpp"   "Networking/PacketsFromServer/TakeOverPhysics.h" "Networking/PacketsFromServer/TakeOverPhysics.cpp" "Networking/PacketsFromServer/CameraSettings.h" "Networking/PacketsFromServer/CameraSettings.cpp" "Networking/PacketsFromClient/ControlledPhysics.cpp" "Networking/PacketsFromServer/MovementSettings.h" "Networking/PacketsFromServer/MovementSettings.cpp" "GameLoop/PlayerController.h")
+"Physics/PhysicsWorld.cpp")   
 
 target_include_directories(LandOfDran PRIVATE ${LUA_INCLUDE_DIR})
 

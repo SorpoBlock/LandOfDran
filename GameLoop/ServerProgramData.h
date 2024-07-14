@@ -51,7 +51,7 @@ struct ServerProgramData
 	}
 
 	//O(1) access to client data in packet functions, can return nullptr
-	std::shared_ptr<ClientData> getClient(std::shared_ptr<JoinedClient> source)
+	std::shared_ptr<ClientData> getClient(std::shared_ptr<JoinedClient> source) const
 	{
 		if (!source->userData)
 			return nullptr;

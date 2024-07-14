@@ -4,6 +4,7 @@
 #include <ctype.h>
 #include <iostream>
 #include <SDL2/SDL.h>
+#define GLM_ENABLE_EXPERIMENTAL //Was only required to get windows-mingw64 build to compile
 #include <GL/glew.h>
 #include <fstream>
 #include <vector>

@@ -15,6 +15,14 @@ void LoopServer::run(float deltaT, ExecutableArguments& cmdArgs, std::shared_ptr
 		server->updateAdminConsoles(Logger::getStorage()->at(a));
 	Logger::getStorage()->clear();
 
+	for (unsigned int a = 0; a < pd.clients.size(); a++)
+	{
+		for (unsigned int b = 0; b < pd.clients[a]->controllers.size(); b++)
+		{
+			pd.clients[a]->controllers[b].controlWithLastInput(pd.physicsWorld,deltaT);
+		}
+	}
+
 	scheduler->run(pd.luaState);
 }
 

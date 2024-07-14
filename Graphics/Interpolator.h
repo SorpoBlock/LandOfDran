@@ -22,6 +22,8 @@ class Interpolator
 
 	public:
 
+	int getNumSnapshots() const { return snapshots.size(); }
+
 	void addSnapshot(const glm::vec3& pos, const glm::quat& rot, float idealBufferSize);
 	glm::vec3 getPosition();
 	glm::quat getRotation();

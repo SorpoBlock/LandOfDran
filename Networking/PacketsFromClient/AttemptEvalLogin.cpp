@@ -1,5 +1,3 @@
-#pragma once
-
 #include "../Server.h"
 #include "../../GameLoop/ServerProgramData.h"
 

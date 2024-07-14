@@ -437,6 +437,8 @@ static int LUA_clientBindCamera(lua_State* L)
 	memcpy(ret->data + 2, &netID, sizeof(netIDType));
 	memcpy(ret->data + 2 + sizeof(netIDType), &maxFollowDistnace, sizeof(float));
 	client->client->send(ret, OtherReliable);
+
+	return 0;
 }
 
 static int LUA_clientStaticCamera(lua_State* L)
@@ -496,6 +498,8 @@ static int LUA_clientStaticCamera(lua_State* L)
 	}
 
 	jc->send(ret, OtherReliable);
+
+	return 0;
 }
 
 static int LUA_clientSetDefaultController(lua_State* L)
@@ -528,7 +532,10 @@ static int LUA_clientSetDefaultController(lua_State* L)
 	{
 		error("Invalid client object B passed to client:setDefaultController");
 		return 0;
-	}
+	} 
+
+	client->controllers.emplace_back();
+	client->controllers.back().target = player;
 
 	ENetPacket* ret = enet_packet_create(NULL, 1 + sizeof(netIDType), getFlagsFromChannel(OtherReliable));
 	ret->data[0] = (unsigned char)MovementSettings;

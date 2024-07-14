@@ -49,6 +49,9 @@ void DebugMenu::render(ImGuiIO* io)
 		ImGui::Text("Outgoing Data: %f kB/sec", outgoingData);
 		ImGui::Text("Outgoing Data Max: %f kB/sec", maxOutgoing);
 		ImGui::Text("Run time: %f seconds", getTicksMS()/1000.0f);
+		for(unsigned int a = 0; a<extraLines.size(); a++)
+			ImGui::Text(extraLines.at(a).c_str());
+		extraLines.clear();
 		ImGui::EndTabItem();
 	}
 

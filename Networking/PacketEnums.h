@@ -63,7 +63,8 @@ enum FromClientPacketType : unsigned char
 	ChatMessage = 3,		//Send a chat message to the server
 	EvalLogin = 4,			//Try to log into the server's eval console with admin password
 	EvalCommand = 5,		//Send a Lua command to the server
-	ControlledPhysics = 6	//Client to server transform updates for objects in simulation.controlledObjects
+	ControlledPhysics = 6,	//Client to server transform updates for objects in simulation.controlledObjects
+	MovementInputs = 7	,	//Client to server movement inputs for player controller, server will cache these and apply them each frame until a new packet comes in
 };
 
 //Used with ConsoleLine packet

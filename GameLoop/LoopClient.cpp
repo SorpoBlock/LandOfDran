@@ -227,7 +227,7 @@ void LoopClient::renderEverything(float deltaT)
 
 void LoopClient::sendControlledObjects()
 {
-	if(getTicksMS() - lastSentControlledObjects < 40)
+	if(getTicksMS() - lastSentControlledObjects < 100)
 		return;
 
 	lastSentControlledObjects = getTicksMS();
@@ -241,10 +241,40 @@ void LoopClient::sendControlledObjects()
 		if (!d->requiresNetUpdate())
 			continue;
 
-		ENetPacket* update = enet_packet_create(NULL, d->getUpdatePacketBytes() + 1, getFlagsFromChannel(OtherReliable));
+		ENetPacket* update = enet_packet_create(NULL, d->getUpdatePacketBytes() + 1, getFlagsFromChannel(Unreliable));
 		update->data[0] = (unsigned char)ControlledPhysics;
 		d->addToUpdatePacket(update->data + 1);
-		client->send(update, OtherReliable);
+		client->send(update, Unreliable);
+	}
+}
+
+void LoopClient::updateControllers(float deltaT)
+{
+	//Go through player controllers, remove any that are bound to now deleted dynamics 
+	auto ctrlIter = simulation.controllers.begin();
+	while (ctrlIter != simulation.controllers.end())
+	{
+		//Apply movement inputs client side 
+		if ((*ctrlIter)->control(pd.input, simulation.camera, deltaT, pd.physicsWorld))
+		{
+			ctrlIter = simulation.controllers.erase(ctrlIter);
+			continue;
+		}
+		else
+		{
+			//Send movement inputs to server to be applied there
+			if (!client)
+			{
+				++ctrlIter;
+				continue;
+			}
+
+			ENetPacket* packet = (*ctrlIter)->makeMovementInputsPacket();
+			if(packet)
+				client->send(packet, Unreliable);
+
+			++ctrlIter;
+		}
 	}
 }
 
@@ -267,15 +297,8 @@ void LoopClient::run(float deltaT,ExecutableArguments& cmdArgs, std::shared_ptr<
 		sendControlledObjects();
 	}
 
-	//Go through player controllers, remove any that are bound to now deleted dynamics 
-	auto ctrlIter = simulation.controllers.begin();
-	while (ctrlIter != simulation.controllers.end())
-	{
-		if ((*ctrlIter)->control(pd.input,simulation.camera,deltaT))
-			ctrlIter = simulation.controllers.erase(ctrlIter);
-		else
-			++ctrlIter;
-	}
+	//movement keys and camera direction as it relates to players / controlled objects 
+	updateControllers(deltaT); 
 
 	handleInput(deltaT,cmdArgs,settings); //mouse and keyboard input
 
@@ -286,6 +309,13 @@ void LoopClient::run(float deltaT,ExecutableArguments& cmdArgs, std::shared_ptr<
 	if (client)
 		netInfo = { client->getPing(), client->getIncoming(), client->getOutgoing() };
 	pd.debugMenu->passDetails(simulation.camera->getPosition(),simulation.camera->getDirection(), netInfo);
+
+	if (simulation.dynamics && simulation.dynamics->size() > 0)
+		pd.debugMenu->addExtraLine("First other snaps: " + std::to_string(simulation.dynamics->get(0)->interpolator.getNumSnapshots()));
+	if (simulation.controlledDynamics.size() > 0)
+		pd.debugMenu->addExtraLine("First controlled snaps: " + std::to_string(simulation.controlledDynamics[0]->interpolator.getNumSnapshots()));
+	if(client)
+		pd.debugMenu->addExtraLine("Total queued packets: " + std::to_string(client->getNumQueued()));
 
 	if (pd.chatWindow->hasChatMessage() && client)
 	{

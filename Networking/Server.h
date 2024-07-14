@@ -66,3 +66,4 @@ void chatMessageSent(JoinedClient * source, Server const* const server, ENetPack
 void attemptEvalLogin(JoinedClient * source, Server const* const server, ENetPacket const* const packet, const void* pdv);
 void parseEvalCommand(JoinedClient * source, Server const* const server, ENetPacket const* const packet, const void* pdv);
 void applyPhysicsAdjustment(JoinedClient * source, Server const* const server, ENetPacket const* const packet, const void* pdv);
+void movementInputs(JoinedClient* source, Server const* const server, ENetPacket const* const packet, const void* pdv);

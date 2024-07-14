@@ -75,6 +75,11 @@ void Server::switchPacketType(JoinedClient * source, ENetPacket* packet, const v
 			applyPhysicsAdjustment(source, this, packet, pd);
 			return;
 		}
+		case MovementInputs:
+		{
+			movementInputs(source, this, packet, pd);
+			return;
+		}
 
 		case InvalidClient:
 		default:

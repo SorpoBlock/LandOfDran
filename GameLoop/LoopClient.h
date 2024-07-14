@@ -37,6 +37,9 @@ class LoopClient
 	//Send simulation.controlledObjects physics/transform data to server
 	void sendControlledObjects();
 
+	//Handle controllers bound to dynamics
+	void updateControllers(float deltaT);
+
 public:
 
 	//Constructor have any issues?

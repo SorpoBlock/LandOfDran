@@ -25,6 +25,35 @@ inline ENetPacket* makeConnectionRequest(std::string name)
 	return ret;
 }
 
+/*
+	1 byte		-		packet type
+	4 bytes		-		controlled dynamic id
+	1 byte		-		movement control flags
+	4 bytes		-		camera x direction
+	4 bytes		-		camera y direction
+	4 bytes		-		camera z direction
+*/
+inline ENetPacket* makeMovementInputs(netIDType controlledDynamicID, bool jump,bool forward,bool backward,bool left,bool right, glm::vec3 cameraDirection)
+{
+	ENetPacket* ret = enet_packet_create(NULL, 18, getFlagsFromChannel(Unreliable));
+
+	unsigned char movementFlags = 0;
+	movementFlags |= (jump ? 1 : 0);
+	movementFlags |= (forward ? 2 : 0);
+	movementFlags |= (backward ? 4 : 0);
+	movementFlags |= (left ? 8 : 0); 
+	movementFlags |= (right ? 16 : 0);
+
+	ret->data[0] = (unsigned char)MovementInputs;
+	memcpy(ret->data + 1, &controlledDynamicID, sizeof(netIDType));
+	ret->data[1 + sizeof(netIDType)] = movementFlags;
+	memcpy(ret->data + 1 + sizeof(netIDType) + 1 + sizeof(float) * 0, &cameraDirection.x, sizeof(float));
+	memcpy(ret->data + 1 + sizeof(netIDType) + 1 + sizeof(float) * 1, &cameraDirection.y, sizeof(float));
+	memcpy(ret->data + 1 + sizeof(netIDType) + 1 + sizeof(float) * 2, &cameraDirection.z, sizeof(float));
+
+	return ret;
+}
+
 //One byte lets the server know we finished phase one loading
 inline ENetPacket* makeLoadingFinished()
 {

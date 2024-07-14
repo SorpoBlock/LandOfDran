@@ -31,6 +31,8 @@ struct ClientProgramData
 	std::shared_ptr<InputMap>		input = nullptr;
 	std::shared_ptr<EscapeMenu>		escapeMenu = nullptr;
 	std::shared_ptr<ChatWindow>		chatWindow = nullptr;
+
+	//TODO: Move to simulation
 	std::shared_ptr<PhysicsWorld>	physicsWorld = nullptr;
 
 	//The rest of this struct is passed as const to various PacketsFromServer functions

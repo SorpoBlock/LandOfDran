@@ -2,6 +2,7 @@
 
 #include "../SimObjects/Dynamic.h"
 #include "../Graphics/PlayerCamera.h"
+#include "../Networking/ClientPacketCreators.h"
 
 /*
 	Bind to a dynamic, pass InputMap to it
@@ -16,98 +17,29 @@ struct PlayerController
 
 	btQuaternion playerYaw = btQuaternion(0,0,0,1.0);
 
-	//Call for each controller each frame, returns true if weak_ptr lock expired
-	bool control(const std::shared_ptr<InputMap> input,const std::shared_ptr<Camera> camera,float deltaT)
-	{
-		//Prevent huge deltaTs from causing huge jumps (like when debugging and pausing the game for a while)
-		deltaT = std::clamp(deltaT, 0.0f, 33.0f);
+	bool serverSide = false;
 
-		std::shared_ptr<Dynamic> targetLock = target.lock();
-		if (!targetLock)
-			return true;
+	//Client uses these to send last inputs to server
+	//Server cachces these and applies them each frame until a new packet comes in
+	bool lastJump, lastForward, lastBackward, lastLeft, lastRight;
+	glm::vec3 lastCameraDirection = glm::vec3(0.01,1.0,0.01);
 
-		if (input->pollCommand(Jump))
-		{
-			//TODO: Check if we're on the ground
-			targetLock->setVelocity(targetLock->getVelocity() + btVector3(0, 30, 0));
-		}
+	//Client only, last time we sent a packet to the server
+	unsigned int lastSentControls = 0;
 
+	//Client only, send last inputs to server for caching and reflection
+	//Can return nullptr if object was deleted or packet was recently sent
+	ENetPacket* makeMovementInputsPacket();
 
-		//TODO: Move this to a constructor or something
-		targetLock->body->setAngularFactor(btVector3(0, 0, 0));
+	//Server only wrapper
+	bool controlWithLastInput(std::shared_ptr<PhysicsWorld> world, float deltaT);
 
-		float speed = 10.0;
-		float blendTime = 50.0; //MS
+	//Server and client side, called per frame, server caches last inputs from clients
+	bool control(std::shared_ptr<PhysicsWorld> world, float deltaT, glm::vec3 cameraDirection, bool jump, bool forward, bool backward, bool left, bool right);
 
-		btVector3 dir = g2b3(camera->getDirection());
-		dir.setY(0);
-		dir = dir.normalized();
-		float cameraYaw = atan2(dir.getX(), dir.getZ());
-
-		bool leftRightUsed = false;
-		bool forwardBackUsed = false;
-		btQuaternion leftRightTurn,forwardBackTurn;
-
-		if (input->isCommandKeydown(WalkForward))
-		{
-			forwardBackUsed = true;
-			forwardBackTurn = btQuaternion(3.1415 + cameraYaw, 0, 0);
-		}
-		else if(input->isCommandKeydown(WalkBackward))
-		{
-			forwardBackUsed = true;
-			forwardBackTurn = btQuaternion(0 + cameraYaw, 0, 0);
-		}
-
-		if (input->isCommandKeydown(WalkLeft))
-		{
-			leftRightUsed = true;
-			leftRightTurn = btQuaternion(3.0 * (3.1415 / 2.0) + cameraYaw, 0.0, 0.0);
-		}
-		else if (input->isCommandKeydown(WalkRight))
-		{
-			leftRightUsed = true;
-			leftRightTurn = btQuaternion(3.1415 / 2.0 + cameraYaw, 0.0, 0.0);
-		}
-
-		if (!(leftRightUsed || forwardBackUsed))
-		{
-			targetLock->body->setFriction(1.0);
-			targetLock->stop(0);
-			return false;
-		}
-		else
-		{
-			targetLock->body->setFriction(0.0);
-			targetLock->play(0, true);
-		}
-
-		btQuaternion turn;
-		if (leftRightUsed)
-		{
-			if (forwardBackUsed)
-				turn = leftRightTurn.slerp(forwardBackTurn, 0.5);
-			else
-				turn = leftRightTurn;
-		}
-		else if (forwardBackUsed)
-			turn = forwardBackTurn;
-
-		//TODO: This LERP isn't right
-		playerYaw = playerYaw.slerp(turn, deltaT / blendTime);
-
-		btVector3 walkDir = btMatrix3x3(turn) * btVector3(0.0, 0.0, -1.0);
-
-		btTransform t = targetLock->body->getWorldTransform();
-		t.setRotation(playerYaw);
-		targetLock->body->setWorldTransform(t);
-
-		btVector3 oldVel = targetLock->getVelocity();
-		//TODO: This LERP isn't right
-		btVector3 newVel = oldVel.lerp(walkDir * speed, deltaT / blendTime);
-		newVel.setY(oldVel.getY());
-		targetLock->setVelocity(newVel);
-
-		return false;
-	}
+	/*
+	    Client side wrapper
+		Call for each controller each frame, returns true if weak_ptr lock expired
+	*/
+	bool control(const std::shared_ptr<InputMap> input, const std::shared_ptr<Camera> camera, float deltaT, std::shared_ptr<PhysicsWorld> world);
 };
