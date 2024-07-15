@@ -49,26 +49,32 @@ PhysicsWorld::~PhysicsWorld()
   delete pairCallback;
 }
 
+btRigidBody* PhysicsWorld::boxSweepTest(const btVector3& halfExtents, const btTransform& from, const btTransform& to, btRigidBody* ignore)
+{
+    btClosestNotMeConvexResultCallback callback(ignore, from.getOrigin(), to.getOrigin(), world->getPairCache(), world->getDispatcher());
+    btBoxShape test(halfExtents);
+    world->convexSweepTest(&test, from, to, callback);
+    return (btRigidBody*)callback.m_hitCollisionObject;
+}
+
 btRigidBody *PhysicsWorld::doRaycast(const btVector3 &start,const btVector3 &end,btRigidBody *ignore,btVector3 &hitPos,btVector3 &hitNormal) const
 {
   btCollisionWorld::AllHitsRayResultCallback ground(start,end);
   world->rayTest(start,end,ground);
 
-  if(ground.m_collisionObjects.size() < 1)
-    return nullptr;
+  if (ground.m_collisionObjects.size() < 1)
+      return nullptr;
 
-  float closestDist = (ground.m_hitPointWorld[0]-start).length();
-  int closestIdx = 0;
-  hitNormal = ground.m_hitNormalWorld[0];
-  hitPos = ground.m_hitPointWorld[0];
+  int closestIdx = -1;
+  float closestDist = 0;
 
-  for(int a = 1; a<ground.m_collisionObjects.size(); a++)
+  for(int a = 0; a<ground.m_collisionObjects.size(); a++)
   {
       if(ground.m_collisionObjects[a] == ignore)
           continue;
 
       float dist = (ground.m_hitPointWorld[a]-start).length();
-      if(dist < closestDist)
+      if(dist < closestDist || closestIdx == -1)
       {
           hitPos = ground.m_hitPointWorld[a];
           closestIdx = a;

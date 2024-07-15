@@ -8,6 +8,7 @@
 #include <BulletCollision/CollisionShapes/btTriangleMesh.h>
 #include <BulletCollision/CollisionDispatch/btCollisionWorld.h>
 #include <BulletCollision/CollisionDispatch/btGhostObject.h>
+#include "SweepTest.h"
 
 //glm::vec3 to btVector3
 inline btVector3 g2b3(const glm::vec3 &in)
@@ -51,6 +52,9 @@ class PhysicsWorld
 	btGhostPairCallback* pairCallback = nullptr;
 
 	public:
+
+	//Performs a sweep test using the body from its current transform to the supplied, and returns the closest non-from body contacted if any
+	btRigidBody* boxSweepTest(const btVector3& halfExtents, const btTransform& from, const btTransform& to, btRigidBody* ignore);
 
 	btRigidBody *doRaycast(const btVector3 &start,const btVector3 &end,btRigidBody *ignore,btVector3 &hitPos,btVector3 &hitNormal) const;
 	btRigidBody *doRaycast(const btVector3 &start,const btVector3 &end,btRigidBody *ignore) const;

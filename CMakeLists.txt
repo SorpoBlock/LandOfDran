@@ -208,7 +208,8 @@ add_executable (LandOfDran
 "LuaFunctions/Dynamic.h" 
 
 "Physics/PhysicsWorld.h" 
-"Physics/PhysicsWorld.cpp")   
+"Physics/PhysicsWorld.cpp" 
+"Physics/SweepTest.h")   
 
 target_include_directories(LandOfDran PRIVATE ${LUA_INCLUDE_DIR})
 

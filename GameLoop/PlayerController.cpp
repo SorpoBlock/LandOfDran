@@ -49,16 +49,22 @@ bool PlayerController::control(std::shared_ptr<PhysicsWorld> world, float deltaT
 	if (!targetLock)
 		return true;
 
+	targetLock->body->activate();
+
 	if (jump)
 	{
 		//Make sure we are standing on the ground before we try and jump
-		btVector3 start = targetLock->body->getWorldTransform().getOrigin();
-		btVector3 end = start + btVector3(0, targetLock->getType()->getModel()->getColHalfExtents().y + 0.5, 0);
-		btRigidBody* body = world->doRaycast(start, end, targetLock->body);
-		std::cout << body << "\n";
+		btTransform feetStart = targetLock->body->getWorldTransform();
+		btTransform feetEnd = targetLock->body->getWorldTransform();
+		feetStart.setOrigin(feetEnd.getOrigin() + btVector3(0.0,  1.0, 0.0));
+		feetEnd.setOrigin(feetEnd.getOrigin()   + btVector3(0.0, -1.0, 0.0));
+		btVector3 boxSize = g2b3(targetLock->getType()->getModel()->getColHalfExtents());
+
+		btRigidBody *sweepResult = world->boxSweepTest(boxSize, feetStart, feetEnd, targetLock->body);
 
 		//TODO: Check if we're on the ground
-		targetLock->setVelocity(targetLock->getVelocity() + btVector3(0, 30, 0));
+		if(sweepResult)
+			targetLock->body->applyCentralImpulse(btVector3(0, 30, 0));
 	}
 
 

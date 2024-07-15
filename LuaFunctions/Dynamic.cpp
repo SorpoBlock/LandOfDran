@@ -449,6 +449,393 @@ static int LUA_dynamicGetAngularVelocity(lua_State * L)
 	return 3;
 }
 
+static int LUA_dynamicIsActive(lua_State* L)
+{
+	scope("(LUA) dynamic:isActive");
+
+	int args = lua_gettop(L);
+
+	if (args != 1)
+	{
+		error("Expected 1 arguments dynamic:isActive()");
+		return 0;
+	}
+
+	if (!LUA_pd->dynamics)
+	{
+		error("dynamics ObjHolder is null");
+		return 0;
+	}
+
+	std::shared_ptr<Dynamic> dynamic = LUA_pd->dynamics->popLua(L);
+
+	if (!dynamic)
+	{
+		error("Invalid dynamic object passed, was it deleted already?");
+		return 0;
+	}
+
+	lua_pushboolean(L, dynamic->body->isActive());
+
+	return 1;
+}
+
+static int LUA_dynamicSetGravity(lua_State* L)
+{
+	scope("(LUA) dynamic:setGravity");
+
+	int args = lua_gettop(L);
+
+	if (args != 4)
+	{
+		error("Expected 4 arguments dynamic:setGravity(x,y,z)");
+		return 0;
+	}
+
+	if (!LUA_pd->dynamics)
+	{
+		error("dynamics ObjHolder is null");
+		return 0;
+	}
+
+	float z = lua_tonumber(L, -1);
+	lua_pop(L, 1);
+	float y = lua_tonumber(L, -1);
+	lua_pop(L, 1);
+	float x = lua_tonumber(L, -1);
+	lua_pop(L, 1);
+
+	std::shared_ptr<Dynamic> dynamic = LUA_pd->dynamics->popLua(L);
+
+	if (!dynamic)
+	{
+		error("Invalid dynamic object passed, was it deleted already?");
+		return 0;
+	}
+
+	dynamic->body->setGravity(btVector3(x, y, z));
+	dynamic->activate();
+
+	return 0;
+}
+
+static int LUA_dynamicGetGravity(lua_State* L)
+{
+	scope("(LUA) dynamic:getGravity");
+
+	int args = lua_gettop(L);
+
+	if (args != 1)
+	{
+		error("Expected 1 arguments dynamic:getGravity()");
+		return 0;
+	}
+
+	if (!LUA_pd->dynamics)
+	{
+		error("dynamics ObjHolder is null");
+		return 0;
+	}
+
+	std::shared_ptr<Dynamic> dynamic = LUA_pd->dynamics->popLua(L);
+
+	if (!dynamic)
+	{
+		error("Invalid dynamic object passed, was it deleted already?");
+		return 0;
+	}
+
+	btVector3 vel = dynamic->body->getGravity();
+	lua_pushnumber(L, vel.x());
+	lua_pushnumber(L, vel.y());
+	lua_pushnumber(L, vel.z());
+
+	return 3;
+}
+
+static int LUA_dynamicGetFriction(lua_State* L)
+{
+	scope("(LUA) dynamic:getFriction");
+
+	int args = lua_gettop(L);
+
+	if (args != 1)
+	{
+		error("Expected 1 arguments dynamic:getFriction()");
+		return 0;
+	}
+
+	if (!LUA_pd->dynamics)
+	{
+		error("dynamics ObjHolder is null");
+		return 0;
+	}
+
+	std::shared_ptr<Dynamic> dynamic = LUA_pd->dynamics->popLua(L);
+
+	if (!dynamic)
+	{
+		error("Invalid dynamic object passed, was it deleted already?");
+		return 0;
+	}
+
+	lua_pushnumber(L, dynamic->body->getFriction());
+
+	return 1;
+}
+
+static int LUA_dynamicGetRestitution(lua_State* L)
+{
+	scope("(LUA) dynamic:getRestitution");
+
+	int args = lua_gettop(L);
+
+	if (args != 1)
+	{
+		error("Expected 1 arguments dynamic:getRestitution()");
+		return 0;
+	}
+
+	if (!LUA_pd->dynamics)
+	{
+		error("dynamics ObjHolder is null");
+		return 0;
+	}
+
+	std::shared_ptr<Dynamic> dynamic = LUA_pd->dynamics->popLua(L);
+
+	if (!dynamic)
+	{
+		error("Invalid dynamic object passed, was it deleted already?");
+		return 0;
+	}
+
+	lua_pushnumber(L, dynamic->body->getRestitution());
+
+	return 1;
+}
+
+static int LUA_dynamicSetFriction(lua_State* L)
+{
+	scope("(LUA) dynamic:setFriction");
+
+	int args = lua_gettop(L);
+
+	if (args != 2)
+	{
+		error("Expected 2 arguments dynamic:setFriction(friction)");
+		return 0;
+	}
+
+	if (!LUA_pd->dynamics)
+	{
+		error("dynamics ObjHolder is null");
+		return 0;
+	}
+
+	float friction = lua_tonumber(L, -1);
+	lua_pop(L, 1);
+
+	std::shared_ptr<Dynamic> dynamic = LUA_pd->dynamics->popLua(L);
+
+	if (!dynamic)
+	{
+		error("Invalid dynamic object passed, was it deleted already?");
+		return 0;
+	}
+
+	friction = std::clamp(friction, 0.0f, 10.0f);
+
+	dynamic->body->setFriction(friction);
+
+	return 0;
+}
+
+static int LUA_dynamicSetRestitution(lua_State* L)
+{
+	scope("(LUA) dynamic:setRestitution");
+
+	int args = lua_gettop(L);
+
+	if (args != 2)
+	{
+		error("Expected 2 arguments dynamic:setRestitution(restitution)");
+		return 0;
+	}
+
+	if (!LUA_pd->dynamics)
+	{
+		error("dynamics ObjHolder is null");
+		return 0;
+	}
+
+	float friction = lua_tonumber(L, -1);
+	lua_pop(L, 1);
+
+	std::shared_ptr<Dynamic> dynamic = LUA_pd->dynamics->popLua(L);
+
+	if (!dynamic)
+	{
+		error("Invalid dynamic object passed, was it deleted already?");
+		return 0;
+	}
+
+	friction = std::clamp(friction, 0.0f, 10.0f);
+
+	dynamic->body->setRestitution(friction);
+
+	return 0;
+}
+
+static int LUA_dynamicGetRotation(lua_State* L)
+{
+	scope("(LUA) dynamic:getRotation");
+
+	int args = lua_gettop(L);
+
+	if (args != 1)
+	{
+		error("Expected 1 arguments dynamic:getRotation()");
+		return 0;
+	}
+
+	if (!LUA_pd->dynamics)
+	{
+		error("dynamics ObjHolder is null");
+		return 0;
+	}
+
+	std::shared_ptr<Dynamic> dynamic = LUA_pd->dynamics->popLua(L);
+
+	if (!dynamic)
+	{
+		error("Invalid dynamic object passed, was it deleted already?");
+		return 0;
+	}
+
+	btQuaternion rot = dynamic->body->getWorldTransform().getRotation();
+	lua_pushnumber(L, rot.w());
+	lua_pushnumber(L, rot.x());
+	lua_pushnumber(L, rot.y());
+	lua_pushnumber(L, rot.z());
+
+	return 4;
+}
+
+static int LUA_dynamicSetRotation(lua_State* L)
+{
+	scope("(LUA) dynamic:setRotation");
+
+	int args = lua_gettop(L);
+
+	if (args != 5)
+	{
+		error("Expected 5 arguments dynamic:setRotation(w,x,y,z)");
+		return 0;
+	}
+
+	if (!LUA_pd->dynamics)
+	{
+		error("dynamics ObjHolder is null");
+		return 0;
+	}
+
+	float z = lua_tonumber(L, -1);
+	lua_pop(L, 1);
+	float y = lua_tonumber(L, -1);
+	lua_pop(L, 1);
+	float x = lua_tonumber(L, -1);
+	lua_pop(L, 1);
+	float w = lua_tonumber(L, -1);
+	lua_pop(L, 1);
+
+	std::shared_ptr<Dynamic> dynamic = LUA_pd->dynamics->popLua(L);
+
+	if (!dynamic)
+	{
+		error("Invalid dynamic object passed, was it deleted already?");
+		return 0;
+	}
+
+	btTransform t = dynamic->body->getWorldTransform();
+	t.setRotation(btQuaternion(x, y, z, w));
+	dynamic->body->setWorldTransform(t);
+	dynamic->activate();
+
+	return 0;
+}
+
+static int LUA_dynamicGetMass(lua_State* L)
+{
+	scope("(LUA) dynamic:getMass");
+
+	int args = lua_gettop(L);
+
+	if (args != 1)
+	{
+		error("Expected 1 arguments dynamic:getMass()");
+		return 0;
+	}
+
+	if (!LUA_pd->dynamics)
+	{
+		error("dynamics ObjHolder is null");
+		return 0;
+	}
+
+	std::shared_ptr<Dynamic> dynamic = LUA_pd->dynamics->popLua(L);
+
+	if (!dynamic)
+	{
+		error("Invalid dynamic object passed, was it deleted already?");
+		return 0;
+	}
+
+	lua_pushnumber(L, dynamic->body->getMass());
+
+	return 1;
+}
+
+static int LUA_dynamicSetMassProps(lua_State* L)
+{
+	scope("(LUA) dynamic:setMassProps");
+
+	int args = lua_gettop(L);
+
+	if (args != 5)
+	{
+		error("Expected 5 arguments dynamic:setMassProps(mass,centerX,centerY,centerZ)");
+		return 0;
+	}
+
+	if (!LUA_pd->dynamics)
+	{
+		error("dynamics ObjHolder is null");
+		return 0;
+	}
+
+	float z = lua_tonumber(L, -1);
+	lua_pop(L, 1);
+	float y = lua_tonumber(L, -1);
+	lua_pop(L, 1);
+	float x = lua_tonumber(L, -1);
+	lua_pop(L, 1);
+	float mass = lua_tonumber(L, -1);
+	lua_pop(L, 1);
+
+	std::shared_ptr<Dynamic> dynamic = LUA_pd->dynamics->popLua(L);
+
+	if (!dynamic)
+	{
+		error("Invalid dynamic object passed, was it deleted already?");
+		return 0;
+	}
+
+	dynamic->body->setMassProps(mass, btVector3(x, y, z));
+
+	return 0;
+}
+
 luaL_Reg* getDynamicFunctions(lua_State *L)
 {
 	//Register dynamic global functions:
@@ -458,7 +845,7 @@ luaL_Reg* getDynamicFunctions(lua_State *L)
 	lua_register(L, "getNumDynamics", getNumDynamics);
 
 	//Create table of dynamic metatable functions:
-	luaL_Reg* regs = new luaL_Reg[10];
+	luaL_Reg* regs = new luaL_Reg[21];
 
 	int iter = 0;
 	regs[iter++] = { "destroy",     LUA_dynamicDestroy };
@@ -470,6 +857,17 @@ luaL_Reg* getDynamicFunctions(lua_State *L)
 	regs[iter++] = { "getAngularVelocity", LUA_dynamicGetAngularVelocity };
 	regs[iter++] = { "setAngularFactor", LUA_dynamicSetAngularFactor };
 	regs[iter++] = { "activate",    LUA_dynamicActivate };
+	regs[iter++] = { "isActive",    LUA_dynamicIsActive };
+	regs[iter++] = { "getGravity",    LUA_dynamicGetGravity};
+	regs[iter++] = { "setGravity",    LUA_dynamicSetGravity };
+	regs[iter++] = { "setRestitution",    LUA_dynamicSetRestitution };
+	regs[iter++] = { "getRestitution",    LUA_dynamicGetRestitution };
+	regs[iter++] = { "setFriction",    LUA_dynamicSetFriction };
+	regs[iter++] = { "getFriction",    LUA_dynamicGetFriction };
+	regs[iter++] = { "setRotation",    LUA_dynamicSetRotation };
+	regs[iter++] = { "getRotation",    LUA_dynamicGetRotation };
+	regs[iter++] = { "getMass",    LUA_dynamicGetMass };
+	regs[iter++] = { "setMassProps",    LUA_dynamicSetMassProps };
 	regs[iter++] = { NULL, NULL };
 
 	return regs;
