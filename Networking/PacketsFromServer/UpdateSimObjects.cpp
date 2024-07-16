@@ -28,11 +28,11 @@ bool UpdateSimObjectsPacket::applyPacket(const ClientProgramData& pd, Simulation
 			getQuaternion(packet->data + byteIterator, rot);
 			byteIterator += QuaternionBytes;
 			glm::vec3 linVel;
-			getPosition(packet->data + byteIterator, linVel);
-			byteIterator += PositionBytes;
+			getVelocity(packet->data + byteIterator, linVel);
+			byteIterator += VelocityBytes;
 			glm::vec3 angVel;
-			getPosition(packet->data + byteIterator, angVel);
-			byteIterator += PositionBytes;
+			getAngularVelocity(packet->data + byteIterator, angVel);
+			byteIterator += AngularVelocityBytes;
 
 			std::shared_ptr<Dynamic> toUpdate = simulation.dynamics->find(id);
 			if (toUpdate && !toUpdate->clientControlled)

@@ -49,7 +49,7 @@ unsigned int Dynamic::getUpdatePacketBytes() const
 		position
 		rotation
 	*/
-	return PositionBytes*3 + QuaternionBytes + sizeof(netIDType);
+	return VelocityBytes + AngularVelocityBytes + PositionBytes + QuaternionBytes + sizeof(netIDType);
 }
 
 void Dynamic::updateSnapshot()
@@ -164,8 +164,8 @@ void Dynamic::addToUpdatePacket(enet_uint8 * dest)
 	memcpy(dest, &netID, sizeof(netIDType));
 	addPosition(dest +   sizeof(netIDType), pos);
 	addQuaternion(dest + sizeof(netIDType) + PositionBytes, quat);
-	addPosition(dest +   sizeof(netIDType) + PositionBytes + QuaternionBytes, linVel);
-	addPosition(dest +   sizeof(netIDType) + PositionBytes + QuaternionBytes + PositionBytes, angVel);
+	addVelocity(dest +   sizeof(netIDType) + PositionBytes + QuaternionBytes, linVel);
+	addAngularVelocity(dest +   sizeof(netIDType) + VelocityBytes + QuaternionBytes + PositionBytes, angVel);
 }
 
 void Dynamic::requestDestruction()

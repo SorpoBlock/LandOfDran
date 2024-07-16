@@ -14,6 +14,23 @@ ENetPacket* PlayerController::makeMovementInputsPacket()
 	if (!targetLock)
 		return nullptr;
 
+	if (lastJump == lastJumpSent
+		&& lastForward == lastForwardSent
+		&& lastBackward == lastBackwardSent
+		&& lastLeft == lastLeftSent
+		&& lastRight == lastRightSent)
+	{
+		if(glm::distance(lastCameraDirection, lastCameraDirectionSent) < 0.02)
+			return nullptr;
+	}
+
+	lastJumpSent = lastJump;
+	lastBackwardSent = lastBackward;
+	lastForwardSent = lastForward;
+	lastLeftSent = lastLeft;
+	lastRightSent = lastRight;
+	lastCameraDirectionSent = lastCameraDirection;
+
 	return makeMovementInputs(
 		targetLock->getID(),
 		lastJump,

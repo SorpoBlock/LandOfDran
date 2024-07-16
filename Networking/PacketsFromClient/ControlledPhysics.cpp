@@ -13,7 +13,7 @@ void applyPhysicsAdjustment(JoinedClient* source, Server const* const server, EN
 	//This is only needed because I needed to avoid a circular dependancy by not including SPD in Server.h
 	const ServerProgramData* pd = (const ServerProgramData*)pdv;
 
-	if(packet->dataLength < (1 + sizeof(netIDType) + PositionBytes * 3 + QuaternionBytes))
+	if(packet->dataLength < (1 + sizeof(netIDType) + PositionBytes + VelocityBytes + AngularVelocityBytes + QuaternionBytes))
 	{
 		std::cout << "Packet too small to be a physics adjustment packet" << std::endl;
 		return;
@@ -30,11 +30,11 @@ void applyPhysicsAdjustment(JoinedClient* source, Server const* const server, EN
 	getQuaternion(packet->data + byteIterator, rot);
 	byteIterator += QuaternionBytes;
 	glm::vec3 linVel;
-	getPosition(packet->data + byteIterator, linVel);
-	byteIterator += PositionBytes;
+	getVelocity(packet->data + byteIterator, linVel);
+	byteIterator += VelocityBytes;
 	glm::vec3 angVel;
-	getPosition(packet->data + byteIterator, angVel);
-	byteIterator += PositionBytes;
+	getAngularVelocity(packet->data + byteIterator, angVel);
+	byteIterator += AngularVelocityBytes;
 
 	std::shared_ptr<Dynamic> toUpdate = pd->dynamics->find(id);
 
