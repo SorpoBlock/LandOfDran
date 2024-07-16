@@ -96,7 +96,7 @@ void getQuaternion(enet_uint8 const* src, glm::quat& quat)
 	rawA |= (src[1] >> 6);
 
 	short rawB = (src[1] & 0b00001111) << 6;
-	rawB |= (src[2] >> 4);
+	rawB |= (src[2] >> 2);
 
 	short rawC = (src[2] & 0b00000011) << 8;
 	rawC |= src[3];
@@ -208,7 +208,6 @@ void getVelocity(enet_uint8 const* src, glm::vec3& vel)
 
 void addAngularVelocity(enet_uint8* dest, const glm::vec3& vel)
 {
-
 	int xLeft = floor(abs(vel.x));
 	int xRight = (abs(vel.x) - xLeft) * 16;
 	xLeft = std::min(xLeft, 63);

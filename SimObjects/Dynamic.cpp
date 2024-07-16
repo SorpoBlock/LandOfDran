@@ -118,8 +118,11 @@ bool Dynamic::requiresNetUpdate() const
 	if (t.getOrigin().distance2(lastSentTransform.getOrigin()) > 0.005)
 		return true;
 
-	//More than like 8 degrees difference in rotation?
 	if (body->getAngularVelocity().length2() > 0.1)
+		return true;
+
+	//More than like 6 degrees difference in rotation?
+	if (body->getWorldTransform().getRotation().angleShortestPath(lastSentTransform.getRotation()) > 0.02)
 		return true;
 
 	//Even if the object isn't moving much at all we should still send out an update every once in a while

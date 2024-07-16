@@ -31,7 +31,7 @@ int main(int argc, char* argv[])
 	settings->exportToFile("Config/settings.txt");
 
 	Logger::setDebug(settings->getBool("logger/verbose"));
-
+	
 	//Start SDL and other libraries
 	globalStartup(settings,cmdArgs);
 

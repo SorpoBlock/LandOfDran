@@ -728,9 +728,9 @@ static int LUA_dynamicSetRotation(lua_State* L)
 
 	int args = lua_gettop(L);
 
-	if (args != 5)
+	if (args != 5 && args != 4)
 	{
-		error("Expected 5 arguments dynamic:setRotation(w,x,y,z)");
+		error("Expected 4 or 5 arguments dynamic:setRotation(w,x,y,z) or dynamic:setRotation(yaw,pitch,roll)");
 		return 0;
 	}
 
@@ -746,6 +746,25 @@ static int LUA_dynamicSetRotation(lua_State* L)
 	lua_pop(L, 1);
 	float x = lua_tonumber(L, -1);
 	lua_pop(L, 1);
+
+	if (args == 4)
+	{
+		std::shared_ptr<Dynamic> dynamic = LUA_pd->dynamics->popLua(L);
+
+		if (!dynamic)
+		{
+			error("Invalid dynamic object passed, was it deleted already?");
+			return 0;
+		}
+
+		btTransform t = dynamic->body->getWorldTransform();
+		t.setRotation(btQuaternion(x,y,z));
+		dynamic->body->setWorldTransform(t);
+		dynamic->activate();
+
+		return 0;
+	}
+
 	float w = lua_tonumber(L, -1);
 	lua_pop(L, 1);
 
