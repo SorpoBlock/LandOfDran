@@ -94,6 +94,7 @@ enum FromServerPacketType : unsigned char
 	TakeOverPhysics = 9,	//Server wants client to take over (or relinquish) physics simulation of this object, probably the client's player or a driven car
 	CameraSettings = 10,	//Tell client to bind/unbind camera to object or change other settings
 	MovementSettings = 11,	//Player controller movement parameters
+	MeshAppearance = 12,	//Change something about how a dynamic instance is rendered, i.e. mesh colors
 };
 
 //For use with AcceptConnection packets

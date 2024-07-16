@@ -855,6 +855,59 @@ static int LUA_dynamicSetMassProps(lua_State* L)
 	return 0;
 }
 
+static int LUA_dynamicSetMeshColor(lua_State* L)
+{
+	scope("(LUA) dynamic:setMeshColor");
+
+	int args = lua_gettop(L);
+
+	if (args != 6)
+	{
+		error("Expected 6 arguments dynamic:setMeshcolor(meshName,r,g,b,a)");
+		return 0;
+	}
+
+	if (!LUA_pd->dynamics)
+	{
+		error("dynamics ObjHolder is null");
+		return 0;
+	}
+
+	float a = lua_tonumber(L, -1);
+	lua_pop(L, 1);
+	float b = lua_tonumber(L, -1);
+	lua_pop(L, 1);
+	float g = lua_tonumber(L, -1);
+	lua_pop(L, 1);
+	float r = lua_tonumber(L, -1);
+	lua_pop(L, 1);
+
+	const char *name = lua_tostring(L, -1);
+	lua_pop(L, 1);
+
+	if (!name)
+	{
+		error("Invalid mesh name passed");
+		return 0;
+	}
+
+	std::string meshName = std::string(name);
+
+	std::shared_ptr<Dynamic> dynamic = LUA_pd->dynamics->popLua(L);
+
+	if (!dynamic)
+	{
+		error("Invalid dynamic object passed, was it deleted already?");
+		return 0;
+	}
+
+	ENetPacket *packet = dynamic->setMeshColor(meshName, glm::vec4(r, g, b, a));
+	if(packet)
+		LUA_server->broadcast(packet,OtherReliable);
+
+	return 0;
+}
+
 luaL_Reg* getDynamicFunctions(lua_State *L)
 {
 	//Register dynamic global functions:
@@ -864,7 +917,7 @@ luaL_Reg* getDynamicFunctions(lua_State *L)
 	lua_register(L, "getNumDynamics", getNumDynamics);
 
 	//Create table of dynamic metatable functions:
-	luaL_Reg* regs = new luaL_Reg[21];
+	luaL_Reg* regs = new luaL_Reg[22];
 
 	int iter = 0;
 	regs[iter++] = { "destroy",     LUA_dynamicDestroy };
@@ -887,6 +940,7 @@ luaL_Reg* getDynamicFunctions(lua_State *L)
 	regs[iter++] = { "getRotation",    LUA_dynamicGetRotation };
 	regs[iter++] = { "getMass",    LUA_dynamicGetMass };
 	regs[iter++] = { "setMassProps",    LUA_dynamicSetMassProps };
+	regs[iter++] = { "setMeshColor",    LUA_dynamicSetMeshColor };
 	regs[iter++] = { NULL, NULL };
 
 	return regs;

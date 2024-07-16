@@ -209,7 +209,7 @@ add_executable (LandOfDran
 
 "Physics/PhysicsWorld.h" 
 "Physics/PhysicsWorld.cpp" 
-"Physics/SweepTest.h")   
+"Physics/SweepTest.h" "Networking/PacketsFromServer/MeshAppearance.h" "Networking/PacketsFromServer/MeshAppearance.cpp")   
 
 target_include_directories(LandOfDran PRIVATE ${LUA_INCLUDE_DIR})
 

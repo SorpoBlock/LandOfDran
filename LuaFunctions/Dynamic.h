@@ -11,6 +11,7 @@ extern "C"
 #include "../Networking/ObjHolder.h"
 #include "../GameLoop/ServerProgramData.h"
 
+extern Server* LUA_server;
 extern ServerProgramData* LUA_pd;
 
 //All of the actual functions are in Dynamic.cpp and static, they exist only to be called by Lua

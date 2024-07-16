@@ -35,6 +35,17 @@ std::map<std::string, int> aiProcessMap = {
 	{"GenBoundingBoxes",aiProcess_GenBoundingBoxes},
 };
 
+int Model::getMeshIdx(const std::string& name) const
+{
+	for (unsigned int a = 0; a < allMeshes.size(); a++)
+	{
+		if (allMeshes[a]->name == name)
+			return a;
+	}
+	return -1;
+}
+
+
 void Model::addAnimation(Animation& animation)
 {
 	animations.push_back(std::move(animation));

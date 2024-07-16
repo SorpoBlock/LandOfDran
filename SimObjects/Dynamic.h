@@ -38,7 +38,8 @@ class Dynamic : public SimObject
 	//Called after this object has an id, type, me pointer, and vector index assigned by ObjHolder
 	virtual void onCreation() override;
 
-	//Client only: holds buffer data for instanced mesh rendering
+	//Client: holds buffer data for instanced mesh rendering
+	//Server: Only uses the vectors to store per-node color/hidden data for now
 	ModelInstance* modelInstance = nullptr;
 
 	//Called by objHolder when destroy is first called, gives object an oppertunity to reset smart pointers it might have
@@ -46,7 +47,7 @@ class Dynamic : public SimObject
 
 	public:
 
-		void play(int id, bool loop) { if (!modelInstance) return; modelInstance->playAnimation(id, loop); }
+	void play(int id, bool loop) { if (!modelInstance) return; modelInstance->playAnimation(id, loop); }
 
 	void stop(int id) { if (!modelInstance) return;  modelInstance->stopAnimation(id); }
 
@@ -97,6 +98,9 @@ class Dynamic : public SimObject
 
 	//Add getUpdatePacketBytes() worth of data to the given packet with all the data needed for the client to update it
 	virtual void addToUpdatePacket(enet_uint8 * dest) override;
+
+	//Returns a fully created packet ready to broadcast to relay the mesh color update
+	ENetPacket* setMeshColor(const std::string& meshName, const glm::vec4& color);
 
 	~Dynamic();
 };

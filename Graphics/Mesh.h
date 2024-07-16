@@ -391,6 +391,9 @@ class Model
 
 	public:
 
+	//Returns -1 on invalid name
+	int getMeshIdx(const std::string& name) const;
+
 	glm::vec3 getEyePosition() const { return eyePosition * baseScale; }
 
 	bool isServerSide() const { return serverSide;  }

@@ -11,11 +11,12 @@ Dynamic::Dynamic(std::shared_ptr<DynamicType> _type, const btVector3& initialPos
 	t.setOrigin(initialPos);
 	body->setWorldTransform(t);
 
+	modelInstance = new ModelInstance(type->getModel().get());
+
 	if (!type->getModel()->isServerSide())
 	{
 		//TODO: Pass initial rotation as well
 		interpolator.addSnapshot(b2g3(initialPos), glm::quat(1, 0, 0, 0), 4);
-		modelInstance = new ModelInstance(type->getModel().get());
 		modelInstance->setModelTransform(glm::translate(glm::vec3(initialPos.x(), initialPos.y(), initialPos.z())));
 	}
 }
@@ -166,6 +167,30 @@ unsigned int Dynamic::getUpdatePacketBytes() const
 	//More than like 6 degrees difference in rotation?
 	if (lastSentAngVel.distance2(body->getAngularVelocity()) > 0.37)
 		ret += AngularVelocityBytes;
+
+	return ret;
+}
+
+ENetPacket* Dynamic::setMeshColor(const std::string &meshName,const glm::vec4& color)
+{
+	int meshIdx = getType()->getModel()->getMeshIdx(meshName);
+	if(meshIdx == -1)
+	{
+		error("Mesh " + meshName + " not found in model");
+		return nullptr;
+	} 
+
+	modelInstance->setColor(meshIdx, color);
+
+	ENetPacket *ret = enet_packet_create(NULL, sizeof(netIDType) + 2 + sizeof(glm::vec4), getFlagsFromChannel(OtherReliable));
+
+	ret->data[0] = (unsigned char)MeshAppearance;
+	memcpy(ret->data + 1, &netID, sizeof(netIDType));
+	ret->data[sizeof(netIDType) + 1] = meshIdx;
+	memcpy(ret->data + sizeof(netIDType) + 2 + sizeof(float) * 0, &color.r, sizeof(float));
+	memcpy(ret->data + sizeof(netIDType) + 2 + sizeof(float) * 1, &color.g, sizeof(float));
+	memcpy(ret->data + sizeof(netIDType) + 2 + sizeof(float) * 2, &color.b, sizeof(float));	
+	memcpy(ret->data + sizeof(netIDType) + 2 + sizeof(float) * 3, &color.a, sizeof(float));
 
 	return ret;
 }
