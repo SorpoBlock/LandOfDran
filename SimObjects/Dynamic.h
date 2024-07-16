@@ -21,6 +21,8 @@ class Dynamic : public SimObject
 		The last transform we sent with addToUpdatePacket
 	*/
 	btTransform lastSentTransform = btTransform::getIdentity();
+	btVector3 lastSentAngVel = btVector3(0, 0, 0);
+	btVector3 lastSentVel = btVector3(0, 0, 0);
 	
 	//Time with SDL_GetTicks that we sent lastSentTransform
 	unsigned int lastSentTime = 0;

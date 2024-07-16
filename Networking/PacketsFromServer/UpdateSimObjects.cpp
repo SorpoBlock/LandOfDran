@@ -21,30 +21,58 @@ bool UpdateSimObjectsPacket::applyPacket(const ClientProgramData& pd, Simulation
 			netIDType id;
 			memcpy(&id, packet->data + byteIterator, sizeof(netIDType));
 			byteIterator += sizeof(netIDType);
+
+			unsigned char flags = packet->data[byteIterator];
+			byteIterator++;
+
+			bool needPosRot = flags & 1;
+			bool needVel = flags & 2;
+			bool needAngVel = flags & 4;
+
 			glm::vec3 pos;
-			getPosition(packet->data + byteIterator, pos);
-			byteIterator += PositionBytes;
 			glm::quat rot;
-			getQuaternion(packet->data + byteIterator, rot);
-			byteIterator += QuaternionBytes;
 			glm::vec3 linVel;
-			getVelocity(packet->data + byteIterator, linVel);
-			byteIterator += VelocityBytes;
 			glm::vec3 angVel;
-			getAngularVelocity(packet->data + byteIterator, angVel);
-			byteIterator += AngularVelocityBytes;
+			if (needPosRot)
+			{
+				getPosition(packet->data + byteIterator, pos);
+				byteIterator += PositionBytes;
+
+				getQuaternion(packet->data + byteIterator, rot);
+				byteIterator += QuaternionBytes;
+			}
+
+			if (needVel)
+			{
+				getVelocity(packet->data + byteIterator, linVel);
+				byteIterator += VelocityBytes;
+			}
+
+			if (needAngVel)
+			{
+				getAngularVelocity(packet->data + byteIterator, angVel);
+				byteIterator += AngularVelocityBytes;
+			}
 
 			std::shared_ptr<Dynamic> toUpdate = simulation.dynamics->find(id);
 			if (toUpdate && !toUpdate->clientControlled)
 			{
-				toUpdate->interpolator.addSnapshot(pos, rot, simulation.idealBufferSize);
+				if (needPosRot)
+				{
+					toUpdate->interpolator.addSnapshot(pos, rot, simulation.idealBufferSize);
 
-				btTransform t;
-				t.setRotation(btQuaternion(rot.x, rot.y, rot.z, rot.w));
-				t.setOrigin(btVector3(pos.x, pos.y, pos.z));
-				toUpdate->body->setWorldTransform(t);
-				toUpdate->body->setLinearVelocity(btVector3(linVel.x, linVel.y, linVel.z));
-				toUpdate->body->setAngularVelocity(btVector3(angVel.x, angVel.y, angVel.z));
+					btTransform t;
+					t.setRotation(btQuaternion(rot.x, rot.y, rot.z, rot.w));
+					t.setOrigin(btVector3(pos.x, pos.y, pos.z));
+					toUpdate->body->setWorldTransform(t);
+				}
+
+				if(needVel)
+					toUpdate->body->setLinearVelocity(btVector3(linVel.x, linVel.y, linVel.z));
+
+				if(needAngVel)
+					toUpdate->body->setAngularVelocity(btVector3(angVel.x, angVel.y, angVel.z));
+
 				if (glm::length(linVel) > 0.1 || glm::length(angVel) > 0.1)
 					toUpdate->body->activate();
 			}

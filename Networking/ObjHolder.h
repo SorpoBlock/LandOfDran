@@ -536,8 +536,10 @@ class ObjHolder
 				if (!allObjects[a]->requiresNetUpdate())
 					continue;
 	
+				//getUpdatePacketBytes might be const, but addToUpdatePacket will affect its value
+				int amount = allObjects[a]->getUpdatePacketBytes();
 				allObjects[a]->addToUpdatePacket(packet->data + byteIterator);
-				byteIterator += allObjects[a]->getUpdatePacketBytes();
+				byteIterator += amount;
 			}
 
 			server->broadcast(packet, Unreliable);

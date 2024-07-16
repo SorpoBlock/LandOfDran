@@ -42,16 +42,6 @@ unsigned int Dynamic::getCreationPacketBytes() const
 	return PositionBytes + QuaternionBytes + sizeof(netIDType) * 2;
 }
 
-unsigned int Dynamic::getUpdatePacketBytes() const
-{
-	/*
-		4 bytes - net ID
-		position
-		rotation
-	*/
-	return VelocityBytes + AngularVelocityBytes + PositionBytes + QuaternionBytes + sizeof(netIDType);
-}
-
 void Dynamic::updateSnapshot()
 {
 	if (clientControlled)
@@ -118,11 +108,14 @@ bool Dynamic::requiresNetUpdate() const
 	if (t.getOrigin().distance2(lastSentTransform.getOrigin()) > 0.005)
 		return true;
 
-	if (body->getAngularVelocity().length2() > 0.1)
+	if (body->getWorldTransform().getRotation().angleShortestPath(lastSentTransform.getRotation()) > 0.02)
+		return true;
+
+	if (lastSentVel.distance2(body->getLinearVelocity()) > 0.37)
 		return true;
 
 	//More than like 6 degrees difference in rotation?
-	if (body->getWorldTransform().getRotation().angleShortestPath(lastSentTransform.getRotation()) > 0.02)
+	if (lastSentAngVel.distance2(body->getAngularVelocity()) > 0.37)
 		return true;
 
 	//Even if the object isn't moving much at all we should still send out an update every once in a while
@@ -137,38 +130,119 @@ bool Dynamic::requiresNetUpdate() const
 	return false;
 }
 
-void Dynamic::addToCreationPacket(enet_uint8 * dest) const
+unsigned int Dynamic::getUpdatePacketBytes() const
 {
-	memcpy(dest, &netID, sizeof(netIDType));
+	/*
+		4 bytes - net ID
+		1 byte what needs updating
+		position
+		rotation
+		velocity
+		angular velocity
+	*/
 
-	const netIDType typeID = type->getID();
-	memcpy(dest+sizeof(netIDType), &typeID, sizeof(netIDType));
+	unsigned int ret = sizeof(netIDType) + 1;
 
-	const btTransform &t = body->getWorldTransform();
-	const glm::vec3 &pos = glm::vec3(t.getOrigin().x(), t.getOrigin().y(), t.getOrigin().z());
-	const glm::quat &quat = glm::quat(t.getRotation().w(), t.getRotation().x(), t.getRotation().y(), t.getRotation().z());
+	const btTransform& t = body->getWorldTransform();
 
-	addPosition(dest + sizeof(netIDType) * 2, pos);
-	addQuaternion(dest + sizeof(netIDType) * 2 + PositionBytes, quat);
+	bool needPosRot = false;
+
+	//If the object has moved more than 0.14 studs
+	if (t.getOrigin().distance2(lastSentTransform.getOrigin()) > 0.005)
+		needPosRot = true;
+
+	if (body->getWorldTransform().getRotation().angleShortestPath(lastSentTransform.getRotation()) > 0.02)
+		needPosRot = true;
+
+	if (needPosRot)
+	{
+		ret += PositionBytes;
+		ret += QuaternionBytes;
+	}
+
+	if (lastSentVel.distance2(body->getLinearVelocity()) > 0.37)
+		ret += VelocityBytes;
+
+	//More than like 6 degrees difference in rotation?
+	if (lastSentAngVel.distance2(body->getAngularVelocity()) > 0.37)
+		ret += AngularVelocityBytes;
+
+	return ret;
 }
 
 void Dynamic::addToUpdatePacket(enet_uint8 * dest)
 {
 	requiresUpdate = false;
 
+	const btTransform& t = body->getWorldTransform();
+
+	bool needPosRot = false;
+	if (t.getOrigin().distance2(lastSentTransform.getOrigin()) > 0.005)
+		needPosRot = true;
+	if (body->getWorldTransform().getRotation().angleShortestPath(lastSentTransform.getRotation()) > 0.02)
+		needPosRot = true;
+
+	bool needVel = false;
+	if (lastSentVel.distance2(body->getLinearVelocity()) > 0.37)
+		needVel = true;
+
+	bool needAngVel = false;
+	if (lastSentAngVel.distance2(body->getAngularVelocity()) > 0.37)
+		needAngVel = true;
+
 	lastSentTime = SDL_GetTicks();
-	lastSentTransform = body->getWorldTransform();
-
-	const glm::vec3 &pos = glm::vec3(lastSentTransform.getOrigin().x(), lastSentTransform.getOrigin().y(), lastSentTransform.getOrigin().z());
-	const glm::quat &quat = glm::quat(lastSentTransform.getRotation().w(), lastSentTransform.getRotation().x(), lastSentTransform.getRotation().y(), lastSentTransform.getRotation().z());
-	const glm::vec3 &linVel = glm::vec3(body->getLinearVelocity().x(), body->getLinearVelocity().y(), body->getLinearVelocity().z());
-	const glm::vec3 &angVel = glm::vec3(body->getAngularVelocity().x(), body->getAngularVelocity().y(), body->getAngularVelocity().z());
-
+	
+	//so client know what obj this packet is for
 	memcpy(dest, &netID, sizeof(netIDType));
-	addPosition(dest +   sizeof(netIDType), pos);
-	addQuaternion(dest + sizeof(netIDType) + PositionBytes, quat);
-	addVelocity(dest +   sizeof(netIDType) + PositionBytes + QuaternionBytes, linVel);
-	addAngularVelocity(dest +   sizeof(netIDType) + VelocityBytes + QuaternionBytes + PositionBytes, angVel);
+
+	//Flags saying what was updated
+	unsigned char flags = 0;
+	flags += needPosRot ? 1 : 0;
+	flags += needVel    ? 2 : 0;
+	flags += needAngVel ? 4 : 0;
+	dest[sizeof(netIDType)] = flags;
+
+	int byteIterator = sizeof(netIDType) + 1;
+
+	if (needPosRot)
+	{
+		lastSentTransform = body->getWorldTransform();
+		const glm::vec3& pos = glm::vec3(lastSentTransform.getOrigin().x(), lastSentTransform.getOrigin().y(), lastSentTransform.getOrigin().z());
+		const glm::quat& quat = glm::quat(lastSentTransform.getRotation().w(), lastSentTransform.getRotation().x(), lastSentTransform.getRotation().y(), lastSentTransform.getRotation().z());
+		addPosition(dest + byteIterator, pos);
+		byteIterator += PositionBytes;
+		addQuaternion(dest + byteIterator, quat);
+		byteIterator += QuaternionBytes;
+	}
+	if (needVel)
+	{
+		lastSentVel = body->getLinearVelocity();
+		const glm::vec3& linVel = glm::vec3(body->getLinearVelocity().x(), body->getLinearVelocity().y(), body->getLinearVelocity().z());
+		addVelocity(dest + byteIterator, linVel);
+		byteIterator += VelocityBytes;
+	}
+	if (needAngVel)
+	{
+		lastSentAngVel = body->getAngularVelocity();
+		const glm::vec3& angVel = glm::vec3(body->getAngularVelocity().x(), body->getAngularVelocity().y(), body->getAngularVelocity().z());
+		addAngularVelocity(dest + byteIterator, angVel);
+		byteIterator += AngularVelocityBytes;
+	}
+}
+
+void Dynamic::addToCreationPacket(enet_uint8* dest) const
+{
+	memcpy(dest, &netID, sizeof(netIDType));
+
+	const netIDType typeID = type->getID();
+	memcpy(dest + sizeof(netIDType), &typeID, sizeof(netIDType));
+
+	const btTransform& t = body->getWorldTransform();
+	const glm::vec3& pos = glm::vec3(t.getOrigin().x(), t.getOrigin().y(), t.getOrigin().z());
+	const glm::quat& quat = glm::quat(t.getRotation().w(), t.getRotation().x(), t.getRotation().y(), t.getRotation().z());
+
+	addPosition(dest + sizeof(netIDType) * 2, pos);
+	addQuaternion(dest + sizeof(netIDType) * 2 + PositionBytes, quat);
 }
 
 void Dynamic::requestDestruction()
