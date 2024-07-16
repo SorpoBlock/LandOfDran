@@ -171,6 +171,11 @@ unsigned int Dynamic::getUpdatePacketBytes() const
 	return ret;
 }
 
+void Dynamic::setMeshColor(int meshIdx, const glm::vec4& color)
+{
+	modelInstance->setColor(meshIdx, color);
+}
+
 ENetPacket* Dynamic::setMeshColor(const std::string &meshName,const glm::vec4& color)
 {
 	int meshIdx = getType()->getModel()->getMeshIdx(meshName);

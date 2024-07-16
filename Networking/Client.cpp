@@ -123,6 +123,10 @@ KickReason Client::run(const ClientProgramData& pd,Simulation &simulation, const
 						packets.push_back(new MovementSettingsPacket(packetHoldTime, event.packet));
 						return NotKicked;
 
+					case MeshAppearance:
+						packets.push_back(new MeshAppearancePacket(packetHoldTime, event.packet));
+						return NotKicked;
+
 					//Can't process packet
 					case InvalidServer:
 					default:

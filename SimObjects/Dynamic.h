@@ -99,7 +99,10 @@ class Dynamic : public SimObject
 	//Add getUpdatePacketBytes() worth of data to the given packet with all the data needed for the client to update it
 	virtual void addToUpdatePacket(enet_uint8 * dest) override;
 
-	//Returns a fully created packet ready to broadcast to relay the mesh color update
+	//Client side: 
+	void setMeshColor(int idx, const glm::vec4& color);
+
+	//Server side: returns a fully created packet ready to broadcast to relay the mesh color update
 	ENetPacket* setMeshColor(const std::string& meshName, const glm::vec4& color);
 
 	~Dynamic();

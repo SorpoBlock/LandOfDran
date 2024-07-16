@@ -271,7 +271,7 @@ class Mesh
 	//Cannot be used for index buffer. Make sure VAO is already bound
 	void fillBuffer(LayoutSlot slot, void* data, int size, int elements);
 
-	Mesh(aiMesh const * const src,Model const * const parent);
+	Mesh(aiMesh const * const src,Model const * const parent,bool serverSide = false);
 	~Mesh();
 
 	public:

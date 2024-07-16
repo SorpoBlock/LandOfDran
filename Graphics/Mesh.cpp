@@ -552,9 +552,15 @@ bool ModelInstance::isPlaying(int id) const
 	return false;
 }
 
-Mesh::Mesh(aiMesh const* const src, Model const* const parent)
+Mesh::Mesh(aiMesh const* const src, Model const* const parent,bool serverSide)
 {
 	scope("Mesh::Mesh");
+
+	if (serverSide)
+	{
+		name = src->mName.C_Str();
+		return;
+	}
 
 	debug("Loading mesh: " + std::string(src->mName.C_Str()));
 
@@ -1003,16 +1009,15 @@ Model::Model(std::string filePath, bool _serverSide, glm::vec3 _baseScale) : loa
 		return;
 	}
 
-	/*for (unsigned int a = 0; a < scene->mNumMeshes; a++)
+	for (unsigned int a = 0; a < scene->mNumMeshes; a++)
 	{
-		aiMesh* src = scene->mMeshes[a];
-		Mesh* tmp = new Mesh(src, this);
-
+		aiMesh *src = scene->mMeshes[a];
+		Mesh* tmp = new Mesh(src, this,serverSide);
 		tmp->meshIndex = allMeshes.size();
 		allMeshes.push_back(tmp);
 	}
 
-	rootNode = new Node(scene->mRootNode, this);*/
+	//rootNode = new Node(scene->mRootNode, this);*/
 
 	calculateCollisionBox(scene);
 }
