@@ -182,7 +182,7 @@ void main()
 	float denominator = 4 * NdotV * NdotL + 0.001; // 0.001 to prevent divide by zero
 	vec3 specular = numerator / denominator;
 	
-	color.rgb += (kD * albedo / PI + specular) * sunColor.rgb * NdotL;
+	color.rgb = (kD * albedo / PI + specular) * sunColor.rgb * NdotL;
 	color.rgb += mor.g * albedo * vec3(0.03);
 	color.a = 1.0;
 	
