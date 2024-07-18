@@ -51,7 +51,7 @@ public:
 	//Apparently version 1.3.17 ENet does not have ENetHost::totalQueued ???
 #if ENET_VERSION_MAJOR == 1 && ENET_VERSION_MINOR == 3 && ENET_VERSION_PATCH == 18
 	float getNumQueued() const { return client->totalQueued;  }
-#elif ENET_VERSION_MAJOR == 1 && ENET_VERSION_MINOR == 3 && ENET_VERSION_PATCH == 17
+#else
 	float getNumQueued() const { return -1234;  }
 #endif
 
