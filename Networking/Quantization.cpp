@@ -1,5 +1,7 @@
 #include "Quantization.h"
 
+const float quatCompMulti = 1.414f;
+
 void addQuaternion(enet_uint8* dest, glm::quat quat)
 {
 	//First byte cleared in switch statement
@@ -14,7 +16,7 @@ void addQuaternion(enet_uint8* dest, glm::quat quat)
 
 	for(int i = 0; i<4; i++)
 	{
-		if(fabs(quat[i]) > maxValue)
+		if(fabs(quat[i]) > fabs(maxValue))
 		{
 			maxValue = quat[i];
 			maxIndex = i;
@@ -65,11 +67,12 @@ void addQuaternion(enet_uint8* dest, glm::quat quat)
 	c *= largestSign;
 
 	//Convert each to 9 bits, 10 including the sign
-	unsigned short aInt = fabs(a) * 511;
+	unsigned short aInt = fabs(a) * quatCompMulti * 511.f;
+	unsigned short bInt = fabs(b) * quatCompMulti * 511.f;
+	unsigned short cInt = fabs(c) * quatCompMulti * 511.f;
+
 	aInt |= a < 0 ? 512 : 0;
-	unsigned short bInt = fabs(b) * 511;
 	bInt |= b < 0 ? 512 : 0;
-	unsigned short cInt = fabs(c) * 511;
 	cInt |= c < 0 ? 512 : 0;
 
 	//Upper 6 bits of A go to lower 6 bits of 0
@@ -102,15 +105,18 @@ void getQuaternion(enet_uint8 const* src, glm::quat& quat)
 	rawC |= src[3];
 
 	float a = (rawA & 0b0111111111);
-	a /= 511;
+	a /= 511.f;
+	a /= quatCompMulti;
 	a *= (rawA & 0b1000000000) ? -1 : 1;
 
 	float b = (rawB & 0b0111111111);
-	b /= 511;
+	b /= 511.f;
+	b /= quatCompMulti;
 	b *= (rawB & 0b1000000000) ? -1 : 1;
 
 	float c = (rawC & 0b0111111111);
-	c /= 511;
+	c /= 511.f;
+	c /= quatCompMulti;
 	c *= (rawC & 0b1000000000) ? -1 : 1;
 
 	float d = sqrt(1.0f - (a * a + b * b + c * c));

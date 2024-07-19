@@ -34,7 +34,7 @@ static int LUA_createDynamic(lua_State* L)
 	}
 
 	std::shared_ptr<DynamicType> type = LUA_pd->dynamicTypes[typeID];
-	std::shared_ptr<Dynamic> dynamic = LUA_pd->dynamics->create(type, btVector3(x, y, z));
+	std::shared_ptr<Dynamic> dynamic = LUA_pd->dynamics->create(type, btVector3(x, y, z),btQuaternion::getIdentity());
 
 	LUA_pd->dynamics->pushLua(L, dynamic);
 	return 1;

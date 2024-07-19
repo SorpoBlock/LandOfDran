@@ -16,11 +16,10 @@ bool UpdateSimObjectsPacket::applyPacket(const ClientProgramData& pd, Simulation
 	{
 		unsigned int numObjects = packet->data[2];
 		unsigned int byteIterator = 3;
+		netIDType lastId = NO_ID;
 		for (unsigned int a = 0; a < numObjects; a++)
 		{
-			netIDType id;
-			memcpy(&id, packet->data + byteIterator, sizeof(netIDType));
-			byteIterator += sizeof(netIDType);
+			lastId = simulation.dynamics->getIdFromDelta(packet->data + byteIterator, lastId, byteIterator);
 
 			unsigned char flags = packet->data[byteIterator];
 			byteIterator++;
@@ -54,7 +53,7 @@ bool UpdateSimObjectsPacket::applyPacket(const ClientProgramData& pd, Simulation
 				byteIterator += AngularVelocityBytes;
 			}
 
-			std::shared_ptr<Dynamic> toUpdate = simulation.dynamics->find(id);
+			std::shared_ptr<Dynamic> toUpdate = simulation.dynamics->find(lastId);
 			if (toUpdate && !toUpdate->clientControlled)
 			{
 				if (needPosRot)

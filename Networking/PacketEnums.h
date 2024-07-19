@@ -7,6 +7,9 @@
 //Different types of objects can share the same ID
 typedef unsigned int netIDType;
 
+//Especially for delta compression: indicates no assigned ID, unsigned equiv to -1
+#define NO_ID 4294967295 
+
 /*
 	For use with enet_peer_disconnect
 */

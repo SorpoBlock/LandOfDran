@@ -202,7 +202,7 @@ void LoopClient::renderEverything(float deltaT)
 	if (simulation.dynamics)
 	{
 		for (unsigned a = 0; a < simulation.dynamics->size(); a++)
-			simulation.dynamics->get(a)->updateSnapshot();
+			simulation.dynamics->get(a)->updateSnapshot(pd.input->isCommandKeydown(DebugView));
 	}
 
 	//Technically rendering related calculations based on previously inputted transform data
@@ -241,9 +241,11 @@ void LoopClient::sendControlledObjects()
 		if (!d->requiresNetUpdate())
 			continue;
 
-		ENetPacket* update = enet_packet_create(NULL, d->getUpdatePacketBytes() + 1, getFlagsFromChannel(Unreliable));
+		ENetPacket* update = enet_packet_create(NULL, d->getUpdatePacketBytes() + 1 + sizeof(netIDType), getFlagsFromChannel(Unreliable));
 		update->data[0] = (unsigned char)ControlledPhysics;
-		d->addToUpdatePacket(update->data + 1);
+		netIDType id = d->getID();
+		memcpy(update->data + 1, &id, sizeof(netIDType));
+		d->addToUpdatePacket(update->data + 1 + sizeof(netIDType));
 		client->send(update, Unreliable);
 	}
 }

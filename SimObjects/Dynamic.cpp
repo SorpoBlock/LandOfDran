@@ -1,7 +1,6 @@
 #include "Dynamic.h"
-#include "Dynamic.h"
 
-Dynamic::Dynamic(std::shared_ptr<DynamicType> _type, const btVector3& initialPos) : type(_type)
+Dynamic::Dynamic(std::shared_ptr<DynamicType> _type, const btVector3& initialPos, const btQuaternion &initialRot) : type(_type)
 {
 	body = type->createBody();
 	world->addBody(body);
@@ -9,6 +8,7 @@ Dynamic::Dynamic(std::shared_ptr<DynamicType> _type, const btVector3& initialPos
 	btTransform t;
 	t.setIdentity();
 	t.setOrigin(initialPos);
+	t.setRotation(initialRot);
 	body->setWorldTransform(t);
 
 	modelInstance = new ModelInstance(type->getModel().get());
@@ -16,7 +16,7 @@ Dynamic::Dynamic(std::shared_ptr<DynamicType> _type, const btVector3& initialPos
 	if (!type->getModel()->isServerSide())
 	{
 		//TODO: Pass initial rotation as well
-		interpolator.addSnapshot(b2g3(initialPos), glm::quat(1, 0, 0, 0), 4);
+		interpolator.addSnapshot(b2g3(initialPos), glm::quat(initialRot.w(),initialRot.x(),initialRot.y(),initialRot.z()), 4);
 		modelInstance->setModelTransform(glm::translate(glm::vec3(initialPos.x(), initialPos.y(), initialPos.z())));
 	}
 }
@@ -27,25 +27,9 @@ void Dynamic::onCreation()
 	body->setUserPointer((void*)new std::shared_ptr<SimObject>(getMe()));
 }
 
-/*
-	Note, does not include packet header or anything, only the marginal bytes added by* this* object in a bigger packet
-	Same goes for all packet related functions here
-*/
-unsigned int Dynamic::getCreationPacketBytes() const
+void Dynamic::updateSnapshot(bool forceUsePhysicsTransform)
 {
-	/*
-		4 bytes - net ID
-		4 bytes - dyanamic type ID
-		position
-		rotation
-		scale
-	*/
-	return PositionBytes + QuaternionBytes + sizeof(netIDType) * 2;
-}
-
-void Dynamic::updateSnapshot()
-{
-	if (clientControlled)
+	if (clientControlled || forceUsePhysicsTransform)
 	{
 		const btTransform& t = body->getWorldTransform();
 		const btVector3& v = t.getOrigin();
@@ -109,7 +93,7 @@ bool Dynamic::requiresNetUpdate() const
 	if (t.getOrigin().distance2(lastSentTransform.getOrigin()) > 0.005)
 		return true;
 
-	if (body->getWorldTransform().getRotation().angleShortestPath(lastSentTransform.getRotation()) > 0.02)
+	if (body->getWorldTransform().getRotation().angleShortestPath(lastSentTransform.getRotation()) > 0.01)
 		return true;
 
 	if (lastSentVel.distance2(body->getLinearVelocity()) > 0.37)
@@ -142,7 +126,7 @@ unsigned int Dynamic::getUpdatePacketBytes() const
 		angular velocity
 	*/
 
-	unsigned int ret = sizeof(netIDType) + 1;
+	unsigned int ret = 1;
 
 	const btTransform& t = body->getWorldTransform();
 
@@ -152,7 +136,7 @@ unsigned int Dynamic::getUpdatePacketBytes() const
 	if (t.getOrigin().distance2(lastSentTransform.getOrigin()) > 0.005)
 		needPosRot = true;
 
-	if (body->getWorldTransform().getRotation().angleShortestPath(lastSentTransform.getRotation()) > 0.02)
+	if (body->getWorldTransform().getRotation().angleShortestPath(lastSentTransform.getRotation()) > 0.01)
 		needPosRot = true;
 
 	if (needPosRot)
@@ -209,7 +193,7 @@ void Dynamic::addToUpdatePacket(enet_uint8 * dest)
 	bool needPosRot = false;
 	if (t.getOrigin().distance2(lastSentTransform.getOrigin()) > 0.005)
 		needPosRot = true;
-	if (body->getWorldTransform().getRotation().angleShortestPath(lastSentTransform.getRotation()) > 0.02)
+	if (body->getWorldTransform().getRotation().angleShortestPath(lastSentTransform.getRotation()) > 0.01)
 		needPosRot = true;
 
 	bool needVel = false;
@@ -221,18 +205,15 @@ void Dynamic::addToUpdatePacket(enet_uint8 * dest)
 		needAngVel = true;
 
 	lastSentTime = SDL_GetTicks();
-	
-	//so client know what obj this packet is for
-	memcpy(dest, &netID, sizeof(netIDType));
 
 	//Flags saying what was updated
 	unsigned char flags = 0;
 	flags += needPosRot ? 1 : 0;
 	flags += needVel    ? 2 : 0;
 	flags += needAngVel ? 4 : 0;
-	dest[sizeof(netIDType)] = flags;
+	dest[0] = flags;
 
-	int byteIterator = sizeof(netIDType) + 1;
+	int byteIterator = 1;
 
 	if (needPosRot)
 	{
@@ -260,6 +241,32 @@ void Dynamic::addToUpdatePacket(enet_uint8 * dest)
 	}
 }
 
+/*
+	Note, does not include packet header or anything, only the marginal bytes added by* this* object in a bigger packet
+	Same goes for all packet related functions here
+*/
+unsigned int Dynamic::getCreationPacketBytes() const
+{
+	/*
+		4 bytes - net ID
+		4 bytes - dyanamic type ID
+		position
+		rotation
+		scale
+	*/
+
+	int meshColorsSize = 0;
+	glm::vec4 color;
+	for (int a = 0; a < modelInstance->getNumMeshes(); a++)
+		if (modelInstance->getMeshColor(a, color))
+			meshColorsSize++;
+
+	meshColorsSize *= sizeof(glm::vec4) + 1; //1 byte for mesh index
+	meshColorsSize++; //1 extra byte for how many mesh colors we are sending
+
+	return meshColorsSize + PositionBytes + QuaternionBytes + sizeof(netIDType) * 2;
+}
+
 void Dynamic::addToCreationPacket(enet_uint8* dest) const
 {
 	memcpy(dest, &netID, sizeof(netIDType));
@@ -273,6 +280,36 @@ void Dynamic::addToCreationPacket(enet_uint8* dest) const
 
 	addPosition(dest + sizeof(netIDType) * 2, pos);
 	addQuaternion(dest + sizeof(netIDType) * 2 + PositionBytes, quat);
+
+	int meshColorsStart = sizeof(netIDType) * 2 + PositionBytes + QuaternionBytes;
+
+	//Skip the byte with the mesh colors count for now until we actually know how many meshes need colors sent
+	int byteIterator = meshColorsStart+1; 
+
+	int meshColors = 0;
+	glm::vec4 color;
+	for (int a = 0; a < modelInstance->getNumMeshes(); a++)
+	{
+		if (modelInstance->getMeshColor(a, color))
+		{
+			dest[byteIterator] = a;
+			byteIterator++;
+
+			memcpy(dest + byteIterator, &color.r, sizeof(float));
+			byteIterator += sizeof(float);
+			memcpy(dest + byteIterator, &color.g, sizeof(float));
+			byteIterator += sizeof(float);
+			memcpy(dest + byteIterator, &color.b, sizeof(float));
+			byteIterator += sizeof(float);
+			memcpy(dest + byteIterator, &color.a, sizeof(float));
+			byteIterator += sizeof(float);
+
+			meshColors++;
+		}
+	}
+
+	//Now we know how many meshes need updating
+	dest[meshColorsStart] = meshColors;
 }
 
 void Dynamic::requestDestruction()

@@ -19,7 +19,8 @@ enum InputCommand
     OpenChatWindow = 8,
     FirstThirdPerson = 9,
     Jump = 10,
-    EndOfCommands = 11
+    DebugView = 11,
+    EndOfCommands = 12
 };
 
 //For user interface

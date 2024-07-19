@@ -134,6 +134,7 @@ class ModelInstance
 	std::vector<glm::mat4>		MeshTransforms;
 	std::vector<unsigned int>	MeshFlags;
 	std::vector<glm::vec4>		MeshColors;
+	std::vector<bool>			MeshColorUsed; //Mostly for use with server to not send default mesh colors over
 
 	//Were any of the above properties changed since last frame:
 
@@ -167,6 +168,12 @@ class ModelInstance
 	void setFlags(int meshId, unsigned int flags);
 
 	public:
+
+	//How many different meshes there are with colors transforms flags, etc
+	int getNumMeshes() const { return MeshTransforms.size(); }
+
+	//Returns true if color has been specifically set, or false if it's default
+	bool getMeshColor(int meshIdx, glm::vec4& color) const;
 
 	bool getHidden() const { return hidden; }
 

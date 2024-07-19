@@ -33,7 +33,7 @@ class Dynamic : public SimObject
 	std::shared_ptr<DynamicType> type = nullptr;
 
 	//Other constructor is always client side, this is probably always going to be server-side but I'm not sure yet
-	explicit Dynamic(std::shared_ptr<DynamicType> _type, const btVector3& initialPos);
+	explicit Dynamic(std::shared_ptr<DynamicType> _type, const btVector3& initialPos, const btQuaternion& initialRot);
 
 	//Called after this object has an id, type, me pointer, and vector index assigned by ObjHolder
 	virtual void onCreation() override;
@@ -63,7 +63,7 @@ class Dynamic : public SimObject
 	//Client only, true if object is in Simulation::controlledDynamics
 	bool clientControlled = false;
 
-	void updateSnapshot();
+	void updateSnapshot(bool forceUsePhysicsTransform = false);
 
 	//Client only
 	Interpolator interpolator;
