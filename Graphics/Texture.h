@@ -97,6 +97,8 @@ class Texture
 
 	public:
 
+	void addToFramebuffer(GLenum attachment = GL_COLOR_ATTACHMENT0);
+
 	int getNumChannels() const { return channels;  }
 
 	//Has this texture been put together succesfully, no missing files, and can be used for rendering
@@ -217,6 +219,9 @@ class TextureManager
 
 	//Creates a texture with all values set to 0, can then be used for rendering to
 	Texture* createBlankTexture(unsigned int width, unsigned int height, unsigned int channels, unsigned int layers,std::string name = "");
+	
+	//Creates a 32bit depth component texture for frame buffers to use
+	Texture* createBlankShadow32(unsigned int width, unsigned int height, unsigned int layers, std::string name = "");
 
 	/*
 		Loads a one channel texture or the first channel of a multi channel texture and

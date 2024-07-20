@@ -68,6 +68,8 @@ bool ShaderManager::readShaderList(const std::string &filePath)
 			//There are a limited amount of hard-coded shader programs, find the right one
 			if (programName == "model")
 				modelShader = lastProgram;
+			else if (programName == "modelShadow")
+				modelShadowShader = lastProgram;
 			else
 				error("Invalid program name " + programName);
 		}
@@ -170,3 +172,4 @@ void ShaderManager::updateBasicUBO() const
 	glBufferData(GL_UNIFORM_BUFFER, 224, &basicUniforms, GL_DYNAMIC_DRAW);
 	glBindBuffer(GL_UNIFORM_BUFFER, 0);
 }
+ 

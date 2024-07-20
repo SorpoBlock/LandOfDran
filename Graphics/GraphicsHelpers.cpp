@@ -55,13 +55,13 @@ void CopyaiMat(const aiMatrix4x4 &from, glm::mat4& to)
 	to[2][3] = from.d3; to[3][3] = from.d4;
 }
 
-void printAllGraphicsErrors()
+void printAllGraphicsErrors(std::string tag)
 {
 	GLenum err;
 	while ((err = glGetError()) != GL_NO_ERROR)
 	{
-		error("OpenGL error: " + std::to_string(err));
-		error("Last SDL error string: " + std::string(SDL_GetError()));
+		error(tag + " OpenGL error: " + std::to_string(err));
+		error(tag + " Last SDL error string: " + std::string(SDL_GetError()));
 	}
 }
 

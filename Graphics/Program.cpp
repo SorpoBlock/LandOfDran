@@ -15,6 +15,9 @@ void Program::registerSamplerUniforms()
     if(glGetUniformLocation(handle, "DecalArray") != -1)
         glUniform1i(glGetUniformLocation(handle, "DecalArray"),         DecalArray);
 
+    if (glGetUniformLocation(handle, "ShadowArray") != -1)
+        glUniform1i(glGetUniformLocation(handle, "ShadowArray"),        ShadowArray);
+
     //Enable others as they are actually added
     /*glUniform1i(glGetUniformLocation(handle, "BRDF"), BRDF);
     glUniform1i(glGetUniformLocation(handle, "HeightMap"),          HeightMap);

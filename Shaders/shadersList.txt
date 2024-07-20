@@ -3,3 +3,6 @@
 #	bdrf	vert	bdrf.vert.glsl
 model	frag	model.frag.glsl
 model	vert	model.vert.glsl
+modelShadow	frag	modelShadow.frag.glsl
+modelShadow	vert	modelShadow.vert.glsl
+modelShadow	geom	modelShadow.geom.glsl

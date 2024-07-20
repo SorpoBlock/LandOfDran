@@ -9,6 +9,7 @@ in vec3 bitangent;
 in vec4 preColor;
 in vec3 normal;
 flat in int useDecal;
+in vec4 shadowPos[3];
 
 layout (std140) uniform BasicUniforms
 {
@@ -42,6 +43,7 @@ layout (std140) uniform CameraUniforms
 
 uniform sampler2DArray PBRArray;
 uniform sampler2DArray DecalArray;
+uniform sampler2DArray ShadowArray;
 
 //Start tutorial code
 //https://github.com/JoeyDeVries/LearnOpenGL/blob/master/src/6.pbr/1.2.lighting_textured/1.2.pbr.fs
@@ -137,6 +139,47 @@ void main()
 	albedo = mix(albedo.rgb,preColor.rgb,preColor.a);
 	
 	vec3 newNormal = getNormalFromMapGrad(uvs,dxuv,dyuv);
+		
+	//Testing:
+	vec3 sunDirection = normalize(vec3(0.2,1,0.4));
+	vec3 sunColor = 15.0 * vec3(1,0.7,0.5);
+	//End testing
+	
+	//float bias = max(0.01 * (1.0 - dot(newNormal, normalize(sunDirection))), 0.001);  
+	float shadowCoverage = 0.0;
+	
+	for(int i = 0; i<3; i++)
+	{		
+		vec3 shadowCoords = shadowPos[i].xyz / shadowPos[i].w;
+		shadowCoords = shadowCoords * 0.5 + 0.5;
+		if(shadowCoords.x < 0 || shadowCoords.x > 1 || shadowCoords.y < 0 || shadowCoords.y > 1 || shadowCoords.z < 0 || shadowCoords.z > 1)
+			continue;
+		
+		float bias = 0.0001;
+
+		float fragDepth = shadowCoords.z;
+			
+		int samplesTaken = 0;
+		float sTex = 500.0;
+		vec2 sTexSize = vec2(1.0/sTex,1.0/sTex);
+		int pcf = 2;
+		if(i > 1)
+			pcf = 0;
+		for(int x = -pcf; x <= pcf; ++x)
+		{
+			for(int y = -pcf; y <= pcf; ++y)
+			{
+				samplesTaken++;
+				vec2 offset = vec2(x,y) * sTexSize;
+				float depth =		texture(ShadowArray,vec3(shadowCoords.xy+offset,i)).r;
+				shadowCoverage += ((fragDepth - bias) > depth) ? 1.0 : 0.0;
+			}
+		}
+		
+		shadowCoverage /= samplesTaken;
+		
+		break;
+	}
 	
 	vec3 mor = vec3(0,0,0.5);
 	
@@ -151,11 +194,6 @@ void main()
 		mor.g = 1;
 	if(useRoughness == -1)
 		mor.b = 0.5;
-		
-	//Testing:
-	vec3 sunDirection = normalize(vec3(0.2,1,0.4));
-	vec3 sunColor = 15.0 * vec3(1,0.7,0.5);
-	//End testing
 	
 	float NdotV = max(dot(newNormal, viewVector), 0.0);	
 	vec3 halfVector = normalize(viewVector + sunDirection);     
@@ -174,8 +212,8 @@ void main()
 	float denominator = 4 * NdotV * NdotL + 0.001; // 0.001 to prevent divide by zero
 	vec3 specular = numerator / denominator;
 	
-	color.rgb = (kD * albedo / PI + specular) * sunColor.rgb * NdotL;
-	color.rgb += mor.g * albedo * vec3(0.03);
+	color.rgb = (kD * albedo / PI + specular) * sunColor.rgb * NdotL * clamp((1.0 - shadowCoverage),0.35,1.0);
+	color.rgb += mor.g * albedo * sunColor.rgb * vec3(0.03) * clamp((1.0 - shadowCoverage),0.35,1.0);
 	color.a = 1.0;
 	
 	//Tone maping

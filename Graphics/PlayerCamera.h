@@ -38,6 +38,9 @@ class Camera
 
 	public:
 
+	//TODO: Move this to environment class
+	void calculateLightSpaceMatricies(glm::vec3 sunDirection,glm::mat4 *result);
+
 	float maxThirdPersonDistance = 30.0;
 
 	void setFirstPerson(bool _firstPerson);

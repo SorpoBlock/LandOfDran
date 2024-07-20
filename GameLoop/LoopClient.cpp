@@ -209,13 +209,25 @@ void LoopClient::renderEverything(float deltaT)
 	for (unsigned int a = 0; a < simulation.dynamicTypes.size(); a++)
 		simulation.dynamicTypes[a]->getModel()->updateAll(deltaT);
 
-	//Start rendering to screen:
-	simulation.camera->render(pd.shaders,deltaT,pd.physicsWorld);
+	simulation.camera->calculateLightSpaceMatricies(glm::normalize(glm::vec3(0.2, 1.0, 0.4)), pd.lightSpaceMatricies);
 
+	//Render shadows to texture:
+	pd.shadows->use();
+	pd.shaders->modelShadowShader->use();
+	glUniformMatrix4fv(pd.lightSpaceMatriciesUniformShadow, 3, GL_FALSE, (GLfloat*)pd.lightSpaceMatricies);
+
+	for (unsigned int a = 0; a < simulation.dynamicTypes.size(); a++)
+		simulation.dynamicTypes[a]->render(pd.shaders,false);
+
+	//Start rendering to screen:
 	pd.context->select();
 	pd.context->clear(0.4f, 0.4f, 0.8f);
 
+	simulation.camera->render(pd.shaders, deltaT, pd.physicsWorld);
+
 	pd.shaders->modelShader->use();
+	glUniformMatrix4fv(pd.lightSpaceMatriciesUniformModel, 3, GL_FALSE, (GLfloat*)pd.lightSpaceMatricies);
+	pd.shadows->bindDepthResult(ShadowArray);
 	pd.shaders->basicUniforms.nonInstanced = 0;
 	pd.shaders->basicUniforms.cameraSpacePosition = 0;
 
@@ -418,13 +430,26 @@ LoopClient::LoopClient(ExecutableArguments& cmdArgs, std::shared_ptr<SettingMana
 	pd.grassMaterial = new Material("Assets/ground/grass.txt", pd.textures);
 	pd.grassVao = createQuadVAO();
 
+	RenderTarget::RenderTargetSettings shadowSettings;
+	shadowSettings.width = 2048;
+	shadowSettings.height = 2048;
+	shadowSettings.layers = 3;
+	shadowSettings.useColor = false;
+	pd.shadows = std::make_shared<RenderTarget>(shadowSettings,pd.textures);
+	pd.lightSpaceMatriciesUniformShadow = pd.shaders->modelShadowShader->getUniformLocation("lightSpaceMatricies");
+	pd.lightSpaceMatriciesUniformModel = pd.shaders->modelShader->getUniformLocation("lightSpaceMatricies");
+
 	info("Start up complete");
+
+	printAllGraphicsErrors("End of initalization");
 
 	valid = true;
 }
 
 LoopClient::~LoopClient()
 {
+	pd.shadows.reset();
+
 	delete pd.grassMaterial;
 	glDeleteVertexArrays(1, &pd.grassVao);
 

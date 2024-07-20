@@ -29,7 +29,7 @@ void TextureManager::allocateTexture(Texture* target)
 {
 	int getMaxMipLevels = std::max(target->width, target->height);
 	getMaxMipLevels = (int)log2(getMaxMipLevels);
-	if (getMaxMipLevels <= 0)
+	if (getMaxMipLevels <= 0 || !target->hasMipmaps)
 		getMaxMipLevels = 1;
 
 	glBindTexture(target->textureType, target->handle);
@@ -183,6 +183,55 @@ Texture* TextureManager::createTexture(const std::string &filePath, bool makeMip
 	ret->valid = true;
 
 	glBindTexture(ret->textureType, 0);
+
+	ret->index = textures.size();
+	textures.push_back(ret);
+	ret->usages++;
+	return ret;
+}
+
+Texture* TextureManager::createBlankShadow32(unsigned int width, unsigned int height, unsigned int layers, std::string name)
+{
+	//Since these are only used internally, i.e. as a place to render shadow data to
+	//There's no real need for them to have user readable names
+	if (name != "")
+	{
+		//Just in case it does though, make sure it doesn't already exist
+		for (unsigned int a = 0; a < textures.size(); a++)
+		{
+			if (textures[a]->name == name)
+			{
+				textures[a]->usages++;
+				return textures[a];
+			}
+		}
+	}
+
+	Texture* ret = new Texture();
+	ret->textureType = (layers == 1) ? GL_TEXTURE_2D : GL_TEXTURE_2D_ARRAY;
+	ret->width = width;
+	ret->height = height;
+	ret->channels = 1;
+	ret->layers = layers;
+	ret->name = name;
+	ret->hasMipmaps = false;
+
+	int getMaxMipLevels = std::max(ret->width, ret->height);
+	getMaxMipLevels = (int)log2(getMaxMipLevels);
+	if (getMaxMipLevels <= 0 || !ret->hasMipmaps)
+		getMaxMipLevels = 1;
+
+	glBindTexture(ret->textureType, ret->handle);
+	if (ret->textureType == GL_TEXTURE_2D)
+	{
+		glTexStorage2D(ret->textureType, getMaxMipLevels, GL_DEPTH_COMPONENT32F
+			, ret->width, ret->height);
+	}
+	else
+	{
+		glTexStorage3D(ret->textureType, getMaxMipLevels, GL_DEPTH_COMPONENT32F,
+			ret->width, ret->height, ret->layers);
+	}
 
 	ret->index = textures.size();
 	textures.push_back(ret);
@@ -476,6 +525,15 @@ void TextureManager::addEmptyComponent(Texture* target)
 	finishLayer(target);
 }
 
+void Texture::addToFramebuffer(GLenum attachment)
+{
+	valid = true;
+	if (textureType == GL_TEXTURE_2D)
+		glFramebufferTexture2D(GL_FRAMEBUFFER, attachment, textureType, handle, 0);
+	else
+		glFramebufferTexture(GL_FRAMEBUFFER, attachment, handle, 0);
+}
+
 void Texture::markForCleanup()
 {
 	usages--;
@@ -653,6 +711,7 @@ void TextureManager::allocateForDecals(unsigned int dimensions, unsigned int max
 
 	decals = new Texture();
 	decals->textureType = GL_TEXTURE_2D_ARRAY;
+	decals->hasMipmaps = true;
 
 	//A name isn't really needed, as it's the only texture not in the textures vector.
 	decals->name = "decals";
