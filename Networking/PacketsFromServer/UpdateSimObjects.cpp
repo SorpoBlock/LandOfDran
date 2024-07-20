@@ -34,6 +34,7 @@ bool UpdateSimObjectsPacket::applyPacket(const ClientProgramData& pd, Simulation
 			bool needRestitution = flags & 16;
 			bool needFriction = flags & 32;
 			bool playWalkAnimation = flags & 64;
+			bool forcePlayerUpdate = flags & 128;
 
 			glm::vec3 pos;
 			glm::quat rot;
@@ -85,23 +86,34 @@ bool UpdateSimObjectsPacket::applyPacket(const ClientProgramData& pd, Simulation
 			}
 
 			std::shared_ptr<Dynamic> toUpdate = simulation.dynamics->find(lastId);
-			if (toUpdate && !toUpdate->clientControlled)
+			if (toUpdate)
 			{
-				if (needPosRot)
+				if (!toUpdate->clientControlled || forcePlayerUpdate)
 				{
-					toUpdate->interpolator.addSnapshot(pos, rot, simulation.idealBufferSize, msSinceLastSend);
+					if (needPosRot)
+					{
+						toUpdate->interpolator.addSnapshot(pos, rot, simulation.idealBufferSize, msSinceLastSend);
 
-					btTransform t;
-					t.setRotation(btQuaternion(rot.x, rot.y, rot.z, rot.w));
-					t.setOrigin(btVector3(pos.x, pos.y, pos.z));
-					toUpdate->body->setWorldTransform(t);
+						btTransform t;
+						t.setRotation(btQuaternion(rot.x, rot.y, rot.z, rot.w));
+						t.setOrigin(btVector3(pos.x, pos.y, pos.z));
+						toUpdate->body->setWorldTransform(t);
+					}
+
+					if (needVel)
+						toUpdate->body->setLinearVelocity(btVector3(linVel.x, linVel.y, linVel.z));
+
+					if (needAngVel)
+						toUpdate->body->setAngularVelocity(btVector3(angVel.x, angVel.y, angVel.z));
+
+					if (playWalkAnimation)
+						toUpdate->play(0, true);
+					else
+						toUpdate->stop(0);
+
+					if (glm::length(linVel) > 0.1 || glm::length(angVel) > 0.1)
+						toUpdate->body->activate();
 				}
-
-				if(needVel)
-					toUpdate->body->setLinearVelocity(btVector3(linVel.x, linVel.y, linVel.z));
-
-				if(needAngVel)
-					toUpdate->body->setAngularVelocity(btVector3(angVel.x, angVel.y, angVel.z));
 
 				if (needGravity)
 					toUpdate->body->setGravity(g2b3(gravity));
@@ -111,14 +123,6 @@ bool UpdateSimObjectsPacket::applyPacket(const ClientProgramData& pd, Simulation
 
 				if (needFriction)
 					toUpdate->body->setFriction(friction);
-
-				if(playWalkAnimation)
-					toUpdate->play(0, true);
-				else
-					toUpdate->stop(0);
-
-				if (glm::length(linVel) > 0.1 || glm::length(angVel) > 0.1)
-					toUpdate->body->activate();
 			}
 
 			if (byteIterator >= packet->dataLength)

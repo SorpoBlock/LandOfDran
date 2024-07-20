@@ -53,6 +53,9 @@ class Dynamic : public SimObject
 	bool restitutionUpdated = false;
 	bool playWalkingAnimation = false;
 
+	//If lua changed the position/velocity/etc of a player controlled object
+	bool forcePlayerUpdate = false;
+
 	void play(int id, bool loop) { if (!modelInstance) return; modelInstance->playAnimation(id, loop); }
 
 	void stop(int id) { if (!modelInstance) return;  modelInstance->stopAnimation(id); }

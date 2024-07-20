@@ -105,6 +105,7 @@ static int LUA_dynamicSetVelocity(lua_State* L)
 	}
 
 	dynamic->setVelocity(btVector3(x, y, z));
+	dynamic->forcePlayerUpdate = true;
 	dynamic->activate();
 
 	return 0;
@@ -217,6 +218,7 @@ static int LUA_dynamicSetPosition(lua_State* L)
 	}
 
 	dynamic->setPosition(btVector3(x, y, z));
+	dynamic->forcePlayerUpdate = true;
 	dynamic->activate();
 
 	return 0;
@@ -410,6 +412,7 @@ static int LUA_dynamicSetAngularVelocity(lua_State* L)
 	}
 
 	dynamic->setAngularVelocity(btVector3(x, y, z));
+	dynamic->forcePlayerUpdate = true;
 	dynamic->activate();
 
 	return 0;
@@ -782,6 +785,7 @@ static int LUA_dynamicSetRotation(lua_State* L)
 	btTransform t = dynamic->body->getWorldTransform();
 	t.setRotation(btQuaternion(x, y, z, w));
 	dynamic->body->setWorldTransform(t);
+	dynamic->forcePlayerUpdate = true;
 	dynamic->activate();
 
 	return 0;

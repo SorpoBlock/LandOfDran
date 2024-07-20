@@ -226,7 +226,10 @@ void Dynamic::addToUpdatePacket(enet_uint8 * dest)
 	flags += restitutionUpdated ? 16 : 0;
 	flags += frictionUpdated ? 32 : 0;
 	flags += playWalkingAnimation ? 64 : 0;
+	flags += forcePlayerUpdate ? 128 : 0;
 	dest[1] = flags;
+
+	forcePlayerUpdate = false;
 
 	int byteIterator = 2;
 
