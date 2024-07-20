@@ -41,10 +41,12 @@ out vec3 normal;
 out vec3 tangent;
 out vec3 bitangent;
 out vec3 worldPos;
+out vec4 preColor;
 flat out int  useDecal;
 
 void main()
 {
+	preColor = PreColor;
 	useDecal = (InstanceFlags & 131072) == 131072 ? ((InstanceFlags & 130560) >> 9) : -1;
 	uvs = TextureCoords;
 	worldPos = (ModelTransform * vec4(ModelSpace,1)).xyz;

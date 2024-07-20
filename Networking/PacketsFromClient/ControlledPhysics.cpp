@@ -24,6 +24,9 @@ void applyPhysicsAdjustment(JoinedClient* source, Server const* const server, EN
 	memcpy(&id, packet->data + byteIterator, sizeof(netIDType));
 	byteIterator += sizeof(netIDType);
 
+	//Skip the ms since last send, no interpolation on server side
+	byteIterator++; 
+
 	unsigned char flags = packet->data[byteIterator];
 	byteIterator++;
 

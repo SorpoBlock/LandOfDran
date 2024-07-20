@@ -16,7 +16,7 @@ Dynamic::Dynamic(std::shared_ptr<DynamicType> _type, const btVector3& initialPos
 	if (!type->getModel()->isServerSide())
 	{
 		//TODO: Pass initial rotation as well
-		interpolator.addSnapshot(b2g3(initialPos), glm::quat(initialRot.w(),initialRot.x(),initialRot.y(),initialRot.z()), 4);
+		interpolator.addSnapshot(b2g3(initialPos), glm::quat(initialRot.w(),initialRot.x(),initialRot.y(),initialRot.z()), 4, 0);
 		modelInstance->setModelTransform(glm::translate(glm::vec3(initialPos.x(), initialPos.y(), initialPos.z())));
 	}
 }
@@ -118,7 +118,7 @@ bool Dynamic::requiresNetUpdate() const
 unsigned int Dynamic::getUpdatePacketBytes() const
 {
 	/*
-		4 bytes - net ID
+		1 byte ms since last send
 		1 byte what needs updating
 		position
 		rotation
@@ -126,7 +126,7 @@ unsigned int Dynamic::getUpdatePacketBytes() const
 		angular velocity
 	*/
 
-	unsigned int ret = 1;
+	unsigned int ret = 2;
 
 	const btTransform& t = body->getWorldTransform();
 
@@ -204,19 +204,22 @@ void Dynamic::addToUpdatePacket(enet_uint8 * dest)
 	if (lastSentAngVel.distance2(body->getAngularVelocity()) > 0.37)
 		needAngVel = true;
 
-	lastSentTime = SDL_GetTicks();
+	unsigned int msSinceLastSend = getTicksMS() - lastSentTime;
+
+	dest[0] = std::min(msSinceLastSend,255u);
 
 	//Flags saying what was updated
 	unsigned char flags = 0;
 	flags += needPosRot ? 1 : 0;
 	flags += needVel    ? 2 : 0;
 	flags += needAngVel ? 4 : 0;
-	dest[0] = flags;
+	dest[1] = flags;
 
-	int byteIterator = 1;
+	int byteIterator = 2;
 
 	if (needPosRot)
 	{
+		lastSentTime = getTicksMS();
 		lastSentTransform = body->getWorldTransform();
 		const glm::vec3& pos = glm::vec3(lastSentTransform.getOrigin().x(), lastSentTransform.getOrigin().y(), lastSentTransform.getOrigin().z());
 		const glm::quat& quat = glm::quat(lastSentTransform.getRotation().w(), lastSentTransform.getRotation().x(), lastSentTransform.getRotation().y(), lastSentTransform.getRotation().z());

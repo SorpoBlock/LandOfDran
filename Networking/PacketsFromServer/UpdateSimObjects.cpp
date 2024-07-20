@@ -21,6 +21,9 @@ bool UpdateSimObjectsPacket::applyPacket(const ClientProgramData& pd, Simulation
 		{
 			lastId = simulation.dynamics->getIdFromDelta(packet->data + byteIterator, lastId, byteIterator);
 
+			unsigned char msSinceLastSend = packet->data[byteIterator];
+			byteIterator++;
+
 			unsigned char flags = packet->data[byteIterator];
 			byteIterator++;
 
@@ -58,7 +61,7 @@ bool UpdateSimObjectsPacket::applyPacket(const ClientProgramData& pd, Simulation
 			{
 				if (needPosRot)
 				{
-					toUpdate->interpolator.addSnapshot(pos, rot, simulation.idealBufferSize);
+					toUpdate->interpolator.addSnapshot(pos, rot, simulation.idealBufferSize, msSinceLastSend);
 
 					btTransform t;
 					t.setRotation(btQuaternion(rot.x, rot.y, rot.z, rot.w));

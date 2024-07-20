@@ -6,6 +6,7 @@ in vec2 uvs;
 in vec3 worldPos;
 in vec3 tangent;
 in vec3 bitangent;
+in vec4 preColor;
 in vec3 normal;
 flat in int useDecal;
 
@@ -143,6 +144,7 @@ void main()
 
 	float nonLinearAlbedoF = 1.0;											
 	vec3 albedo = pow(albedo_.rgb,vec3(1.0 + 1.2 * nonLinearAlbedoF));
+	albedo = mix(albedo.rgb,preColor.rgb,preColor.a);
 	
 	vec3 newNormal = getNormalFromMapGrad(uvs,dxuv,dyuv);
 	
