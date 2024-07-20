@@ -30,11 +30,17 @@ bool UpdateSimObjectsPacket::applyPacket(const ClientProgramData& pd, Simulation
 			bool needPosRot = flags & 1;
 			bool needVel = flags & 2;
 			bool needAngVel = flags & 4;
+			bool needGravity = flags & 8;
+			bool needRestitution = flags & 16;
+			bool needFriction = flags & 32;
+			bool playWalkAnimation = flags & 64;
 
 			glm::vec3 pos;
 			glm::quat rot;
 			glm::vec3 linVel;
 			glm::vec3 angVel;
+			glm::vec3 gravity;
+			float restitution, friction;
 			if (needPosRot)
 			{
 				getPosition(packet->data + byteIterator, pos);
@@ -56,6 +62,28 @@ bool UpdateSimObjectsPacket::applyPacket(const ClientProgramData& pd, Simulation
 				byteIterator += AngularVelocityBytes;
 			}
 
+			if (needGravity)
+			{
+				memcpy(&gravity.x, packet->data + byteIterator, sizeof(float));
+				byteIterator += sizeof(float);
+				memcpy(&gravity.y, packet->data + byteIterator, sizeof(float));
+				byteIterator += sizeof(float);
+				memcpy(&gravity.z, packet->data + byteIterator, sizeof(float));
+				byteIterator += sizeof(float);
+			}
+
+			if (needRestitution)
+			{
+				memcpy(&restitution, packet->data + byteIterator, sizeof(float));
+				byteIterator += sizeof(float);
+			}
+
+			if (needFriction)
+			{
+				memcpy(&friction, packet->data + byteIterator, sizeof(float));
+				byteIterator += sizeof(float);
+			}
+
 			std::shared_ptr<Dynamic> toUpdate = simulation.dynamics->find(lastId);
 			if (toUpdate && !toUpdate->clientControlled)
 			{
@@ -74,6 +102,20 @@ bool UpdateSimObjectsPacket::applyPacket(const ClientProgramData& pd, Simulation
 
 				if(needAngVel)
 					toUpdate->body->setAngularVelocity(btVector3(angVel.x, angVel.y, angVel.z));
+
+				if (needGravity)
+					toUpdate->body->setGravity(g2b3(gravity));
+
+				if (needRestitution)
+					toUpdate->body->setRestitution(restitution);
+
+				if (needFriction)
+					toUpdate->body->setFriction(friction);
+
+				if(playWalkAnimation)
+					toUpdate->play(0, true);
+				else
+					toUpdate->stop(0);
 
 				if (glm::length(linVel) > 0.1 || glm::length(angVel) > 0.1)
 					toUpdate->body->activate();

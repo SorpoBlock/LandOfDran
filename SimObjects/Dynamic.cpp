@@ -84,7 +84,7 @@ btVector3 Dynamic::getPosition() const
 bool Dynamic::requiresNetUpdate() const
 {
 	//For dynamics requiresUpdate means a change to something like a decal, or a node color
-	if (requiresUpdate)
+	if (requiresUpdate || gravityUpdated || frictionUpdated || restitutionUpdated)
 		return true;
 
 	const btTransform& t = body->getWorldTransform();
@@ -152,6 +152,15 @@ unsigned int Dynamic::getUpdatePacketBytes() const
 	if (lastSentAngVel.distance2(body->getAngularVelocity()) > 0.37)
 		ret += AngularVelocityBytes;
 
+	if (gravityUpdated)
+		ret += sizeof(float) * 3;
+
+	if (frictionUpdated)
+		ret += sizeof(float);
+
+	if (restitutionUpdated)
+		ret += sizeof(float);
+
 	return ret;
 }
 
@@ -213,6 +222,10 @@ void Dynamic::addToUpdatePacket(enet_uint8 * dest)
 	flags += needPosRot ? 1 : 0;
 	flags += needVel    ? 2 : 0;
 	flags += needAngVel ? 4 : 0;
+	flags += gravityUpdated ? 8 : 0;
+	flags += restitutionUpdated ? 16 : 0;
+	flags += frictionUpdated ? 32 : 0;
+	flags += playWalkingAnimation ? 64 : 0;
 	dest[1] = flags;
 
 	int byteIterator = 2;
@@ -241,6 +254,34 @@ void Dynamic::addToUpdatePacket(enet_uint8 * dest)
 		const glm::vec3& angVel = glm::vec3(body->getAngularVelocity().x(), body->getAngularVelocity().y(), body->getAngularVelocity().z());
 		addAngularVelocity(dest + byteIterator, angVel);
 		byteIterator += AngularVelocityBytes;
+	}
+
+	if (gravityUpdated)
+	{
+		glm::vec3 gravity = b2g3(body->getGravity());
+		memcpy(dest + byteIterator, &gravity.x, sizeof(float));
+		byteIterator += sizeof(float);
+		memcpy(dest + byteIterator, &gravity.y, sizeof(float));
+		byteIterator += sizeof(float);
+		memcpy(dest + byteIterator, &gravity.z, sizeof(float));
+		byteIterator += sizeof(float);
+		gravityUpdated = false;
+	}
+
+	if (restitutionUpdated)
+	{
+		float restitution = body->getRestitution();
+		memcpy(dest + byteIterator, &restitution, sizeof(float));
+		byteIterator += sizeof(float);
+		restitutionUpdated = false;
+	}
+
+	if (frictionUpdated)
+	{
+		float friction = body->getFriction();
+		memcpy(dest + byteIterator, &friction, sizeof(float));
+		byteIterator += sizeof(float);
+		frictionUpdated = false;
 	}
 }
 

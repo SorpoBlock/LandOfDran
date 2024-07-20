@@ -513,6 +513,7 @@ static int LUA_dynamicSetGravity(lua_State* L)
 		return 0;
 	}
 
+	dynamic->gravityUpdated = true;
 	dynamic->body->setGravity(btVector3(x, y, z));
 	dynamic->activate();
 
@@ -646,6 +647,7 @@ static int LUA_dynamicSetFriction(lua_State* L)
 
 	friction = std::clamp(friction, 0.0f, 10.0f);
 
+	dynamic->frictionUpdated = true;
 	dynamic->body->setFriction(friction);
 
 	return 0;
@@ -682,6 +684,7 @@ static int LUA_dynamicSetRestitution(lua_State* L)
 
 	friction = std::clamp(friction, 0.0f, 10.0f);
 
+	dynamic->restitutionUpdated = true;
 	dynamic->body->setRestitution(friction);
 
 	return 0;

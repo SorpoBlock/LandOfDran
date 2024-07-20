@@ -47,6 +47,12 @@ class Dynamic : public SimObject
 
 	public:
 
+	//TODO: Just make updating these values on body require going through a setter method that sets these as well
+	bool frictionUpdated = false;
+	bool gravityUpdated = false;
+	bool restitutionUpdated = false;
+	bool playWalkingAnimation = false;
+
 	void play(int id, bool loop) { if (!modelInstance) return; modelInstance->playAnimation(id, loop); }
 
 	void stop(int id) { if (!modelInstance) return;  modelInstance->stopAnimation(id); }
