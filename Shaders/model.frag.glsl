@@ -25,6 +25,9 @@ layout (std140) uniform BasicUniforms
 	int useRoughness;
 	int useHeight;
 	int useAO;
+	
+	bool nonInstanced;
+	bool cameraSpacePosition;
 };
 
 layout (std140) uniform CameraUniforms
@@ -54,28 +57,14 @@ vec3 getNormalFromMapGrad(vec2 realUV,vec2 dx,vec2 dy)
 	vec3 tangentNormal = vec3(0,1,0);
 	if(useNormal != -1)
 		tangentNormal = textureGrad(PBRArray, vec3(realUV,useNormal) ,dx,dy).xyz * 2.0 - 1.0;
+	else
+		return normal;
 	
-	mat3 TBN;
-
-	/*bool calcTBN = false;
-	if(calcTBN)
-	{
-		//Honeslty don't even need this because assImp calcs TBN for us
-		vec3 Q1  = dFdx(worldPos);
-		vec3 Q2  = dFdy(worldPos);
-		vec2 st1 = dx;
-		vec2 st2 = dy;
-		vec3 N   = normalize(normal);
-		vec3 T  = normalize(Q1*st2.t - Q2*st1.t);
-		vec3 B  = -normalize(cross(N, T));
-		TBN = mat3(T,B,N);
-	}
-	else*/
-		TBN = mat3(
-			normalize(tangent),
-			normalize(bitangent),
-			normalize(normal)
-		);
+	mat3 TBN = mat3(
+		normalize(tangent),
+		normalize(bitangent),
+		normalize(normal)
+	);
 
     return normalize(TBN * tangentNormal);
 }
@@ -130,6 +119,7 @@ void main()
 {		
 	vec2 dxuv = dFdx(uvs);
 	vec2 dyuv = dFdy(uvs);
+	
 	vec3 viewVector = normalize(CameraPosition - worldPos);
 	
 	vec4 albedo_ = vec4(1,1,1,1);

@@ -74,13 +74,13 @@ GLuint createQuadVAO()
 
 	std::vector<glm::vec3> verts;
 	verts.clear();
-	verts.push_back(glm::vec3(-1, -1, 0));
-	verts.push_back(glm::vec3(1, -1, 0));
-	verts.push_back(glm::vec3(1, 1, 0));
+	verts.push_back(glm::vec3(-1, 0, -1));
+	verts.push_back(glm::vec3(1, 0, 1));
+	verts.push_back(glm::vec3(1, 0, -1));
 
-	verts.push_back(glm::vec3(1, 1, 0));
-	verts.push_back(glm::vec3(-1, 1, 0));
-	verts.push_back(glm::vec3(-1, -1, 0));
+	verts.push_back(glm::vec3(1, 0, 1));
+	verts.push_back(glm::vec3(-1, 0, -1));
+	verts.push_back(glm::vec3(-1, 0, 1));
 
 	std::vector<glm::vec2> uv;
 	uv.clear();
@@ -92,6 +92,36 @@ GLuint createQuadVAO()
 	uv.push_back(glm::vec2(0, 1));
 	uv.push_back(glm::vec2(0, 0));
 
+	std::vector<glm::vec3> normals;
+	normals.clear();
+	normals.push_back(glm::vec3(0, 1, 0));
+	normals.push_back(glm::vec3(0, 1, 0));
+	normals.push_back(glm::vec3(0, 1, 0));
+
+	normals.push_back(glm::vec3(0, 1, 0));
+	normals.push_back(glm::vec3(0, 1, 0));
+	normals.push_back(glm::vec3(0, 1, 0));
+
+	std::vector<glm::vec3> tangents;
+	tangents.clear();
+	tangents.push_back(glm::vec3(1, 0, 0));
+	tangents.push_back(glm::vec3(1, 0, 0));
+	tangents.push_back(glm::vec3(1, 0, 0));
+
+	tangents.push_back(glm::vec3(1, 0, 0));
+	tangents.push_back(glm::vec3(1, 0, 0));
+	tangents.push_back(glm::vec3(1, 0, 0));
+
+	std::vector<glm::vec3> bitangents;
+	bitangents.clear();
+	bitangents.push_back(glm::vec3(0, 0, -1));
+	bitangents.push_back(glm::vec3(0, 0, -1));
+	bitangents.push_back(glm::vec3(0, 0, -1));
+
+	bitangents.push_back(glm::vec3(0, 0, -1));
+	bitangents.push_back(glm::vec3(0, 0, -1));
+	bitangents.push_back(glm::vec3(0, 0, -1));
+
 	GLuint vertexBuffer;
 	glGenBuffers(1, &vertexBuffer);
 	glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer);
@@ -102,10 +132,10 @@ GLuint createQuadVAO()
 	GLuint uvBuffer;
 	glGenBuffers(1, &uvBuffer);
 	glBindBuffer(GL_ARRAY_BUFFER, uvBuffer);
-	glEnableVertexAttribArray(1);
+	glEnableVertexAttribArray(4);
 	glBufferData(GL_ARRAY_BUFFER, uv.size() * sizeof(glm::vec2), &uv[0][0], GL_STATIC_DRAW);
 	glVertexAttribPointer(
-		1,                  // attribute, 0 = verticies
+		4,                  // attribute, 4 = uvs
 		2,                  // size
 		GL_FLOAT,           // type
 		GL_FALSE,           // normalized?
@@ -113,6 +143,26 @@ GLuint createQuadVAO()
 		(void*)0            // array buffer offset
 	);
 
+	GLuint normalBuffer;
+	glGenBuffers(1, &normalBuffer);
+	glBindBuffer(GL_ARRAY_BUFFER, normalBuffer);
+	glBufferData(GL_ARRAY_BUFFER, normals.size() * sizeof(glm::vec3), &normals[0][0], GL_STATIC_DRAW);
+	glEnableVertexAttribArray(1);
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
+
+	GLuint tangentBuffer;
+	glGenBuffers(1, &tangentBuffer);
+	glBindBuffer(GL_ARRAY_BUFFER, tangentBuffer);
+	glBufferData(GL_ARRAY_BUFFER, tangents.size() * sizeof(glm::vec3), &tangents[0][0], GL_STATIC_DRAW);
+	glEnableVertexAttribArray(2);
+	glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
+
+	GLuint bitangentBuffer;
+	glGenBuffers(1, &bitangentBuffer);
+	glBindBuffer(GL_ARRAY_BUFFER, bitangentBuffer);
+	glBufferData(GL_ARRAY_BUFFER, bitangents.size() * sizeof(glm::vec3), &bitangents[0][0], GL_STATIC_DRAW);
+	glEnableVertexAttribArray(3);
+	glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
 
 	glBindVertexArray(0);
 

@@ -6,7 +6,7 @@
 /*
 	Model matrix and material data for non-instanced rendering for a uniform buffer object
 	Padding exists to conform to an std140 layout used by OpenGL
-	OpenGL Size: 216 bytes
+	OpenGL Size: 224 bytes
 */
 struct BasicUniforms					
 {														//base			aligned
@@ -22,6 +22,9 @@ struct BasicUniforms
 	GLint useRoughness = 0;								//4				204
 	GLint useHeight = 0;								//4				208
 	GLint useAO = 0;									//4				212
+	
+	GLint nonInstanced = 0;								//4				216
+	GLint cameraSpacePosition = 0;						//4				220
 };
 
 /*

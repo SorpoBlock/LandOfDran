@@ -213,12 +213,25 @@ void LoopClient::renderEverything(float deltaT)
 	simulation.camera->render(pd.shaders,deltaT,pd.physicsWorld);
 
 	pd.context->select();
-	pd.context->clear(0.2f, 0.2f, 0.2f);
+	pd.context->clear(0.4f, 0.4f, 0.8f);
 
 	pd.shaders->modelShader->use();
+	pd.shaders->basicUniforms.nonInstanced = 0;
+	pd.shaders->basicUniforms.cameraSpacePosition = 0;
 
 	for (unsigned int a = 0; a < simulation.dynamicTypes.size(); a++)
 		simulation.dynamicTypes[a]->render(pd.shaders);
+
+	//Render grass
+	pd.shaders->basicUniforms.ScaleMatrix = glm::mat4(1.0);
+	pd.shaders->basicUniforms.TranslationMatrix = glm::mat4(1.0);
+	pd.shaders->basicUniforms.RotationMatrix = glm::mat4(1.0);
+	pd.shaders->basicUniforms.nonInstanced = 1;
+	pd.shaders->basicUniforms.cameraSpacePosition = 1;
+	pd.grassMaterial->use(pd.shaders);
+	glBindVertexArray(pd.grassVao);
+	glDrawArrays(GL_TRIANGLES, 0, 6);
+	glBindVertexArray(0);
 
 	pd.gui->render();
 
@@ -402,6 +415,9 @@ LoopClient::LoopClient(ExecutableArguments& cmdArgs, std::shared_ptr<SettingMana
 	pd.textures->allocateForDecals(128);
 	pd.textures->finalizeDecals();
 
+	pd.grassMaterial = new Material("Assets/ground/grass.txt", pd.textures);
+	pd.grassVao = createQuadVAO();
+
 	info("Start up complete");
 
 	valid = true;
@@ -409,6 +425,9 @@ LoopClient::LoopClient(ExecutableArguments& cmdArgs, std::shared_ptr<SettingMana
 
 LoopClient::~LoopClient()
 {
+	delete pd.grassMaterial;
+	glDeleteVertexArrays(1, &pd.grassVao);
+
 	//Not needed this is a destructor lol
 	//Also this should only be called when the programs shutting down anyway 
 	pd.context.reset();

@@ -21,6 +21,9 @@
 */
 struct ClientProgramData
 {
+	Material* grassMaterial = nullptr;
+	GLuint grassVao = 0;
+
 	std::shared_ptr<RenderContext>	context = nullptr;
 	std::shared_ptr<UserInterface>	gui = nullptr;
 	std::shared_ptr<SettingsMenu>	settingsMenu = nullptr;
