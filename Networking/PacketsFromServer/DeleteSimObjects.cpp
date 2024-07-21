@@ -19,6 +19,15 @@ bool DeleteSimObjectsPacket::applyPacket(const ClientProgramData& pd, Simulation
 				netIDType id;
 				memcpy(&id, packet->data + 3 + a * sizeof(netIDType), sizeof(netIDType));
 
+				for (int b = 0; b < simulation.controlledDynamics.size(); b++)
+				{
+					if (simulation.controlledDynamics[b]->getID() == id)
+					{
+						simulation.controlledDynamics.erase(simulation.controlledDynamics.begin() + b);
+						break;
+					} 
+				}
+
 				simulation.dynamics->destroyByID(id);
 			}
 			break;

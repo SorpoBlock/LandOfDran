@@ -66,6 +66,22 @@ static int LUA_dynamicDestroy(lua_State* L)
 		return 0;
 	}
 
+	for (int b = 0; b < LUA_pd->clients.size(); b++)
+	{
+		bool outerBreak = false;
+		for (int c = 0; c < LUA_pd->clients[b]->controlledObjects.size(); c++)
+		{
+			if (LUA_pd->clients[b]->controlledObjects[c]->getID() == dynamic->getID())
+			{
+				LUA_pd->clients[b]->controlledObjects.erase(LUA_pd->clients[b]->controlledObjects.begin() + c);
+				outerBreak = true;
+				break;
+			}
+		}
+		if (outerBreak)
+			break;
+	}
+
 	LUA_pd->dynamics->destroy(dynamic);
 
 	return 0;
