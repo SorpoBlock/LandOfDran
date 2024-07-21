@@ -1,0 +1,4 @@
+albedo	oxidized-copper-albedo.png
+normal	oxidized-copper-normal-ue.png
+roughness	oxidized-coppper-roughness.png
+metalness	oxidized-copper-metal.png
