@@ -29,12 +29,22 @@ btVector3 StaticObject::getPosition() const
 
 bool StaticObject::requiresNetUpdate() const
 {
-	return false;
+	return frictionUpdated || restitutionUpdated;
 }
 
 unsigned int StaticObject::getUpdatePacketBytes() const
 {
-	return 0;
+	return sizeof(float) * 2; //restitution and friction
+}
+
+void StaticObject::addToUpdatePacket(enet_uint8* dest)
+{
+	float bufF = body->getFriction();
+	memcpy(dest, &bufF, sizeof(float));
+	bufF = body->getRestitution();
+	memcpy(dest + sizeof(float), &bufF, sizeof(float));
+	frictionUpdated = false;
+	restitutionUpdated = false;
 }
 
 void StaticObject::setMeshColor(int meshIdx, const glm::vec4& color)
@@ -49,19 +59,14 @@ ENetPacket* StaticObject::setMeshColor(const std::string& meshName, const glm::v
 	return nullptr;
 }
 
-void StaticObject::addToUpdatePacket(enet_uint8* dest)
-{
-
-}
-
 /*
 	Note, does not include packet header or anything, only the marginal bytes added by* this* object in a bigger packet
 	Same goes for all packet related functions here
 */
 unsigned int StaticObject::getCreationPacketBytes() const
 {
-	//Type id, object id, position, rotation, not compressed 
-	return sizeof(netIDType) * 2  + sizeof(float) * 7;
+	//Type id, object id, position, rotation, not compressed, friction, restitution
+	return sizeof(netIDType) * 2  + sizeof(float) * 9;
 }
 
 void StaticObject::addToCreationPacket(enet_uint8* dest) const
@@ -75,6 +80,10 @@ void StaticObject::addToCreationPacket(enet_uint8* dest) const
 	btQuaternion bQuat = body->getWorldTransform().getRotation();
 	glm::quat gQuat = glm::quat(bQuat.getW(), bQuat.getX(), bQuat.getY(), bQuat.getZ());
 	memcpy(dest + sizeof(netIDType) * 2 + sizeof(glm::vec3), &gQuat, sizeof(glm::quat));
+	float bufF = body->getFriction();
+	memcpy(dest + sizeof(netIDType) * 2 + sizeof(glm::vec3) + sizeof(glm::quat), &bufF, sizeof(float));
+	bufF = body->getRestitution();
+	memcpy(dest + sizeof(netIDType) * 2 + sizeof(glm::vec3) + sizeof(glm::quat) + sizeof(float), &bufF, sizeof(float));
 }
 
 void StaticObject::requestDestruction()

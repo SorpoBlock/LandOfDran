@@ -62,13 +62,6 @@ LoopServer::LoopServer(ExecutableArguments& cmdArgs, std::shared_ptr<SettingMana
 	pd.statics = new ObjHolder<StaticObject>(SimObjectType::StaticTypeId, server);
 	pd.statics->makeLuaMetatable(pd.luaState, "metatable_static", getStaticFunctions(pd.luaState));
 
-	//Test:
-	auto testType = std::make_shared<DynamicType>();
-	testType->serverSideLoad("Assets/brickhead/brickhead.txt",pd.dynamicTypes.size(),glm::vec3(0.02));
-	pd.dynamicTypes.push_back(testType);
-	pd.allNetTypes.push_back(testType);
-	//End test
-
 	info("Loading serverstart.lua");
 
 	if (luaL_dofile(pd.luaState, "serverstart.lua"))
@@ -79,6 +72,9 @@ LoopServer::LoopServer(ExecutableArguments& cmdArgs, std::shared_ptr<SettingMana
 	}
 
 	info("Server running");
+
+	if(pd.allNetTypes.size() == 0)
+		error("No NetTypes registered, clients will freeze on joining, no objects can be created.");
 
 	valid = true;
 }

@@ -34,6 +34,8 @@ class DynamicType : public NetType
 
 	public:
 
+	std::string scriptName = "";
+
 	const glm::vec3& getScale() const { return model->baseScale; }
 
 	std::shared_ptr<Model>  getModel() const { return model; }

@@ -1,5 +1,210 @@
 #include "Static.h"
 
+static int LUA_staticGetFriction(lua_State* L)
+{
+	scope("(LUA) static:getFriction");
+
+	int args = lua_gettop(L);
+
+	if (args != 1)
+	{
+		error("Expected 1 arguments static:getFriction()");
+		return 0;
+	}
+
+	if (!LUA_pd->statics)
+	{
+		error("statics ObjHolder is null");
+		return 0;
+	}
+
+	std::shared_ptr<StaticObject> staticObject = LUA_pd->statics->popLua(L);
+
+	if (!staticObject)
+	{
+		error("Invalid static object passed, was it deleted already?");
+		return 0;
+	}
+
+	lua_pushnumber(L, staticObject->body->getFriction());
+
+	return 1;
+}
+
+static int LUA_staticGetRestitution(lua_State* L)
+{
+	scope("(LUA) static:getRestitution");
+
+	int args = lua_gettop(L);
+
+	if (args != 1)
+	{
+		error("Expected 1 arguments static:getRestitution()");
+		return 0;
+	}
+
+	if (!LUA_pd->statics)
+	{
+		error("statics ObjHolder is null");
+		return 0;
+	}
+
+	std::shared_ptr<StaticObject> staticObject = LUA_pd->statics->popLua(L);
+
+	if (!staticObject)
+	{
+		error("Invalid static object passed, was it deleted already?");
+		return 0;
+	}
+
+	lua_pushnumber(L, staticObject->body->getRestitution());
+
+	return 1;
+}
+
+static int LUA_staticSetFriction(lua_State* L)
+{
+	scope("(LUA) static:setFriction");
+
+	int args = lua_gettop(L);
+
+	if (args != 2)
+	{
+		error("Expected 2 arguments static:setFriction(friction)");
+		return 0;
+	}
+
+	if (!LUA_pd->statics)
+	{
+		error("statics ObjHolder is null");
+		return 0;
+	}
+
+	float friction = lua_tonumber(L, -1);
+	lua_pop(L, 1);
+
+	std::shared_ptr<StaticObject> staticObject = LUA_pd->statics->popLua(L);
+
+	if (!staticObject)
+	{
+		error("Invalid static object passed, was it deleted already?");
+		return 0;
+	}
+
+	friction = std::clamp(friction, 0.0f, 10.0f);
+
+	staticObject->frictionUpdated = true;
+	staticObject->body->setFriction(friction);
+
+	return 0;
+}
+
+static int LUA_staticSetRestitution(lua_State* L)
+{
+	scope("(LUA) static:setRestitution");
+
+	int args = lua_gettop(L);
+
+	if (args != 2)
+	{
+		error("Expected 2 arguments static:setRestitution(restitution)");
+		return 0;
+	}
+
+	if (!LUA_pd->statics)
+	{
+		error("statics ObjHolder is null");
+		return 0;
+	}
+
+	float friction = lua_tonumber(L, -1);
+	lua_pop(L, 1);
+
+	std::shared_ptr<StaticObject> staticObject = LUA_pd->statics->popLua(L);
+
+	if (!staticObject)
+	{
+		error("Invalid static object passed, was it deleted already?");
+		return 0;
+	}
+
+	friction = std::clamp(friction, 0.0f, 10.0f);
+
+	staticObject->restitutionUpdated = true;
+	staticObject->body->setRestitution(friction);
+
+	return 0;
+}
+
+static int LUA_staticGetPosition(lua_State* L)
+{
+	scope("(LUA) static:getPosition");
+
+	int args = lua_gettop(L);
+
+	if (args != 1)
+	{
+		error("Expected 1 arguments static:getPosition()");
+		return 0;
+	}
+
+	if (!LUA_pd->statics)
+	{
+		error("statics ObjHolder is null");
+		return 0;
+	}
+
+	std::shared_ptr<StaticObject> staticObject = LUA_pd->statics->popLua(L);
+
+	if (!staticObject)
+	{
+		error("Invalid static object passed, was it deleted already?");
+		return 0;
+	}
+
+	btVector3 vel = staticObject->getPosition();
+	lua_pushnumber(L, vel.x());
+	lua_pushnumber(L, vel.y());
+	lua_pushnumber(L, vel.z());
+
+	return 3;
+}
+
+static int LUA_staticGetRotation(lua_State* L)
+{
+	scope("(LUA) static:getRotation");
+
+	int args = lua_gettop(L);
+
+	if (args != 1)
+	{
+		error("Expected 1 arguments static:getRotation()");
+		return 0;
+	}
+
+	if (!LUA_pd->statics)
+	{
+		error("statics ObjHolder is null");
+		return 0;
+	}
+
+	std::shared_ptr<StaticObject> staticObject = LUA_pd->statics->popLua(L);
+
+	if (!staticObject)
+	{
+		error("Invalid static object passed, was it deleted already?");
+		return 0;
+	}
+
+	btQuaternion rot = staticObject->body->getWorldTransform().getRotation();
+	lua_pushnumber(L, rot.w());
+	lua_pushnumber(L, rot.x());
+	lua_pushnumber(L, rot.y());
+	lua_pushnumber(L, rot.z());
+
+	return 4;
+}
+
 static int LUA_createStatic(lua_State* L)
 {
 	scope("(LUA) createStatic");
@@ -169,10 +374,16 @@ luaL_Reg* getStaticFunctions(lua_State* L)
 	lua_register(L, "getNumStatics", getNumStatics);
 
 	//Create table of dynamic metatable functions:
-	luaL_Reg* regs = new luaL_Reg[2];
+	luaL_Reg* regs = new luaL_Reg[8];
 
 	int iter = 0;
 	regs[iter++] = { "destroy",     LUA_staticDestroy };
+	regs[iter++] = { "getPosition",     LUA_staticGetPosition };
+	regs[iter++] = { "getRotation",     LUA_staticGetRotation };
+	regs[iter++] = { "getFriction",     LUA_staticGetFriction };
+	regs[iter++] = { "getRestitution",     LUA_staticGetRestitution };
+	regs[iter++] = { "setFriction",     LUA_staticSetFriction };
+	regs[iter++] = { "setRestitution",     LUA_staticSetRestitution };
 	regs[iter++] = { NULL, NULL };
 
 	return regs;

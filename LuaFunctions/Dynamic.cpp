@@ -355,7 +355,7 @@ static int LUA_getDynamicIdx(lua_State* L)
 	return 1;
 }
 
-static int getNumDynamics(lua_State* L)
+static int LUA_getNumDynamics(lua_State* L)
 {
 	scope("(LUA) getNumDynamics");
 
@@ -915,13 +915,100 @@ static int LUA_dynamicSetMeshColor(lua_State* L)
 	return 0;
 }
 
+static int LUA_newDynamicType(lua_State* L)
+{
+	scope("(LUA) newDynamicType");
+
+	int args = lua_gettop(L);
+
+	if (args != 5)
+	{
+		error("Expected 5 arguments newDynamicType(scriptName,modelFilePath,scaleX,scaleY,scaleZ)");
+		return 0;
+	}
+
+	glm::vec3 scale;
+	scale.z = lua_tonumber(L, -1);
+	lua_pop(L, 1);
+	scale.y = lua_tonumber(L, -1);
+	lua_pop(L, 1);
+	scale.x = lua_tonumber(L, -1);
+	lua_pop(L, 1);
+
+	const char *modelFilePath = lua_tostring(L, -1);
+	lua_pop(L, 1);
+
+	if (!modelFilePath)
+	{
+		error("Invalid model file path passed");
+		return 0;
+	}
+
+	const char *scriptName = lua_tostring(L, -1);
+	lua_pop(L, 1);
+
+	if (!scriptName)
+	{
+		error("Invalid script name passed");
+		return 0;
+	}
+
+	auto testType = std::make_shared<DynamicType>();
+	testType->serverSideLoad(modelFilePath, LUA_pd->dynamicTypes.size(), scale);
+	testType->scriptName = scriptName;
+	LUA_pd->dynamicTypes.push_back(testType);
+	LUA_pd->allNetTypes.push_back(testType);
+
+	info("Added new dynamic type: " + std::string(scriptName));
+
+	lua_pushinteger(L, testType->getID());
+	return 1;
+}
+
+static int LUA_getDynamicType(lua_State* L)
+{
+	scope("(LUA) getDynamicType");
+
+	int args = lua_gettop(L);
+
+	if (args != 1)
+	{
+		error("Expected 1 arguments getDynamicType(scriptName)");
+		return 0;
+	}
+
+	const char *scriptName = lua_tostring(L, -1);
+	lua_pop(L, 1);
+
+	if (!scriptName)
+	{
+		error("Invalid script name passed");
+		return 0;
+	}
+
+	for (int i = 0; i < LUA_pd->dynamicTypes.size(); i++)
+	{
+		if (LUA_pd->dynamicTypes[i]->scriptName == scriptName)
+		{
+			lua_pushinteger(L, i);
+			return 1;
+		}
+	}
+
+	error("Dynamic type not found: " + std::string(scriptName));
+	lua_pushnil(L);
+	return 1;
+}
+
 luaL_Reg* getDynamicFunctions(lua_State *L)
 {
 	//Register dynamic global functions:
 	lua_register(L, "createDynamic", LUA_createDynamic);
 	lua_register(L, "getDynamicId", LUA_getDynamicId);
 	lua_register(L, "getDynamicIdx", LUA_getDynamicIdx);
-	lua_register(L, "getNumDynamics", getNumDynamics);
+	lua_register(L, "getNumDynamics", LUA_getNumDynamics);
+	lua_register(L, "newDynamicType", LUA_newDynamicType);
+	lua_register(L, "getDynamicType", LUA_getDynamicType);
 
 	//Create table of dynamic metatable functions:
 	luaL_Reg* regs = new luaL_Reg[22];

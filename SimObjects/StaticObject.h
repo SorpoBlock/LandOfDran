@@ -36,6 +36,9 @@ protected:
 
 public:
 
+	bool restitutionUpdated = false;
+	bool frictionUpdated = false;
+
 	void play(int id, bool loop) { if (!modelInstance) return; modelInstance->playAnimation(id, loop); }
 
 	void stop(int id) { if (!modelInstance) return;  modelInstance->stopAnimation(id); }

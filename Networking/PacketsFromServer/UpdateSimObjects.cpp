@@ -12,6 +12,34 @@ bool UpdateSimObjectsPacket::applyPacket(const ClientProgramData& pd, Simulation
 
 	switch ((SimObjectType)packet->data[1])
 	{
+	case StaticTypeId:
+	{
+		unsigned int numObjects = packet->data[2];
+		unsigned int byteIterator = 3;
+		netIDType lastId = NO_ID;
+
+		for (unsigned int a = 0; a < numObjects; a++)
+		{
+			//Ids are compressed by representing most of them using the difference between the last sent object in the packet
+			lastId = simulation.dynamics->getIdFromDelta(packet->data + byteIterator, lastId, byteIterator);
+
+			float friction, restitution;
+			memcpy(&friction, packet->data + byteIterator, sizeof(float));
+			byteIterator += sizeof(float);
+			memcpy(&restitution, packet->data + byteIterator, sizeof(float));
+			byteIterator += sizeof(float);
+
+			std::shared_ptr<StaticObject> toUpdate = simulation.statics->find(lastId);
+
+			if (toUpdate)
+			{
+				toUpdate->body->setFriction(friction);
+				toUpdate->body->setRestitution(restitution);
+			}
+		}
+
+		break;
+	}
 	case DynamicTypeId:
 	{
 		unsigned int numObjects = packet->data[2];

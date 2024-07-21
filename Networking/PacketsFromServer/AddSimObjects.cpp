@@ -32,6 +32,12 @@ bool AddSimObjectsPacket::applyPacket(const ClientProgramData& pd, Simulation& s
 				memcpy(&rot, packet->data + byteIterator, sizeof(glm::quat));
 				byteIterator += sizeof(glm::quat);
 
+				float friction, restitution;
+				memcpy(&friction, packet->data + byteIterator, sizeof(float));
+				byteIterator += sizeof(float);
+				memcpy(&restitution, packet->data + byteIterator, sizeof(float));
+				byteIterator += sizeof(float);
+
 				std::shared_ptr<DynamicType> foundType = nullptr;
 				for (unsigned int i = 0; i < simulation.dynamicTypes.size(); i++)
 				{
@@ -58,6 +64,8 @@ bool AddSimObjectsPacket::applyPacket(const ClientProgramData& pd, Simulation& s
 
 				simulation.statics->clientSetNextId(id); 
 				std::shared_ptr<StaticObject> newStatic = simulation.statics->create(foundType, btVector3(pos.x, pos.y, pos.z), btQuaternion(rot.x, rot.y, rot.z, rot.w));
+				newStatic->body->setFriction(friction);
+				newStatic->body->setRestitution(restitution);
 
 				if (byteIterator >= packet->dataLength)
 					break;
