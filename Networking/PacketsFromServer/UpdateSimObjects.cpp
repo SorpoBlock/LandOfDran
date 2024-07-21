@@ -29,12 +29,24 @@ bool UpdateSimObjectsPacket::applyPacket(const ClientProgramData& pd, Simulation
 			memcpy(&restitution, packet->data + byteIterator, sizeof(float));
 			byteIterator += sizeof(float);
 
+			unsigned char flags = packet->data[byteIterator];
+			byteIterator++;
+
 			std::shared_ptr<StaticObject> toUpdate = simulation.statics->find(lastId);
 
 			if (toUpdate)
 			{
 				toUpdate->body->setFriction(friction);
 				toUpdate->body->setRestitution(restitution);
+
+				if(flags & 1)
+					toUpdate->setHidden(true);
+				else
+					toUpdate->setHidden(false);
+				if(flags & 2)
+					toUpdate->setColliding(true);
+				else
+					toUpdate->setColliding(false);
 			}
 		}
 

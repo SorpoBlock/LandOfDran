@@ -5,7 +5,7 @@
 #include "../NetTypes/DynamicType.h"
 #include "../Graphics/Interpolator.h"
 #include "../Networking/Quantization.h"
-#include "../Utility/GlobalStartup.h" //getTicksMS
+#include "../Utility/GlobalStartup.h" //getTicksMS 
 
 /*
 	These are objects which can collide with objects and have a model
@@ -36,8 +36,16 @@ protected:
 
 public:
 
+	bool serverHidden = false;
+	bool serverCollides = true;
+
+	bool hiddenUpdated = false;
+	bool collisionUpdated = false;
 	bool restitutionUpdated = false;
 	bool frictionUpdated = false;
+
+	void setColliding(bool collides);
+	void setHiddenServer(bool hidden);
 
 	void play(int id, bool loop) { if (!modelInstance) return; modelInstance->playAnimation(id, loop); }
 

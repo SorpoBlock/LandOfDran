@@ -1,5 +1,23 @@
 #include "StaticObject.h"
 
+void StaticObject::setColliding(bool collides)
+{
+	serverCollides = collides;
+	collisionUpdated = true;
+
+	if (collides)
+		body->setCollisionFlags(body->getCollisionFlags() & ~btCollisionObject::CF_NO_CONTACT_RESPONSE);
+	else
+		body->setCollisionFlags(body->getCollisionFlags() | btCollisionObject::CF_NO_CONTACT_RESPONSE);
+	body->activate();
+}
+ 
+void StaticObject::setHiddenServer(bool hidden)
+{
+	serverHidden = hidden;
+	hiddenUpdated = true;
+}
+
 StaticObject::StaticObject(std::shared_ptr<DynamicType> _type, const btVector3& pos, const btQuaternion& rot)
 	: type(_type)
 {
@@ -29,12 +47,12 @@ btVector3 StaticObject::getPosition() const
 
 bool StaticObject::requiresNetUpdate() const
 {
-	return frictionUpdated || restitutionUpdated;
+	return frictionUpdated || restitutionUpdated || hiddenUpdated || collisionUpdated;
 }
 
 unsigned int StaticObject::getUpdatePacketBytes() const
 {
-	return sizeof(float) * 2; //restitution and friction
+	return sizeof(float) * 2 + 1; //restitution and friction, flags for hidden and colliding
 }
 
 void StaticObject::addToUpdatePacket(enet_uint8* dest)
@@ -43,8 +61,13 @@ void StaticObject::addToUpdatePacket(enet_uint8* dest)
 	memcpy(dest, &bufF, sizeof(float));
 	bufF = body->getRestitution();
 	memcpy(dest + sizeof(float), &bufF, sizeof(float));
+
+	dest[sizeof(float) * 2] = (serverHidden ? 1 : 0) | (serverCollides ? 2 : 0);
+
 	frictionUpdated = false;
 	restitutionUpdated = false;
+	hiddenUpdated = false;
+	collisionUpdated = false;
 }
 
 void StaticObject::setMeshColor(int meshIdx, const glm::vec4& color)
@@ -93,7 +116,7 @@ unsigned int StaticObject::getCreationPacketBytes() const
 	meshColorsSize++; //1 extra byte for how many mesh colors we are sending
 
 	//Type id, object id, position, rotation, not compressed, friction, restitution
-	return sizeof(netIDType) * 2  + sizeof(float) * 9 + meshColorsSize;
+	return sizeof(netIDType) * 2  + sizeof(float) * 9 + meshColorsSize + 1;
 }
 
 void StaticObject::addToCreationPacket(enet_uint8* dest) const
@@ -112,7 +135,9 @@ void StaticObject::addToCreationPacket(enet_uint8* dest) const
 	bufF = body->getRestitution();
 	memcpy(dest + sizeof(netIDType) * 2 + sizeof(glm::vec3) + sizeof(glm::quat) + sizeof(float), &bufF, sizeof(float));
 
-	int meshColorsStart = sizeof(netIDType) * 2 + sizeof(glm::vec3) + sizeof(glm::quat) + sizeof(float) + sizeof(float);
+	dest[sizeof(netIDType) * 2 + sizeof(glm::vec3) + sizeof(glm::quat) + sizeof(float) + sizeof(float)] = (serverHidden ? 1 : 0) | (serverCollides ? 2 : 0);
+
+	int meshColorsStart = sizeof(netIDType) * 2 + sizeof(glm::vec3) + sizeof(glm::quat) + sizeof(float) + sizeof(float) + 1;
 
 	//Skip the byte with the mesh colors count for now until we actually know how many meshes need colors sent
 	int byteIterator = meshColorsStart + 1;

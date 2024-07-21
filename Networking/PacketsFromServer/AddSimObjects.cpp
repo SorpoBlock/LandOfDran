@@ -38,6 +38,9 @@ bool AddSimObjectsPacket::applyPacket(const ClientProgramData& pd, Simulation& s
 				memcpy(&restitution, packet->data + byteIterator, sizeof(float));
 				byteIterator += sizeof(float);
 
+				unsigned char flags = packet->data[byteIterator];
+				byteIterator++;
+
 				std::vector<int> meshIdxs;
 				std::vector<glm::vec4> meshColors;
 
@@ -92,6 +95,15 @@ bool AddSimObjectsPacket::applyPacket(const ClientProgramData& pd, Simulation& s
 				std::shared_ptr<StaticObject> newStatic = simulation.statics->create(foundType, btVector3(pos.x, pos.y, pos.z), btQuaternion(rot.x, rot.y, rot.z, rot.w));
 				newStatic->body->setFriction(friction);
 				newStatic->body->setRestitution(restitution);
+				 
+				if(flags & 1)
+					newStatic->setHidden(true);
+				else
+					newStatic->setHidden(false);
+				if (flags & 2)
+					newStatic->setColliding(true);
+				else
+					newStatic->setColliding(false);
 
 				//Set the mesh colors we read earlier
 				for (int i = 0; i < meshIdxs.size(); i++)

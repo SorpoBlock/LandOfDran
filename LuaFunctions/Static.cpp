@@ -418,6 +418,74 @@ static int LUA_staticDestroy(lua_State* L)
 	return 0;
 }
 
+static int LUA_staticSetColliding(lua_State* L)
+{
+	scope("(LUA) static:setColliding");
+
+	int args = lua_gettop(L);
+
+	if (args != 2)
+	{
+		error("Expected 2 arguments static:setColliding(bool)");
+		return 0;
+	}
+
+	if (!LUA_pd->statics)
+	{
+		error("statics ObjHolder is null");
+		return 0;
+	}
+
+	bool collides = lua_toboolean(L, -1);
+	lua_pop(L, 1);
+
+	std::shared_ptr<StaticObject> staticObject = LUA_pd->statics->popLua(L);
+
+	if (!staticObject)
+	{
+		error("Invalid static object passed, was it deleted already?");
+		return 0;
+	}
+
+	staticObject->setColliding(collides);
+
+	return 0;
+}
+
+static int LUA_staticSetHidden(lua_State* L)
+{
+	scope("(LUA) static:setHidden");
+
+	int args = lua_gettop(L);
+
+	if (args != 2)
+	{
+		error("Expected 2 arguments static:setHidden(bool)");
+		return 0;
+	}
+
+	if (!LUA_pd->statics)
+	{
+		error("statics ObjHolder is null");
+		return 0;
+	}
+
+	bool collides = lua_toboolean(L, -1);
+	lua_pop(L, 1);
+
+	std::shared_ptr<StaticObject> staticObject = LUA_pd->statics->popLua(L);
+
+	if (!staticObject)
+	{
+		error("Invalid static object passed, was it deleted already?");
+		return 0;
+	}
+
+	staticObject->setHiddenServer(collides);
+
+	return 0;
+}
+
 luaL_Reg* getStaticFunctions(lua_State* L)
 {
 	//Register static global functions:
@@ -427,7 +495,7 @@ luaL_Reg* getStaticFunctions(lua_State* L)
 	lua_register(L, "getNumStatics", getNumStatics);
 
 	//Create table of static metatable functions:
-	luaL_Reg* regs = new luaL_Reg[9];
+	luaL_Reg* regs = new luaL_Reg[10];
 
 	int iter = 0;
 	regs[iter++] = { "destroy",     LUA_staticDestroy };
@@ -438,6 +506,8 @@ luaL_Reg* getStaticFunctions(lua_State* L)
 	regs[iter++] = { "setFriction",     LUA_staticSetFriction };
 	regs[iter++] = { "setRestitution",     LUA_staticSetRestitution };
 	regs[iter++] = { "setMeshColor",     LUA_staticSetMeshColor };
+	regs[iter++] = { "setColliding",     LUA_staticSetColliding };
+	regs[iter++] = { "setHidden",     LUA_staticSetHidden };
 	regs[iter++] = { NULL, NULL };
 
 	return regs;
