@@ -68,6 +68,7 @@ enum FromClientPacketType : unsigned char
 	EvalCommand = 5,		//Send a Lua command to the server
 	ControlledPhysics = 6,	//Client to server transform updates for objects in simulation.controlledObjects
 	MovementInputs = 7	,	//Client to server movement inputs for player controller, server will cache these and apply them each frame until a new packet comes in
+	ClickDetails = 8,		//The client clicked in-game, includes world position, direction, and which mouse button it was
 };
 
 //Used with ConsoleLine packet

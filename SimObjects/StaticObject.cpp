@@ -49,14 +49,32 @@ void StaticObject::addToUpdatePacket(enet_uint8* dest)
 
 void StaticObject::setMeshColor(int meshIdx, const glm::vec4& color)
 {
-	error("To-do: implement StaticObject::setMeshColor");
-	return;
+	modelInstance->setColor(meshIdx, color);
 }
 
 ENetPacket* StaticObject::setMeshColor(const std::string& meshName, const glm::vec4& color)
 {
-	error("To-do: implement StaticObject::setMeshColor");
-	return nullptr;
+	int meshIdx = getType()->getModel()->getMeshIdx(meshName);
+	if (meshIdx == -1)
+	{
+		error("Mesh " + meshName + " not found in model");
+		return nullptr;
+	}
+
+	modelInstance->setColor(meshIdx, color);
+
+	ENetPacket* ret = enet_packet_create(NULL, sizeof(netIDType) + 3 + sizeof(glm::vec4), getFlagsFromChannel(OtherReliable));
+
+	ret->data[0] = (unsigned char)MeshAppearance;
+	ret->data[1] = (unsigned char)StaticTypeId;
+	memcpy(ret->data + 2, &netID, sizeof(netIDType));
+	ret->data[sizeof(netIDType) + 3] = meshIdx;
+	memcpy(ret->data + sizeof(netIDType) + 3 + sizeof(float) * 0, &color.r, sizeof(float));
+	memcpy(ret->data + sizeof(netIDType) + 3 + sizeof(float) * 1, &color.g, sizeof(float));
+	memcpy(ret->data + sizeof(netIDType) + 3 + sizeof(float) * 2, &color.b, sizeof(float));
+	memcpy(ret->data + sizeof(netIDType) + 3 + sizeof(float) * 3, &color.a, sizeof(float));
+
+	return ret;
 }
 
 /*
@@ -65,8 +83,17 @@ ENetPacket* StaticObject::setMeshColor(const std::string& meshName, const glm::v
 */
 unsigned int StaticObject::getCreationPacketBytes() const
 {
+	int meshColorsSize = 0;
+	glm::vec4 color;
+	for (int a = 0; a < modelInstance->getNumMeshes(); a++)
+		if (modelInstance->getMeshColor(a, color))
+			meshColorsSize++;
+
+	meshColorsSize *= sizeof(glm::vec4) + 1; //1 byte for mesh index
+	meshColorsSize++; //1 extra byte for how many mesh colors we are sending
+
 	//Type id, object id, position, rotation, not compressed, friction, restitution
-	return sizeof(netIDType) * 2  + sizeof(float) * 9;
+	return sizeof(netIDType) * 2  + sizeof(float) * 9 + meshColorsSize;
 }
 
 void StaticObject::addToCreationPacket(enet_uint8* dest) const
@@ -84,6 +111,36 @@ void StaticObject::addToCreationPacket(enet_uint8* dest) const
 	memcpy(dest + sizeof(netIDType) * 2 + sizeof(glm::vec3) + sizeof(glm::quat), &bufF, sizeof(float));
 	bufF = body->getRestitution();
 	memcpy(dest + sizeof(netIDType) * 2 + sizeof(glm::vec3) + sizeof(glm::quat) + sizeof(float), &bufF, sizeof(float));
+
+	int meshColorsStart = sizeof(netIDType) * 2 + sizeof(glm::vec3) + sizeof(glm::quat) + sizeof(float) + sizeof(float);
+
+	//Skip the byte with the mesh colors count for now until we actually know how many meshes need colors sent
+	int byteIterator = meshColorsStart + 1;
+
+	int meshColors = 0;
+	glm::vec4 color;
+	for (int a = 0; a < modelInstance->getNumMeshes(); a++)
+	{
+		if (modelInstance->getMeshColor(a, color))
+		{
+			dest[byteIterator] = a;
+			byteIterator++;
+
+			memcpy(dest + byteIterator, &color.r, sizeof(float));
+			byteIterator += sizeof(float);
+			memcpy(dest + byteIterator, &color.g, sizeof(float));
+			byteIterator += sizeof(float);
+			memcpy(dest + byteIterator, &color.b, sizeof(float));
+			byteIterator += sizeof(float);
+			memcpy(dest + byteIterator, &color.a, sizeof(float));
+			byteIterator += sizeof(float);
+
+			meshColors++;
+		}
+	}
+
+	//Now we know how many meshes need updating
+	dest[meshColorsStart] = meshColors;
 }
 
 void StaticObject::requestDestruction()

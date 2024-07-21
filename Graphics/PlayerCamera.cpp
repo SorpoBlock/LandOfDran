@@ -1,5 +1,12 @@
 #include "PlayerCamera.h"
 
+glm::vec3 Camera::mouseCoordsToWorldSpace(glm::vec2 mouseCoords) const
+{
+    glm::vec4 homoCoords = glm::vec4(mouseCoords.x,mouseCoords.y,0,1);
+    glm::vec4 worldCoords = glm::inverse(projectionMatrix * viewMatrix) * homoCoords;
+    return glm::vec3(worldCoords.x,worldCoords.y,worldCoords.z);
+}
+
 std::vector<glm::vec4> getFrustumCornersWorldSpace(const glm::mat4& proj, const glm::mat4& view)
 {
     const auto inv = glm::inverse(proj * view);

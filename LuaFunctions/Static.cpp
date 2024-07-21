@@ -1,5 +1,58 @@
 #include "Static.h"
 
+static int LUA_staticSetMeshColor(lua_State* L)
+{
+	scope("(LUA) static:setMeshColor");
+
+	int args = lua_gettop(L);
+
+	if (args != 6)
+	{
+		error("Expected 6 arguments static:setMeshcolor(meshName,r,g,b,a)");
+		return 0;
+	}
+
+	if (!LUA_pd->statics)
+	{
+		error("statics ObjHolder is null");
+		return 0;
+	}
+
+	float a = lua_tonumber(L, -1);
+	lua_pop(L, 1);
+	float b = lua_tonumber(L, -1);
+	lua_pop(L, 1);
+	float g = lua_tonumber(L, -1);
+	lua_pop(L, 1);
+	float r = lua_tonumber(L, -1);
+	lua_pop(L, 1);
+
+	const char* name = lua_tostring(L, -1);
+	lua_pop(L, 1);
+
+	if (!name)
+	{
+		error("Invalid mesh name passed");
+		return 0;
+	}
+
+	std::string meshName = std::string(name);
+
+	std::shared_ptr<StaticObject> staticObject = LUA_pd->statics->popLua(L);
+
+	if (!staticObject)
+	{
+		error("Invalid static object passed, was it deleted already?");
+		return 0;
+	}
+
+	ENetPacket* packet = staticObject->setMeshColor(meshName, glm::vec4(r, g, b, a));
+	if (packet)
+		LUA_server->broadcast(packet, OtherReliable);
+
+	return 0;
+}
+
 static int LUA_staticGetFriction(lua_State* L)
 {
 	scope("(LUA) static:getFriction");
@@ -367,14 +420,14 @@ static int LUA_staticDestroy(lua_State* L)
 
 luaL_Reg* getStaticFunctions(lua_State* L)
 {
-	//Register dynamic global functions:
+	//Register static global functions:
 	lua_register(L, "createStatic", LUA_createStatic);
 	lua_register(L, "getStaticId", LUA_getStaticId);
 	lua_register(L, "getStaticIdx", LUA_getStaticIdx);
 	lua_register(L, "getNumStatics", getNumStatics);
 
-	//Create table of dynamic metatable functions:
-	luaL_Reg* regs = new luaL_Reg[8];
+	//Create table of static metatable functions:
+	luaL_Reg* regs = new luaL_Reg[9];
 
 	int iter = 0;
 	regs[iter++] = { "destroy",     LUA_staticDestroy };
@@ -384,6 +437,7 @@ luaL_Reg* getStaticFunctions(lua_State* L)
 	regs[iter++] = { "getRestitution",     LUA_staticGetRestitution };
 	regs[iter++] = { "setFriction",     LUA_staticSetFriction };
 	regs[iter++] = { "setRestitution",     LUA_staticSetRestitution };
+	regs[iter++] = { "setMeshColor",     LUA_staticSetMeshColor };
 	regs[iter++] = { NULL, NULL };
 
 	return regs;

@@ -1066,6 +1066,85 @@ static int LUA_addAnimation(lua_State* L)
 	return 0;
 }
 
+//TODO: Probably should be in other functions file cause it can return statics as well
+static int LUA_raycast(lua_State* L)
+{
+	scope("(LUA) raycast");
+
+	int args = lua_gettop(L);
+
+	if (args != 6 && args != 7)
+	{
+		error("Expected 6 or 7 arguments raycast(startX,startY,startZ,endX,endY,endZ[,dynamic to ignore])");
+		return 0;
+	}
+
+	btRigidBody *ignore = nullptr;
+	if (args == 7)
+	{
+		if (lua_isnil(L, -1))
+			lua_pop(L, 1);
+		else
+		{
+			std::shared_ptr<Dynamic> toIgnore = LUA_pd->dynamics->popLua(L);
+			if (!toIgnore)
+			{
+				error("Invalid dynamic object passed, was it deleted already?");
+				return 0;
+			}
+			else
+				ignore = toIgnore->body;
+		}
+	}
+
+	float endZ = lua_tonumber(L, -1);
+	lua_pop(L, 1);
+	float endY = lua_tonumber(L, -1);
+	lua_pop(L, 1);
+	float endX = lua_tonumber(L, -1);
+	lua_pop(L, 1);
+	float startZ = lua_tonumber(L, -1);
+	lua_pop(L, 1);
+	float startY = lua_tonumber(L, -1);
+	lua_pop(L, 1);
+	float startX = lua_tonumber(L, -1);
+	lua_pop(L, 1);
+	 
+	btVector3 start = btVector3(startX, startY, startZ);
+	btVector3 end = btVector3(endX, endY, endZ);
+
+	btRigidBody * result = LUA_pd->physicsWorld->doRaycast(start, end, ignore);
+	if(!result)
+	{
+		lua_pushnil(L);
+		return 1;
+	}
+
+	if (result->getUserIndex() == dynamicBody)
+	{
+		std::shared_ptr<Dynamic> resultDynamic = dynamicFromBody(result);
+
+		if (resultDynamic)
+		{
+			LUA_pd->dynamics->pushLua(L, resultDynamic);
+			return 1;
+		}
+	}
+	else if (result->getUserIndex() == staticBody)
+	{
+		std::shared_ptr<StaticObject> resultStatic = staticFromBody(result);
+
+		if (resultStatic)
+		{
+			LUA_pd->statics->pushLua(L, resultStatic);
+			return 1;
+		}
+	}
+
+	lua_pushnil(L);
+	return 1;
+}
+
 luaL_Reg* getDynamicFunctions(lua_State *L)
 {
 	//Register dynamic global functions:
@@ -1076,6 +1155,7 @@ luaL_Reg* getDynamicFunctions(lua_State *L)
 	lua_register(L, "newDynamicType", LUA_newDynamicType);
 	lua_register(L, "getDynamicType", LUA_getDynamicType);
 	lua_register(L, "addAnimation", LUA_addAnimation);
+	lua_register(L, "raycast", LUA_raycast);
 
 	//Create table of dynamic metatable functions:
 	luaL_Reg* regs = new luaL_Reg[22];

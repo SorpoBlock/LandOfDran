@@ -7,6 +7,22 @@
 	These are for packets sent to the server from the client
 */
 
+inline ENetPacket* makeMouseClickPacket(glm::vec3 pos, glm::vec3 dir, unsigned char mask)
+{
+	ENetPacket* ret = enet_packet_create(NULL, 2 + 6 * sizeof(float), getFlagsFromChannel(OtherReliable));
+
+	ret->data[0] = (unsigned char)ClickDetails;
+	memcpy(ret->data + 1 + sizeof(float) * 0, &pos.x, sizeof(float));
+	memcpy(ret->data + 1 + sizeof(float) * 1, &pos.y, sizeof(float));
+	memcpy(ret->data + 1 + sizeof(float) * 2, &pos.z, sizeof(float));
+	memcpy(ret->data + 1 + sizeof(float) * 3, &dir.x, sizeof(float));
+	memcpy(ret->data + 1 + sizeof(float) * 4, &dir.y, sizeof(float));
+	memcpy(ret->data + 1 + sizeof(float) * 5, &dir.z, sizeof(float));
+	ret->data[1 + sizeof(float) * 6] = mask;
+	
+	return ret;
+}
+
 /*
 	1 byte		-	packet type
 	1 byte		-	client game version

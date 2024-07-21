@@ -181,7 +181,7 @@ void UserInterface::initAll()
 		windows[a]->init();
 }
 
-void UserInterface::render()
+void UserInterface::render(int screenX,int screenY,bool drawCrossHair)
 {
 	ImGui_ImplOpenGL3_NewFrame();
 	ImGui_ImplSDL2_NewFrame();
@@ -192,7 +192,17 @@ void UserInterface::render()
 		windows[a]->render(io);
 	}
 	io->FontGlobalScale = uiScaling;
-	ImGui::Render();
+
+	//Crosshair
+	//ImGui::Begin("#CH", nullptr, ImGuiWindowFlags_NoMove | ImGuiInputTextFlags_ReadOnly | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar);
+	if (drawCrossHair)
+	{
+		auto draw = ImGui::GetBackgroundDrawList();
+		draw->AddCircle(ImVec2(screenX / 2, screenY / 2), 6, IM_COL32(255, 0, 0, 255), 100, 0.0f);
+	}
+	//ImGui::End();
+
+	ImGui::Render(); 
 	ImDrawData* data = ImGui::GetDrawData();
 	ImGui_ImplOpenGL3_RenderDrawData(data);
 }

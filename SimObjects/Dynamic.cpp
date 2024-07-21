@@ -181,15 +181,16 @@ ENetPacket* Dynamic::setMeshColor(const std::string &meshName,const glm::vec4& c
 
 	modelInstance->setColor(meshIdx, color);
 
-	ENetPacket *ret = enet_packet_create(NULL, sizeof(netIDType) + 2 + sizeof(glm::vec4), getFlagsFromChannel(OtherReliable));
+	ENetPacket *ret = enet_packet_create(NULL, sizeof(netIDType) + 3 + sizeof(glm::vec4), getFlagsFromChannel(OtherReliable));
 
 	ret->data[0] = (unsigned char)MeshAppearance;
-	memcpy(ret->data + 1, &netID, sizeof(netIDType));
-	ret->data[sizeof(netIDType) + 1] = meshIdx;
-	memcpy(ret->data + sizeof(netIDType) + 2 + sizeof(float) * 0, &color.r, sizeof(float));
-	memcpy(ret->data + sizeof(netIDType) + 2 + sizeof(float) * 1, &color.g, sizeof(float));
-	memcpy(ret->data + sizeof(netIDType) + 2 + sizeof(float) * 2, &color.b, sizeof(float));	
-	memcpy(ret->data + sizeof(netIDType) + 2 + sizeof(float) * 3, &color.a, sizeof(float));
+	ret->data[1] = (unsigned char)DynamicTypeId;
+	memcpy(ret->data + 2, &netID, sizeof(netIDType));
+	ret->data[sizeof(netIDType) + 2] = meshIdx;
+	memcpy(ret->data + sizeof(netIDType) + 3 + sizeof(float) * 0, &color.r, sizeof(float));
+	memcpy(ret->data + sizeof(netIDType) + 3 + sizeof(float) * 1, &color.g, sizeof(float));
+	memcpy(ret->data + sizeof(netIDType) + 3 + sizeof(float) * 2, &color.b, sizeof(float));	
+	memcpy(ret->data + sizeof(netIDType) + 3 + sizeof(float) * 3, &color.a, sizeof(float));
 
 	return ret;
 }

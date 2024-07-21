@@ -2,26 +2,44 @@
 
 bool MeshAppearancePacket::applyPacket(const ClientProgramData& pd, Simulation& simulation, const ExecutableArguments& cmdArgs)
 {
-	if (packet->dataLength < 2 + sizeof(netIDType) + sizeof(glm::vec4))
+	if (packet->dataLength < 3 + sizeof(netIDType) + sizeof(glm::vec4))
 		return true;
 
+	unsigned char simObjectType = packet->data[1];
+
 	netIDType id;
-	memcpy(&id, packet->data + 1, sizeof(netIDType));
+	memcpy(&id, packet->data + 2, sizeof(netIDType));
 
-	std::shared_ptr<Dynamic> dynamic = simulation.dynamics->find(id);
-	if (!dynamic)
-		return false;
-
-	unsigned char meshIdx = packet->data[1 + sizeof(netIDType)];
+	unsigned char meshIdx = packet->data[2 + sizeof(netIDType)];
 
 	glm::vec4 color;
-	memcpy(&color.r, packet->data + 2 + sizeof(netIDType) + sizeof(float) * 0, sizeof(float));
-	memcpy(&color.g, packet->data + 2 + sizeof(netIDType) + sizeof(float) * 1, sizeof(float));
-	memcpy(&color.b, packet->data + 2 + sizeof(netIDType) + sizeof(float) * 2, sizeof(float));
-	memcpy(&color.a, packet->data + 2 + sizeof(netIDType) + sizeof(float) * 3, sizeof(float));
+	memcpy(&color.r, packet->data + 3 + sizeof(netIDType) + sizeof(float) * 0, sizeof(float));
+	memcpy(&color.g, packet->data + 3 + sizeof(netIDType) + sizeof(float) * 1, sizeof(float));
+	memcpy(&color.b, packet->data + 3 + sizeof(netIDType) + sizeof(float) * 2, sizeof(float));
+	memcpy(&color.a, packet->data + 3 + sizeof(netIDType) + sizeof(float) * 3, sizeof(float));
 
-	dynamic->setMeshColor(meshIdx, color);
+	if (simObjectType == DynamicTypeId)
+	{
+		std::shared_ptr<Dynamic> dynamic = simulation.dynamics->find(id);
+		if (!dynamic)
+			return false;
 
+		dynamic->setMeshColor(meshIdx, color);
+
+		return true;
+	}
+	else if (simObjectType == StaticTypeId)
+	{
+		std::shared_ptr<StaticObject> staticObject = simulation.statics->find(id);
+		if (!staticObject)
+			return false;
+
+		staticObject->setMeshColor(meshIdx, color);
+
+		return true;
+	}
+
+	error("Invalid simobject type for mesh appearance packet");
 	return true;
 }
 

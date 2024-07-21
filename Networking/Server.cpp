@@ -80,6 +80,11 @@ void Server::switchPacketType(JoinedClient * source, ENetPacket* packet, const v
 			movementInputs(source, this, packet, pd);
 			return;
 		}
+		case ClickDetails:
+		{
+			clickDetails(source, this, packet, pd);
+			return;
+		}
 
 		case InvalidClient:
 		default:

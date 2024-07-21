@@ -96,7 +96,7 @@ class UserInterface
 	}
 
 	//Call every frame
-	void render();
+	void render(int screenX,int screenH,bool crossHair);
 
 	/*
 		Call after all windows have been added :

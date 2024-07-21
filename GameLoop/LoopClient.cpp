@@ -132,6 +132,20 @@ void LoopClient::handleInput(float deltaT, ExecutableArguments& cmdArgs, std::sh
 				}
 			}
 		}
+		else if (e.type == SDL_MOUSEBUTTONDOWN && simulation.camera && !pd.gui->shouldUnlockMouse())
+		{
+			int mx, my;
+			int mask = SDL_GetMouseState(&mx, &my);
+
+			float x = (float)mx / pd.context->getResolution().x * 2 - 1;
+			float y = (float)my / pd.context->getResolution().y * 2 - 1;
+
+			glm::vec3 worldPos = simulation.camera->mouseCoordsToWorldSpace(glm::vec2(x, y));
+			glm::vec3 dir = simulation.camera->getDirection();
+
+			ENetPacket *mouseClickPacket = makeMouseClickPacket(worldPos, dir, mask);
+			client->send(mouseClickPacket, OtherReliable);
+		}
 	}
 
 	//Interacting with gui, don't move around in-game
@@ -271,7 +285,10 @@ void LoopClient::renderEverything(float deltaT)
 	glDrawArrays(GL_TRIANGLES, 0, 6);
 	glBindVertexArray(0);
 
-	pd.gui->render();
+	bool crossHair = false;
+	if (simulation.camera)
+		crossHair = pd.context->getMouseLocked() && simulation.camera->getFirstPerson();
+	pd.gui->render(pd.context->getResolution().x, pd.context->getResolution().y,crossHair);
 
 	pd.context->swap();
 }

@@ -38,6 +38,32 @@ bool AddSimObjectsPacket::applyPacket(const ClientProgramData& pd, Simulation& s
 				memcpy(&restitution, packet->data + byteIterator, sizeof(float));
 				byteIterator += sizeof(float);
 
+				std::vector<int> meshIdxs;
+				std::vector<glm::vec4> meshColors;
+
+				//Set mesh specific colors for each dynamic
+				int numMeshes = packet->data[byteIterator];
+				byteIterator++;
+
+				for (int i = 0; i < numMeshes; i++)
+				{
+					int meshIdx = packet->data[byteIterator];
+					byteIterator++;
+
+					glm::vec4 color;
+					memcpy(&color.r, packet->data + byteIterator, sizeof(float));
+					byteIterator += sizeof(float);
+					memcpy(&color.g, packet->data + byteIterator, sizeof(float));
+					byteIterator += sizeof(float);
+					memcpy(&color.b, packet->data + byteIterator, sizeof(float));
+					byteIterator += sizeof(float);
+					memcpy(&color.a, packet->data + byteIterator, sizeof(float));
+					byteIterator += sizeof(float);
+
+					meshIdxs.push_back(meshIdx);
+					meshColors.push_back(color);
+				}
+
 				std::shared_ptr<DynamicType> foundType = nullptr;
 				for (unsigned int i = 0; i < simulation.dynamicTypes.size(); i++)
 				{
@@ -66,6 +92,10 @@ bool AddSimObjectsPacket::applyPacket(const ClientProgramData& pd, Simulation& s
 				std::shared_ptr<StaticObject> newStatic = simulation.statics->create(foundType, btVector3(pos.x, pos.y, pos.z), btQuaternion(rot.x, rot.y, rot.z, rot.w));
 				newStatic->body->setFriction(friction);
 				newStatic->body->setRestitution(restitution);
+
+				//Set the mesh colors we read earlier
+				for (int i = 0; i < meshIdxs.size(); i++)
+					newStatic->setMeshColor(meshIdxs[i], meshColors[i]);
 
 				if (byteIterator >= packet->dataLength)
 					break;

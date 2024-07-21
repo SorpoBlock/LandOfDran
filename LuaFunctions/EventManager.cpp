@@ -270,6 +270,7 @@ EventManager::EventManager(lua_State* L)
     events.push_back(LuaEvent("ClientJoin"));
     events.push_back(LuaEvent("ClientChat"));
     events.push_back(LuaEvent("ClientLeave"));
+    events.push_back(LuaEvent("ClientClick"));
 
     lua_register(L, "registerEventListener", registerEventListener);
     lua_register(L, "unregisterEventListener", unregisterEventListener);
