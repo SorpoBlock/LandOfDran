@@ -495,7 +495,7 @@ luaL_Reg* getStaticFunctions(lua_State* L)
 	lua_register(L, "getNumStatics", getNumStatics);
 
 	//Create table of static metatable functions:
-	luaL_Reg* regs = new luaL_Reg[10];
+	luaL_Reg* regs = new luaL_Reg[11];
 
 	int iter = 0;
 	regs[iter++] = { "destroy",     LUA_staticDestroy };
