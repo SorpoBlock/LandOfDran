@@ -57,8 +57,9 @@ int Model::getMeshIdx(const std::string& name) const
 }
 
 
-void Model::addAnimation(Animation& animation)
+void Model::addAnimation(Animation& animation,int id)
 {
+	animation.serverID = (id < 0) ? animations.size() : id;
 	animations.push_back(std::move(animation));
 }
 

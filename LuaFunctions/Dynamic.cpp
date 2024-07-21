@@ -1000,6 +1000,72 @@ static int LUA_getDynamicType(lua_State* L)
 	return 1;
 }
 
+static int LUA_addAnimation(lua_State* L)
+{
+	scope("(LUA) addAnimation");
+
+	int args = lua_gettop(L);
+
+	if (args != 7)
+	{
+		error("Expected 7 arguments addAnimation(typeID,animationName,startFrame,endFrame,speed,fadeInMS,fadeOutMS)");
+		return 0;
+	}
+
+	int fadeOutMS = lua_tointeger(L, -1);
+	lua_pop(L, 1);
+
+	int fadeInMS = lua_tointeger(L, -1);
+	lua_pop(L, 1);
+
+	float speed = lua_tonumber(L, -1);
+	lua_pop(L, 1);
+
+	int endFrame = lua_tointeger(L, -1);
+	lua_pop(L, 1);
+
+	int startFrame = lua_tointeger(L, -1);
+	lua_pop(L, 1);
+
+	const char *animationName = lua_tostring(L, -1);
+	lua_pop(L, 1);
+
+	if (!animationName)
+	{
+		error("Invalid animation name passed");
+		return 0;
+	}
+
+	int typeID = lua_tointeger(L, -1);
+	lua_pop(L, 1);
+
+	if (typeID >= LUA_pd->dynamicTypes.size() || typeID < 0)
+	{
+		error("typeID out of range");
+		return 0;
+	}
+
+	std::shared_ptr<DynamicType> type = LUA_pd->dynamicTypes[typeID];
+
+	if(!type)
+	{
+		error("Invalid typeID passed");
+		return 0;
+	}
+
+	Animation anim;
+	anim.defaultSpeed = speed;
+	anim.startTime = startFrame;
+	anim.endTime = endFrame;
+	anim.name = animationName;
+	anim.fadeInMS = fadeInMS;
+	anim.fadeOutMS = fadeOutMS;
+
+	type->getModel()->addAnimation(anim);
+
+	return 0;
+}
+
 luaL_Reg* getDynamicFunctions(lua_State *L)
 {
 	//Register dynamic global functions:
@@ -1009,6 +1075,7 @@ luaL_Reg* getDynamicFunctions(lua_State *L)
 	lua_register(L, "getNumDynamics", LUA_getNumDynamics);
 	lua_register(L, "newDynamicType", LUA_newDynamicType);
 	lua_register(L, "getDynamicType", LUA_getDynamicType);
+	lua_register(L, "addAnimation", LUA_addAnimation);
 
 	//Create table of dynamic metatable functions:
 	luaL_Reg* regs = new luaL_Reg[22];

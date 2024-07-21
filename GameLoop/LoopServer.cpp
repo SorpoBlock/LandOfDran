@@ -67,6 +67,9 @@ LoopServer::LoopServer(ExecutableArguments& cmdArgs, std::shared_ptr<SettingMana
 	if (luaL_dofile(pd.luaState, "serverstart.lua"))
 	{
 		error("Error loading serverstart.lua: " + std::string(lua_tostring(pd.luaState, -1)));
+		info("Input any text to exit.");
+		std::string holdForAWhile;
+		std::cin >> holdForAWhile;
 		valid = false;
 		return;
 	}

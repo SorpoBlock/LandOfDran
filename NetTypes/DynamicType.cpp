@@ -16,18 +16,23 @@ void DynamicType::loadFromPacket(ENetPacket const* const packet, const ClientPro
 		return;
 
 	//Get id of object
-	memcpy(&id, packet->data + 2, sizeof(netIDType));
+	int byteIterator = 2;
+	memcpy(&id, packet->data + byteIterator, sizeof(netIDType));
+	byteIterator += sizeof(netIDType);
 
-	unsigned int filePathLen = packet->data[2 + sizeof(netIDType)];
+	unsigned int filePathLen = packet->data[byteIterator];
+	byteIterator++;
 
 	//Packet not long enough for file path string
-	if (packet->dataLength < 3 + sizeof(netIDType) + filePathLen)
+	if (packet->dataLength < byteIterator + filePathLen)
 		return;
 
-	std::string filePath = std::string((char*)packet->data + 3 + sizeof(netIDType), filePathLen);
+	std::string filePath = std::string((char*)packet->data + byteIterator, filePathLen);
+	byteIterator += filePathLen;
 
 	glm::vec3 baseScale;
-	getPosition(packet->data + 3 + sizeof(netIDType) + filePathLen, baseScale);
+	getPosition(packet->data + byteIterator, baseScale);
+	byteIterator += PositionBytes;
 
 	model = std::make_shared<Model>(filePath,pd.textures,baseScale);
 
@@ -44,6 +49,42 @@ void DynamicType::loadFromPacket(ENetPacket const* const packet, const ClientPro
 	masses[0] = 1.0;
 	t.setIdentity();
 	collisionShape->calculatePrincipalAxisTransform(masses, t, defaultInertia);
+
+	int numAnims = packet->data[byteIterator];
+	byteIterator++;
+
+	for (int a = 0; a < numAnims; a++)
+	{
+		int animID;
+		memcpy(&animID, packet->data + byteIterator, sizeof(int));
+		byteIterator += sizeof(int);
+
+		float startTime, endTime, defaultSpeed, fadeInMS, fadeOutMS;
+		memcpy(&startTime, packet->data + byteIterator, sizeof(float));
+		byteIterator += sizeof(float);
+
+		memcpy(&endTime, packet->data + byteIterator, sizeof(float));
+		byteIterator += sizeof(float);
+
+		memcpy(&defaultSpeed, packet->data + byteIterator, sizeof(float));
+		byteIterator += sizeof(float);
+
+		memcpy(&fadeInMS, packet->data + byteIterator, sizeof(float));
+		byteIterator += sizeof(float);
+
+		memcpy(&fadeOutMS, packet->data + byteIterator, sizeof(float));
+		byteIterator += sizeof(float);
+
+		Animation anim;
+		anim.startTime = startTime;
+		anim.endTime = endTime;
+		anim.defaultSpeed = defaultSpeed;
+		anim.fadeInMS = fadeInMS;
+		anim.fadeOutMS = fadeOutMS;
+		anim.serverID = animID;
+
+		model->animations.push_back(anim);
+	}
 
 	loaded = true;
 }
@@ -104,15 +145,56 @@ btRigidBody* DynamicType::createBodyStatic(const btTransform& t) const
 */
 ENetPacket* DynamicType::createTypePacket() const
 {
-	unsigned int packetSize = model->loadedPath.length() + sizeof(netIDType) + 3 + PositionBytes;
+	//How many byte each animation takes up
+	unsigned int animationSize = 5 * sizeof(float) + sizeof(int);
+	animationSize *= model->animations.size();
+	animationSize++; //Extra byte for number of animations
+
+	unsigned int packetSize = model->loadedPath.length() + sizeof(netIDType) + 3 + PositionBytes + animationSize;
 	ENetPacket* ret = enet_packet_create(NULL, packetSize, getFlagsFromChannel(JoinNegotiation));
 
-	ret->data[0] = AddSimObjectType;
-	ret->data[1] = DynamicTypeId;
-	memcpy(ret->data + 2, &id, sizeof(netIDType));
-	ret->data[2 + sizeof(netIDType)] = (unsigned char)model->loadedPath.length();
-	memcpy(ret->data + 3 + sizeof(netIDType), model->loadedPath.c_str(), model->loadedPath.length());
-	addPosition(ret->data + 3 + sizeof(netIDType) + model->loadedPath.length(), getScale()); 
+	unsigned int byteIterator = 0;
+
+	ret->data[byteIterator] = AddSimObjectType;
+	byteIterator++;
+	ret->data[byteIterator] = DynamicTypeId;
+	byteIterator++;
+
+	memcpy(ret->data + byteIterator, &id, sizeof(netIDType));
+	byteIterator += sizeof(netIDType);
+
+	ret->data[byteIterator] = (unsigned char)model->loadedPath.length();
+	byteIterator++;
+
+	memcpy(ret->data + byteIterator, model->loadedPath.c_str(), model->loadedPath.length());
+	byteIterator += model->loadedPath.length();
+
+	addPosition(ret->data + byteIterator, getScale());
+	byteIterator += PositionBytes;
+
+	ret->data[byteIterator] = model->animations.size();
+	byteIterator++;
+
+	for (unsigned int a = 0; a < model->animations.size(); a++)
+	{
+		memcpy(ret->data + byteIterator, &a, sizeof(int));
+		byteIterator += sizeof(int);
+
+		memcpy(ret->data + byteIterator, &model->animations[a].startTime, sizeof(float));
+		byteIterator += sizeof(float);
+
+		memcpy(ret->data + byteIterator, &model->animations[a].endTime, sizeof(float));
+		byteIterator += sizeof(float);
+
+		memcpy(ret->data + byteIterator, &model->animations[a].defaultSpeed, sizeof(float));
+		byteIterator += sizeof(float);
+
+		memcpy(ret->data + byteIterator, &model->animations[a].fadeInMS, sizeof(float));
+		byteIterator += sizeof(float);
+
+		memcpy(ret->data + byteIterator, &model->animations[a].fadeOutMS, sizeof(float));
+		byteIterator += sizeof(float);
+	}
 
 	return ret; 
 }
