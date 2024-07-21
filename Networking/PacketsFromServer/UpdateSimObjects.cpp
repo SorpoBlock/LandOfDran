@@ -19,8 +19,11 @@ bool UpdateSimObjectsPacket::applyPacket(const ClientProgramData& pd, Simulation
 		netIDType lastId = NO_ID;
 		for (unsigned int a = 0; a < numObjects; a++)
 		{
+			//Ids are compressed by representing most of them using the difference between the last sent object in the packet
 			lastId = simulation.dynamics->getIdFromDelta(packet->data + byteIterator, lastId, byteIterator);
 
+			//0 or 255 will restart the 'clock' on this objects interpolation stack
+			//Otherwise this is how many milliseconds it should take to interpolate from the last added snapshot to this one
 			unsigned char msSinceLastSend = packet->data[byteIterator];
 			byteIterator++;
 
@@ -30,12 +33,16 @@ bool UpdateSimObjectsPacket::applyPacket(const ClientProgramData& pd, Simulation
 			bool needPosRot = flags & 1;
 			bool needVel = flags & 2;
 			bool needAngVel = flags & 4;
+
+			//Gravity, restitution (bouncyness) and friction are only sent when a lua command changes those properties
 			bool needGravity = flags & 8;
 			bool needRestitution = flags & 16;
-			bool needFriction = flags & 32;
-			bool playWalkAnimation = flags & 64;
-			bool forcePlayerUpdate = flags & 128;
+			bool needFriction = flags & 32;			
 
+			bool playWalkAnimation = flags & 64;	//Is this a player that is currently walking (will probably be expanded soon)
+			bool forcePlayerUpdate = flags & 128;	//Were the pos/rot/vel changes in this packet the result of an explicit lua command
+		
+			//Often only 1-3 of these will be sent, but the order if these if statements is still important
 			glm::vec3 pos;
 			glm::quat rot;
 			glm::vec3 linVel;
@@ -85,6 +92,7 @@ bool UpdateSimObjectsPacket::applyPacket(const ClientProgramData& pd, Simulation
 				byteIterator += sizeof(float);
 			}
 
+			//TODO: Friction, per-object gravity, and restitution are not actually sent on object creation yet so new joining players won't have the same values client-side
 			std::shared_ptr<Dynamic> toUpdate = simulation.dynamics->find(lastId);
 			if (toUpdate)
 			{

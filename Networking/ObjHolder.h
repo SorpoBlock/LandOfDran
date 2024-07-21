@@ -346,7 +346,7 @@ class ObjHolder
 			//Three extra bytes, packet type, simobject type, amount of objects
 			ENetPacket* packet = enet_packet_create(NULL, bytesThisPacket + 3, getFlagsFromChannel(OtherReliable));
 			packet->data[0] = FromServerPacketType::AddSimObjects;
-			packet->data[1] = SimObjectType::DynamicTypeId;
+			packet->data[1] = type;
 			packet->data[2] = sentThisPacket;
 			int byteIterator = 3;
 
@@ -395,6 +395,8 @@ class ObjHolder
 				data[3] = next & 255;
 				return 4;
 		}
+		error("addIdDelta failed");
+		return 1;
 	}
 
 	//Increments byteIterator by bytesForIdDelta and returns ID
@@ -470,7 +472,7 @@ class ObjHolder
 			//Three extra bytes, packet type, simobject type, amount of objects
 			ENetPacket* packet = enet_packet_create(NULL, bytesThisPacket + 3, getFlagsFromChannel(OtherReliable));
 			packet->data[0] = FromServerPacketType::AddSimObjects;
-			packet->data[1] = SimObjectType::DynamicTypeId;
+			packet->data[1] = type;
 			packet->data[2] = sentThisPacket;
 			int byteIterator = 3;
 
@@ -522,7 +524,7 @@ class ObjHolder
 			//Three extra bytes, packet type, simobject type, amount of objects
 			ENetPacket* packet = enet_packet_create(NULL, bytesThisPacket + 3, getFlagsFromChannel(OtherReliable));
 			packet->data[0] = FromServerPacketType::DeleteSimObjects;
-			packet->data[1] = SimObjectType::DynamicTypeId;
+			packet->data[1] = type;
 			packet->data[2] = sentThisPacket;
 			int byteIterator = 3;
 
@@ -592,7 +594,7 @@ class ObjHolder
 			//Three extra bytes, packet type, simobject type, amount of objects
 			ENetPacket* packet = enet_packet_create(NULL, bytesThisPacket + 3, getFlagsFromChannel(Unreliable));
 			packet->data[0] = FromServerPacketType::UpdateSimObjects;
-			packet->data[1] = SimObjectType::DynamicTypeId;
+			packet->data[1] = type;
 			packet->data[2] = sentThisPacket;
 			int byteIterator = 3;
 

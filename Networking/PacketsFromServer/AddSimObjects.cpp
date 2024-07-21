@@ -11,6 +11,60 @@ bool AddSimObjectsPacket::applyPacket(const ClientProgramData& pd, Simulation& s
 
 	switch ((SimObjectType)packet->data[1])
 	{
+		case StaticTypeId:
+		{
+			unsigned int numObjects = packet->data[2];
+			unsigned int byteIterator = 3;
+			for (unsigned int a = 0; a < numObjects; a++)
+			{
+				netIDType id, type;
+				memcpy(&type, packet->data + byteIterator, sizeof(netIDType));
+				byteIterator += sizeof(netIDType);
+				memcpy(&id, packet->data + byteIterator, sizeof(netIDType));
+				byteIterator += sizeof(netIDType);
+
+				glm::vec3 pos;
+				glm::quat rot;
+
+				memcpy(&pos, packet->data + byteIterator, sizeof(glm::vec3));
+				byteIterator += sizeof(glm::vec3);
+
+				memcpy(&rot, packet->data + byteIterator, sizeof(glm::quat));
+				byteIterator += sizeof(glm::quat);
+
+				std::shared_ptr<DynamicType> foundType = nullptr;
+				for (unsigned int i = 0; i < simulation.dynamicTypes.size(); i++)
+				{
+					if (simulation.dynamicTypes[i]->getID() == type)
+					{
+						foundType = simulation.dynamicTypes[i];
+						break;
+					}
+				}
+
+				//TODO: Actually return false if we can't find a type with the type ID given
+				if (!foundType)
+				{
+					error("Could not find dynamic type server requested for static object creation.");
+					continue;
+				}
+
+				/*
+					TODO: Server can sometimes send objects twice if they are created right when the client joins
+					Once in sendRecentCreations and once in sendAll, this extra check really shouldn't be needed
+				*/
+				if (simulation.statics->find(id))
+					continue;
+
+				simulation.statics->clientSetNextId(id); 
+				std::shared_ptr<StaticObject> newStatic = simulation.statics->create(foundType, btVector3(pos.x, pos.y, pos.z), btQuaternion(rot.x, rot.y, rot.z, rot.w));
+
+				if (byteIterator >= packet->dataLength)
+					break;
+			}
+
+			break;
+		}
 		case DynamicTypeId:
 		{
 			unsigned int numObjects = packet->data[2];

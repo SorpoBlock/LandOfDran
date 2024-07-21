@@ -5,6 +5,7 @@
 #include "../Networking/ObjHolder.h"
 #include "../NetTypes/DynamicType.h"
 #include "../SimObjects/Dynamic.h"
+#include "../SimObjects/StaticObject.h"
 #include "../LuaFunctions/EventManager.h"
 #include "../Physics/PhysicsWorld.h"
 #include "ClientData.h"
@@ -33,6 +34,7 @@ struct ServerProgramData
 	//ObjHolders created and destroyed with ServerLoop class
 	//All dynamic objects:
 	ObjHolder<Dynamic>* dynamics = nullptr;
+	ObjHolder<StaticObject> * statics = nullptr;
 
 	//All clients:
 	std::vector<std::shared_ptr<ClientData>> clients;

@@ -1,6 +1,7 @@
 #include "Dynamic.h"
 
-Dynamic::Dynamic(std::shared_ptr<DynamicType> _type, const btVector3& initialPos, const btQuaternion &initialRot) : type(_type)
+Dynamic::Dynamic(std::shared_ptr<DynamicType> _type, const btVector3& initialPos, const btQuaternion &initialRot)
+	: type(_type)
 {
 	body = type->createBody();
 	world->addBody(body);

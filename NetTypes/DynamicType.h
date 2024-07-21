@@ -54,6 +54,7 @@ class DynamicType : public NetType
 
 	//Creates a physics object using this type's collision shape
 	btRigidBody* createBody() const;
+	btRigidBody* createBodyStatic(const btTransform &t) const;
 
 	//Doesn't allocate anything, wait for loadFromPacket or server-side construction from lua
 	DynamicType();

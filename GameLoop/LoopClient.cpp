@@ -9,6 +9,8 @@ void LoopClient::leaveServer(ExecutableArguments& cmdArgs)
 	if (!client)
 		return;
 
+	pd.chatWindow->close();
+
 	//Will need to log in again to get eval access
 	pd.debugMenu->reset();
 
@@ -19,6 +21,12 @@ void LoopClient::leaveServer(ExecutableArguments& cmdArgs)
 	{
 		delete simulation.dynamics;
 		simulation.dynamics = nullptr;
+	}
+
+	if (simulation.statics)
+	{
+		delete simulation.statics;
+		simulation.statics = nullptr;
 	}
 
 	delete client;
@@ -184,6 +192,24 @@ void LoopClient::handleInput(float deltaT, ExecutableArguments& cmdArgs, std::sh
 		{
 			if (cmdArgs.gameState != NotInGame)
 				leaveServer(cmdArgs);
+			break;
+		}
+
+		case OpenChat:
+		{
+			pd.chatWindow->open();
+			break;
+		}
+
+		case OpenSettings:
+		{
+			pd.settingsMenu->open();
+			break;
+		}
+
+		case OpenDebugMenu:
+		{
+			pd.debugMenu->open();
 			break;
 		}
 
@@ -370,6 +396,7 @@ void LoopClient::run(float deltaT,ExecutableArguments& cmdArgs, std::shared_ptr<
 	{
 		//Create holders for objects now that we will start receiving data about them
 		simulation.dynamics = new ObjHolder<Dynamic>(DynamicTypeId);
+		simulation.statics = new ObjHolder<StaticObject>(StaticTypeId);
 
 		ENetPacket* finishedLoading = makeLoadingFinished();
 		client->send(finishedLoading, OtherReliable);
@@ -378,6 +405,8 @@ void LoopClient::run(float deltaT,ExecutableArguments& cmdArgs, std::shared_ptr<
 
 		pd.serverBrowser->setConnectionNote("");
 		pd.serverBrowser->close();
+
+		pd.chatWindow->open();
 	}
 
 	//All signals from packets processed for this frame, reset flags

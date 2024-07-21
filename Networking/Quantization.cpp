@@ -1,7 +1,12 @@
 #include "Quantization.h"
 
+//The three smallest components of a quaternion can never be larger than sqrt(2)/2 so we multiply by this to normalize to 0.0-1.0 before turning into an integer
 const float quatCompMulti = 1.414f;
 
+/*
+	This uses sends the three smallest components normalized from 0 to sqrt(2)/2 with an extra 2 bits to encode which component was largest
+	A 4-float 128-bit quaternion is compressed to 32 bits
+*/
 void addQuaternion(enet_uint8* dest, glm::quat quat)
 {
 	//First byte cleared in switch statement
@@ -93,8 +98,10 @@ void addQuaternion(enet_uint8* dest, glm::quat quat)
 
 void getQuaternion(enet_uint8 const* src, glm::quat& quat)
 {
+	//Which component was omitted
 	int largest = src[0] & 0b11000000;
 
+	//Get the raw integer bit values for the smaller 3 components
 	short rawA = (src[0] & 0b00111111) << 4;
 	rawA |= (src[1] >> 6);
 
@@ -104,6 +111,7 @@ void getQuaternion(enet_uint8 const* src, glm::quat& quat)
 	short rawC = (src[2] & 0b00000011) << 8;
 	rawC |= src[3];
 
+	//Turn three smaller components from 0 - 511 to 0 to sqrt(2)/2
 	float a = (rawA & 0b0111111111);
 	a /= 511.f;
 	a /= quatCompMulti;
@@ -119,6 +127,7 @@ void getQuaternion(enet_uint8 const* src, glm::quat& quat)
 	c /= quatCompMulti;
 	c *= (rawC & 0b1000000000) ? -1 : 1;
 
+	//Reconstitute largest component from 3 smallest ones
 	float d = sqrt(1.0f - (a * a + b * b + c * c));
 
 	switch (largest)
@@ -170,6 +179,8 @@ void getPosition(enet_uint8 const* src, glm::vec3& pos)
 	memcpy(&pos.z, src + sizeof(float) * 2, sizeof(float));
 }
 
+//Velocity is hereby bounded to -127 to 127 in each component with 1/255 precision
+//TODO: Maybe have more bits for magnitude and less for precision
 void addVelocity(enet_uint8* dest, const glm::vec3& vel)
 {
 	//First byte stores sign in upper bit and left of the decimal value in lower 7 bits
@@ -212,6 +223,8 @@ void getVelocity(enet_uint8 const* src, glm::vec3& vel)
 	vel.z *= ((src[4] & 0b10000000) ? -1 : 1);
 }
 
+//Angular velocity is bounded to -63 to 63 in each component with 1/16 precision
+//The assumption is that precision here just isn't that important for visuals, since rotation is updated separately 
 void addAngularVelocity(enet_uint8* dest, const glm::vec3& vel)
 {
 	int xLeft = floor(abs(vel.x));

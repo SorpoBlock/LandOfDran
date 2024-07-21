@@ -208,6 +208,20 @@ static int LUA_clientGetIP(lua_State* L)
 	return 1;
 }
 
+static int LUA_clientGetPing(lua_State* L)
+{
+	if (lua_gettop(L) != 1)
+	{
+		error("Expected 1 argument client:getPing()");
+		return 0;
+	}
+
+	std::shared_ptr<JoinedClient> client = popClientLua(L);
+	lua_pushnumber(L,client->getPing());
+
+	return 1;
+}
+
 static int LUA_clientGetID(lua_State* L)
 {
 	if (lua_gettop(L) != 1)
@@ -558,6 +572,7 @@ void registerClientFunctions(lua_State* L)
 		{ "getName", LUA_clientGetName },
 		{ "getIP", LUA_clientGetIP },
 		{ "getID", LUA_clientGetID },
+		{ "getPing", LUA_clientGetPing },
 		{ "isAdmin", LUA_clientIsAdmin },
 		{ "giveControl", LUA_clientGiveControl },
 		{ "removeControl", LUA_clientRemoveControl },

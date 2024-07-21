@@ -1,15 +1,18 @@
 #include "LoopServer.h"
 
 #include "../LuaFunctions/Dynamic.h"
+#include "../LuaFunctions/Static.h"
 
 template <>
 netIDType ObjHolder<Dynamic>::lastNetID = 0;
+netIDType ObjHolder<StaticObject>::lastNetID = 0;
 
 void LoopServer::run(float deltaT, ExecutableArguments& cmdArgs, std::shared_ptr<SettingManager> settings)
 {
 	server->run(&pd,pd.luaState,pd.eventManager); //   <---- networking
 	pd.dynamics->sendRecent();
-	pd.physicsWorld->step(deltaT);
+	pd.statics->sendRecent();
+	pd.physicsWorld->step(deltaT); 
 
 	for (unsigned int a = 0; a < Logger::getStorage()->size(); a++)
 		server->updateAdminConsoles(Logger::getStorage()->at(a));
@@ -56,6 +59,8 @@ LoopServer::LoopServer(ExecutableArguments& cmdArgs, std::shared_ptr<SettingMana
 
 	pd.dynamics = new ObjHolder<Dynamic>(SimObjectType::DynamicTypeId, server);
 	pd.dynamics->makeLuaMetatable(pd.luaState, "metatable_dynamic", getDynamicFunctions(pd.luaState));
+	pd.statics = new ObjHolder<StaticObject>(SimObjectType::StaticTypeId, server);
+	pd.statics->makeLuaMetatable(pd.luaState, "metatable_static", getStaticFunctions(pd.luaState));
 
 	//Test:
 	auto testType = std::make_shared<DynamicType>();
@@ -90,6 +95,7 @@ LoopServer::~LoopServer()
 	SimObject::world = nullptr;
 
 	delete pd.dynamics;
+	delete pd.statics;
 
 	pd.dynamicTypes.clear();
 	pd.allNetTypes.clear();

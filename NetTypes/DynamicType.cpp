@@ -77,9 +77,19 @@ void DynamicType::serverSideLoad(const std::string &filePath,netIDType typeID,gl
 }
 
 btRigidBody* DynamicType::createBody() const
-{
+{ 
 	auto ret = new btRigidBody(mass, defaultMotionState, collisionShape, defaultInertia);
 	ret->setUserIndex(dynamicBody);
+	return ret;
+}
+
+btRigidBody* DynamicType::createBodyStatic(const btTransform& t) const
+{
+	//TODO: Do I need to delete the motion state after?
+	btMotionState* state = new btDefaultMotionState(t);
+	auto ret = new btRigidBody(0.0, state, collisionShape, btVector3(0, 0, 0));
+	ret->setUserIndex(staticBody);
+	ret->setCollisionFlags(btCollisionObject::CF_STATIC_OBJECT);
 	return ret;
 }
 

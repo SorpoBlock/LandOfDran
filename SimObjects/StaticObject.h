@@ -8,32 +8,21 @@
 #include "../Utility/GlobalStartup.h" //getTicksMS
 
 /*
-	Dynamics are basically any object that can move around with physics
-	Projectiles are dynamics and items and players are child classes of dynamics
+	These are objects which can collide with objects and have a model
+	But themselves cannot ever move
 */
-class Dynamic : public SimObject
+class StaticObject : public SimObject
 {
-	friend ObjHolder<Dynamic>;
-	 
-	protected:
+	friend ObjHolder<StaticObject>;
+
+protected:
 
 	/*
-		The last transform we sent with addToUpdatePacket
-	*/
-	btTransform lastSentTransform = btTransform::getIdentity();
-	btVector3 lastSentAngVel = btVector3(0, 0, 0);
-	btVector3 lastSentVel = btVector3(0, 0, 0);
-	
-	//Time with SDL_GetTicks that we sent lastSentTransform
-	unsigned int lastSentTime = 0;
-
-	/*
-		Determines its physical appearance and physics properties
+		Determines its physical appearance and collision mesh
 	*/
 	std::shared_ptr<DynamicType> type = nullptr;
 
-	
-	explicit Dynamic(std::shared_ptr<DynamicType> _type, const btVector3& initialPos, const btQuaternion& initialRot);
+	explicit StaticObject(std::shared_ptr<DynamicType> _type, const btVector3& pos, const btQuaternion& rot);
 
 	//Called after this object has an id, type, me pointer, and vector index assigned by ObjHolder
 	virtual void onCreation() override;
@@ -45,16 +34,7 @@ class Dynamic : public SimObject
 	//Called by objHolder when destroy is first called, gives object an oppertunity to reset smart pointers it might have
 	virtual void requestDestruction() override;
 
-	public:
-
-	//TODO: Just make updating these values on body require going through a setter method that sets these as well
-	bool frictionUpdated = false;
-	bool gravityUpdated = false;
-	bool restitutionUpdated = false;
-	bool playWalkingAnimation = false;
-
-	//If lua changed the position/velocity/etc of a player controlled object
-	bool forcePlayerUpdate = false;
+public:
 
 	void play(int id, bool loop) { if (!modelInstance) return; modelInstance->playAnimation(id, loop); }
 
@@ -69,30 +49,7 @@ class Dynamic : public SimObject
 	//Physics object
 	btRigidBody* body = nullptr;
 
-	//Client only, true if object is in Simulation::controlledDynamics
-	bool clientControlled = false;
-
-	void updateSnapshot(bool forceUsePhysicsTransform = false);
-
-	//Client only
-	Interpolator interpolator;
-
-	//Server only, used to set physics body position
-	void setPosition(const btVector3& pos);
-
-	//Server only, used to set physics body linear veclotiy
-	void setVelocity(const btVector3& vel);
-
-	//Server only, used to set physics body angular veclotiy
-	void setAngularVelocity(const btVector3& vel);
-
-	void activate() const;
-
-	btVector3 getVelocity() const;
-
 	btVector3 getPosition() const;
-
-	btVector3 getAngularVelocity() const;
 
 	virtual bool requiresNetUpdate() const override;
 
@@ -103,10 +60,10 @@ class Dynamic : public SimObject
 	virtual unsigned int getUpdatePacketBytes() const override;
 
 	//Add getCreationPacketBytes() worth of data to the given packet with all the data needed for the client to create it
-	virtual void addToCreationPacket(enet_uint8 * dest) const override;
+	virtual void addToCreationPacket(enet_uint8* dest) const override;
 
 	//Add getUpdatePacketBytes() worth of data to the given packet with all the data needed for the client to update it
-	virtual void addToUpdatePacket(enet_uint8 * dest) override;
+	virtual void addToUpdatePacket(enet_uint8* dest) override;
 
 	//Client side: 
 	void setMeshColor(int idx, const glm::vec4& color);
@@ -114,9 +71,9 @@ class Dynamic : public SimObject
 	//Server side: returns a fully created packet ready to broadcast to relay the mesh color update
 	ENetPacket* setMeshColor(const std::string& meshName, const glm::vec4& color);
 
-	~Dynamic();
+	~StaticObject();
 };
 
 //Helper function to get a normal dynamic shared_ptr from its btRigidBody with a ton of error checking, returns nullptr on error
-std::shared_ptr<Dynamic> dynamicFromBody(const btRigidBody* in);
+std::shared_ptr<StaticObject> staticFromBody(const btRigidBody* in);
 
