@@ -91,7 +91,7 @@ ENetPacket* StaticObject::setMeshColor(const std::string& meshName, const glm::v
 	ret->data[0] = (unsigned char)MeshAppearance;
 	ret->data[1] = (unsigned char)StaticTypeId;
 	memcpy(ret->data + 2, &netID, sizeof(netIDType));
-	ret->data[sizeof(netIDType) + 3] = meshIdx;
+	ret->data[sizeof(netIDType) + 2] = meshIdx;
 	memcpy(ret->data + sizeof(netIDType) + 3 + sizeof(float) * 0, &color.r, sizeof(float));
 	memcpy(ret->data + sizeof(netIDType) + 3 + sizeof(float) * 1, &color.g, sizeof(float));
 	memcpy(ret->data + sizeof(netIDType) + 3 + sizeof(float) * 2, &color.b, sizeof(float));

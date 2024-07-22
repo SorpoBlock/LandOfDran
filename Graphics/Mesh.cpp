@@ -159,6 +159,7 @@ void ModelInstance::setColor(int meshId, glm::vec4 color)
 	{
 		scope("ModelInstance::setColor");
 		error("Mesh index out of range.");
+		std::cout<<"Given: "<<meshId<<" max: "<<MeshFlags.size()<<"\n";
 		return;
 	}
 

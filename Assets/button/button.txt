@@ -1,0 +1,7 @@
+file	button.fbx
+Triangulate	true
+FlipUVs	true
+CalcTangentSpace	true
+OptimizeGraph	true
+JoinIdenticalVertices	true
+singlematerial	Assets/button/metal.txt
