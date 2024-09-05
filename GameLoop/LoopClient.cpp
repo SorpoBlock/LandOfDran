@@ -9,6 +9,8 @@ void LoopClient::leaveServer(ExecutableArguments& cmdArgs)
 	if (!client)
 		return;
 
+	pd.chatWindow->close();
+
 	//Will need to log in again to get eval access
 	pd.debugMenu->reset();
 
@@ -19,6 +21,12 @@ void LoopClient::leaveServer(ExecutableArguments& cmdArgs)
 	{
 		delete simulation.dynamics;
 		simulation.dynamics = nullptr;
+	}
+
+	if (simulation.statics)
+	{
+		delete simulation.statics;
+		simulation.statics = nullptr;
 	}
 
 	delete client;
@@ -124,6 +132,20 @@ void LoopClient::handleInput(float deltaT, ExecutableArguments& cmdArgs, std::sh
 				}
 			}
 		}
+		else if (e.type == SDL_MOUSEBUTTONDOWN && simulation.camera && !pd.gui->shouldUnlockMouse() && cmdArgs.gameState == InGame)
+		{
+			int mx, my;
+			int mask = SDL_GetMouseState(&mx, &my);
+
+			float x = (float)mx / pd.context->getResolution().x * 2 - 1;
+			float y = (float)my / pd.context->getResolution().y * 2 - 1;
+
+			glm::vec3 worldPos = simulation.camera->mouseCoordsToWorldSpace(glm::vec2(x, y));
+			glm::vec3 dir = simulation.camera->getDirection();
+
+			ENetPacket *mouseClickPacket = makeMouseClickPacket(worldPos, dir, mask);
+			client->send(mouseClickPacket, OtherReliable);
+		}
 	}
 
 	//Interacting with gui, don't move around in-game
@@ -187,6 +209,24 @@ void LoopClient::handleInput(float deltaT, ExecutableArguments& cmdArgs, std::sh
 			break;
 		}
 
+		case OpenChat:
+		{
+			pd.chatWindow->open();
+			break;
+		}
+
+		case OpenSettings:
+		{
+			pd.settingsMenu->open();
+			break;
+		}
+
+		case OpenDebugMenu:
+		{
+			pd.debugMenu->open();
+			break;
+		}
+
 		case None:
 		default:
 			break;
@@ -202,25 +242,53 @@ void LoopClient::renderEverything(float deltaT)
 	if (simulation.dynamics)
 	{
 		for (unsigned a = 0; a < simulation.dynamics->size(); a++)
-			simulation.dynamics->get(a)->updateSnapshot();
+			simulation.dynamics->get(a)->updateSnapshot(pd.input->isCommandKeydown(DebugView));
 	}
 
 	//Technically rendering related calculations based on previously inputted transform data
 	for (unsigned int a = 0; a < simulation.dynamicTypes.size(); a++)
 		simulation.dynamicTypes[a]->getModel()->updateAll(deltaT);
 
-	//Start rendering to screen:
-	simulation.camera->render(pd.shaders,deltaT,pd.physicsWorld);
+	simulation.camera->calculateLightSpaceMatricies(glm::normalize(glm::vec3(0.2, 1.0, 0.4)), pd.lightSpaceMatricies);
 
+	//Render shadows to texture:
+	pd.shadows->use();
+	pd.shaders->modelShadowShader->use();
+	glUniformMatrix4fv(pd.lightSpaceMatriciesUniformShadow, 3, GL_FALSE, (GLfloat*)pd.lightSpaceMatricies);
+
+	for (unsigned int a = 0; a < simulation.dynamicTypes.size(); a++)
+		simulation.dynamicTypes[a]->render(pd.shaders,false);
+
+	//Start rendering to screen:
 	pd.context->select();
-	pd.context->clear(0.2f, 0.2f, 0.2f);
+	pd.context->clear(0.4f, 0.4f, 0.8f);
+
+	simulation.camera->render(pd.shaders, deltaT, pd.physicsWorld);
 
 	pd.shaders->modelShader->use();
+	glUniformMatrix4fv(pd.lightSpaceMatriciesUniformModel, 3, GL_FALSE, (GLfloat*)pd.lightSpaceMatricies);
+	pd.shadows->bindDepthResult(ShadowArray);
+	pd.shaders->basicUniforms.nonInstanced = 0;
+	pd.shaders->basicUniforms.cameraSpacePosition = 0;
 
 	for (unsigned int a = 0; a < simulation.dynamicTypes.size(); a++)
 		simulation.dynamicTypes[a]->render(pd.shaders);
 
-	pd.gui->render();
+	//Render grass
+	pd.shaders->basicUniforms.ScaleMatrix = glm::mat4(1.0);
+	pd.shaders->basicUniforms.TranslationMatrix = glm::mat4(1.0);
+	pd.shaders->basicUniforms.RotationMatrix = glm::mat4(1.0);
+	pd.shaders->basicUniforms.nonInstanced = 1;
+	pd.shaders->basicUniforms.cameraSpacePosition = 1;
+	pd.grassMaterial->use(pd.shaders);
+	glBindVertexArray(pd.grassVao);
+	glDrawArrays(GL_TRIANGLES, 0, 6);
+	glBindVertexArray(0);
+
+	bool crossHair = false;
+	if (simulation.camera)
+		crossHair = pd.context->getMouseLocked() && simulation.camera->getFirstPerson();
+	pd.gui->render(pd.context->getResolution().x, pd.context->getResolution().y,crossHair);
 
 	pd.context->swap();
 }
@@ -241,9 +309,11 @@ void LoopClient::sendControlledObjects()
 		if (!d->requiresNetUpdate())
 			continue;
 
-		ENetPacket* update = enet_packet_create(NULL, d->getUpdatePacketBytes() + 1, getFlagsFromChannel(Unreliable));
+		ENetPacket* update = enet_packet_create(NULL, d->getUpdatePacketBytes() + 1 + sizeof(netIDType), getFlagsFromChannel(Unreliable));
 		update->data[0] = (unsigned char)ControlledPhysics;
-		d->addToUpdatePacket(update->data + 1);
+		netIDType id = d->getID();
+		memcpy(update->data + 1, &id, sizeof(netIDType));
+		d->addToUpdatePacket(update->data + 1 + sizeof(netIDType));
 		client->send(update, Unreliable);
 	}
 }
@@ -343,6 +413,7 @@ void LoopClient::run(float deltaT,ExecutableArguments& cmdArgs, std::shared_ptr<
 	{
 		//Create holders for objects now that we will start receiving data about them
 		simulation.dynamics = new ObjHolder<Dynamic>(DynamicTypeId);
+		simulation.statics = new ObjHolder<StaticObject>(StaticTypeId);
 
 		ENetPacket* finishedLoading = makeLoadingFinished();
 		client->send(finishedLoading, OtherReliable);
@@ -351,6 +422,8 @@ void LoopClient::run(float deltaT,ExecutableArguments& cmdArgs, std::shared_ptr<
 
 		pd.serverBrowser->setConnectionNote("");
 		pd.serverBrowser->close();
+
+		pd.chatWindow->open();
 	}
 
 	//All signals from packets processed for this frame, reset flags
@@ -400,13 +473,32 @@ LoopClient::LoopClient(ExecutableArguments& cmdArgs, std::shared_ptr<SettingMana
 	pd.textures->allocateForDecals(128);
 	pd.textures->finalizeDecals();
 
+	pd.grassMaterial = new Material("Assets/ground/grass.txt", pd.textures);
+	pd.grassVao = createQuadVAO();
+
+	RenderTarget::RenderTargetSettings shadowSettings;
+	shadowSettings.width = 2048;
+	shadowSettings.height = 2048;
+	shadowSettings.layers = 3;
+	shadowSettings.useColor = false;
+	pd.shadows = std::make_shared<RenderTarget>(shadowSettings,pd.textures);
+	pd.lightSpaceMatriciesUniformShadow = pd.shaders->modelShadowShader->getUniformLocation("lightSpaceMatricies");
+	pd.lightSpaceMatriciesUniformModel = pd.shaders->modelShader->getUniformLocation("lightSpaceMatricies");
+
 	info("Start up complete");
+
+	printAllGraphicsErrors("End of initalization");
 
 	valid = true;
 }
 
 LoopClient::~LoopClient()
 {
+	pd.shadows.reset();
+
+	delete pd.grassMaterial;
+	glDeleteVertexArrays(1, &pd.grassVao);
+
 	//Not needed this is a destructor lol
 	//Also this should only be called when the programs shutting down anyway 
 	pd.context.reset();

@@ -1,10 +1,6 @@
 #include "Interpolator.h"
 
-//This is how many milliseconds are *meant* to be between snapshots from the server
-//Lag or packet loss or low frame rate can cause this to be higher or lower
-float nominalSnapshotTime = 25.0f;
-
-void Interpolator::addSnapshot(const glm::vec3& pos, const glm::quat& rot,float idealBufferSize)
+void Interpolator::addSnapshot(const glm::vec3& pos, const glm::quat& rot,float idealBufferSize,unsigned int msSinceLastSend)
 {
 	//Discard all obsolete snapshots before the current interpolation start point
 	for (int i = snapshots.size() - 1; i >= 0; i--)
@@ -13,17 +9,26 @@ void Interpolator::addSnapshot(const glm::vec3& pos, const glm::quat& rot,float 
 		{
 			//Keep only one snapshot before the current time
 			if (i != 0)
-				snapshots.erase(snapshots.begin(), snapshots.begin() + (i-1));
+			{
+				snapshots.erase(snapshots.begin(), snapshots.begin() + (i - 1));
+			}
 			break;
 		}
 	}
 
+	if (msSinceLastSend == 255)
+		msSinceLastSend = 0;
+
 	float lastFrameTime = getTicksMS();
 	if (snapshots.size() > 0)
-		lastFrameTime = snapshots.back().time;
+		lastFrameTime = snapshots.back().time; 
+
+	//std::cout << "Current time: " << getTicksMS() << " Last frame time : " << lastFrameTime << " snapshots: " << snapshots.size() << "\n";
+	int callTimeDiff = getTicksMS() - testLastRemoveMe;
+	testLastRemoveMe = getTicksMS();
 
 	//If we're running low on snapshots (server lag?) then interpolate slower, and vice-versa
-	float timeBetween = nominalSnapshotTime;
+	float timeBetween = msSinceLastSend;
 	float diff = snapshots.size() - idealBufferSize;
 	diff = 1.0 - (diff * 0.1);
 	if (diff < 1.0)
@@ -31,6 +36,9 @@ void Interpolator::addSnapshot(const glm::vec3& pos, const glm::quat& rot,float 
 	timeBetween *= diff;
 
 	float time = lastFrameTime + timeBetween;
+
+	if (msSinceLastSend == 0)
+		time = getTicksMS() + msSinceLastSend * 1.1;
 
 	snapshots.emplace_back(Snapshot({ pos,rot,time }));
 }

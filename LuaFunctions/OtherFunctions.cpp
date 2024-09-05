@@ -121,6 +121,16 @@ std::string makeStringFromArgs(lua_State* L)
 							break;
 						}
 
+						case StaticTypeId:
+						{
+							lua_getfield(L, a, "id");
+							int id = lua_tointeger(L, -1);
+							lua_pop(L, 1); //id
+
+							ret += "[Static " + std::to_string(id) + "]";
+							break;
+						}
+
 						case InvalidSimTypeId:
 						default:
 							ret += "[Unknown Simobject]";

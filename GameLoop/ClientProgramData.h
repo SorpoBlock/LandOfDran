@@ -13,6 +13,7 @@
 #include "../Interface/EscapeMenu.h"
 #include "../Physics/PhysicsWorld.h"
 #include "../Interface/ChatWindow.h"
+#include "../Graphics/RenderTarget.h"
 
 /*
 	This exists so we can make all of this available to the various PacketsFromServer files since packets can do a wide range of activities
@@ -21,6 +22,15 @@
 */
 struct ClientProgramData
 {
+	Material* grassMaterial = nullptr;
+	GLuint grassVao = 0;
+
+	//TODO: Move this to environment class and don't hardcode it to 3
+	glm::mat4 lightSpaceMatricies[3];
+	GLuint lightSpaceMatriciesUniformShadow = 0;
+	GLuint lightSpaceMatriciesUniformModel = 0;
+	std::shared_ptr<RenderTarget> shadows = nullptr;
+
 	std::shared_ptr<RenderContext>	context = nullptr;
 	std::shared_ptr<UserInterface>	gui = nullptr;
 	std::shared_ptr<SettingsMenu>	settingsMenu = nullptr;

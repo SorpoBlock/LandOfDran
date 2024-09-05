@@ -16,6 +16,7 @@ std::string GetInputCommandString(InputCommand command)
         case OpenChatWindow: return "Open Chat Window";
         case FirstThirdPerson: return "Switch 1st/3rd person";
         case Jump: return "Jump";
+        case DebugView: return "Debug View";
         default: return "Other error";
     }
 }
@@ -62,6 +63,7 @@ InputMap::InputMap(std::shared_ptr<SettingManager> settings)
         bindKey(OpenChatWindow, SDL_SCANCODE_C);
         bindKey(FirstThirdPerson, SDL_SCANCODE_TAB);
         bindKey(Jump, SDL_SCANCODE_SPACE);
+        bindKey(DebugView, SDL_SCANCODE_LSHIFT);
 
         for (unsigned int a = 1; a < InputCommand::EndOfCommands; a++)
             settings->addInt("keybinds/" + std::to_string(a), keyForCommand[a]);

@@ -31,7 +31,8 @@ inline glm::vec3 b2g3(const btVector3 &in)
 enum RigidBodyUserIndex
 {
 	groundPlane = 10,		//The single infinite ground plane at the bottom of the world created on start-up
-	dynamicBody = 20
+	dynamicBody = 20,
+	staticBody = 30
 };
 
 /*

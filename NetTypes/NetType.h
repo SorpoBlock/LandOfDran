@@ -11,14 +11,8 @@ enum SimObjectType : unsigned char //might be used for packets who knows
 {
 	InvalidSimTypeId = 0,			//Default?
 	DynamicTypeId = 1,				//Objects that can move around the scene, includes projectiles
-	ItemTypeId = 2,					//Derived from dynamic, can be picked up
-	PlayerTypeId = 3,				//Derived from dynamic, can be controlled
-	BrickTypeId = 4,				//Bricks
-	StaticMeshTypeId = 5,			//Objects that don't move each frame, like a brick, but they just have their own mesh
-	LightTypeId = 6,				//Lights can be freestanding or mounted to objects
-	EmitterTypeId = 7,				//Emitters can be freestanding or mounted to objects
-	BrickVehicleTypeId = 8,			//Vehicles made from bricks, might not actually have NetType
-	ClientTypeId = 9,				//Not currently an actual SimObject child class
+	StaticTypeId = 2,				//Objects that don't move each frame, like a brick, but they just have their own mesh
+	ClientTypeId = 3,				//Not currently an actual SimObject child class
 };
 
 /*

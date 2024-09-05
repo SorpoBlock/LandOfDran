@@ -1,0 +1,4 @@
+albedo	wispy-grass-meadow_albedo.png
+occlusion	wispy-grass-meadow_ao.png
+normal	wispy-grass-meadow_normal-dx.png
+roughness	wispy-grass-meadow_roughness.png

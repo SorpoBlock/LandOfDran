@@ -1,0 +1,5 @@
+albedo	Material_albedo.jpg
+occlusion	Material_AO.jpg
+normal	Material_normal.jpg
+roughness	Material_roughness.jpg
+metalness	Material_metallic.jpg

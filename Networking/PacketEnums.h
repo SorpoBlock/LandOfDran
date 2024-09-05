@@ -7,6 +7,9 @@
 //Different types of objects can share the same ID
 typedef unsigned int netIDType;
 
+//Especially for delta compression: indicates no assigned ID, unsigned equiv to -1
+#define NO_ID 4294967295 
+
 /*
 	For use with enet_peer_disconnect
 */
@@ -65,6 +68,7 @@ enum FromClientPacketType : unsigned char
 	EvalCommand = 5,		//Send a Lua command to the server
 	ControlledPhysics = 6,	//Client to server transform updates for objects in simulation.controlledObjects
 	MovementInputs = 7	,	//Client to server movement inputs for player controller, server will cache these and apply them each frame until a new packet comes in
+	ClickDetails = 8,		//The client clicked in-game, includes world position, direction, and which mouse button it was
 };
 
 //Used with ConsoleLine packet

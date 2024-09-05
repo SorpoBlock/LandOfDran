@@ -34,7 +34,7 @@ static int LUA_createDynamic(lua_State* L)
 	}
 
 	std::shared_ptr<DynamicType> type = LUA_pd->dynamicTypes[typeID];
-	std::shared_ptr<Dynamic> dynamic = LUA_pd->dynamics->create(type, btVector3(x, y, z));
+	std::shared_ptr<Dynamic> dynamic = LUA_pd->dynamics->create(type, btVector3(x, y, z),btQuaternion::getIdentity());
 
 	LUA_pd->dynamics->pushLua(L, dynamic);
 	return 1;
@@ -64,6 +64,22 @@ static int LUA_dynamicDestroy(lua_State* L)
 	{
 		error("Invalid dynamic object passed, was it deleted already?");
 		return 0;
+	}
+
+	for (int b = 0; b < LUA_pd->clients.size(); b++)
+	{
+		bool outerBreak = false;
+		for (int c = 0; c < LUA_pd->clients[b]->controlledObjects.size(); c++)
+		{
+			if (LUA_pd->clients[b]->controlledObjects[c]->getID() == dynamic->getID())
+			{
+				LUA_pd->clients[b]->controlledObjects.erase(LUA_pd->clients[b]->controlledObjects.begin() + c);
+				outerBreak = true;
+				break;
+			}
+		}
+		if (outerBreak)
+			break;
 	}
 
 	LUA_pd->dynamics->destroy(dynamic);
@@ -105,6 +121,7 @@ static int LUA_dynamicSetVelocity(lua_State* L)
 	}
 
 	dynamic->setVelocity(btVector3(x, y, z));
+	dynamic->forcePlayerUpdate = true;
 	dynamic->activate();
 
 	return 0;
@@ -217,6 +234,7 @@ static int LUA_dynamicSetPosition(lua_State* L)
 	}
 
 	dynamic->setPosition(btVector3(x, y, z));
+	dynamic->forcePlayerUpdate = true;
 	dynamic->activate();
 
 	return 0;
@@ -353,7 +371,7 @@ static int LUA_getDynamicIdx(lua_State* L)
 	return 1;
 }
 
-static int getNumDynamics(lua_State* L)
+static int LUA_getNumDynamics(lua_State* L)
 {
 	scope("(LUA) getNumDynamics");
 
@@ -410,6 +428,7 @@ static int LUA_dynamicSetAngularVelocity(lua_State* L)
 	}
 
 	dynamic->setAngularVelocity(btVector3(x, y, z));
+	dynamic->forcePlayerUpdate = true;
 	dynamic->activate();
 
 	return 0;
@@ -513,6 +532,7 @@ static int LUA_dynamicSetGravity(lua_State* L)
 		return 0;
 	}
 
+	dynamic->gravityUpdated = true;
 	dynamic->body->setGravity(btVector3(x, y, z));
 	dynamic->activate();
 
@@ -646,6 +666,7 @@ static int LUA_dynamicSetFriction(lua_State* L)
 
 	friction = std::clamp(friction, 0.0f, 10.0f);
 
+	dynamic->frictionUpdated = true;
 	dynamic->body->setFriction(friction);
 
 	return 0;
@@ -682,6 +703,7 @@ static int LUA_dynamicSetRestitution(lua_State* L)
 
 	friction = std::clamp(friction, 0.0f, 10.0f);
 
+	dynamic->restitutionUpdated = true;
 	dynamic->body->setRestitution(friction);
 
 	return 0;
@@ -779,6 +801,7 @@ static int LUA_dynamicSetRotation(lua_State* L)
 	btTransform t = dynamic->body->getWorldTransform();
 	t.setRotation(btQuaternion(x, y, z, w));
 	dynamic->body->setWorldTransform(t);
+	dynamic->forcePlayerUpdate = true;
 	dynamic->activate();
 
 	return 0;
@@ -908,13 +931,247 @@ static int LUA_dynamicSetMeshColor(lua_State* L)
 	return 0;
 }
 
+static int LUA_newDynamicType(lua_State* L)
+{
+	scope("(LUA) newDynamicType");
+
+	int args = lua_gettop(L);
+
+	if (args != 5)
+	{
+		error("Expected 5 arguments newDynamicType(scriptName,modelFilePath,scaleX,scaleY,scaleZ)");
+		return 0;
+	}
+
+	glm::vec3 scale;
+	scale.z = lua_tonumber(L, -1);
+	lua_pop(L, 1);
+	scale.y = lua_tonumber(L, -1);
+	lua_pop(L, 1);
+	scale.x = lua_tonumber(L, -1);
+	lua_pop(L, 1);
+
+	const char *modelFilePath = lua_tostring(L, -1);
+	lua_pop(L, 1);
+
+	if (!modelFilePath)
+	{
+		error("Invalid model file path passed");
+		return 0;
+	}
+
+	const char *scriptName = lua_tostring(L, -1);
+	lua_pop(L, 1);
+
+	if (!scriptName)
+	{
+		error("Invalid script name passed");
+		return 0;
+	}
+
+	auto testType = std::make_shared<DynamicType>();
+	testType->serverSideLoad(modelFilePath, LUA_pd->dynamicTypes.size(), scale);
+	testType->scriptName = scriptName;
+	LUA_pd->dynamicTypes.push_back(testType);
+	LUA_pd->allNetTypes.push_back(testType);
+
+	info("Added new dynamic type: " + std::string(scriptName));
+
+	lua_pushinteger(L, testType->getID());
+	return 1;
+}
+
+static int LUA_getDynamicType(lua_State* L)
+{
+	scope("(LUA) getDynamicType");
+
+	int args = lua_gettop(L);
+
+	if (args != 1)
+	{
+		error("Expected 1 arguments getDynamicType(scriptName)");
+		return 0;
+	}
+
+	const char *scriptName = lua_tostring(L, -1);
+	lua_pop(L, 1);
+
+	if (!scriptName)
+	{
+		error("Invalid script name passed");
+		return 0;
+	}
+
+	for (int i = 0; i < LUA_pd->dynamicTypes.size(); i++)
+	{
+		if (LUA_pd->dynamicTypes[i]->scriptName == scriptName)
+		{
+			lua_pushinteger(L, i);
+			return 1;
+		}
+	}
+
+	error("Dynamic type not found: " + std::string(scriptName));
+	lua_pushnil(L);
+	return 1;
+}
+
+static int LUA_addAnimation(lua_State* L)
+{
+	scope("(LUA) addAnimation");
+
+	int args = lua_gettop(L);
+
+	if (args != 7)
+	{
+		error("Expected 7 arguments addAnimation(typeID,animationName,startFrame,endFrame,speed,fadeInMS,fadeOutMS)");
+		return 0;
+	}
+
+	int fadeOutMS = lua_tointeger(L, -1);
+	lua_pop(L, 1);
+
+	int fadeInMS = lua_tointeger(L, -1);
+	lua_pop(L, 1);
+
+	float speed = lua_tonumber(L, -1);
+	lua_pop(L, 1);
+
+	int endFrame = lua_tointeger(L, -1);
+	lua_pop(L, 1);
+
+	int startFrame = lua_tointeger(L, -1);
+	lua_pop(L, 1);
+
+	const char *animationName = lua_tostring(L, -1);
+	lua_pop(L, 1);
+
+	if (!animationName)
+	{
+		error("Invalid animation name passed");
+		return 0;
+	}
+
+	int typeID = lua_tointeger(L, -1);
+	lua_pop(L, 1);
+
+	if (typeID >= LUA_pd->dynamicTypes.size() || typeID < 0)
+	{
+		error("typeID out of range");
+		return 0;
+	}
+
+	std::shared_ptr<DynamicType> type = LUA_pd->dynamicTypes[typeID];
+
+	if(!type)
+	{
+		error("Invalid typeID passed");
+		return 0;
+	}
+
+	Animation anim;
+	anim.defaultSpeed = speed;
+	anim.startTime = startFrame;
+	anim.endTime = endFrame;
+	anim.name = animationName;
+	anim.fadeInMS = fadeInMS;
+	anim.fadeOutMS = fadeOutMS;
+
+	type->getModel()->addAnimation(anim);
+
+	return 0;
+}
+
+//TODO: Probably should be in other functions file cause it can return statics as well
+static int LUA_raycast(lua_State* L)
+{
+	scope("(LUA) raycast");
+
+	int args = lua_gettop(L);
+
+	if (args != 6 && args != 7)
+	{
+		error("Expected 6 or 7 arguments raycast(startX,startY,startZ,endX,endY,endZ[,dynamic to ignore])");
+		return 0;
+	}
+
+	btRigidBody *ignore = nullptr;
+	if (args == 7)
+	{
+		if (lua_isnil(L, -1))
+			lua_pop(L, 1);
+		else
+		{
+			std::shared_ptr<Dynamic> toIgnore = LUA_pd->dynamics->popLua(L);
+			if (!toIgnore)
+			{
+				error("Invalid dynamic object passed, was it deleted already?");
+				return 0;
+			}
+			else
+				ignore = toIgnore->body;
+		}
+	}
+
+	float endZ = lua_tonumber(L, -1);
+	lua_pop(L, 1);
+	float endY = lua_tonumber(L, -1);
+	lua_pop(L, 1);
+	float endX = lua_tonumber(L, -1);
+	lua_pop(L, 1);
+	float startZ = lua_tonumber(L, -1);
+	lua_pop(L, 1);
+	float startY = lua_tonumber(L, -1);
+	lua_pop(L, 1);
+	float startX = lua_tonumber(L, -1);
+	lua_pop(L, 1);
+	 
+	btVector3 start = btVector3(startX, startY, startZ);
+	btVector3 end = btVector3(endX, endY, endZ);
+
+	btRigidBody * result = LUA_pd->physicsWorld->doRaycast(start, end, ignore);
+	if(!result)
+	{
+		lua_pushnil(L);
+		return 1;
+	}
+
+	if (result->getUserIndex() == dynamicBody)
+	{
+		std::shared_ptr<Dynamic> resultDynamic = dynamicFromBody(result);
+
+		if (resultDynamic)
+		{
+			LUA_pd->dynamics->pushLua(L, resultDynamic);
+			return 1;
+		}
+	}
+	else if (result->getUserIndex() == staticBody)
+	{
+		std::shared_ptr<StaticObject> resultStatic = staticFromBody(result);
+
+		if (resultStatic)
+		{
+			LUA_pd->statics->pushLua(L, resultStatic);
+			return 1;
+		}
+	}
+
+	lua_pushnil(L);
+	return 1;
+}
+
 luaL_Reg* getDynamicFunctions(lua_State *L)
 {
 	//Register dynamic global functions:
 	lua_register(L, "createDynamic", LUA_createDynamic);
 	lua_register(L, "getDynamicId", LUA_getDynamicId);
 	lua_register(L, "getDynamicIdx", LUA_getDynamicIdx);
-	lua_register(L, "getNumDynamics", getNumDynamics);
+	lua_register(L, "getNumDynamics", LUA_getNumDynamics);
+	lua_register(L, "newDynamicType", LUA_newDynamicType);
+	lua_register(L, "getDynamicType", LUA_getDynamicType);
+	lua_register(L, "addAnimation", LUA_addAnimation);
+	lua_register(L, "raycast", LUA_raycast);
 
 	//Create table of dynamic metatable functions:
 	luaL_Reg* regs = new luaL_Reg[22];

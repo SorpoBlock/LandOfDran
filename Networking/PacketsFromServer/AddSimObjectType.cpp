@@ -20,17 +20,6 @@ bool AddSimObjectTypePacket::applyPacket(const ClientProgramData& pd, Simulation
 			auto newType = std::make_shared<DynamicType>();
 			newType->loadFromPacket(packet,pd);
 			simulation.dynamicTypes.push_back(newType);
-
-			//TODO: Test, remove soon
-			Animation walk;
-			walk.defaultSpeed = 0.04f;
-			walk.startTime = 0;
-			walk.endTime = 30;
-			walk.serverID = 0;
-			walk.name = "walk";
-			walk.fadeInMS = 200;
-			walk.fadeOutMS = 400;
-			newType->getModel()->addAnimation(walk);
 			break;
 		}
 

@@ -103,6 +103,8 @@ void Material::finishCreation(std::string albedo, std::string normal, std::strin
 	if (PBRArrayTexture->getNumChannels() == 4)
 		textures->addEmptyComponent(PBRArrayTexture);
 
+	PBRArrayTexture->setFilter(GL_LINEAR, GL_LINEAR_MIPMAP_LINEAR);
+
 	if (PBRArrayTexture->isValid())
 		valid = true;
 }

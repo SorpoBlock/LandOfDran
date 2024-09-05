@@ -21,6 +21,7 @@ enum TextureLocations
 {
 	PBRArray = 0,
 	DecalArray = 1,
+	ShadowArray = 2,
 	//Add as needed:
 	/*BRDF = 2,
 	HeightMap = 3,

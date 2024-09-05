@@ -22,7 +22,7 @@ bool CameraSettingsPacket::applyPacket(const ClientProgramData& pd, Simulation& 
 	{
 		if(packet->dataLength < (packetIter + sizeof(netIDType) + sizeof(float)))
 			return false;
-
+		 
 		memcpy(&objectId, packet->data + packetIter, sizeof(netIDType));
 		packetIter += sizeof(netIDType);
 
@@ -39,7 +39,7 @@ bool CameraSettingsPacket::applyPacket(const ClientProgramData& pd, Simulation& 
 	glm::vec3 camPos;
 	if (lockCamPos)
 	{
-		if(packet->dataLength < (packetIter + sizeof(float) * 3))
+		if (packet->dataLength < (packetIter + sizeof(float) * 3))
 			return false;
 
 		memcpy(&camPos.x, packet->data + packetIter, sizeof(float));
@@ -65,7 +65,7 @@ bool CameraSettingsPacket::applyPacket(const ClientProgramData& pd, Simulation& 
 	}
 
 	glm::vec3 upVec;
-	if (!lockUpVec && !boundToObject)
+	if (lockUpVec && !boundToObject)
 	{
 		if (packet->dataLength < (packetIter + sizeof(float) * 3))
 			return false;
@@ -82,19 +82,19 @@ bool CameraSettingsPacket::applyPacket(const ClientProgramData& pd, Simulation& 
 	if (prevTarget && prevTarget != target)
 		prevTarget->setHidden(false);
 
-	if (boundToObject)
-		simulation.camera->target = target;
-	else
-		simulation.camera->target.reset();
-
 	if (!boundToObject)
 	{
+		std::cout << "No object!\n";
+		simulation.camera->target.reset();
 		simulation.camera->freeDirection = !lockCamDir;
 		if (lockCamDir)
 			simulation.camera->setDirection(camDir);
 	}
 	else
+	{
+		simulation.camera->target = target;
 		simulation.camera->freeDirection = true;
+	}
 
 	simulation.camera->freePosition = !lockCamPos;
 	if(lockCamPos)

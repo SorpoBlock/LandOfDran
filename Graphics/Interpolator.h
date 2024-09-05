@@ -19,12 +19,13 @@ class Interpolator
 	private:
 
 	std::vector<Snapshot> snapshots;
+	int testLastRemoveMe = 0;
 
 	public:
 
 	int getNumSnapshots() const { return snapshots.size(); }
 
-	void addSnapshot(const glm::vec3& pos, const glm::quat& rot, float idealBufferSize);
+	void addSnapshot(const glm::vec3& pos, const glm::quat& rot, float idealBufferSize, unsigned int msSinceLastSend);
 	glm::vec3 getPosition();
 	glm::quat getRotation();
 };

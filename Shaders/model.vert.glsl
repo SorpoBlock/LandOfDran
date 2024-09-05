@@ -24,6 +24,9 @@ layout (std140) uniform BasicUniforms
 	int useRoughness;
 	int useHeight;
 	int useAO;
+	
+	bool nonInstanced;
+	bool cameraSpacePosition;
 };
 
 layout (std140) uniform CameraUniforms
@@ -36,21 +39,47 @@ layout (std140) uniform CameraUniforms
 	vec3 CameraDirection;
 };
 
+uniform mat4 lightSpaceMatricies[3];
+
 out vec2 uvs;
 out vec3 normal;
 out vec3 tangent;
 out vec3 bitangent;
 out vec3 worldPos;
+out vec4 preColor;
 flat out int  useDecal;
+out vec4 shadowPos[3];
 
 void main()
 {
+	preColor = PreColor;
 	useDecal = (InstanceFlags & 131072) == 131072 ? ((InstanceFlags & 130560) >> 9) : -1;
 	uvs = TextureCoords;
-	worldPos = (ModelTransform * vec4(ModelSpace,1)).xyz;
-	normal = (ModelTransform * vec4(NormalVector,0)).xyz;
-	tangent = (ModelTransform * vec4(TangentVector,0)).xyz;
-	bitangent = (ModelTransform * vec4(BitangentVector,0)).xyz;
-	gl_Position = CameraProjection * CameraView * vec4(worldPos,1);
+	
+	mat4 transform;
+	if(nonInstanced)
+	{
+		preColor = vec4(0,0,0,0);
+		transform = TranslationMatrix * RotationMatrix * ScaleMatrix;
+	}
+	else
+		transform = ModelTransform;
+	
+	worldPos = (transform * vec4(ModelSpace,1)).xyz;
+		
+	if(cameraSpacePosition)
+	{
+		worldPos = vec3(CameraPosition.x+ModelSpace.x*300.0,0,CameraPosition.z+ModelSpace.z*300.0);
+		uvs = worldPos.xz / 20.0;
+	}
+	
+	normal = (transform * vec4(NormalVector,0)).xyz;
+	tangent = (transform * vec4(TangentVector,0)).xyz;
+	bitangent = (transform * vec4(BitangentVector,0)).xyz;
+	
+	for(int i = 0; i<3; i++)
+		shadowPos[i] = lightSpaceMatricies[i] * vec4(worldPos,1.0);
+	
+	gl_Position = CameraProjection * CameraView * vec4(worldPos,1.0);
 }
 

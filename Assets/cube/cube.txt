@@ -1,0 +1,7 @@
+file	cube.fbx
+Triangulate	true
+FlipUVs	true
+CalcTangentSpace	true
+OptimizeGraph	true
+JoinIdenticalVertices	true
+singlematerial	Assets/cube/metal.txt

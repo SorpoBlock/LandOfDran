@@ -126,12 +126,14 @@ bool PlayerController::control(std::shared_ptr<PhysicsWorld> world, float deltaT
 	{
 		targetLock->body->setFriction(1.0);
 		targetLock->stop(0);
+		targetLock->playWalkingAnimation = false;
 		return false;
 	}
 	else
 	{
 		targetLock->body->setFriction(0.0);
-		targetLock->play(0, true);
+		targetLock->play(0, true); 
+		targetLock->playWalkingAnimation = true;
 	}
 
 	btQuaternion turn;

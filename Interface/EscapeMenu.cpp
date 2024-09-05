@@ -29,6 +29,21 @@ void EscapeMenu::render(ImGuiIO* io)
 		lastButtonPress = EscapeButtonPressed::LeaveGame;
 		close();
 	}
+	if (ImGui::Button("Open Chat (c)"))
+	{
+		lastButtonPress = EscapeButtonPressed::OpenChat;
+		close();
+	}
+	if (ImGui::Button("Open Settings (o)"))
+	{
+		lastButtonPress = EscapeButtonPressed::OpenSettings;
+		close();
+	}
+	if (ImGui::Button("Open Debug Menu (`)"))
+	{
+		lastButtonPress = EscapeButtonPressed::OpenDebugMenu;
+		close();
+	}
 
 	ImGui::End();
 }

@@ -134,6 +134,7 @@ class ModelInstance
 	std::vector<glm::mat4>		MeshTransforms;
 	std::vector<unsigned int>	MeshFlags;
 	std::vector<glm::vec4>		MeshColors;
+	std::vector<bool>			MeshColorUsed; //Mostly for use with server to not send default mesh colors over
 
 	//Were any of the above properties changed since last frame:
 
@@ -167,6 +168,12 @@ class ModelInstance
 	void setFlags(int meshId, unsigned int flags);
 
 	public:
+
+	//How many different meshes there are with colors transforms flags, etc
+	int getNumMeshes() const { return MeshTransforms.size(); }
+
+	//Returns true if color has been specifically set, or false if it's default
+	bool getMeshColor(int meshIdx, glm::vec4& color) const;
 
 	bool getHidden() const { return hidden; }
 
@@ -358,8 +365,6 @@ class Model
 
 	std::vector<ModelInstance*> instances;
 
-	std::vector<Animation> animations;
-
 	//Every mesh the model has stored in a way that doesn't require recusion to access
 	std::vector<Mesh*> allMeshes;
 	
@@ -391,6 +396,8 @@ class Model
 
 	public:
 
+	std::vector<Animation> animations;
+
 	//Returns -1 on invalid name
 	int getMeshIdx(const std::string& name) const;
 
@@ -403,8 +410,8 @@ class Model
 
 	std::string loadedPath = "";
 
-	//Add another animation to this Model
-	void addAnimation(Animation& animation);
+	//Add another animation to this Model, server side can leave id as default -1, client side use server provided id
+	void addAnimation(Animation& animation,int id = -1);
 
 	//Outputs the entire hierarchy in depth to std::cout for debugging
 	void printHierarchy(Node * node = 0,int layer = 0) const;

@@ -17,6 +17,8 @@ class JoinedClient
 
 public:
 
+	float getPing() const { return peer->roundTripTime; }
+
 	//Set this to ClientData I guess
 	void* userData = nullptr;
 

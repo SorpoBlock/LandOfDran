@@ -34,6 +34,8 @@ class DynamicType : public NetType
 
 	public:
 
+	std::string scriptName = "";
+
 	const glm::vec3& getScale() const { return model->baseScale; }
 
 	std::shared_ptr<Model>  getModel() const { return model; }
@@ -54,6 +56,7 @@ class DynamicType : public NetType
 
 	//Creates a physics object using this type's collision shape
 	btRigidBody* createBody() const;
+	btRigidBody* createBodyStatic(const btTransform &t) const;
 
 	//Doesn't allocate anything, wait for loadFromPacket or server-side construction from lua
 	DynamicType();

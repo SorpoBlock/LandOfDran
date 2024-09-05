@@ -35,6 +35,17 @@ std::map<std::string, int> aiProcessMap = {
 	{"GenBoundingBoxes",aiProcess_GenBoundingBoxes},
 };
 
+bool ModelInstance::getMeshColor(int meshIdx, glm::vec4& color) const 
+{ 
+	if (meshIdx < 0) 
+		return false; 
+	if (meshIdx >= MeshColors.size()) 
+		return false; 
+
+	color = MeshColors[meshIdx]; 
+	return MeshColorUsed[meshIdx];
+}
+
 int Model::getMeshIdx(const std::string& name) const
 {
 	for (unsigned int a = 0; a < allMeshes.size(); a++)
@@ -46,8 +57,9 @@ int Model::getMeshIdx(const std::string& name) const
 }
 
 
-void Model::addAnimation(Animation& animation)
+void Model::addAnimation(Animation& animation,int id)
 {
+	animation.serverID = (id < 0) ? animations.size() : id;
 	animations.push_back(std::move(animation));
 }
 
@@ -145,11 +157,13 @@ void ModelInstance::setColor(int meshId, glm::vec4 color)
 {
 	if (meshId < 0 || meshId >= MeshFlags.size())
 	{
-		scope("ModeInstance::setColor");
+		scope("ModelInstance::setColor");
 		error("Mesh index out of range.");
+		std::cout<<"Given: "<<meshId<<" max: "<<MeshFlags.size()<<"\n";
 		return;
 	}
 
+	MeshColorUsed[meshId] = true;
 	MeshColors[meshId] = color;
 	colorsUpdated[meshId] = true;
 	anythingUpdated = true;
@@ -732,6 +746,7 @@ ModelInstance::ModelInstance(Model* _type)
 	{
 		MeshTransforms.push_back(glm::mat4(1.0));
 		MeshFlags.push_back(0);
+		MeshColorUsed.push_back(false);
 		MeshColors.push_back(glm::vec4(0,0,0,0));
 		flagsUpdated.push_back(true);
 		colorsUpdated.push_back(true);

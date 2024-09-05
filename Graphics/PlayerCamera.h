@@ -38,6 +38,14 @@ class Camera
 
 	public:
 
+	bool getFirstPerson() const { return firstPerson; }
+
+	//Takes OpenGL normalized device coordinates and returns a position in world space
+	glm::vec3 mouseCoordsToWorldSpace(glm::vec2 mouseCoords) const;
+
+	//TODO: Move this to environment class
+	void calculateLightSpaceMatricies(glm::vec3 sunDirection,glm::mat4 *result);
+
 	float maxThirdPersonDistance = 30.0;
 
 	void setFirstPerson(bool _firstPerson);

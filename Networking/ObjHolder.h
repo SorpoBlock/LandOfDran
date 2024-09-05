@@ -346,7 +346,7 @@ class ObjHolder
 			//Three extra bytes, packet type, simobject type, amount of objects
 			ENetPacket* packet = enet_packet_create(NULL, bytesThisPacket + 3, getFlagsFromChannel(OtherReliable));
 			packet->data[0] = FromServerPacketType::AddSimObjects;
-			packet->data[1] = SimObjectType::DynamicTypeId;
+			packet->data[1] = type;
 			packet->data[2] = sentThisPacket;
 			int byteIterator = 3;
 
@@ -359,6 +359,70 @@ class ObjHolder
 			client->send(packet, OtherReliable);
 			toSend -= sentThisPacket;
 			sent += sentThisPacket;
+		}
+	}
+
+	//How many bytes we'd need to represent an ID, given the ID before it in a sequence
+	unsigned int bytesForIdDelta(netIDType last, netIDType next)
+	{
+		if (last == NO_ID)
+			return 4;
+		if (next - last < 128)
+			return 1;
+		else if (next - last < 16384)
+			return 2;
+		else
+			return 4;
+	}
+
+	//Returns how many bytes it added to the packet, same as bytesForIdDelta
+	unsigned int addIdDelta(netIDType last, netIDType next,enet_uint8 *data)
+	{
+		unsigned int delta = next - last;
+		switch (bytesForIdDelta(last, next))
+		{
+			case 1:					//First bit zero 
+				data[0] = delta;
+				return 1;
+			case 2:					//First bit set, next bit zero
+				data[0] = 128 + ((delta) >> 8);
+				data[1] = (delta) & 255;
+				return 2; 
+			case 4:					//First two bits set
+				data[0] = 192 + (next >> 24);
+				data[1] = (next >> 16) & 255;
+				data[2] = (next >> 8) & 255;
+				data[3] = next & 255;
+				return 4;
+		}
+		error("addIdDelta failed");
+		return 1;
+	}
+
+	//Increments byteIterator by bytesForIdDelta and returns ID
+	netIDType getIdFromDelta(enet_uint8* data,netIDType lastId, unsigned int& byteIterator)
+	{
+		if (data[0] & 128)
+		{
+			if (data[0] & 64) //First two bits set, full 30 bit ID
+			{
+				byteIterator += 4;
+				return ((data[0] & 63) << 24) + (data[1] << 16) + (data[2] << 8) + data[3];
+			}
+			else //First bit set, next bit zero, 14 bit delta
+			{
+				if (lastId == NO_ID)
+					error("Expected full ID got ID delta instead.");
+				byteIterator += 2;
+				return ((data[0] & 63) << 8) + data[1] + lastId;
+			}
+		}
+		else //First bit zero, 7 bit delta
+		{
+			if (lastId == NO_ID)
+				error("Expected full ID got ID delta instead.");
+			byteIterator++;
+			return (data[0] & 127) + lastId;
 		}
 	}
 
@@ -408,7 +472,7 @@ class ObjHolder
 			//Three extra bytes, packet type, simobject type, amount of objects
 			ENetPacket* packet = enet_packet_create(NULL, bytesThisPacket + 3, getFlagsFromChannel(OtherReliable));
 			packet->data[0] = FromServerPacketType::AddSimObjects;
-			packet->data[1] = SimObjectType::DynamicTypeId;
+			packet->data[1] = type;
 			packet->data[2] = sentThisPacket;
 			int byteIterator = 3;
 
@@ -460,7 +524,7 @@ class ObjHolder
 			//Three extra bytes, packet type, simobject type, amount of objects
 			ENetPacket* packet = enet_packet_create(NULL, bytesThisPacket + 3, getFlagsFromChannel(OtherReliable));
 			packet->data[0] = FromServerPacketType::DeleteSimObjects;
-			packet->data[1] = SimObjectType::DynamicTypeId;
+			packet->data[1] = type;
 			packet->data[2] = sentThisPacket;
 			int byteIterator = 3;
 
@@ -490,7 +554,8 @@ class ObjHolder
 			int skippedThisPacket = 0;
 			//Did need updates
 			int sentThisPacket = 0;
-			int bytesThisPacket = 0;
+			int bytesThisPacket = 0; 
+			netIDType lastId = NO_ID; //Highest possible value, indicates no previous ID
 
 			//I guess if one object was somehow larger than like 1300 bytes this would stall lol
 			for (unsigned int a = sent; a < allObjects.size(); a++)
@@ -506,14 +571,16 @@ class ObjHolder
 				}
 
 				sentThisPacket++;
-				bytesThisPacket += allObjects[a]->getUpdatePacketBytes();
+				bytesThisPacket += allObjects[a]->getUpdatePacketBytes() + bytesForIdDelta(lastId,allObjects[a]->getID());
 
 				if (bytesThisPacket > MTU)
 				{
 					sentThisPacket--;
-					bytesThisPacket -= allObjects[a]->getUpdatePacketBytes();
+					bytesThisPacket -= allObjects[a]->getUpdatePacketBytes() + bytesForIdDelta(lastId, allObjects[a]->getID());
 					break;
 				}
+
+				lastId = allObjects[a]->getID();
 			}
 
 			//Not a break: we may have just skipped every object in this packet
@@ -527,15 +594,20 @@ class ObjHolder
 			//Three extra bytes, packet type, simobject type, amount of objects
 			ENetPacket* packet = enet_packet_create(NULL, bytesThisPacket + 3, getFlagsFromChannel(Unreliable));
 			packet->data[0] = FromServerPacketType::UpdateSimObjects;
-			packet->data[1] = SimObjectType::DynamicTypeId;
+			packet->data[1] = type;
 			packet->data[2] = sentThisPacket;
 			int byteIterator = 3;
+
+			lastId = NO_ID; //Reset for the actual packet
 
 			for (int a = sent; a < sent + sentThisPacket + skippedThisPacket; a++)
 			{
 				if (!allObjects[a]->requiresNetUpdate())
 					continue;
-	
+
+				byteIterator += addIdDelta(lastId, allObjects[a]->getID(), packet->data + byteIterator);
+				lastId = allObjects[a]->getID();
+
 				//getUpdatePacketBytes might be const, but addToUpdatePacket will affect its value
 				int amount = allObjects[a]->getUpdatePacketBytes();
 				allObjects[a]->addToUpdatePacket(packet->data + byteIterator);
