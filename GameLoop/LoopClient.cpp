@@ -352,7 +352,7 @@ void LoopClient::run(float deltaT,ExecutableArguments& cmdArgs, std::shared_ptr<
 {
 	if (client)
 	{
-		//We're in game, equivlent to gameState == InGame
+		//We're in game, equivalent to gameState == InGame
 
 		KickReason reason = client->run(pd, simulation, cmdArgs); //  <--- networking, process packets
 		if(reason != NotKicked) 
@@ -384,8 +384,12 @@ void LoopClient::run(float deltaT,ExecutableArguments& cmdArgs, std::shared_ptr<
 		pd.debugMenu->addExtraLine("First other snaps: " + std::to_string(simulation.dynamics->get(0)->interpolator.getNumSnapshots()));
 	if (simulation.controlledDynamics.size() > 0)
 		pd.debugMenu->addExtraLine("First controlled snaps: " + std::to_string(simulation.controlledDynamics[0]->interpolator.getNumSnapshots()));
-	if(client)
+	if (client)
+	{
 		pd.debugMenu->addExtraLine("Total queued packets: " + std::to_string(client->getNumQueued()));
+		pd.debugMenu->addExtraLine("Ping variance: " + std::to_string(client->getPingVariance()));
+		pd.debugMenu->addExtraLine("Packet loss: " + std::to_string(client->getLoss()));
+	}
 
 	if (pd.chatWindow->hasChatMessage() && client)
 	{

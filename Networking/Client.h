@@ -59,7 +59,9 @@ public:
 	float getIncoming();
 	float getOutgoing();
 
-	float getPing() const		{ return (float)peer->lastRoundTripTime; }
+	float getPing() const			{ return (float)peer->roundTripTime; }
+	float getPingVariance() const	{ return (float)peer->roundTripTimeVariance; }
+	float getLoss() const			{ return (float)peer->packetLoss; }
 
 	bool isValid() const { return valid; }
 

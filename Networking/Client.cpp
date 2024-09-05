@@ -46,6 +46,9 @@ KickReason Client::run(const ClientProgramData& pd,Simulation &simulation, const
 
 	if (!valid) //Not really a kick but we can't use this client anyway
 		return KickReason::OtherReason;
+	 
+	if(packets.size() > 5)
+		std::cout << packets.size() << " held packets\n";
 
 	tryApplyHeldPackets(pd,simulation,cmdArgs);
 
@@ -55,7 +58,7 @@ KickReason Client::run(const ClientProgramData& pd,Simulation &simulation, const
 	if (ret < 0)
 	{
 		error("enet_host_server failed");
-		return NotKicked; //enet error, not sure if this should be true / kicked or false, probably won't happen
+		return NotKicked; //enet error, not sure if this should be true / kicked or false, probably won't happen 
 	}
 
 	if (ret > 0)

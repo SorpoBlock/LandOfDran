@@ -620,7 +620,7 @@ class ObjHolder
 
 			server->broadcast(packet, Unreliable);
 			toSend -= (sentThisPacket + skippedThisPacket);
-			sent += (sentThisPacket + skippedThisPacket);
+			sent += (sentThisPacket + skippedThisPacket); 
 		}
 	}
 
