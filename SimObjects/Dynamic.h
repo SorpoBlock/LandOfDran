@@ -52,6 +52,7 @@ class Dynamic : public SimObject
 	bool gravityUpdated = false;
 	bool restitutionUpdated = false;
 	bool playWalkingAnimation = false;
+	bool forceUpdateAll = false; //Set in requiresNetUpdate, unset in addToUpdatePacket, should be done once per second or so
 
 	//If lua changed the position/velocity/etc of a player controlled object
 	bool forcePlayerUpdate = false;
@@ -94,7 +95,7 @@ class Dynamic : public SimObject
 
 	btVector3 getAngularVelocity() const;
 
-	virtual bool requiresNetUpdate() const override;
+	virtual bool requiresNetUpdate() override;//const override;
 
 	//How many bytes would this add to a packet creating objects if it was added to it
 	virtual unsigned int getCreationPacketBytes() const override;

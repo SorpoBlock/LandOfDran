@@ -377,7 +377,7 @@ void LoopClient::run(float deltaT,ExecutableArguments& cmdArgs, std::shared_ptr<
 	//Send info to debug menu for display
 	NetInfo netInfo;
 	if (client)
-		netInfo = { client->getPing(), client->getIncoming(), client->getOutgoing() };
+		netInfo = { client->getPing(), client->getIncoming(), client->getOutgoing(), simulation.serverLastSlowestFrame, simulation.serverAverageFrame };
 	pd.debugMenu->passDetails(simulation.camera->getPosition(),simulation.camera->getDirection(), netInfo);
 
 	if (simulation.dynamics && simulation.dynamics->size() > 0)

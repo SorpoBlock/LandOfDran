@@ -42,6 +42,9 @@ class SimObject
 
 	public:
 
+	//Set during ObjHolder::sendRecent and reset at the end of that function
+	bool flaggedForUpdate = false;
+
 	//Never use 'this' always use this
 	std::shared_ptr<SimObject> getMe() const
 	{
@@ -53,7 +56,7 @@ class SimObject
 	static std::shared_ptr<PhysicsWorld> world;
 
 	//Has this object been updated in such a way that we need to resend its properties to clients?
-	virtual bool requiresNetUpdate() const;
+	virtual bool requiresNetUpdate();// const;
 
 	//Get netID
 	netIDType getID() const;

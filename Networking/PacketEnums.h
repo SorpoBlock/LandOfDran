@@ -99,6 +99,7 @@ enum FromServerPacketType : unsigned char
 	CameraSettings = 10,	//Tell client to bind/unbind camera to object or change other settings
 	MovementSettings = 11,	//Player controller movement parameters
 	MeshAppearance = 12,	//Change something about how a dynamic instance is rendered, i.e. mesh colors
+	ServerPerformanceDetails = 13,	//Server sends client the slowest frame time in MS every second
 };
 
 //For use with AcceptConnection packets

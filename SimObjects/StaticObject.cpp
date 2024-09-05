@@ -45,9 +45,11 @@ btVector3 StaticObject::getPosition() const
 	return body->getWorldTransform().getOrigin();
 }
 
-bool StaticObject::requiresNetUpdate() const
+bool StaticObject::requiresNetUpdate() //const
 {
-	return frictionUpdated || restitutionUpdated || hiddenUpdated || collisionUpdated;
+	bool ret = frictionUpdated || restitutionUpdated || hiddenUpdated || collisionUpdated;
+	flaggedForUpdate = true;
+	return ret;
 }
 
 unsigned int StaticObject::getUpdatePacketBytes() const

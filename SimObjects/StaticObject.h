@@ -62,7 +62,7 @@ public:
 
 	btVector3 getPosition() const;
 
-	virtual bool requiresNetUpdate() const override;
+	virtual bool requiresNetUpdate() override;//const override;
 
 	//How many bytes would this add to a packet creating objects if it was added to it
 	virtual unsigned int getCreationPacketBytes() const override;

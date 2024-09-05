@@ -11,6 +11,8 @@ struct NetInfo
 	float ping = 0;
 	float incomingData = 0;
 	float outgoingData = 0;
+	float serverLastLongestFrame = 0;
+	float serverAverageFrame = 0;
 };
 
 class DebugMenu : public Window
@@ -25,6 +27,8 @@ class DebugMenu : public Window
 	float outgoingData = 0.0;
 	float maxIncoming = 0.0;
 	float maxOutgoing = 0.0;
+	float serverLastLongestFrame = 0.0;
+	float serverAverageFrame = 0.0;
 
 	std::vector<std::string> extraLines;
 

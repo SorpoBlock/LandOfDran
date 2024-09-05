@@ -73,7 +73,7 @@ int main(int argc, char* argv[])
 		auto frameEnd = std::chrono::high_resolution_clock::now();
 		std::chrono::duration<double,std::milli> frameDuration = frameEnd - frameStart;
 
-		if (cmdArgs.dedicated && frameDuration.count() < 25.f)
+		/*if (cmdArgs.dedicated && frameDuration.count() < 25.f)
 		{
 			//Volatile is needed or else the compiler will optimize out the whole loop
 			volatile int num = 0;
@@ -81,7 +81,7 @@ int main(int argc, char* argv[])
 			while (std::chrono::high_resolution_clock::now() < frameEnd + std::chrono::milliseconds(25) - frameDuration)
 				num++;
 			//std::this_thread::sleep_for(std::chrono::milliseconds(25) - frameDuration);
-		}
+		}*/
 	}
 
 	//Deallocate client if this wasn't a dedicated server

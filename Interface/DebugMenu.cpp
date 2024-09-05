@@ -9,6 +9,8 @@ void DebugMenu::passDetails(const glm::vec3 &camPos,const glm::vec3 &camDir,cons
 	outgoingData = netInfo.outgoingData;
 	maxIncoming = std::max(maxIncoming, incomingData);
 	maxOutgoing = std::max(maxOutgoing, outgoingData);
+	serverLastLongestFrame = netInfo.serverLastLongestFrame;
+	serverAverageFrame = netInfo.serverAverageFrame;
 }
 
 void DebugMenu::reset()
@@ -20,6 +22,8 @@ void DebugMenu::reset()
 	passwordBuffer[0] = 0;
 	maxIncoming = 0;
 	maxOutgoing = 0;
+	serverLastLongestFrame = 0.0;
+	serverAverageFrame = 0.0;
 }
 
 void DebugMenu::addLogLine(loggerLine line)
@@ -44,11 +48,26 @@ void DebugMenu::render(ImGuiIO* io)
 	{
 		ImGui::Text("FPS: %f", io->Framerate);
 		ImGui::Text("Ping: %f", lastPing);
+
+		ImGui::NewLine();
+
 		ImGui::Text("Incoming Data: %f kB/sec", incomingData);
-		ImGui::Text("Incoming Data Max: %f kB/sec", maxIncoming);
 		ImGui::Text("Outgoing Data: %f kB/sec", outgoingData);
+
+		ImGui::NewLine();
+
+		ImGui::Text("Server 1000ms longest frame: %f ms", serverLastLongestFrame);
+		ImGui::Text("Server 1000ms average frame: %f ms", serverAverageFrame);
+
+		ImGui::NewLine();
+
+		ImGui::Text("Incoming Data Max: %f kB/sec", maxIncoming);
 		ImGui::Text("Outgoing Data Max: %f kB/sec", maxOutgoing);
+
+		ImGui::NewLine();
+
 		ImGui::Text("Run time: %f seconds", getTicksMS()/1000.0f);
+
 		for(unsigned int a = 0; a<extraLines.size(); a++)
 			ImGui::Text(extraLines.at(a).c_str());
 		extraLines.clear();

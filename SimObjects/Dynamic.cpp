@@ -82,36 +82,58 @@ btVector3 Dynamic::getPosition() const
 	return body->getWorldTransform().getOrigin();
 }
 
-bool Dynamic::requiresNetUpdate() const
+bool Dynamic::requiresNetUpdate() //const
 {
+	if (getTicksMS() - lastSentTime < 25)
+	{
+		flaggedForUpdate = false;
+		return false;
+	}
+
 	//For dynamics requiresUpdate means a change to something like a decal, or a node color
 	if (requiresUpdate || gravityUpdated || frictionUpdated || restitutionUpdated)
+	{
+		flaggedForUpdate = true;
 		return true;
+	}
 
 	const btTransform& t = body->getWorldTransform();
 
 	//If the object has moved more than 0.14 studs
 	if (t.getOrigin().distance2(lastSentTransform.getOrigin()) > 0.005)
+	{
+		flaggedForUpdate = true;
 		return true;
+	}
 
 	if (body->getWorldTransform().getRotation().angleShortestPath(lastSentTransform.getRotation()) > 0.01)
+	{
+		flaggedForUpdate = true;
 		return true;
+	}
 
 	if (lastSentVel.distance2(body->getLinearVelocity()) > 0.37)
+	{
+		flaggedForUpdate = true;
 		return true;
+	}
 
 	//More than like 6 degrees difference in rotation?
 	if (lastSentAngVel.distance2(body->getAngularVelocity()) > 0.37)
-		return true;
-
-	//Even if the object isn't moving much at all we should still send out an update every once in a while
-	/*if (SDL_GetTicks() - lastSentTime > 500)
 	{
-		std::cout << "Time\n";
+		flaggedForUpdate = true;
 		return true;
 	}
-	This causes crashes cause the time can increment between the time we check and the time we send the packet
-	*/
+
+	//Even if the object isn't moving much at all we should still send out an update every once in a while
+	if (getTicksMS() - lastSentTime > 1500)
+	{
+		forceUpdateAll = true;
+		flaggedForUpdate = true;
+		return true;
+	}
+	//This caused crashes cause the time can increment between the time we check and the time we send the packet
+	
 
 	return false;
 }
@@ -138,6 +160,9 @@ unsigned int Dynamic::getUpdatePacketBytes() const
 		needPosRot = true;
 
 	if (body->getWorldTransform().getRotation().angleShortestPath(lastSentTransform.getRotation()) > 0.01)
+		needPosRot = true;
+
+	if (forceUpdateAll)
 		needPosRot = true;
 
 	if (needPosRot)
@@ -207,6 +232,10 @@ void Dynamic::addToUpdatePacket(enet_uint8 * dest)
 	if (body->getWorldTransform().getRotation().angleShortestPath(lastSentTransform.getRotation()) > 0.01)
 		needPosRot = true;
 
+	if (forceUpdateAll)
+		needPosRot = true;
+	forceUpdateAll = false;
+
 	bool needVel = false;
 	if (lastSentVel.distance2(body->getLinearVelocity()) > 0.37)
 		needVel = true;
@@ -237,6 +266,7 @@ void Dynamic::addToUpdatePacket(enet_uint8 * dest)
 
 	if (needPosRot)
 	{
+		forceUpdateAll = false;
 		lastSentTime = getTicksMS();
 		lastSentTransform = body->getWorldTransform();
 		const glm::vec3& pos = glm::vec3(lastSentTransform.getOrigin().x(), lastSentTransform.getOrigin().y(), lastSentTransform.getOrigin().z());

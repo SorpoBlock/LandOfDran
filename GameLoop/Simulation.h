@@ -15,6 +15,9 @@
 */
 struct Simulation
 {
+	float serverLastSlowestFrame = 0.0;
+	float serverAverageFrame = 0.0;
+
 	//Only stored if we succesfully managed to log in to the server we're currently playing on
 	std::string evalPassword = "";
 

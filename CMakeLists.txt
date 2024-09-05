@@ -209,7 +209,18 @@ add_executable (LandOfDran
 
 "Physics/PhysicsWorld.h" 
 "Physics/PhysicsWorld.cpp" 
-"Physics/SweepTest.h" "Networking/PacketsFromServer/MeshAppearance.h" "Networking/PacketsFromServer/MeshAppearance.cpp" "Graphics/RenderTarget.h" "Graphics/RenderTarget.cpp" "SimObjects/StaticObject.h" "SimObjects/StaticObject.cpp" "LuaFunctions/Static.h" "LuaFunctions/Static.cpp" "Networking/PacketsFromClient/ClickDetails.cpp")   
+"Physics/SweepTest.h" 
+"Networking/PacketsFromServer/MeshAppearance.h" 
+"Networking/PacketsFromServer/MeshAppearance.cpp" 
+"Graphics/RenderTarget.h" 
+"Graphics/RenderTarget.cpp" 
+"SimObjects/StaticObject.h" 
+"SimObjects/StaticObject.cpp" 
+"LuaFunctions/Static.h" 
+"LuaFunctions/Static.cpp" 
+"Networking/PacketsFromClient/ClickDetails.cpp" 
+"Networking/PacketsFromServer/ServerPerformanceDetails.cpp" 
+"Networking/PacketsFromServer/ServerPerformanceDetails.h")   
 
 target_include_directories(LandOfDran PRIVATE ${LUA_INCLUDE_DIR})
 

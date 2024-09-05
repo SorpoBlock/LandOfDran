@@ -127,6 +127,10 @@ KickReason Client::run(const ClientProgramData& pd,Simulation &simulation, const
 						packets.push_back(new MeshAppearancePacket(packetHoldTime, event.packet));
 						return NotKicked;
 
+					case ServerPerformanceDetails:
+						packets.push_back(new ServerPerformanceDetailsPacket(packetHoldTime, event.packet));
+						return NotKicked;
+
 					//Can't process packet
 					case InvalidServer:
 					default:

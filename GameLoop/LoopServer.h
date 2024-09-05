@@ -29,8 +29,12 @@ class LoopServer
 
 	bool valid = false;
 
-	//Testing only:
-	float spin = 0;
+	//Every 40 ticks, or hopefully every second, we will send the duration in MS of the slowest and average frame to clients
+	unsigned int slowestTickCounter = 0;
+	float totalTicks = 0;
+	float totalTicksMS = 0;
+	float slowestTickMS = 0;
+	float lastSlowestTickMS = 0;
 
 public:
 

@@ -10,6 +10,31 @@ netIDType ObjHolder<StaticObject>::lastNetID = 0;
 
 void LoopServer::run(float deltaT, ExecutableArguments& cmdArgs, std::shared_ptr<SettingManager> settings)
 {
+	if (deltaT > slowestTickMS)
+		slowestTickMS = deltaT;
+
+	totalTicks++;
+	totalTicksMS += deltaT;
+
+	if (SDL_GetTicks() - slowestTickCounter > 1000)
+	{
+		slowestTickCounter = SDL_GetTicks();
+
+		float averageTickMS = totalTicksMS / totalTicks;
+
+		ENetPacket* ret = enet_packet_create(NULL, 1 + sizeof(float) * 2, getFlagsFromChannel(OtherReliable));
+		ret->data[0] = (unsigned char)ServerPerformanceDetails;
+		memcpy(ret->data + 1, &lastSlowestTickMS, sizeof(float));
+		memcpy(ret->data + 1 + sizeof(float), &averageTickMS, sizeof(float));
+
+		server->broadcast(ret, OtherReliable);
+
+		totalTicks = 0;
+		totalTicksMS = 0;
+		lastSlowestTickMS = slowestTickMS;
+		slowestTickMS = 0;
+	}
+
 	server->run(&pd,pd.luaState,pd.eventManager); //   <---- networking
 	pd.dynamics->sendRecent();
 	pd.statics->sendRecent();

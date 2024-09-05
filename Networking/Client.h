@@ -14,6 +14,7 @@
 #include "PacketsFromServer/CameraSettings.h"
 #include "PacketsFromServer/MovementSettings.h"
 #include "PacketsFromServer/MeshAppearance.h"
+#include "PacketsFromServer/ServerPerformanceDetails.h"
 #include "../GameLoop/ClientProgramData.h"
 #include "../GameLoop/Simulation.h"
 

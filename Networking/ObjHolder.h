@@ -600,10 +600,14 @@ class ObjHolder
 
 			lastId = NO_ID; //Reset for the actual packet
 
+			//std::cout << "Sending " << sentThisPacket << " updates for type " << (unsigned int)type << " of " << allObjects.size() << " total\n";
+
 			for (int a = sent; a < sent + sentThisPacket + skippedThisPacket; a++)
 			{
-				if (!allObjects[a]->requiresNetUpdate())
+				if (!allObjects[a]->flaggedForUpdate)
 					continue;
+
+				allObjects[a]->flaggedForUpdate = false;
 
 				byteIterator += addIdDelta(lastId, allObjects[a]->getID(), packet->data + byteIterator);
 				lastId = allObjects[a]->getID();

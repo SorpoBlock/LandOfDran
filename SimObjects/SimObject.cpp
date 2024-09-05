@@ -17,7 +17,7 @@ SimObject::~SimObject()
 
 }
 
-bool SimObject::requiresNetUpdate() const
+bool SimObject::requiresNetUpdate()// const
 {
     return requiresUpdate;
 }
