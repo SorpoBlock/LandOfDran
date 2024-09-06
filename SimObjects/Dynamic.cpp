@@ -82,6 +82,8 @@ btVector3 Dynamic::getPosition() const
 	return body->getWorldTransform().getOrigin();
 }
 
+const bool noVelUpdates = true;
+
 bool Dynamic::requiresNetUpdate() //const
 {
 	if (getTicksMS() - lastSentTime < 25)
@@ -112,14 +114,14 @@ bool Dynamic::requiresNetUpdate() //const
 		return true;
 	}
 
-	if (lastSentVel.distance2(body->getLinearVelocity()) > 0.37)
+	if (lastSentVel.distance2(body->getLinearVelocity()) > 0.37 && !noVelUpdates)
 	{
 		flaggedForUpdate = true;
 		return true;
 	}
 
 	//More than like 6 degrees difference in rotation?
-	if (lastSentAngVel.distance2(body->getAngularVelocity()) > 0.37)
+	if (lastSentAngVel.distance2(body->getAngularVelocity()) > 0.37 && !noVelUpdates)
 	{
 		flaggedForUpdate = true;
 		return true;
@@ -171,11 +173,11 @@ unsigned int Dynamic::getUpdatePacketBytes() const
 		ret += QuaternionBytes;
 	}
 
-	if (lastSentVel.distance2(body->getLinearVelocity()) > 0.37)
+	if (lastSentVel.distance2(body->getLinearVelocity()) > 0.37 && !noVelUpdates)
 		ret += VelocityBytes;
 
 	//More than like 6 degrees difference in rotation?
-	if (lastSentAngVel.distance2(body->getAngularVelocity()) > 0.37)
+	if (lastSentAngVel.distance2(body->getAngularVelocity()) > 0.37 && !noVelUpdates)
 		ret += AngularVelocityBytes;
 
 	if (gravityUpdated)
@@ -237,11 +239,11 @@ void Dynamic::addToUpdatePacket(enet_uint8 * dest)
 	forceUpdateAll = false;
 
 	bool needVel = false;
-	if (lastSentVel.distance2(body->getLinearVelocity()) > 0.37)
+	if (lastSentVel.distance2(body->getLinearVelocity()) > 0.37 && !noVelUpdates)
 		needVel = true;
 
 	bool needAngVel = false;
-	if (lastSentAngVel.distance2(body->getAngularVelocity()) > 0.37)
+	if (lastSentAngVel.distance2(body->getAngularVelocity()) > 0.37 && !noVelUpdates)
 		needAngVel = true;
 
 	unsigned int msSinceLastSend = getTicksMS() - lastSentTime;

@@ -1,5 +1,98 @@
 #include "Quantization.h"
 
+
+// Function to encode a float into 16 bits
+uint16_t encodeFloat(float value) {
+	uint16_t result = 0;
+
+	// Handle the sign (1 bit)
+	bool sign = (value < 0);
+	if (sign) {
+		value = -value;  // Make the value positive for further processing
+	}
+
+	// Handle the integer part (9 bits)
+	uint16_t integerPart = static_cast<uint16_t>(value);
+	if (integerPart > 511) {
+		integerPart = 511;  // Clamp the integer part to 9 bits
+	}
+
+	// Handle the fractional part (6 bits)
+	float fractionalPart = value - integerPart;
+	uint16_t fractionalBits = static_cast<uint16_t>(fractionalPart * 64);  // Convert to 6-bit precision
+
+	// Assemble the result
+	result |= (sign << 15);                  // 1 bit for sign
+	result |= ((integerPart & 0x1FF) << 6);  // 9 bits for integer part
+	result |= (fractionalBits & 0x3F);       // 6 bits for fractional part
+
+	return result;
+}
+
+// Function to encode three floats into 6 bytes
+void encodeThreeFloats(float f1, float f2, float f3, uint8_t* buffer) {
+	uint16_t encodedF1 = encodeFloat(f1);
+	uint16_t encodedF2 = encodeFloat(f2);
+	uint16_t encodedF3 = encodeFloat(f3);
+
+	// Place encoded floats into the 6-byte buffer
+	buffer[0] = encodedF1 >> 8;
+	buffer[1] = encodedF1 & 0xFF;
+
+	buffer[2] = encodedF2 >> 8;
+	buffer[3] = encodedF2 & 0xFF;
+
+	buffer[4] = encodedF3 >> 8;
+	buffer[5] = encodedF3 & 0xFF;
+}
+
+// Helper function to print the buffer in binary form
+void printBuffer(const uint8_t* buffer, size_t length) {
+	for (size_t i = 0; i < length; ++i) {
+		std::bitset<8> bits(buffer[i]);
+		std::cout << bits << " ";
+	}
+	std::cout << std::endl;
+}
+
+
+// Function to decode 16 bits into a float
+float decodeFloat(uint16_t encodedValue) {
+	// Extract the sign bit (1 bit)
+	bool sign = (encodedValue >> 15) & 1;
+
+	// Extract the integer part (9 bits)
+	uint16_t integerPart = (encodedValue >> 6) & 0x1FF;
+
+	// Extract the fractional part (6 bits)
+	uint16_t fractionalBits = encodedValue & 0x3F;
+	float fractionalPart = static_cast<float>(fractionalBits) / 64.0f;  // Convert 6 bits back to fractional part
+
+	// Combine integer and fractional parts
+	float value = integerPart + fractionalPart;
+
+	// Apply the sign
+	if (sign) {
+		value = -value;
+	}
+
+	return value;
+}
+
+// Function to decode 6 bytes into three floats
+void decodeThreeFloats(const uint8_t* buffer, float& f1, float& f2, float& f3) {
+	// Read 16 bits for each float
+	uint16_t encodedF1 = (buffer[0] << 8) | buffer[1];
+	uint16_t encodedF2 = (buffer[2] << 8) | buffer[3];
+	uint16_t encodedF3 = (buffer[4] << 8) | buffer[5];
+
+	// Decode each 16-bit value into a float
+	f1 = decodeFloat(encodedF1);
+	f2 = decodeFloat(encodedF2);
+	f3 = decodeFloat(encodedF3);
+}
+
+
 //The three smallest components of a quaternion can never be larger than sqrt(2)/2 so we multiply by this to normalize to 0.0-1.0 before turning into an integer
 const float quatCompMulti = 1.414f;
 
@@ -165,18 +258,22 @@ void getQuaternion(enet_uint8 const* src, glm::quat& quat)
 
 void addPosition(enet_uint8* dest, const glm::vec3& pos)
 {
+	encodeThreeFloats(pos.x, pos.y, pos.z, dest);
+
 	//TODO: Compression? Positions could be plausabily bounded between -/+2048 with 1/32s precision for 16 bits per component instead of 32
 	//Bit less of a good trade than the quat compression though...
-	memcpy(dest + sizeof(float) * 0, &pos.x, sizeof(float));
+	/*memcpy(dest + sizeof(float) * 0, &pos.x, sizeof(float));
 	memcpy(dest + sizeof(float) * 1, &pos.y, sizeof(float));
-	memcpy(dest + sizeof(float) * 2, &pos.z, sizeof(float));
+	memcpy(dest + sizeof(float) * 2, &pos.z, sizeof(float));*/
 }
 
 void getPosition(enet_uint8 const* src, glm::vec3& pos)
 {
-	memcpy(&pos.x, src + sizeof(float) * 0, sizeof(float));
+	decodeThreeFloats(src, pos.x, pos.y, pos.z);
+
+	/*memcpy(&pos.x, src + sizeof(float) * 0, sizeof(float));
 	memcpy(&pos.y, src + sizeof(float) * 1, sizeof(float));
-	memcpy(&pos.z, src + sizeof(float) * 2, sizeof(float));
+	memcpy(&pos.z, src + sizeof(float) * 2, sizeof(float));*/
 }
 
 //Velocity is hereby bounded to -127 to 127 in each component with 1/255 precision

@@ -31,8 +31,14 @@ void DynamicType::loadFromPacket(ENetPacket const* const packet, const ClientPro
 	byteIterator += filePathLen;
 
 	glm::vec3 baseScale;
-	getPosition(packet->data + byteIterator, baseScale);
-	byteIterator += PositionBytes;
+	//getPosition(packet->data + byteIterator, baseScale);
+	//byteIterator += PositionBytes;
+	memcpy(&baseScale.x, packet->data + byteIterator, sizeof(float));
+	byteIterator += sizeof(float);
+	memcpy(&baseScale.y, packet->data + byteIterator, sizeof(float));
+	byteIterator += sizeof(float);
+	memcpy(&baseScale.z, packet->data + byteIterator, sizeof(float));
+	byteIterator += sizeof(float);
 
 	model = std::make_shared<Model>(filePath,pd.textures,baseScale);
 
@@ -150,7 +156,8 @@ ENetPacket* DynamicType::createTypePacket() const
 	animationSize *= model->animations.size();
 	animationSize++; //Extra byte for number of animations
 
-	unsigned int packetSize = model->loadedPath.length() + sizeof(netIDType) + 3 + PositionBytes + animationSize;
+	//unsigned int packetSize = model->loadedPath.length() + sizeof(netIDType) + 3 + PositionBytes + animationSize;
+	unsigned int packetSize = model->loadedPath.length() + sizeof(netIDType) + 3 + sizeof(float)*3 + animationSize;
 	ENetPacket* ret = enet_packet_create(NULL, packetSize, getFlagsFromChannel(JoinNegotiation));
 
 	unsigned int byteIterator = 0;
@@ -169,8 +176,14 @@ ENetPacket* DynamicType::createTypePacket() const
 	memcpy(ret->data + byteIterator, model->loadedPath.c_str(), model->loadedPath.length());
 	byteIterator += model->loadedPath.length();
 
-	addPosition(ret->data + byteIterator, getScale());
-	byteIterator += PositionBytes;
+	//addPosition(ret->data + byteIterator, getScale());
+	//byteIterator += PositionBytes;
+	memcpy(ret->data + byteIterator, &getScale().x, sizeof(float));
+	byteIterator += sizeof(float);
+	memcpy(ret->data + byteIterator, &getScale().y, sizeof(float));
+	byteIterator += sizeof(float);
+	memcpy(ret->data + byteIterator, &getScale().z, sizeof(float));
+	byteIterator += sizeof(float);
 
 	ret->data[byteIterator] = model->animations.size();
 	byteIterator++;

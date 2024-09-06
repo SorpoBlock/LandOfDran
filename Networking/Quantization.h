@@ -1,6 +1,9 @@
 #pragma once
 
 #include "../LandOfDran.h"
+#include <bitset>
+#include <cmath>
+#include <cstdint>
 
 /*
 	This file defines how we transmit slightly more complex data types 
@@ -11,7 +14,7 @@
 //How many bytes addQuaternion will add to the packet
 #define QuaternionBytes 4
 //How many bytes addPosition will add to the packet
-#define PositionBytes 12
+#define PositionBytes 6
 //How many bytes addVelocity will add to the packet
 #define VelocityBytes 6
 //How many bytes addAngularVelocity will add to the packet
