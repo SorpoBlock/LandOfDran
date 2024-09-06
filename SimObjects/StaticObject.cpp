@@ -48,7 +48,7 @@ btVector3 StaticObject::getPosition() const
 bool StaticObject::requiresNetUpdate() //const
 {
 	bool ret = frictionUpdated || restitutionUpdated || hiddenUpdated || collisionUpdated;
-	flaggedForUpdate = true;
+	flaggedForUpdate = ret;
 	return ret;
 }
 
