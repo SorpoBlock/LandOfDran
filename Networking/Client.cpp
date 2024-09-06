@@ -11,6 +11,7 @@ float Client::getIncoming()
 
 	return lastIncoming; 
 }
+
 float Client::getOutgoing() 
 {
 	if (getTicksMS() - lastOutgoingQueryTime > 1000)

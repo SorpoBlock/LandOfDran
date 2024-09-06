@@ -35,6 +35,8 @@ public:
 
 	netIDType getNetId() const { return netID; }
 
+	float getPacketLoss() { return peer->packetLoss; }
+
 	//Send a packet to this client
 	void send(const char* data, unsigned int len, PacketChannel channel) const;
 

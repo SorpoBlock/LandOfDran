@@ -194,6 +194,20 @@ static int LUA_clientGetName(lua_State* L)
 	return 1;
 }
 
+static int LUA_clientGetPacketLoss(lua_State* L)
+{
+	if (lua_gettop(L) != 1)
+	{
+		error("Expected 1 argument client:getPacketLoss()");
+		return 0;
+	}
+
+	std::shared_ptr<JoinedClient> client = popClientLua(L);
+	lua_pushnumber(L, client->getPacketLoss());
+
+	return 1;
+}
+
 static int LUA_clientGetIP(lua_State* L)
 {
 	if (lua_gettop(L) != 1)
@@ -581,6 +595,7 @@ void registerClientFunctions(lua_State* L)
 		{ "bindCamera", LUA_clientBindCamera },
 		{ "staticCamera", LUA_clientStaticCamera },
 		{ "setDefaultController", LUA_clientSetDefaultController },
+		{ "getPacketLoss", LUA_clientGetPacketLoss },
 		{ NULL, NULL }
 	};
 

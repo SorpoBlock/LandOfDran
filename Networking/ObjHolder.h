@@ -618,7 +618,17 @@ class ObjHolder
 				byteIterator += amount;
 			}
 
-			server->broadcast(packet, Unreliable);
+			//server->broadcast(packet, Unreliable);
+			for (unsigned int a = 0; a < server->getNumClients(); a++)
+			{
+				if (server->getClientByIndex(a)->getPing() > 400)
+					continue;
+
+				//TODO: This can crash because ENet handles cleanup of packets when you pass it to send
+				//Sending it to no, or multiple clients, may cause issues
+				server->getClientByIndex(a)->send(packet, Unreliable);
+			}
+
 			toSend -= (sentThisPacket + skippedThisPacket);
 			sent += (sentThisPacket + skippedThisPacket); 
 		}
