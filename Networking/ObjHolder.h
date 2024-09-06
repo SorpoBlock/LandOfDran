@@ -592,7 +592,7 @@ class ObjHolder
 			}
 
 			//Three extra bytes, packet type, simobject type, amount of objects
-			ENetPacket* packet = enet_packet_create(NULL, bytesThisPacket + 3, getFlagsFromChannel(Unreliable));
+			ENetPacket* packet = enet_packet_create(NULL, bytesThisPacket + 3, getFlagsFromChannel(ObjectUpdates));
 			packet->data[0] = FromServerPacketType::UpdateSimObjects;
 			packet->data[1] = type;
 			packet->data[2] = sentThisPacket;
@@ -626,8 +626,12 @@ class ObjHolder
 
 				//TODO: This can crash because ENet handles cleanup of packets when you pass it to send
 				//Sending it to no, or multiple clients, may cause issues
-				server->getClientByIndex(a)->send(packet, Unreliable);
+				server->getClientByIndex(a)->send(packet, ObjectUpdates);
 			}
+
+			//No clients with pings under 400ms
+			if (packet->referenceCount == 0)
+				enet_packet_destroy(packet);
 
 			toSend -= (sentThisPacket + skippedThisPacket);
 			sent += (sentThisPacket + skippedThisPacket); 
