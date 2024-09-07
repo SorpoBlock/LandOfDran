@@ -82,6 +82,8 @@ int main(int argc, char* argv[])
 				num++;
 			//std::this_thread::sleep_for(std::chrono::milliseconds(25) - frameDuration);
 		}*/
+
+		SDL_Delay(1);
 	}
 
 	//Deallocate client if this wasn't a dedicated server

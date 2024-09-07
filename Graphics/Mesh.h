@@ -394,7 +394,13 @@ class Model
 	//If a camera is bound to this, offset it by this much
 	glm::vec3 eyePosition = glm::vec3(0, 1, 0);
 
+	//Were there no errors on loading this Model:
+	bool valid = false;
+
 	public:
+
+	//Any errors that occured during loading?
+	bool isValid() const { return valid; }
 
 	std::vector<Animation> animations;
 

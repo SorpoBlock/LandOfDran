@@ -71,6 +71,8 @@ class UserInterface
 	
 	public:
 
+	std::string popupErrorMessage = "";
+
 	void updateSettings(std::shared_ptr<SettingManager> settings);
 
 	bool wantsSuppression() const;
@@ -112,6 +114,9 @@ class UserInterface
 
 	//Trigged if you hit escape, ideally, do it again and again until all windows are closed
 	void closeOneWindow();
+
+	//Returns true when the user hits Okay
+	void showPopup();
 
 	/*
 		Initialize Imgui

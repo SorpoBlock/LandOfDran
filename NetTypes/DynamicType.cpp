@@ -7,13 +7,16 @@
 	1 byte			- relative file path to model length
 	1-255 bytes		- relative file path to model
 */
-void DynamicType::loadFromPacket(ENetPacket const* const packet, const ClientProgramData& pd)
+bool DynamicType::loadFromPacket(ENetPacket const* const packet, const ClientProgramData& pd)
 {
 	//packet type and simobject type were already processed to get to this point
 
 	//Packet isn't even big enough to have a 1 character file path
 	if (packet->dataLength < (sizeof(netIDType) + 4))
-		return;
+	{
+		pd.gui->popupErrorMessage = "Packet too short to load DynamicType";
+		return true;
+	}
 
 	//Get id of object
 	int byteIterator = 2;
@@ -25,7 +28,10 @@ void DynamicType::loadFromPacket(ENetPacket const* const packet, const ClientPro
 
 	//Packet not long enough for file path string
 	if (packet->dataLength < byteIterator + filePathLen)
-		return;
+	{
+		pd.gui->popupErrorMessage = "Packet too short to load DynamicType";
+		return true;
+	}
 
 	std::string filePath = std::string((char*)packet->data + byteIterator, filePathLen);
 	byteIterator += filePathLen;
@@ -41,6 +47,12 @@ void DynamicType::loadFromPacket(ENetPacket const* const packet, const ClientPro
 	byteIterator += sizeof(float);
 
 	model = std::make_shared<Model>(filePath,pd.textures,baseScale);
+
+	if (!model->isValid())
+	{
+		pd.gui->popupErrorMessage = "Failed to load model: " + filePath + " check error log.";
+		return true;
+	}
 
 	glm::vec3 halfExtents = model->getColHalfExtents();
 	collisionBox = new btBoxShape(g2b3(halfExtents));

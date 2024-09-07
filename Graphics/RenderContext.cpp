@@ -14,7 +14,7 @@ void GLAPIENTRY MessageCallback(GLenum source,
 	const GLchar* message,
 	const void* userParam)
 {
-	error("OpenGL error, type: " + std::to_string(type) + " severity: " + std::to_string(severity) + " message: " + message);
+	debug("OpenGL error, type: " + std::to_string(type) + " severity: " + std::to_string(severity) + " message: " + message);
 }
 
 //Sets whether to trap the mouse in the center of the screen and hide it, i.e. first person controls

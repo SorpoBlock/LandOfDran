@@ -1042,6 +1042,8 @@ Model::Model(std::string filePath, std::shared_ptr<TextureManager> textures,glm:
 {
 	scope("Model::Model");
 
+	valid = false;
+
 	debug("Loading model descriptor file: " + filePath);
 
 	std::ifstream descriptorFile(filePath.c_str());
@@ -1329,6 +1331,8 @@ Model::Model(std::string filePath, std::shared_ptr<TextureManager> textures,glm:
 	}
 
 	calculateCollisionBox(scene);
+
+	valid = true;
 }
 
 void Mesh::recompileInstances()

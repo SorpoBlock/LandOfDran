@@ -441,6 +441,10 @@ class ObjHolder
 		if (getTicksMS() - lastFunctionCallMS < 25)
 			return;
 		lastFunctionCallMS = getTicksMS();
+
+		//If clients have over 400ms ping, only send every other iteration, if they have over 1500ms ping don't send at all
+		static bool highPingIteration = false;
+		highPingIteration = !highPingIteration;
 			
 
 		//Send recently created objects to all connected clients:
@@ -630,7 +634,10 @@ class ObjHolder
 			//server->broadcast(packet, Unreliable);
 			for (unsigned int a = 0; a < server->getNumClients(); a++)
 			{
-				if (server->getClientByIndex(a)->getPing() > 400)
+				if (server->getClientByIndex(a)->getPing() > 1500)
+					continue;
+
+				if (server->getClientByIndex(a)->getPing() > 400 && !highPingIteration)
 					continue;
 
 				//TODO: This can crash because ENet handles cleanup of packets when you pass it to send
@@ -638,7 +645,7 @@ class ObjHolder
 				server->getClientByIndex(a)->send(packet, ObjectUpdates);
 			}
 
-			//No clients with pings under 400ms
+			//No clients with pings worth sending to
 			if (packet->referenceCount == 0)
 				enet_packet_destroy(packet);
 

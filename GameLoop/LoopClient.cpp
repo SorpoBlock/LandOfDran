@@ -467,7 +467,10 @@ LoopClient::LoopClient(ExecutableArguments& cmdArgs, std::shared_ptr<SettingMana
 
 	//Load all the shaders
 	pd.shaders = std::make_shared<ShaderManager>();
-	pd.shaders->readShaderList("Shaders/shadersList.txt");
+	if(pd.shaders->readShaderList("Shaders/shadersList.txt"))
+	{
+		pd.gui->popupErrorMessage = "Error loading shaders, see error log.";
+	}
 
 	simulation.camera = std::make_shared<Camera>(pd.context->getResolution().x / pd.context->getResolution().y);
 	simulation.camera->updateSettings(settings);
@@ -478,6 +481,12 @@ LoopClient::LoopClient(ExecutableArguments& cmdArgs, std::shared_ptr<SettingMana
 	pd.textures->finalizeDecals();
 
 	pd.grassMaterial = new Material("Assets/ground/grass.txt", pd.textures);
+
+	if (!pd.grassMaterial->isValid())
+	{
+		pd.gui->popupErrorMessage = "Error loading grass material, see error log.";
+	}
+
 	pd.grassVao = createQuadVAO();
 
 	RenderTarget::RenderTargetSettings shadowSettings;

@@ -35,7 +35,8 @@ class NetType
 
 	//Net types as opposed to SimObjects always just get their own packet
 	//This is the packet from createTypePacket
-	virtual void loadFromPacket(ENetPacket const* const packet, const ClientProgramData& pd) = 0;
+	//Returns true on error
+	virtual bool loadFromPacket(ENetPacket const* const packet, const ClientProgramData& pd) = 0;
 
 	//Create the packet on the server to be passed to loadFromPacket on the client
 	virtual ENetPacket * createTypePacket() const = 0; 

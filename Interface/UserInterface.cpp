@@ -126,6 +126,23 @@ void Window::open()
 	opened = true;
 }
 
+void UserInterface::showPopup()
+{
+	if (popupErrorMessage.length() < 1)
+		return;
+
+	ImGui::OpenPopup("MessagePopup");
+	ImVec2 center = ImGui::GetMainViewport()->GetCenter();
+	ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+	if (ImGui::BeginPopupModal("MessagePopup", NULL, ImGuiWindowFlags_AlwaysAutoResize))
+	{
+		ImGui::Text(popupErrorMessage.c_str());
+		if (ImGui::Button("Okay")) //acknowledged
+			popupErrorMessage = "";
+		ImGui::EndPopup();
+	}
+}
+
 bool UserInterface::handleInput(SDL_Event& e,std::shared_ptr<InputMap> input)
 {
 	ImGui_ImplSDL2_ProcessEvent(&e);
@@ -186,6 +203,9 @@ void UserInterface::render(int screenX,int screenY,bool drawCrossHair)
 	ImGui_ImplOpenGL3_NewFrame();
 	ImGui_ImplSDL2_NewFrame();
 	ImGui::NewFrame();
+
+	showPopup();
+
 	for (unsigned int a = 0; a < windows.size(); a++)
 	{
 		ImGui::SetNextWindowBgAlpha(globalInterfaceTransparency);
