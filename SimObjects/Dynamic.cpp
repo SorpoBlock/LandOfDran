@@ -82,7 +82,7 @@ btVector3 Dynamic::getPosition() const
 	return body->getWorldTransform().getOrigin();
 }
 
-const bool noVelUpdates = true;
+const bool noVelUpdates = false;
 
 bool Dynamic::requiresNetUpdate() //const
 {

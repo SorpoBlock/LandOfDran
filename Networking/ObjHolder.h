@@ -436,6 +436,13 @@ class ObjHolder
 			return;
 		}
 
+		static unsigned int lastFunctionCallMS = getTicksMS();
+
+		if (getTicksMS() - lastFunctionCallMS < 25)
+			return;
+		lastFunctionCallMS = getTicksMS();
+			
+
 		//Send recently created objects to all connected clients:
 
 		int toSend = recentCreations.size();
@@ -617,6 +624,8 @@ class ObjHolder
 				allObjects[a]->addToUpdatePacket(packet->data + byteIterator);
 				byteIterator += amount;
 			}
+
+			//std::cout << packet->dataLength << " bytes for "<<sentThisPacket<<" objects\n";
 
 			//server->broadcast(packet, Unreliable);
 			for (unsigned int a = 0; a < server->getNumClients(); a++)
