@@ -77,7 +77,7 @@ add_executable (LandOfDran
 
 "External/CRC.h" 
 "External/stb_image.h" 
-"External/Rtree.h"
+"External/RTree.h"
 
 "External/Imgui/imgui.h"
 "External/Imgui/imgui.cpp"
