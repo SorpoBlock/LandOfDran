@@ -270,9 +270,18 @@ void LoopClient::renderEverything(float deltaT)
 	pd.shadows->bindDepthResult(ShadowArray);
 	pd.shaders->basicUniforms.nonInstanced = 0;
 	pd.shaders->basicUniforms.cameraSpacePosition = 0;
+	pd.shaders->updateBasicUBO();
 
 	for (unsigned int a = 0; a < simulation.dynamicTypes.size(); a++)
 		simulation.dynamicTypes[a]->render(pd.shaders);
+
+	glDisable(GL_CULL_FACE);
+	glUniform1i(pd.shaders->modelShader->getUniformLocation("debug"), 1);
+	pd.shaders->basicUniforms.nonInstanced = true;
+	pd.shaders->updateBasicUBO();
+	testChunk.render();
+	glUniform1i(pd.shaders->modelShader->getUniformLocation("debug"), 0);
+	glEnable(GL_CULL_FACE);
 
 	//Render grass
 	pd.shaders->basicUniforms.ScaleMatrix = glm::mat4(1.0);
@@ -280,6 +289,7 @@ void LoopClient::renderEverything(float deltaT)
 	pd.shaders->basicUniforms.RotationMatrix = glm::mat4(1.0);
 	pd.shaders->basicUniforms.nonInstanced = 1;
 	pd.shaders->basicUniforms.cameraSpacePosition = 1;
+	pd.shaders->updateBasicUBO();
 	pd.grassMaterial->use(pd.shaders);
 	glBindVertexArray(pd.grassVao);
 	glDrawArrays(GL_TRIANGLES, 0, 6);
@@ -503,10 +513,47 @@ LoopClient::LoopClient(ExecutableArguments& cmdArgs, std::shared_ptr<SettingMana
 	printAllGraphicsErrors("End of initalization");
 
 	valid = true;
+
+	{
+		BrickRenderData* tmp = new BrickRenderData;
+		tmp->w = 1;
+		tmp->h = 1;
+		tmp->l = 2;
+		tmp->x = 5;
+		tmp->y = 5;
+		tmp->z = 5;
+		testChunk.addBrick(tmp);
+	}
+
+	{
+		BrickRenderData* tmp = new BrickRenderData;
+		tmp->w = 2;
+		tmp->h = 1;
+		tmp->l = 1;
+		tmp->x = 10;
+		tmp->y = 10;
+		tmp->z = 10;
+		testChunk.addBrick(tmp);
+	}
+
+	{
+		BrickRenderData* tmp = new BrickRenderData;
+		tmp->w = 1;
+		tmp->h = 2;
+		tmp->l = 1;
+		tmp->x = 15;
+		tmp->y = 15;
+		tmp->z = 15;
+		testChunk.addBrick(tmp);
+	}
+
+	testChunk.getVerts();
 }
 
 LoopClient::~LoopClient()
 {
+	testChunk.deleteAllBricks();
+
 	pd.shadows.reset();
 
 	delete pd.grassMaterial;

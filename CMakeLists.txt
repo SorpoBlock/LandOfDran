@@ -77,6 +77,7 @@ add_executable (LandOfDran
 
 "External/CRC.h" 
 "External/stb_image.h" 
+"External/Rtree.h"
 
 "External/Imgui/imgui.h"
 "External/Imgui/imgui.cpp"
@@ -114,6 +115,10 @@ add_executable (LandOfDran
 "Graphics/PlayerCamera.cpp"  
 "Graphics/Interpolator.h" 
 "Graphics/Interpolator.cpp" 
+"Graphics/BrickRenderer.h"
+"Graphics/BrickRenderer.cpp"
+"Graphics/RenderTarget.h" 
+"Graphics/RenderTarget.cpp" 
 
 "Interface/InputMap.h"  
 "Interface/InputMap.cpp" 
@@ -138,6 +143,8 @@ add_executable (LandOfDran
 "SimObjects/SimObject.cpp"
 "SimObjects/Dynamic.h" 
 "SimObjects/Dynamic.cpp" 
+"SimObjects/StaticObject.h" 
+"SimObjects/StaticObject.cpp" 
  
 "Networking/Server.h" 
 "Networking/Server.cpp" 
@@ -175,6 +182,10 @@ add_executable (LandOfDran
 "Networking/PacketsFromServer/CameraSettings.cpp" 
 "Networking/PacketsFromServer/MovementSettings.h" 
 "Networking/PacketsFromServer/MovementSettings.cpp" 
+"Networking/PacketsFromServer/MeshAppearance.h" 
+"Networking/PacketsFromServer/MeshAppearance.cpp" 
+"Networking/PacketsFromServer/ServerPerformanceDetails.cpp" 
+"Networking/PacketsFromServer/ServerPerformanceDetails.h"
 
 "Networking/PacketsFromClient/ConnectionRequest.cpp" 
 "Networking/PacketsFromClient/FinishedLoading.cpp" 
@@ -183,6 +194,7 @@ add_executable (LandOfDran
 "Networking/PacketsFromClient/EvalCommand.cpp" 
 "Networking/PacketsFromClient/ControlledPhysics.cpp" 
 "Networking/PacketsFromClient/MovementInputs.cpp"
+"Networking/PacketsFromClient/ClickDetails.cpp"
 
 "GameLoop/ClientProgramData.h" 
 "GameLoop/ServerProgramData.h"   
@@ -206,21 +218,12 @@ add_executable (LandOfDran
 "LuaFunctions/ClientLua.cpp"  
 "LuaFunctions/Dynamic.cpp" 
 "LuaFunctions/Dynamic.h" 
+"LuaFunctions/Static.h" 
+"LuaFunctions/Static.cpp" 
 
 "Physics/PhysicsWorld.h" 
 "Physics/PhysicsWorld.cpp" 
-"Physics/SweepTest.h" 
-"Networking/PacketsFromServer/MeshAppearance.h" 
-"Networking/PacketsFromServer/MeshAppearance.cpp" 
-"Graphics/RenderTarget.h" 
-"Graphics/RenderTarget.cpp" 
-"SimObjects/StaticObject.h" 
-"SimObjects/StaticObject.cpp" 
-"LuaFunctions/Static.h" 
-"LuaFunctions/Static.cpp" 
-"Networking/PacketsFromClient/ClickDetails.cpp" 
-"Networking/PacketsFromServer/ServerPerformanceDetails.cpp" 
-"Networking/PacketsFromServer/ServerPerformanceDetails.h")   
+"Physics/SweepTest.h"   )   
 
 target_include_directories(LandOfDran PRIVATE ${LUA_INCLUDE_DIR})
 

@@ -6,6 +6,7 @@
 #include "ClientProgramData.h"
 #include "Simulation.h"
 #include "../Networking/ClientPacketCreators.h"
+#include "../Graphics/BrickRenderer.h"
 
 /*
 	This is the big bad class that allows us to separate our client playing loop from
@@ -39,6 +40,8 @@ class LoopClient
 
 	//Handle controllers bound to dynamics
 	void updateControllers(float deltaT);
+
+	BrickChunk testChunk;
 
 public:
 
