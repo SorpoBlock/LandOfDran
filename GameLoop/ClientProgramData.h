@@ -29,6 +29,7 @@ struct ClientProgramData
 	glm::mat4 lightSpaceMatricies[3];
 	GLuint lightSpaceMatriciesUniformShadow = 0;
 	GLuint lightSpaceMatriciesUniformModel = 0;
+	GLuint lightSpaceMatriciesUniformBrick = 0;
 	std::shared_ptr<RenderTarget> shadows = nullptr;
 
 	std::shared_ptr<RenderContext>	context = nullptr;

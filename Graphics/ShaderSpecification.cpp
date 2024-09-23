@@ -70,6 +70,8 @@ bool ShaderManager::readShaderList(const std::string &filePath)
 				modelShader = lastProgram;
 			else if (programName == "modelShadow")
 				modelShadowShader = lastProgram;
+			else if (programName == "brick")
+				brickShader = lastProgram;
 			else
 				error("Invalid program name " + programName);
 		}

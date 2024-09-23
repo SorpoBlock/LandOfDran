@@ -6,3 +6,5 @@ model	vert	model.vert.glsl
 modelShadow	frag	modelShadow.frag.glsl
 modelShadow	vert	modelShadow.vert.glsl
 modelShadow	geom	modelShadow.geom.glsl
+brick	frag	model.frag.glsl
+brick	vert	brick.vert.glsl

@@ -41,24 +41,38 @@ class BrickChunk
 	BrickTree brickTree;
 
 	GLuint vao;
-	GLuint vertexBuffer;
+	GLuint buffers[4];//vertex, facePos, faceSize, faceDir
+	unsigned int instanceCount;
 
-	unsigned int vertSize = 0;
+	void getFaces(int dir, std::vector<glm::vec3>& positions,std::vector<glm::vec2> &sizes,std::vector<unsigned int> &directions);
 
 	public:
+
+	unsigned int getNumBricks() const { return bricks.size(); }
 
 	void addBrick(BrickRenderData* brick);
 	void removeBrick(BrickRenderData* brick);
 
-	void getVerts();
+	void getFaces();
 
-	void render();
+	void render(GLint brickChunkPos);
 
 	void deleteAllBricks();
+
+	BrickChunk(unsigned int x, unsigned int y, unsigned int z, unsigned short id) : chunkPosX(x), chunkPosY(y), chunkPosZ(z), chunkId(id) {}
 };
 
 //Holds an array of BrickChunks, handles chunk level culling, also holds textures and such for bricks
 class BrickRenderer
 {
+	unsigned int lastChunkId = 0;
+	RTree<BrickChunk*, int, 3, float> chunkTree;
+	std::vector<BrickChunk*> chunks;
 
+	public:
+
+	void recompile();
+	void render(GLint brickChunkPos);
+	void addBrick(BrickRenderData* brick);
+	void removeBrick(BrickRenderData* brick);
 };

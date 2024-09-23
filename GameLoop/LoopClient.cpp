@@ -256,32 +256,33 @@ void LoopClient::renderEverything(float deltaT)
 	pd.shaders->modelShadowShader->use();
 	glUniformMatrix4fv(pd.lightSpaceMatriciesUniformShadow, 3, GL_FALSE, (GLfloat*)pd.lightSpaceMatricies);
 
+	//Models:
+	pd.shaders->basicUniforms.nonInstanced = 0;
+	pd.shaders->basicUniforms.cameraSpacePosition = 0;
+	pd.shaders->updateBasicUBO();
 	for (unsigned int a = 0; a < simulation.dynamicTypes.size(); a++)
 		simulation.dynamicTypes[a]->render(pd.shaders,false);
+
+	//Bricks:
+	pd.shaders->basicUniforms.nonInstanced = true;
+	pd.shaders->updateBasicUBO();
+	testBricks.render(-1);
 
 	//Start rendering to screen:
 	pd.context->select();
 	pd.context->clear(0.4f, 0.4f, 0.8f);
 
 	simulation.camera->render(pd.shaders, deltaT, pd.physicsWorld);
-
 	pd.shaders->modelShader->use();
 	glUniformMatrix4fv(pd.lightSpaceMatriciesUniformModel, 3, GL_FALSE, (GLfloat*)pd.lightSpaceMatricies);
 	pd.shadows->bindDepthResult(ShadowArray);
+
+	//Models:
 	pd.shaders->basicUniforms.nonInstanced = 0;
 	pd.shaders->basicUniforms.cameraSpacePosition = 0;
 	pd.shaders->updateBasicUBO();
-
 	for (unsigned int a = 0; a < simulation.dynamicTypes.size(); a++)
 		simulation.dynamicTypes[a]->render(pd.shaders);
-
-	glDisable(GL_CULL_FACE);
-	glUniform1i(pd.shaders->modelShader->getUniformLocation("debug"), 1);
-	pd.shaders->basicUniforms.nonInstanced = true;
-	pd.shaders->updateBasicUBO();
-	testChunk.render();
-	glUniform1i(pd.shaders->modelShader->getUniformLocation("debug"), 0);
-	glEnable(GL_CULL_FACE);
 
 	//Render grass
 	pd.shaders->basicUniforms.ScaleMatrix = glm::mat4(1.0);
@@ -295,11 +296,22 @@ void LoopClient::renderEverything(float deltaT)
 	glDrawArrays(GL_TRIANGLES, 0, 6);
 	glBindVertexArray(0);
 
+	//Bricks
+	if(pd.textures->getTexture(3))
+		pd.textures->getTexture(3)->bind(PBRArray);
+	pd.shaders->brickShader->use();
+	glUniformMatrix4fv(pd.lightSpaceMatriciesUniformBrick, 3, GL_FALSE, (GLfloat*)pd.lightSpaceMatricies);
+	pd.shaders->basicUniforms.nonInstanced = true;
+	pd.shaders->updateBasicUBO();
+	testBricks.render(pd.shaders->brickShader->getUniformLocation("brickChunkPos"));
+
+	//GUI
 	bool crossHair = false;
 	if (simulation.camera)
 		crossHair = pd.context->getMouseLocked() && simulation.camera->getFirstPerson();
 	pd.gui->render(pd.context->getResolution().x, pd.context->getResolution().y,crossHair);
 
+	//End frame
 	pd.context->swap();
 }
 
@@ -507,6 +519,7 @@ LoopClient::LoopClient(ExecutableArguments& cmdArgs, std::shared_ptr<SettingMana
 	pd.shadows = std::make_shared<RenderTarget>(shadowSettings,pd.textures);
 	pd.lightSpaceMatriciesUniformShadow = pd.shaders->modelShadowShader->getUniformLocation("lightSpaceMatricies");
 	pd.lightSpaceMatriciesUniformModel = pd.shaders->modelShader->getUniformLocation("lightSpaceMatricies");
+	pd.lightSpaceMatriciesUniformBrick = pd.shaders->brickShader->getUniformLocation("lightSpaceMatricies");
 
 	info("Start up complete");
 
@@ -514,15 +527,15 @@ LoopClient::LoopClient(ExecutableArguments& cmdArgs, std::shared_ptr<SettingMana
 
 	valid = true;
 
-	{
+	/* {
 		BrickRenderData* tmp = new BrickRenderData;
-		tmp->w = 1;
-		tmp->h = 1;
+		tmp->w = 2;
+		tmp->h = 2;
 		tmp->l = 2;
 		tmp->x = 5;
 		tmp->y = 5;
 		tmp->z = 5;
-		testChunk.addBrick(tmp);
+		testBricks.addBrick(tmp);
 	}
 
 	{
@@ -533,26 +546,60 @@ LoopClient::LoopClient(ExecutableArguments& cmdArgs, std::shared_ptr<SettingMana
 		tmp->x = 10;
 		tmp->y = 10;
 		tmp->z = 10;
-		testChunk.addBrick(tmp);
+		testBricks.addBrick(tmp);
 	}
 
 	{
 		BrickRenderData* tmp = new BrickRenderData;
 		tmp->w = 1;
-		tmp->h = 2;
+		tmp->h = 5;
 		tmp->l = 1;
 		tmp->x = 15;
 		tmp->y = 15;
 		tmp->z = 15;
-		testChunk.addBrick(tmp);
+		testBricks.addBrick(tmp);
 	}
 
-	testChunk.getVerts();
+	{
+		BrickRenderData* tmp = new BrickRenderData;
+		tmp->w = 5;
+		tmp->h = 5;
+		tmp->l = 5;
+		tmp->x = 20;
+		tmp->y = 5;
+		tmp->z = 20;
+		testBricks.addBrick(tmp);
+	}
+	*/
+	{
+		BrickRenderData* tmp = new BrickRenderData;
+		tmp->w = 2;
+		tmp->h = 4;
+		tmp->l = 2;
+		tmp->x = 5;
+		tmp->y = 5;
+		tmp->z = 5;
+		//testBricks.addBrick(tmp);
+	}
+
+	for (int i = 0; i < 100000; i++)
+	{
+		BrickRenderData * tmp = new BrickRenderData;
+		tmp->w = rand() % 5 + 1;
+		tmp->h = rand() % 5 + 1;
+		tmp->l = rand() % 5 + 1;
+		tmp->x = rand() % 500;
+		tmp->y = rand() % 300;
+		tmp->z = rand() % 500;
+		testBricks.addBrick(tmp);
+	}
+
+	testBricks.recompile();
 }
 
 LoopClient::~LoopClient()
 {
-	testChunk.deleteAllBricks();
+	//testChunk.deleteAllBricks();
 
 	pd.shadows.reset();
 

@@ -176,6 +176,8 @@ class TextureManager
 	
 	public:
 
+	const Texture* const getTexture(unsigned int index) const { if (index < 0 || index >= textures.size()) return nullptr; return textures[index]; }
+
 	/*
 		Destroy the old decals texture. Could be called upon server exit,
 		but will also be called automatically if needed before the next allocateForDecals call.

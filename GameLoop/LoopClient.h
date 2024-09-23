@@ -41,7 +41,7 @@ class LoopClient
 	//Handle controllers bound to dynamics
 	void updateControllers(float deltaT);
 
-	BrickChunk testChunk;
+	BrickRenderer testBricks;
 
 public:
 

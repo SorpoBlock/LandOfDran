@@ -45,6 +45,8 @@ uniform sampler2DArray PBRArray;
 uniform sampler2DArray DecalArray;
 uniform sampler2DArray ShadowArray;
 
+uniform bool debug;
+
 //Start tutorial code
 //https://github.com/JoeyDeVries/LearnOpenGL/blob/master/src/6.pbr/1.2.lighting_textured/1.2.pbr.fs
 const float PI = 3.14159265359;
@@ -118,7 +120,7 @@ vec3 fresnelSchlickRoughness(float cosTheta, vec3 F0, float roughness)
 uniform float test;
 
 void main()
-{		
+{			
 	vec2 dxuv = dFdx(uvs);
 	vec2 dyuv = dFdy(uvs);
 	
@@ -180,6 +182,10 @@ void main()
 		
 		break;
 	}
+	
+	//color = vec4(uvs.x,uvs.y,0,1);
+	//color = vec4(normal,1);
+	//return;
 	
 	vec3 mor = vec3(0,0,0.5);
 	

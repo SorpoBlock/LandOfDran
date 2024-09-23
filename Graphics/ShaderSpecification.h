@@ -66,6 +66,9 @@ class ShaderManager
 	//Program for drawing shadows of normal meshes to shadow texture
 	Program* modelShadowShader = nullptr;
 
+	//Program for drawing bricks to screen
+	Program* brickShader = nullptr;
+
 	/*
 		Reads a text file to see where we should find the shader files for the above programs
 		Returns true if there was an error with at least one shader compilation

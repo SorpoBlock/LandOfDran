@@ -43,6 +43,15 @@ out vec3 worldPos;
 
 void main()
 {	
-	worldPos = (ModelTransform * vec4(ModelSpace,1)).xyz;
+	mat4 transform;
+	if(nonInstanced)
+	{
+		transform = TranslationMatrix * RotationMatrix * ScaleMatrix;
+	}
+	else
+	{
+		transform = ModelTransform;
+	}
+	worldPos = (transform * vec4(ModelSpace,1)).xyz;
 	gl_Position = vec4(worldPos,1.0);
 }
