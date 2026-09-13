@@ -50,6 +50,8 @@ void populateDefaults(std::shared_ptr<SettingManager> settings)
 	//Audio settings
 	settings->addFloat("audio/mastervolume",			0.5f, false,		"Master Volume",0,1);
 	settings->addFloat("audio/musicvolume",			0.5f, false,		"Music Volume",0,1);
+	settings->addEnum("audio/reverbquality",			2,					"Echo from nearby walls and water (raycasts)",	{"Off","Low","Medium","High"});
+	settings->addEnum("audio/occlusionquality",		2,					"Muffle sounds behind walls (raycasts)",			{"Off","Low","Medium","High"});
 
 	//Graphics settings
 	settings->addEnum("graphics/waterquality",		1, 	 			"Water Quality",	{"No Reflection/Refraction", "Half Res Reflection/Refraction", "Full Res Reflection/Refraction"});

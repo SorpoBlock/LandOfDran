@@ -109,6 +109,34 @@ SweepResult PhysicsWorld::boxSweep(const btVector3& halfExtents, const btTransfo
     return result;
 }
 
+//Closest hit that skips two particular bodies
+struct IgnoringClosestRayCallback : public btCollisionWorld::ClosestRayResultCallback
+{
+    const btCollisionObject* ignoreA;
+    const btCollisionObject* ignoreB;
+
+    IgnoringClosestRayCallback(const btVector3& from, const btVector3& to, const btCollisionObject* a, const btCollisionObject* b)
+        : ClosestRayResultCallback(from, to), ignoreA(a), ignoreB(b)
+    {
+    }
+
+    bool needsCollision(btBroadphaseProxy* proxy) const override
+    {
+        const btCollisionObject* object = (const btCollisionObject*)proxy->m_clientObject;
+        if (object == ignoreA || object == ignoreB)
+            return false;
+        return ClosestRayResultCallback::needsCollision(proxy);
+    }
+};
+
+btScalar PhysicsWorld::rayHitFraction(const btVector3& start, const btVector3& end, const btRigidBody* ignoreA, const btRigidBody* ignoreB) const
+{
+    IgnoringClosestRayCallback callback(start, end, ignoreA, ignoreB);
+    callback.m_collisionFilterMask = btBroadphaseProxy::AllFilter ^ btBroadphaseProxy::DebrisFilter;
+    world->rayTest(start, end, callback);
+    return callback.hasHit() ? callback.m_closestHitFraction : 1;
+}
+
 btRigidBody *PhysicsWorld::doRaycast(const btVector3 &start,const btVector3 &end,btRigidBody *ignore,btVector3 &hitPos,btVector3 &hitNormal) const
 {
   btCollisionWorld::AllHitsRayResultCallback ground(start,end);

@@ -121,6 +121,36 @@ btVector3 Dynamic::getPosition() const
 	return body->getWorldTransform().getOrigin();
 }
 
+//Per second, how quickly water slows movement and spinning when all the way under
+static constexpr float waterLinearDrag = 2.0f;
+static constexpr float waterAngularDrag = 3.0f;
+
+void Dynamic::applyWaterForces(float waterLevel, float deltaT)
+{
+	if (!body || body->getInvMass() <= 0)
+		return;
+
+	btVector3 aabbMin, aabbMax;
+	body->getAabb(aabbMin, aabbMax);
+	btScalar height = aabbMax.y() - aabbMin.y();
+	if (height <= 0)
+		return;
+
+	btScalar submerged = std::clamp((waterLevel - aabbMin.y()) / height, (btScalar)0, (btScalar)1);
+	if (submerged <= 0)
+		return;
+
+	body->activate();
+
+	//Roughly Archimedes: the more of it is under, the more of its weight the water holds up
+	btScalar mass = 1.0f / body->getInvMass();
+	body->applyCentralForce(-body->getGravity() * mass * buoyancy * submerged);
+
+	btScalar seconds = std::clamp(deltaT / 1000.0f, 0.0f, 0.1f);
+	body->setLinearVelocity(body->getLinearVelocity() * std::exp(-waterLinearDrag * submerged * seconds));
+	body->setAngularVelocity(body->getAngularVelocity() * std::exp(-waterAngularDrag * submerged * seconds));
+}
+
 void Dynamic::snapToCursor(std::shared_ptr<JoinedClient> client, const glm::vec3& offset)
 {
 	//Only stash gravity the first time - re-snapping (new client/offset) shouldn't clobber the real pre-snap value

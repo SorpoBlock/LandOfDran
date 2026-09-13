@@ -6,7 +6,30 @@
 #define AL_ALEXT_PROTOTYPES
 #include <AL/alext.h>
 #include <AL/efx.h>
-#include <AL/efx-presets.h>
+
+//How many meters one world unit (a stud) sounds like, sets how long echoes take to come back
+static constexpr float metersPerUnit = 0.5f;
+static constexpr float speedOfSound = 343.0f;
+
+//Auto reverb eases toward what the space calls for over roughly this long, and is sent to OpenAL this often
+static constexpr float reverbSmoothingMS = 400.0f;
+static constexpr float reverbApplyIntervalMS = 50.0f;
+
+//Low-pass filter amounts for a completely blocked sound, and for being underwater, multiplied together when both apply
+static constexpr float occludedGain = 0.7f;
+static constexpr float occludedGainHF = 0.15f;
+static constexpr float underwaterGain = 0.7f;
+static constexpr float underwaterGainHF = 0.1f;
+static constexpr float occlusionSmoothingMS = 80.0f;
+static constexpr float underwaterFadeMS = 250.0f;
+
+static const EFXEAXREVERBPROPERTIES underwaterReverb = EFX_REVERB_PRESET_UNDERWATER;
+
+//Where it's drawn, or where its body is if it hasn't been drawn yet (the drawn position starts at the origin and glides over)
+static glm::vec3 soundPositionOf(const Dynamic& dynamic)
+{
+	return dynamic.renderedTransformInitialized ? dynamic.renderedPosition : b2g3(dynamic.getPosition());
+}
 
 SoundLocation SoundLocation::at(const glm::vec3& position)
 {
@@ -14,12 +37,6 @@ SoundLocation SoundLocation::at(const glm::vec3& position)
 	ret.kind = Fixed;
 	ret.position = position;
 	return ret;
-}
-
-//Where it's drawn, or where its body is if it hasn't been drawn yet (the drawn position starts at the origin and glides over)
-static glm::vec3 soundPositionOf(const Dynamic& dynamic)
-{
-	return dynamic.renderedTransformInitialized ? dynamic.renderedPosition : b2g3(dynamic.getPosition());
 }
 
 SoundLocation SoundLocation::on(const std::shared_ptr<Dynamic>& dynamic)
@@ -43,6 +60,15 @@ bool SoundLocation::follow()
 
 	position = soundPositionOf(*target);
 	return true;
+}
+
+const btRigidBody* SoundLocation::body() const
+{
+	if (kind != Attached)
+		return nullptr;
+
+	std::shared_ptr<Dynamic> target = dynamic.lock();
+	return target ? target->body : nullptr;
 }
 
 //The old client's list, see ReverbPresets.h for the names
@@ -79,6 +105,64 @@ static bool getReverbPreset(const std::string& name, EFXEAXREVERBPROPERTIES& res
 	return true;
 }
 
+/*
+	Reverb for a space with surfaces averageDistance away (world units) that closes in enclosure (0-1) of the way around
+	Bigger spaces echo longer and later, closed in spaces echo louder, and nearby walls give strong early reflections
+	Out in the open there's barely any
+*/
+static EFXEAXREVERBPROPERTIES reverbForSpace(float averageDistance, float enclosure)
+{
+	EFXEAXREVERBPROPERTIES reverb = EFX_REVERB_PRESET_GENERIC;
+
+	float size = std::max(averageDistance * metersPerUnit, 0.1f);
+	float closedIn = std::clamp(enclosure, 0.0f, 1.0f);
+
+	reverb.flDecayTime = std::clamp((0.3f + size * 0.12f) * (0.4f + 0.6f * closedIn), 0.1f, 20.0f);
+	reverb.flReflectionsDelay = std::clamp(size * 2.0f / speedOfSound, 0.0f, 0.3f);
+	reverb.flLateReverbDelay = std::clamp(size / speedOfSound + 0.005f, 0.0f, 0.1f);
+	reverb.flGain = 0.02f + 0.3f * closedIn * std::sqrt(closedIn);
+	reverb.flReflectionsGain = std::clamp(0.05f + 1.2f * closedIn * std::clamp(6.0f / size, 0.2f, 1.0f), 0.0f, 3.16f);
+	reverb.flLateReverbGain = 1.2589f * (0.3f + 0.7f * closedIn);
+	reverb.flDensity = std::clamp(0.3f + size / 15.0f, 0.3f, 1.0f);
+
+	return reverb;
+}
+
+//Moves every parameter of into amount (0-1) of the way to toward
+static void blendReverb(EFXEAXREVERBPROPERTIES& into, const EFXEAXREVERBPROPERTIES& toward, float amount)
+{
+	auto blend = [amount](float& value, float target) { value += (target - value) * amount; };
+
+	blend(into.flDensity, toward.flDensity);
+	blend(into.flDiffusion, toward.flDiffusion);
+	blend(into.flGain, toward.flGain);
+	blend(into.flGainHF, toward.flGainHF);
+	blend(into.flGainLF, toward.flGainLF);
+	blend(into.flDecayTime, toward.flDecayTime);
+	blend(into.flDecayHFRatio, toward.flDecayHFRatio);
+	blend(into.flDecayLFRatio, toward.flDecayLFRatio);
+	blend(into.flReflectionsGain, toward.flReflectionsGain);
+	blend(into.flReflectionsDelay, toward.flReflectionsDelay);
+	blend(into.flLateReverbGain, toward.flLateReverbGain);
+	blend(into.flLateReverbDelay, toward.flLateReverbDelay);
+	blend(into.flEchoTime, toward.flEchoTime);
+	blend(into.flEchoDepth, toward.flEchoDepth);
+	blend(into.flModulationTime, toward.flModulationTime);
+	blend(into.flModulationDepth, toward.flModulationDepth);
+	blend(into.flAirAbsorptionGainHF, toward.flAirAbsorptionGainHF);
+	blend(into.flHFReference, toward.flHFReference);
+	blend(into.flLFReference, toward.flLFReference);
+	blend(into.flRoomRolloffFactor, toward.flRoomRolloffFactor);
+	for (int a = 0; a < 3; a++)
+	{
+		blend(into.flReflectionsPan[a], toward.flReflectionsPan[a]);
+		blend(into.flLateReverbPan[a], toward.flLateReverbPan[a]);
+	}
+
+	if (amount >= 0.5f)
+		into.iDecayHFLimit = toward.iDecayHFLimit;
+}
+
 void AudioSystem::placeSource(ALuint source, const SoundLocation& where)
 {
 	bool positioned = where.kind != SoundLocation::Flat;
@@ -98,13 +182,71 @@ void AudioSystem::connectReverb(bool on)
 	if (!effectSlot)
 		return;
 
-	reverbOn = on;
 	ALint slot = on ? (ALint)effectSlot : AL_EFFECTSLOT_NULL;
 
 	for (int a = 0; a < generalSourceCount; a++)
 		alSource3i(generalSources[a], AL_AUXILIARY_SEND_FILTER, slot, 0, AL_FILTER_NULL);
 	for (int a = 0; a < loopSourceCount; a++)
 		alSource3i(loopSources[a], AL_AUXILIARY_SEND_FILTER, slot, 0, AL_FILTER_NULL);
+}
+
+void AudioSystem::updateReverbConnection()
+{
+	connectReverb(reverbMode == ReverbPreset || (reverbMode == ReverbAuto && environmentalReverb));
+}
+
+void AudioSystem::applyReverb(const EFXEAXREVERBPROPERTIES& reverb)
+{
+	if (!effect || !effectSlot)
+		return;
+
+	if (useEaxReverb)
+	{
+		alEffecti(effect, AL_EFFECT_TYPE, AL_EFFECT_EAXREVERB);
+		alEffectf(effect, AL_EAXREVERB_DENSITY, reverb.flDensity);
+		alEffectf(effect, AL_EAXREVERB_DIFFUSION, reverb.flDiffusion);
+		alEffectf(effect, AL_EAXREVERB_GAIN, reverb.flGain);
+		alEffectf(effect, AL_EAXREVERB_GAINHF, reverb.flGainHF);
+		alEffectf(effect, AL_EAXREVERB_GAINLF, reverb.flGainLF);
+		alEffectf(effect, AL_EAXREVERB_DECAY_TIME, reverb.flDecayTime);
+		alEffectf(effect, AL_EAXREVERB_DECAY_HFRATIO, reverb.flDecayHFRatio);
+		alEffectf(effect, AL_EAXREVERB_DECAY_LFRATIO, reverb.flDecayLFRatio);
+		alEffectf(effect, AL_EAXREVERB_REFLECTIONS_GAIN, reverb.flReflectionsGain);
+		alEffectf(effect, AL_EAXREVERB_REFLECTIONS_DELAY, reverb.flReflectionsDelay);
+		alEffectfv(effect, AL_EAXREVERB_REFLECTIONS_PAN, reverb.flReflectionsPan);
+		alEffectf(effect, AL_EAXREVERB_LATE_REVERB_GAIN, reverb.flLateReverbGain);
+		alEffectf(effect, AL_EAXREVERB_LATE_REVERB_DELAY, reverb.flLateReverbDelay);
+		alEffectfv(effect, AL_EAXREVERB_LATE_REVERB_PAN, reverb.flLateReverbPan);
+		alEffectf(effect, AL_EAXREVERB_ECHO_TIME, reverb.flEchoTime);
+		alEffectf(effect, AL_EAXREVERB_ECHO_DEPTH, reverb.flEchoDepth);
+		alEffectf(effect, AL_EAXREVERB_MODULATION_TIME, reverb.flModulationTime);
+		alEffectf(effect, AL_EAXREVERB_MODULATION_DEPTH, reverb.flModulationDepth);
+		alEffectf(effect, AL_EAXREVERB_AIR_ABSORPTION_GAINHF, reverb.flAirAbsorptionGainHF);
+		alEffectf(effect, AL_EAXREVERB_HFREFERENCE, reverb.flHFReference);
+		alEffectf(effect, AL_EAXREVERB_LFREFERENCE, reverb.flLFReference);
+		alEffectf(effect, AL_EAXREVERB_ROOM_ROLLOFF_FACTOR, reverb.flRoomRolloffFactor);
+		alEffecti(effect, AL_EAXREVERB_DECAY_HFLIMIT, reverb.iDecayHFLimit);
+	}
+	else
+	{
+		alEffecti(effect, AL_EFFECT_TYPE, AL_EFFECT_REVERB);
+		alEffectf(effect, AL_REVERB_DENSITY, reverb.flDensity);
+		alEffectf(effect, AL_REVERB_DIFFUSION, reverb.flDiffusion);
+		alEffectf(effect, AL_REVERB_GAIN, reverb.flGain);
+		alEffectf(effect, AL_REVERB_GAINHF, reverb.flGainHF);
+		alEffectf(effect, AL_REVERB_DECAY_TIME, reverb.flDecayTime);
+		alEffectf(effect, AL_REVERB_DECAY_HFRATIO, reverb.flDecayHFRatio);
+		alEffectf(effect, AL_REVERB_REFLECTIONS_GAIN, reverb.flReflectionsGain);
+		alEffectf(effect, AL_REVERB_REFLECTIONS_DELAY, reverb.flReflectionsDelay);
+		alEffectf(effect, AL_REVERB_LATE_REVERB_GAIN, reverb.flLateReverbGain);
+		alEffectf(effect, AL_REVERB_LATE_REVERB_DELAY, reverb.flLateReverbDelay);
+		alEffectf(effect, AL_REVERB_AIR_ABSORPTION_GAINHF, reverb.flAirAbsorptionGainHF);
+		alEffectf(effect, AL_REVERB_ROOM_ROLLOFF_FACTOR, reverb.flRoomRolloffFactor);
+		alEffecti(effect, AL_REVERB_DECAY_HFLIMIT, reverb.iDecayHFLimit);
+	}
+
+	//A slot copies the effect's settings when it's attached, so it has to be attached again after every change
+	alAuxiliaryEffectSloti(effectSlot, AL_EFFECTSLOT_EFFECT, (ALint)effect);
 }
 
 void AudioSystem::stopLoopSource(Loop& loop, bool rememberOffset)
@@ -123,6 +265,57 @@ void AudioSystem::stopLoopSource(Loop& loop, bool rememberOffset)
 
 	loopSourceUsed[loop.source] = false;
 	loop.source = -1;
+}
+
+void AudioSystem::applyDirectFilter(ALuint source, Occlusion& occlusion)
+{
+	if (!directFilter)
+		return;
+
+	float gain = glm::mix(1.0f, occludedGain, occlusion.current) * glm::mix(1.0f, underwaterGain, underwaterAmount);
+	float gainHF = glm::mix(1.0f, occludedGainHF, occlusion.current) * glm::mix(1.0f, underwaterGainHF, underwaterAmount);
+
+	if (std::abs(gain - occlusion.appliedGain) < 0.003f && std::abs(gainHF - occlusion.appliedGainHF) < 0.003f)
+		return;
+
+	//Like effect slots, a source copies the filter's settings when it's attached
+	alFilterf(directFilter, AL_LOWPASS_GAIN, gain);
+	alFilterf(directFilter, AL_LOWPASS_GAINHF, gainHF);
+	alSourcei(source, AL_DIRECT_FILTER, (ALint)directFilter);
+
+	occlusion.appliedGain = gain;
+	occlusion.appliedGainHF = gainHF;
+}
+
+void AudioSystem::startOcclusion(ALuint source, Occlusion& occlusion, const SoundLocation& where)
+{
+	occlusion = Occlusion();
+
+	if (occlusionOn && occlusionTest && where.kind != SoundLocation::Flat)
+	{
+		occlusion.target = occlusionTest(listenerPosition, where.position, where.body());
+		occlusion.current = occlusion.target;
+	}
+
+	applyDirectFilter(source, occlusion);
+}
+
+void AudioSystem::updateOcclusion(ALuint source, Occlusion& occlusion, const SoundLocation& where, float deltaT)
+{
+	if (occlusionOn && occlusionTest && where.kind != SoundLocation::Flat)
+	{
+		occlusion.sinceCheckMS += deltaT;
+		if (occlusion.sinceCheckMS >= occlusionIntervalMS)
+		{
+			occlusion.sinceCheckMS = 0;
+			occlusion.target = occlusionTest(listenerPosition, where.position, where.body());
+		}
+	}
+	else
+		occlusion.target = 0;
+
+	occlusion.current += (occlusion.target - occlusion.current) * (1.0f - std::exp(-deltaT / occlusionSmoothingMS));
+	applyDirectFilter(source, occlusion);
 }
 
 void AudioSystem::addSoundType(int id, const std::string& name, const std::string& filePath, bool isMusic)
@@ -246,6 +439,7 @@ void AudioSystem::playSound(int soundID, const SoundLocation& where, float pitch
 	generalLocations[index] = where;
 	generalLocations[index].follow();
 	placeSource(source, generalLocations[index]);
+	startOcclusion(source, generalOcclusion[index], generalLocations[index]);
 
 	alSourcePlay(source);
 	lastUsedGeneralSource = index;
@@ -312,9 +506,17 @@ void AudioSystem::setReverb(const std::string& preset)
 	if (!valid)
 		return;
 
+	if (isAutoReverb(preset))
+	{
+		reverbMode = ReverbAuto;
+		updateReverbConnection();
+		return;
+	}
+
 	if (isNoReverb(preset))
 	{
-		connectReverb(false);
+		reverbMode = ReverbOff;
+		updateReverbConnection();
 		return;
 	}
 
@@ -325,62 +527,32 @@ void AudioSystem::setReverb(const std::string& preset)
 		return;
 	}
 
-	//This OpenAL has no EFX, see the constructor
-	if (!effect || !effectSlot)
-		return;
-
-	if (alGetEnumValue("AL_EFFECT_EAXREVERB") != 0)
-	{
-		alEffecti(effect, AL_EFFECT_TYPE, AL_EFFECT_EAXREVERB);
-		alEffectf(effect, AL_EAXREVERB_DENSITY, reverb.flDensity);
-		alEffectf(effect, AL_EAXREVERB_DIFFUSION, reverb.flDiffusion);
-		alEffectf(effect, AL_EAXREVERB_GAIN, reverb.flGain);
-		alEffectf(effect, AL_EAXREVERB_GAINHF, reverb.flGainHF);
-		alEffectf(effect, AL_EAXREVERB_GAINLF, reverb.flGainLF);
-		alEffectf(effect, AL_EAXREVERB_DECAY_TIME, reverb.flDecayTime);
-		alEffectf(effect, AL_EAXREVERB_DECAY_HFRATIO, reverb.flDecayHFRatio);
-		alEffectf(effect, AL_EAXREVERB_DECAY_LFRATIO, reverb.flDecayLFRatio);
-		alEffectf(effect, AL_EAXREVERB_REFLECTIONS_GAIN, reverb.flReflectionsGain);
-		alEffectf(effect, AL_EAXREVERB_REFLECTIONS_DELAY, reverb.flReflectionsDelay);
-		alEffectfv(effect, AL_EAXREVERB_REFLECTIONS_PAN, reverb.flReflectionsPan);
-		alEffectf(effect, AL_EAXREVERB_LATE_REVERB_GAIN, reverb.flLateReverbGain);
-		alEffectf(effect, AL_EAXREVERB_LATE_REVERB_DELAY, reverb.flLateReverbDelay);
-		alEffectfv(effect, AL_EAXREVERB_LATE_REVERB_PAN, reverb.flLateReverbPan);
-		alEffectf(effect, AL_EAXREVERB_ECHO_TIME, reverb.flEchoTime);
-		alEffectf(effect, AL_EAXREVERB_ECHO_DEPTH, reverb.flEchoDepth);
-		alEffectf(effect, AL_EAXREVERB_MODULATION_TIME, reverb.flModulationTime);
-		alEffectf(effect, AL_EAXREVERB_MODULATION_DEPTH, reverb.flModulationDepth);
-		alEffectf(effect, AL_EAXREVERB_AIR_ABSORPTION_GAINHF, reverb.flAirAbsorptionGainHF);
-		alEffectf(effect, AL_EAXREVERB_HFREFERENCE, reverb.flHFReference);
-		alEffectf(effect, AL_EAXREVERB_LFREFERENCE, reverb.flLFReference);
-		alEffectf(effect, AL_EAXREVERB_ROOM_ROLLOFF_FACTOR, reverb.flRoomRolloffFactor);
-		alEffecti(effect, AL_EAXREVERB_DECAY_HFLIMIT, reverb.iDecayHFLimit);
-	}
-	else
-	{
-		alEffecti(effect, AL_EFFECT_TYPE, AL_EFFECT_REVERB);
-		alEffectf(effect, AL_REVERB_DENSITY, reverb.flDensity);
-		alEffectf(effect, AL_REVERB_DIFFUSION, reverb.flDiffusion);
-		alEffectf(effect, AL_REVERB_GAIN, reverb.flGain);
-		alEffectf(effect, AL_REVERB_GAINHF, reverb.flGainHF);
-		alEffectf(effect, AL_REVERB_DECAY_TIME, reverb.flDecayTime);
-		alEffectf(effect, AL_REVERB_DECAY_HFRATIO, reverb.flDecayHFRatio);
-		alEffectf(effect, AL_REVERB_REFLECTIONS_GAIN, reverb.flReflectionsGain);
-		alEffectf(effect, AL_REVERB_REFLECTIONS_DELAY, reverb.flReflectionsDelay);
-		alEffectf(effect, AL_REVERB_LATE_REVERB_GAIN, reverb.flLateReverbGain);
-		alEffectf(effect, AL_REVERB_LATE_REVERB_DELAY, reverb.flLateReverbDelay);
-		alEffectf(effect, AL_REVERB_AIR_ABSORPTION_GAINHF, reverb.flAirAbsorptionGainHF);
-		alEffectf(effect, AL_REVERB_ROOM_ROLLOFF_FACTOR, reverb.flRoomRolloffFactor);
-		alEffecti(effect, AL_REVERB_DECAY_HFLIMIT, reverb.iDecayHFLimit);
-	}
-
-	//A slot copies the effect's settings when it's attached, so it has to be attached again after every change
-	alAuxiliaryEffectSloti(effectSlot, AL_EFFECTSLOT_EFFECT, (ALint)effect);
-	connectReverb(true);
+	reverbMode = ReverbPreset;
+	currentReverb = reverb;
+	applyReverb(reverb);
+	updateReverbConnection();
 
 	ALenum alError = alGetError();
 	if (alError != AL_NO_ERROR)
 		error("OpenAL error " + std::to_string(alError) + " setting reverb preset " + preset);
+}
+
+void AudioSystem::setEnvironmentOptions(int reverbQuality, int occlusionQuality)
+{
+	static constexpr float intervalsMS[3] = { 250.0f, 150.0f, 100.0f };
+
+	environmentalReverb = reverbQuality > 0;
+	occlusionOn = occlusionQuality > 0;
+	occlusionIntervalMS = intervalsMS[std::clamp(occlusionQuality, 1, 3) - 1];
+
+	if (valid)
+		updateReverbConnection();
+}
+
+void AudioSystem::setListenerSpace(float averageDistance, float enclosure)
+{
+	spaceDistance = averageDistance;
+	spaceEnclosure = enclosure;
 }
 
 void AudioSystem::setVolumes(float master, float music)
@@ -397,12 +569,13 @@ void AudioSystem::setVolumes(float master, float music)
 			alSourcef(loopSources[loop.source], AL_GAIN, loop.volume * musicVolume);
 }
 
-void AudioSystem::update(const glm::vec3& listenerPosition, const glm::vec3& listenerDirection)
+void AudioSystem::update(const glm::vec3& position, const glm::vec3& listenerDirection, float deltaT)
 {
 	if (!valid)
 		return;
 
-	alListener3f(AL_POSITION, listenerPosition.x, listenerPosition.y, listenerPosition.z);
+	listenerPosition = position;
+	alListener3f(AL_POSITION, position.x, position.y, position.z);
 	alListener3f(AL_VELOCITY, 0, 0, 0);
 
 	//Up is world up tilted to be perpendicular to where the camera looks
@@ -412,12 +585,26 @@ void AudioSystem::update(const glm::vec3& listenerPosition, const glm::vec3& lis
 	ALfloat orientation[6] = { forward.x, forward.y, forward.z, up.x, up.y, up.z };
 	alListenerfv(AL_ORIENTATION, orientation);
 
-	//One-shot sounds following a Dynamic, they stay where it was last if it's deleted
+	underwaterAmount = std::clamp(underwaterAmount + (underwater ? 1.0f : -1.0f) * deltaT / underwaterFadeMS, 0.0f, 1.0f);
+
+	//Reverb glides toward what the space around the listener calls for
+	if (wantsListenerSpace())
+	{
+		EFXEAXREVERBPROPERTIES target = reverbForSpace(spaceDistance, spaceEnclosure);
+		blendReverb(target, underwaterReverb, underwaterAmount);
+		blendReverb(currentReverb, target, 1.0f - std::exp(-deltaT / reverbSmoothingMS));
+
+		sinceReverbAppliedMS += deltaT;
+		if (sinceReverbAppliedMS >= reverbApplyIntervalMS)
+		{
+			sinceReverbAppliedMS = 0;
+			applyReverb(currentReverb);
+		}
+	}
+
+	//One-shot sounds: follow the Dynamic they're on (staying where it was last if it's deleted), and muffling
 	for (int a = 0; a < generalSourceCount; a++)
 	{
-		if (generalLocations[a].kind != SoundLocation::Attached)
-			continue;
-
 		ALint state;
 		alGetSourcei(generalSources[a], AL_SOURCE_STATE, &state);
 		if (state != AL_PLAYING)
@@ -426,8 +613,10 @@ void AudioSystem::update(const glm::vec3& listenerPosition, const glm::vec3& lis
 			continue;
 		}
 
-		if (generalLocations[a].follow())
+		if (generalLocations[a].kind == SoundLocation::Attached && generalLocations[a].follow())
 			alSource3f(generalSources[a], AL_POSITION, generalLocations[a].position.x, generalLocations[a].position.y, generalLocations[a].position.z);
+
+		updateOcclusion(generalSources[a], generalOcclusion[a], generalLocations[a], deltaT);
 	}
 
 	//A loop on a Dynamic ends with it, the server forgets it the same way
@@ -444,11 +633,11 @@ void AudioSystem::update(const glm::vec3& listenerPosition, const glm::vec3& lis
 	}
 
 	//Closest loops first, loops with no position count as right on top of the listener
-	auto distanceSquared = [&listenerPosition](const Loop& loop)
+	auto distanceSquared = [&position](const Loop& loop)
 	{
 		if (loop.where.kind == SoundLocation::Flat)
 			return 0.0f;
-		glm::vec3 offset = loop.where.position - listenerPosition;
+		glm::vec3 offset = loop.where.position - position;
 		return glm::dot(offset, offset);
 	};
 
@@ -467,6 +656,7 @@ void AudioSystem::update(const glm::vec3& listenerPosition, const glm::vec3& lis
 		{
 			if (loop.where.kind != SoundLocation::Flat)
 				alSource3f(loopSources[loop.source], AL_POSITION, loop.where.position.x, loop.where.position.y, loop.where.position.z);
+			updateOcclusion(loopSources[loop.source], loopOcclusion[loop.source], loop.where, deltaT);
 			continue;
 		}
 
@@ -488,6 +678,7 @@ void AudioSystem::update(const glm::vec3& listenerPosition, const glm::vec3& lis
 			alSourcef(source, AL_PITCH, loop.pitch);
 			alSourcef(source, AL_GAIN, loop.volume * musicVolume);
 			placeSource(source, loop.where);
+			startOcclusion(source, loopOcclusion[b], loop.where);
 			alSourcei(source, AL_SAMPLE_OFFSET, loop.sampleOffset);
 			alSourcePlay(source);
 			break;
@@ -507,6 +698,8 @@ void AudioSystem::clear()
 		stopLoopSource(loop, false);
 	loops.clear();
 
+	reverbMode = ReverbAuto;
+
 	if (valid)
 	{
 		for (int a = 0; a < generalSourceCount; a++)
@@ -516,7 +709,7 @@ void AudioSystem::clear()
 			generalLocations[a] = SoundLocation::flat();
 		}
 
-		connectReverb(false);
+		updateReverbConnection();
 
 		for (SoundType& sound : sounds)
 			if (sound.buffer)
@@ -529,6 +722,8 @@ void AudioSystem::clear()
 AudioSystem::AudioSystem()
 {
 	scope("AudioSystem::AudioSystem");
+
+	currentReverb = reverbForSpace(spaceDistance, spaceEnclosure);
 
 	device = alcOpenDevice(nullptr);
 	if (!device)
@@ -570,22 +765,36 @@ AudioSystem::AudioSystem()
 	{
 		alGenEffects(1, &effect);
 		alGenAuxiliaryEffectSlots(1, &effectSlot);
+		useEaxReverb = alGetEnumValue("AL_EFFECT_EAXREVERB") != 0;
 
 		alError = alGetError();
 		if (alError != AL_NO_ERROR)
 		{
-			error("OpenAL error " + std::to_string(alError) + " creating reverb, reverb presets won't do anything");
+			error("OpenAL error " + std::to_string(alError) + " creating reverb, reverb won't do anything");
 			effect = 0;
 			effectSlot = 0;
 		}
+
+		alGenFilters(1, &directFilter);
+		alFilteri(directFilter, AL_FILTER_TYPE, AL_FILTER_LOWPASS);
+
+		alError = alGetError();
+		if (alError != AL_NO_ERROR)
+		{
+			error("OpenAL error " + std::to_string(alError) + " creating a low-pass filter, sounds won't be muffled");
+			directFilter = 0;
+		}
 	}
 	else
-		info("OpenAL implementation has no EFX, reverb presets won't do anything");
+		info("OpenAL implementation has no EFX, reverb and muffling won't do anything");
 
 	const ALCchar* deviceName = alcGetString(device, ALC_DEVICE_SPECIFIER);
 	info("Audio started on " + std::string(deviceName ? deviceName : "unknown device"));
 
 	valid = true;
+
+	applyReverb(currentReverb);
+	updateReverbConnection();
 }
 
 AudioSystem::~AudioSystem()
@@ -595,9 +804,16 @@ AudioSystem::~AudioSystem()
 
 	clear();
 
+	for (int a = 0; a < generalSourceCount; a++)
+		alSourcei(generalSources[a], AL_DIRECT_FILTER, AL_FILTER_NULL);
+	for (int a = 0; a < loopSourceCount; a++)
+		alSourcei(loopSources[a], AL_DIRECT_FILTER, AL_FILTER_NULL);
+
 	alDeleteSources(generalSourceCount, generalSources);
 	alDeleteSources(loopSourceCount, loopSources);
 
+	if (directFilter)
+		alDeleteFilters(1, &directFilter);
 	if (effectSlot)
 		alDeleteAuxiliaryEffectSlots(1, &effectSlot);
 	if (effect)

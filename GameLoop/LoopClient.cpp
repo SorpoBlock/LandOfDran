@@ -263,6 +263,8 @@ void LoopClient::handleInput(float deltaT, ExecutableArguments& cmdArgs, std::sh
 		simulation.idealBufferSize = settings->getInt("network/snapshotbuffer");
 		createWaterTargets(settings);
 		pd.audio->setVolumes(settings->getFloat("audio/mastervolume"), settings->getFloat("audio/musicvolume"));
+		pd.audio->setEnvironmentOptions(settings->getInt("audio/reverbquality"), settings->getInt("audio/occlusionquality"));
+		pd.acousticProbe.setQuality(settings->getInt("audio/reverbquality"), settings->getInt("audio/occlusionquality"));
 		if (simulation.brickDebris)
 			simulation.brickDebris->setLifetime(settings->getFloat("graphics/brickdebrisseconds"));
 	}
@@ -936,6 +938,7 @@ void LoopClient::run(float deltaT,ExecutableArguments& cmdArgs, std::shared_ptr<
 	pd.debugMenu->addExtraLine("Time of day: " + std::to_string(pd.environment.dayFraction) + " (x" + std::to_string(simulation.timeScale) + ")");
 	if (simulation.bricks)
 		pd.debugMenu->addExtraLine("Bricks: " + std::to_string(simulation.bricks->size()));
+	pd.debugMenu->addExtraLine("Environmental audio: " + pd.acousticProbe.getStats());
 	if (simulation.dynamics && simulation.dynamics->size() > 0)
 		pd.debugMenu->addExtraLine("First other snaps: " + std::to_string(simulation.dynamics->get(0)->interpolator.getNumSnapshots()));
 	if (simulation.controlledDynamics.size() > 0)
@@ -995,6 +998,17 @@ void LoopClient::run(float deltaT,ExecutableArguments& cmdArgs, std::shared_ptr<
 
 	// --- End packet requests ---
 
+	//Water holds up the dynamics this client simulates itself, the server does the rest
+	if (pd.physicsWorld && simulation.dynamics && simulation.waterEnabled)
+	{
+		for (unsigned int a = 0; a < simulation.dynamics->size(); a++)
+		{
+			std::shared_ptr<Dynamic> dynamic = simulation.dynamics->get(a);
+			if (dynamic->clientControlled || getTicksMS() < dynamic->predictLocallyUntil)
+				dynamic->applyWaterForces(simulation.waterLevel, deltaT);
+		}
+	}
+
 	if (pd.physicsWorld)
 		pd.physicsWorld->step(deltaT);
 
@@ -1005,8 +1019,21 @@ void LoopClient::run(float deltaT,ExecutableArguments& cmdArgs, std::shared_ptr<
 
 	renderEverything(deltaT);
 
-	//After rendering, which moves the camera for this frame
-	pd.audio->update(simulation.camera->getPosition(), simulation.camera->getDirection());
+	//The listener is the camera, which rendering just moved for this frame
+	glm::vec3 listener = simulation.camera->getPosition();
+	bool inWorld = pd.physicsWorld && cmdArgs.gameState == InGame;
+	pd.audio->setUnderwater(inWorld && simulation.waterEnabled && listener.y < simulation.waterLevel);
+
+	pd.acousticProbe.updateStats(deltaT);
+	if (inWorld && pd.audio->wantsListenerSpace())
+	{
+		const btRigidBody* player = simulation.controlledDynamics.empty() ? nullptr : simulation.controlledDynamics[0]->body;
+		float averageDistance, enclosure;
+		if (pd.acousticProbe.measure(deltaT, *pd.physicsWorld, listener, player, averageDistance, enclosure))
+			pd.audio->setListenerSpace(averageDistance, enclosure);
+	}
+
+	pd.audio->update(listener, simulation.camera->getDirection(), deltaT);
 }
 
 LoopClient::LoopClient(ExecutableArguments& cmdArgs, std::shared_ptr<SettingManager> settings)
@@ -1050,6 +1077,19 @@ LoopClient::LoopClient(ExecutableArguments& cmdArgs, std::shared_ptr<SettingMana
 	//Carries on silently if there's no audio device
 	pd.audio = std::make_shared<AudioSystem>();
 	pd.audio->setVolumes(settings->getFloat("audio/mastervolume"), settings->getFloat("audio/musicvolume"));
+	pd.audio->setEnvironmentOptions(settings->getInt("audio/reverbquality"), settings->getInt("audio/occlusionquality"));
+	pd.acousticProbe.setQuality(settings->getInt("audio/reverbquality"), settings->getInt("audio/occlusionquality"));
+
+	//A sound is muffled by anything between it and the camera, other than the player's own body and whatever the sound is on
+	pd.audio->setOcclusionTest([this](const glm::vec3& listener, const glm::vec3& source, const btRigidBody* sourceBody)
+	{
+		if (!pd.physicsWorld)
+			return 0.0f;
+
+		const btRigidBody* player = simulation.controlledDynamics.empty() ? nullptr : simulation.controlledDynamics[0]->body;
+		return pd.acousticProbe.occlusion(*pd.physicsWorld, listener, source, player, sourceBody);
+	});
+
 	pd.brickTypes.load("Assets/brick/types");
 
 	pd.gui = std::make_shared<UserInterface>();
@@ -1075,6 +1115,9 @@ LoopClient::LoopClient(ExecutableArguments& cmdArgs, std::shared_ptr<SettingMana
 	bool removedFromSettings = settings->remove("hotbar");
 	for (const char* moved : { "network/username", "network/lastip", "network/port" })
 		removedFromSettings = settings->remove(moved) || removedFromSettings;
+	//Replaced by audio/reverbquality and audio/occlusionquality
+	for (const char* replaced : { "audio/environmentalreverb", "audio/occlusion", "audio/raycastquality" })
+		removedFromSettings = settings->remove(replaced) || removedFromSettings;
 	if (removedFromSettings)
 		settings->exportToFile("Config/settings.txt");
 

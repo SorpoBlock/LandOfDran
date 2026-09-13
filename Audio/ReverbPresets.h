@@ -27,9 +27,15 @@ inline bool isNoReverb(const std::string& name)
 	return lower == "" || lower == "none" || lower == "default" || lower == "normal";
 }
 
+//"auto", the default: each client's reverb follows the space around them and whether they're underwater
+inline bool isAutoReverb(const std::string& name)
+{
+	return normalizeReverbPreset(name) == "auto";
+}
+
 inline bool isReverbPreset(const std::string& name)
 {
-	if (isNoReverb(name))
+	if (isNoReverb(name) || isAutoReverb(name))
 		return true;
 
 	std::string lower = normalizeReverbPreset(name);

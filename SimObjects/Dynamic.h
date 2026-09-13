@@ -178,6 +178,19 @@ class Dynamic : public SimObject
 	//Server only, called once per tick by LoopServer for each snapped dynamic with its owner's current camera state
 	void updateCursorSnapPosition(const glm::vec3& cameraPosition, const glm::vec3& cameraDirection);
 
+	/*
+		How hard water pushes this up, as a multiple of its weight when it's all the way under: 0 sinks, 1 hangs in place,
+		more floats with less of it under. Only kept on the server, a client uses the default for the dynamics it simulates
+	*/
+	float buoyancy = 1.3f;
+
+	//Buoyancy and water drag for the next physics step, does nothing if no part of it is below waterLevel
+	void applyWaterForces(float waterLevel, float deltaT);
+
+	//Server only, for splash sounds, see LoopServer::playWaterSounds
+	bool inWater = false;
+	unsigned int lastWaterSoundMS = 0;
+
 	~Dynamic();
 };
 

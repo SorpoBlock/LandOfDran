@@ -21,6 +21,7 @@
 #include "../Interface/BrickSelector.h"
 #include "../Interface/BrickHotbar.h"
 #include "../Audio/AudioSystem.h"
+#include "../Audio/AcousticProbe.h"
 
 /*
 	This exists so we can make all of this available to the various PacketsFromServer files since packets can do a wide range of activities
@@ -86,6 +87,9 @@ struct ClientProgramData
 
 	//Lives for the whole program, sound types come from whichever server we're on
 	std::shared_ptr<AudioSystem>	audio = nullptr;
+
+	//Raycasts for reverb and muffling, see LoopClient::run and the occlusion test set up in LoopClient's constructor
+	AcousticProbe acousticProbe;
 
 	//TODO: Move to simulation
 	std::shared_ptr<PhysicsWorld>	physicsWorld = nullptr;

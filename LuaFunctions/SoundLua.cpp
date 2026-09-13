@@ -108,7 +108,8 @@ void sendSoundState(const ServerProgramData* pd, JoinedClient* client)
 		client->send(makeLoopStartPacket(loop, dynamic), OtherReliable);
 	}
 
-	if (!isNoReverb(pd->reverbPreset))
+	//Clients start out on auto
+	if (pd->reverbPreset != "auto")
 		client->send(makeAudioEffectPacket(pd->reverbPreset), OtherReliable);
 }
 
@@ -120,6 +121,20 @@ static int findSoundType(const std::string& name)
 			return (int)a;
 
 	return -1;
+}
+
+void playSoundAt(const std::string& name, const glm::vec3& position, float pitch, float volume)
+{
+	if (!LUA_pd || !LUA_server)
+		return;
+
+	int soundID = findSoundType(name);
+	if (soundID == -1)
+		return;
+
+	pitch = std::clamp(pitch, 0.05f, 10.0f);
+	volume = std::clamp(volume, 0.0f, 1.0f);
+	LUA_server->broadcast(makeOneShotPacket(soundID, pitch, volume, SoundLocationFixed, position, nullptr), Unreliable);
 }
 
 //Loops on a Dynamic end when it's destroyed, clients stop them on their own
@@ -395,6 +410,8 @@ static std::string readReverbPreset(lua_State* L, int index, const std::string& 
 		return "";
 	}
 
+	if (isAutoReverb(preset))
+		return "auto";
 	return isNoReverb(preset) ? "none" : normalizeReverbPreset(preset);
 }
 

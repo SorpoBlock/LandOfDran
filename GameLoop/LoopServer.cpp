@@ -4,6 +4,8 @@
 #include "../LuaFunctions/Static.h"
 #include "../LuaFunctions/SoundLua.h"
 
+#include <random>
+
 void LoopServer::run(float deltaT, ExecutableArguments& cmdArgs, std::shared_ptr<SettingManager> settings)
 {
 	//When embedded alongside a LoopClient in the same process (single player), both loops
@@ -44,7 +46,10 @@ void LoopServer::run(float deltaT, ExecutableArguments& cmdArgs, std::shared_ptr
 	pd.dynamics->sendRecent();
 	pd.statics->sendRecent();
 	pd.bricks->sendRecent();
+	applyWaterForces(deltaT);
 	pd.physicsWorld->step(deltaT); 
+
+	playWaterSounds();
 
 	for (unsigned int a = 0; a < Logger::getStorage()->size(); a++)
 		server->updateAdminConsoles(Logger::getStorage()->at(a));
@@ -79,6 +84,81 @@ void LoopServer::run(float deltaT, ExecutableArguments& cmdArgs, std::shared_ptr
 	}
 
 	scheduler->run(pd.luaState);
+}
+
+void LoopServer::applyWaterForces(float deltaT)
+{
+	if (!pd.waterEnabled)
+		return;
+
+	//Clients simulate the dynamics they control, water included
+	std::vector<Dynamic*> clientSimulated;
+	for (const std::shared_ptr<ClientData>& client : pd.clients)
+		for (const std::shared_ptr<Dynamic>& controlled : client->controlledObjects)
+			clientSimulated.push_back(controlled.get());
+
+	for (unsigned int a = 0; a < pd.dynamics->size(); a++)
+	{
+		std::shared_ptr<Dynamic> dynamic = pd.dynamics->get(a);
+		if (dynamic->isSnappedToCursor() || std::find(clientSimulated.begin(), clientSimulated.end(), dynamic.get()) != clientSimulated.end())
+			continue;
+
+		dynamic->applyWaterForces(pd.waterLevel, deltaT);
+	}
+}
+
+void LoopServer::playWaterSounds()
+{
+	//Vertical speeds, world units per second, below which going in or out of the water is silent
+	static constexpr float splashSpeed = 6.0f;
+	static constexpr float exitSpeed = 6.0f;
+	static constexpr unsigned int soundCooldownMS = 700;
+
+	static std::mt19937 random(std::random_device{}());
+	std::uniform_real_distribution<float> pitchVariation(0.9f, 1.1f);
+
+	for (unsigned int a = 0; a < pd.dynamics->size(); a++)
+	{
+		std::shared_ptr<Dynamic> dynamic = pd.dynamics->get(a);
+
+		if (!pd.waterEnabled)
+		{
+			dynamic->inWater = false;
+			continue;
+		}
+
+		btVector3 aabbMin, aabbMax;
+		dynamic->body->getAabb(aabbMin, aabbMax);
+
+		//A little gap between going in and coming out, so something floating at the surface doesn't keep doing both
+		bool wasInWater = dynamic->inWater;
+		if (!wasInWater && aabbMin.y() < pd.waterLevel)
+			dynamic->inWater = true;
+		else if (wasInWater && aabbMin.y() > pd.waterLevel + 0.5f)
+			dynamic->inWater = false;
+
+		if (dynamic->inWater == wasInWater || SDL_GetTicks() - dynamic->lastWaterSoundMS < soundCooldownMS)
+			continue;
+
+		float verticalSpeed = dynamic->getVelocity().y();
+		btVector3 center = (aabbMin + aabbMax) * 0.5f;
+		glm::vec3 surface(center.x(), pd.waterLevel, center.z());
+
+		//Bigger things sound deeper, and no two splashes sound quite the same
+		float size = (aabbMax - aabbMin).length();
+		float pitch = std::clamp(1.3f - size * 0.06f, 0.6f, 1.3f) * pitchVariation(random);
+
+		if (dynamic->inWater && -verticalSpeed > splashSpeed)
+		{
+			playSoundAt("Splash", surface, pitch, std::clamp(0.3f + (-verticalSpeed - splashSpeed) / 40.0f, 0.3f, 1.0f));
+			dynamic->lastWaterSoundMS = SDL_GetTicks();
+		}
+		else if (!dynamic->inWater && verticalSpeed > exitSpeed)
+		{
+			playSoundAt("ExitWater", surface, pitch, std::clamp(0.2f + (verticalSpeed - exitSpeed) / 60.0f, 0.2f, 0.7f));
+			dynamic->lastWaterSoundMS = SDL_GetTicks();
+		}
+	}
 }
 
 void LoopServer::broadcastWorldState()

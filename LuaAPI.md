@@ -41,7 +41,7 @@ second, and right away when one of these functions changes them or a client fini
 | `getTimeOfDay()` | none | number, 0-1 | Current time of day, on the same scale as `setTimeOfDay`. |
 | `setTimeScale(scale)` | `scale`: in-game seconds that pass per real second | none | A full day is 1000 in-game seconds (`DAY_LENGTH_SECONDS` in `LandOfDran.h`), so the default of `1` is a ~16.7 minute day. `0` freezes time, negative values run it backwards. |
 | `getTimeScale()` | none | number | Current time scale. |
-| `setWaterLevel([y])` | `y`: world height of the water surface, or no argument / `nil` | none | Puts a water surface at height `y` across the whole world, or removes it when called with no argument. Off by default. Water is visual only: it doesn't affect physics. |
+| `setWaterLevel([y])` | `y`: world height of the water surface, or no argument / `nil` | none | Puts a water surface at height `y` across the whole world, or removes it when called with no argument. Off by default. Dynamics in the water float or sink depending on their buoyancy (see `dynamic:setBuoyancy`) and are slowed by drag. The server plays the `Splash` sound where a dynamic falls in fast and `ExitWater` where one comes out fast, if they're registered. |
 | `getWaterLevel()` | none | number, or `nil` if there's no water | Current water height. |
 
 All of these except the getters use the strict `Expected 1 number argument` check described
@@ -129,6 +129,8 @@ Dynamics are physics-simulated objects (players, projectiles, pickups, etc).
 | `dynamic:getSnapClient()` | none | Client or `nil` | The client it's snapped to, or `nil` if not snapped. |
 | `dynamic:playSound(name[, pitch, volume])` | sound type name; see [Sounds](#sounds) | none | Plays a sound once for everyone, following the dynamic as it moves. |
 | `dynamic:startSoundLoop(name[, pitch, volume])` | sound type name; see [Sounds](#sounds) | loop ID | Starts a looping sound that follows the dynamic. It stops by itself when the dynamic is destroyed. |
+| `dynamic:setBuoyancy(buoyancy)` | 0-10, clamped; default 1.3 | none | How hard water pushes the dynamic up, as a multiple of its weight when it's fully under. `0` sinks (slowed by drag), `1` hangs wherever it is, higher values float with less of it under. Has no effect on dynamics a client controls (players), which clients simulate with the default. |
+| `dynamic:getBuoyancy()` | none | number | Current buoyancy. |
 
 ---
 
@@ -216,12 +218,21 @@ connected), so the file has to exist on the clients too. `.wav` (any bit depth) 
 Sounds with no position play at the same volume wherever the listener is. Sounds with a position
 get quieter with distance and pan left and right. The listener is the client's camera.
 
+Unless Lua picks a preset with `setAudioEffect`, each client's reverb follows the space around
+their camera: out in the open there's almost none, and it gets louder and longer the more
+closed in and bigger the space is (bricks, statics, and dynamics all count as walls). Under
+the water level everything is muffled and sounds like the `underwater` preset. Positioned
+sounds with bricks or objects between them and the camera are muffled too. Players can turn
+these off or change how many raycasts they use in the audio settings.
+
 Clients play a few sounds by name on their own when the server has registered them: `ClickMove`
 and `ClickRotate` when the ghost brick moves or turns, `Jump` when their player jumps, and
 `BrickBreak` where a removed brick pops loose. `serverstart.lua` registers these along with
 `ClickPlant`, `PlayerConnect`, `PlayerLeave`, `Admin` (played to a client who logs into the eval
 console), and `BrickClear` (played to everyone when someone types `/clearbricks` in chat to remove
-all of their own bricks).
+all of their own bricks). It also registers `Splash` and `ExitWater`, which the server plays by
+name where dynamics hit or leave the water, louder the faster they're moving and lower pitched
+the bigger they are.
 
 In the functions below, `pitch` is a playback speed multiplier (default `1`, clamped to 0.05-10)
 and `volume` is 0-1 (default `1`). They can only be given together.
@@ -232,7 +243,7 @@ and `volume` is 0-1 (default `1`). They can only be given together.
 | `playSound(name[, x, y, z][, pitch, volume])` | sound type name; optional world position | none | Plays a sound once for every client, with no position or at `x, y, z`. Sent unreliably, so a client can occasionally miss one. |
 | `startSoundLoop(name[, x, y, z][, pitch, volume])` | sound type name; optional world position | loop ID | Starts a sound that repeats until `stopSoundLoop`, with no position or at `x, y, z`. Clients who join later hear it too. Each client only plays the 16 loops closest to them at once; farther ones pause and pick up where they left off. Loops use the music volume setting on top of `volume`. |
 | `stopSoundLoop(loopID)` | ID from `startSoundLoop` or `dynamic:startSoundLoop` | none | Stops a loop. Does nothing if it already ended. |
-| `setAudioEffect(preset)` | preset name, case insensitive | none | Puts a reverb effect on every sound for every client, including ones who join later. `none` turns it off. Presets: `generic`, `paddedcell`, `auditorium`, `concerthall`, `cave`, `forest`, `plain`, `underwater`, `drugged`, `dizzy`, `psychotic`, `outhouse`, `heaven`, `hell`, `memory`, `dustyroom`, `waterroom`, `racer`, `tunnel`. |
+| `setAudioEffect(preset)` | preset name, case insensitive | none | Puts a reverb effect on every sound for every client, including ones who join later. `auto`, the default, has each client's reverb follow the space around them (see above). `none` turns reverb off. Muffling underwater and behind walls happens either way. Presets: `generic`, `paddedcell`, `auditorium`, `concerthall`, `cave`, `forest`, `plain`, `underwater`, `drugged`, `dizzy`, `psychotic`, `outhouse`, `heaven`, `hell`, `memory`, `dustyroom`, `waterroom`, `racer`, `tunnel`. |
 
 See also `dynamic:playSound`, `dynamic:startSoundLoop`, `client:playSound`, and `client:setAudioEffect`.
 

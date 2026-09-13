@@ -242,6 +242,8 @@ add_executable (LandOfDran
 
 "Audio/AudioSystem.h"
 "Audio/AudioSystem.cpp"
+"Audio/AcousticProbe.h"
+"Audio/AcousticProbe.cpp"
 "Audio/SoundFile.h"
 "Audio/SoundFile.cpp"
 "Audio/StbVorbis.cpp"

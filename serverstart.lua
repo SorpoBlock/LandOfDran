@@ -23,6 +23,9 @@ newSoundType("PlayerConnect","Assets/sound/playerConnect.wav")
 newSoundType("PlayerLeave","Assets/sound/playerLeave.wav")
 newSoundType("Admin","Assets/sound/admin.wav")
 newSoundType("BrickClear","Assets/sound/brickClear.wav")
+--The server plays these itself where dynamics fall into or jump out of the water
+newSoundType("Splash","Assets/sound/splash1.wav")
+newSoundType("ExitWater","Assets/sound/exitWater.wav")
 
 --Different arrays of kinds of plates that can be made to dissapear with their own button
 larges = {}

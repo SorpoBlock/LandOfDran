@@ -1508,6 +1508,53 @@ static int LUA_dynamicGetSnapClient(lua_State* L)
 	return 1;
 }
 
+static int LUA_dynamicSetBuoyancy(lua_State* L)
+{
+	scope("(LUA) dynamic:setBuoyancy");
+
+	if (lua_gettop(L) != 2 || !lua_isnumber(L, 2))
+	{
+		error("Expected 2 arguments dynamic:setBuoyancy(buoyancy)");
+		lua_settop(L, 0);
+		return 0;
+	}
+
+	float buoyancy = std::clamp((float)lua_tonumber(L, 2), 0.0f, 10.0f);
+	lua_settop(L, 1);
+
+	std::shared_ptr<Dynamic> dynamic = LUA_pd->dynamics->popLua(L);
+	if (!dynamic)
+	{
+		error("Invalid dynamic object passed, was it deleted already?");
+		return 0;
+	}
+
+	dynamic->buoyancy = buoyancy;
+	return 0;
+}
+
+static int LUA_dynamicGetBuoyancy(lua_State* L)
+{
+	scope("(LUA) dynamic:getBuoyancy");
+
+	if (lua_gettop(L) != 1)
+	{
+		error("Expected 1 argument dynamic:getBuoyancy()");
+		lua_settop(L, 0);
+		return 0;
+	}
+
+	std::shared_ptr<Dynamic> dynamic = LUA_pd->dynamics->popLua(L);
+	if (!dynamic)
+	{
+		error("Invalid dynamic object passed, was it deleted already?");
+		return 0;
+	}
+
+	lua_pushnumber(L, dynamic->buoyancy);
+	return 1;
+}
+
 luaL_Reg* getDynamicFunctions(lua_State *L)
 {
 	//Register dynamic global functions:
@@ -1521,7 +1568,7 @@ luaL_Reg* getDynamicFunctions(lua_State *L)
 	lua_register(L, "raycast", LUA_raycast);
 
 	//Create table of dynamic metatable functions:
-	luaL_Reg* regs = new luaL_Reg[32];
+	luaL_Reg* regs = new luaL_Reg[34];
 
 	int iter = 0;
 	regs[iter++] = { "destroy",     LUA_dynamicDestroy };
@@ -1555,6 +1602,8 @@ luaL_Reg* getDynamicFunctions(lua_State *L)
 	regs[iter++] = { "getSnapClient", LUA_dynamicGetSnapClient };
 	regs[iter++] = { "playSound", LUA_dynamicPlaySound };
 	regs[iter++] = { "startSoundLoop", LUA_dynamicStartSoundLoop };
+	regs[iter++] = { "setBuoyancy", LUA_dynamicSetBuoyancy };
+	regs[iter++] = { "getBuoyancy", LUA_dynamicGetBuoyancy };
 	regs[iter++] = { NULL, NULL };
 
 	return regs;

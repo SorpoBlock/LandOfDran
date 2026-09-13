@@ -91,6 +91,10 @@ class PhysicsWorld
 	btRigidBody *doRaycast(const btVector3 &start,const btVector3 &end,btRigidBody *ignore,btVector3 &hitPos,btVector3 &hitNormal) const;
 	btRigidBody *doRaycast(const btVector3 &start,const btVector3 &end,btRigidBody *ignore) const;
 
+	//How far from start to end (0-1) the nearest hit is, skipping up to two bodies and debris, 1 if nothing's in the way
+	//Cheaper than doRaycast, which collects every hit along the ray
+	btScalar rayHitFraction(const btVector3& start, const btVector3& end, const btRigidBody* ignoreA, const btRigidBody* ignoreB) const;
+
 	void addBody(btRigidBody* body)
 	{
 		world->addRigidBody(body);

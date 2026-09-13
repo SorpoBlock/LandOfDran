@@ -79,7 +79,7 @@ struct ServerProgramData
 	unsigned int nextSoundLoopID = 0;
 
 	//See Audio/ReverbPresets.h, sent to clients as they finish loading
-	std::string reverbPreset = "none";
+	std::string reverbPreset = "auto";
 
 	//ObjHolders created and destroyed with ServerLoop class
 	//All dynamic objects:

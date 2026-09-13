@@ -19,6 +19,9 @@ void sendSoundTypes(const ServerProgramData* pd, JoinedClient* client);
 //Loops that are playing and the reverb preset, sent once a client finishes loading
 void sendSoundState(const ServerProgramData* pd, JoinedClient* client);
 
+//For sounds the server plays on its own, like splashes: plays a registered sound once for everyone, silent if there's none by that name
+void playSoundAt(const std::string& name, const glm::vec3& position, float pitch, float volume);
+
 //dynamic: and client: methods, registered in getDynamicFunctions and registerClientFunctions
 int LUA_dynamicPlaySound(lua_State* L);
 int LUA_dynamicStartSoundLoop(lua_State* L);
