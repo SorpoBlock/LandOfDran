@@ -14,6 +14,7 @@
 #include "../Physics/PhysicsWorld.h"
 #include "../Interface/ChatWindow.h"
 #include "../Graphics/RenderTarget.h"
+#include "../Graphics/Environment.h"
 
 /*
 	This exists so we can make all of this available to the various PacketsFromServer files since packets can do a wide range of activities
@@ -31,6 +32,19 @@ struct ClientProgramData
 	GLuint lightSpaceMatriciesUniformModel = 0;
 	GLuint lightSpaceMatriciesUniformBrick = 0;
 	std::shared_ptr<RenderTarget> shadows = nullptr;
+
+	Environment environment;
+
+	//Empty, sky.vert builds a fullscreen triangle from gl_VertexID but core profile still needs a VAO bound
+	GLuint skyVao = 0;
+
+	GLuint waterVao = 0;
+	GLuint waterVbo = 0;
+	GLsizei waterVertexCount = 0;
+
+	//The scene above and below the water surface, both nullptr when graphics/waterquality is off
+	std::shared_ptr<RenderTarget> waterReflection = nullptr;
+	std::shared_ptr<RenderTarget> waterRefraction = nullptr;
 
 	std::shared_ptr<RenderContext>	context = nullptr;
 	std::shared_ptr<UserInterface>	gui = nullptr;

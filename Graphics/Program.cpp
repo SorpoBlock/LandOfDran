@@ -18,12 +18,16 @@ void Program::registerSamplerUniforms()
     if (glGetUniformLocation(handle, "ShadowArray") != -1)
         glUniform1i(glGetUniformLocation(handle, "ShadowArray"),        ShadowArray);
 
+    if (glGetUniformLocation(handle, "Refraction") != -1)
+        glUniform1i(glGetUniformLocation(handle, "Refraction"), Refraction);
+
+    if (glGetUniformLocation(handle, "Reflection") != -1)
+        glUniform1i(glGetUniformLocation(handle, "Reflection"), Reflection);
+
     //Enable others as they are actually added
     /*glUniform1i(glGetUniformLocation(handle, "BRDF"), BRDF);
     glUniform1i(glGetUniformLocation(handle, "HeightMap"),          HeightMap);
     glUniform1i(glGetUniformLocation(handle, "ShadowNearMap"),      ShadowNearMap);
-    glUniform1i(glGetUniformLocation(handle, "Refraction"),         Refraction);
-    glUniform1i(glGetUniformLocation(handle, "Reflection"),         Reflection);
     glUniform1i(glGetUniformLocation(handle, "ShadowFarMap"),       ShadowFarMap);
     glUniform1i(glGetUniformLocation(handle, "ShadowColorMap"),     ShadowColorMap);
     glUniform1i(glGetUniformLocation(handle, "ShadowNearTransMap"), ShadowNearTransMap);
@@ -34,7 +38,10 @@ void Program::registerSamplerUniforms()
 
 void Program::bindUniformBlock(const std::string &glslName, GLuint UBOhandle, int index) const
 {
-    glUniformBlockBinding(handle, glGetUniformBlockIndex(handle, glslName.c_str()), index);
+    //Not every program declares every block, e.g. shadow and outline shaders have no EnvironmentUniforms
+    GLuint blockIndex = glGetUniformBlockIndex(handle, glslName.c_str());
+    if (blockIndex != GL_INVALID_INDEX)
+        glUniformBlockBinding(handle, blockIndex, index);
     glBindBufferBase(GL_UNIFORM_BUFFER, index, UBOhandle);
 }
 

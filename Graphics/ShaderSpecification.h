@@ -43,6 +43,31 @@ struct CameraUniforms
 };
 
 /*
+	Time of day, lighting, fog, and water information for a uniform buffer object
+	Every vec3 is followed by a float so std140 needs no extra padding
+	Size: 112 bytes
+*/
+struct EnvironmentUniforms
+{
+	glm::vec3 SunDirection = glm::vec3(0, 1, 0);		//12			0
+	float FogDistanceMin = 150;							//4				12
+	glm::vec3 LightDirection = glm::vec3(0, 1, 0);		//12			16
+	float FogDistanceMax = 290;							//4				28
+	glm::vec3 LightColor = glm::vec3(1, 1, 1);			//12			32
+	float WaveTime = 0;									//4				44
+	glm::vec3 SkyColor = glm::vec3(0, 0, 1);			//12			48
+	float WaterLevel = 0;								//4				60
+	glm::vec3 FogColor = glm::vec3(1, 1, 1);			//12			64
+	//Height of the highest flat surface, grass or water, sky.frag uses it to find the visible horizon
+	float HorizonHeight = 0;							//4				76
+	//World space plane for gl_ClipDistance[0], only matters while GL_CLIP_DISTANCE0 is enabled
+	glm::vec4 ClipPlane = glm::vec4(0, 0, 0, 0);		//16			80
+	glm::vec3 AmbientColor = glm::vec3(0, 0, 0);		//12			96
+	//1 normally, fades to 0 as the sun or moon reaches the horizon
+	float ShadowStrength = 1;							//4				108
+};
+
+/*
 	Handles a uniform buffer object and a few other uniform related things for programs
 */
 class ShaderManager
@@ -50,7 +75,7 @@ class ShaderManager
 	private:
 
 	//A handle to the actual OpenGL uniform buffer object
-	GLuint basicUBO, cameraUBO;
+	GLuint basicUBO, cameraUBO, environmentUBO;
 
 	public:
 
@@ -59,6 +84,9 @@ class ShaderManager
 
 	//See note on struct definition, this is passed to a uniform buffer object
 	CameraUniforms cameraUniforms;
+
+	//See note on struct definition, this is passed to a uniform buffer object
+	EnvironmentUniforms environmentUniforms;
 
 	//Program for drawing normal meshes to screen will full PBR based lighting
 	Program* modelShader = new Program();
@@ -72,6 +100,12 @@ class ShaderManager
 	//Program for drawing the outline/highlight effect on top of normal models
 	Program* outlineShader = new Program();
 
+	//Program for drawing the sky behind everything else
+	Program* skyShader = new Program();
+
+	//Program for drawing the water surface
+	Program* waterShader = new Program();
+
 	/*
 		Reads a text file to see where we should find the shader files for the above programs
 		Returns true if there was an error with at least one shader compilation
@@ -83,6 +117,9 @@ class ShaderManager
 
 	//Sends changes to uniformBufferData to the GPU, see struct for further description
 	void updateBasicUBO() const;
+
+	//Sends changes to environmentUniforms to the GPU
+	void updateEnvironmentUBO() const;
 
 	/*
 		Associates contained UBOs with their definitions in the OpenGL shaders

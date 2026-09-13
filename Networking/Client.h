@@ -17,6 +17,7 @@
 #include "PacketsFromServer/ServerPerformanceDetails.h"
 #include "PacketsFromServer/CenterPrint.h"
 #include "PacketsFromServer/HighlightAppearance.h"
+#include "PacketsFromServer/WorldStateUpdate.h"
 #include "../GameLoop/ClientProgramData.h"
 #include "../GameLoop/Simulation.h"
 

@@ -18,6 +18,12 @@ struct Simulation
 	float serverLastSlowestFrame = 0.0;
 	float serverAverageFrame = 0.0;
 
+	//See WorldStateUpdatePacket, time also advances locally every frame between updates
+	double worldTimeSeconds = DAY_LENGTH_SECONDS * 0.5;
+	float timeScale = 1.0;
+	bool waterEnabled = false;
+	float waterLevel = 0.0;
+
 	//Only stored if we succesfully managed to log in to the server we're currently playing on
 	std::string evalPassword = "";
 

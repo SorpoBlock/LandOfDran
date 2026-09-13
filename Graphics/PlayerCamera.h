@@ -79,6 +79,13 @@ class Camera
 	//Call once per frame
 	void render(std::shared_ptr<ShaderManager> graphics, float deltaT, const std::shared_ptr<PhysicsWorld>  world);
 
+	//Pushes the matrices from the last render() call to the camera UBO without moving the camera
+	void uploadUniforms(std::shared_ptr<ShaderManager> graphics) const;
+
+	//Like uploadUniforms, but mirrored below a horizontal plane at waterLevel, for rendering water reflections
+	//The image comes out upside down compared to a true reflection, water.frag flips it back
+	void uploadReflectionUniforms(std::shared_ptr<ShaderManager> graphics, float waterLevel) const;
+
 	void setFOV(float fov);
 
 	//Call when screen size changed

@@ -301,11 +301,33 @@ void Camera::render(std::shared_ptr<ShaderManager> graphics,float deltaT,const s
     viewMatrix = glm::lookAt(position, position + direction, nominalUp);
     angleMatrix = glm::lookAt(glm::vec3(0, 0, 0), direction, nominalUp);
 
+    uploadUniforms(graphics);
+}
+
+void Camera::uploadUniforms(std::shared_ptr<ShaderManager> graphics) const
+{
     graphics->cameraUniforms.CameraDirection = direction;
     graphics->cameraUniforms.CameraPosition = position;
     graphics->cameraUniforms.CameraProjection = projectionMatrix;
     graphics->cameraUniforms.CameraView = viewMatrix;
     graphics->cameraUniforms.CameraAngle = angleMatrix;
+
+    graphics->updateCameraUBO();
+}
+
+void Camera::uploadReflectionUniforms(std::shared_ptr<ShaderManager> graphics, float waterLevel) const
+{
+    glm::vec3 mirroredPosition = glm::vec3(position.x, 2.0f * waterLevel - position.y, position.z);
+    glm::vec3 mirroredDirection = glm::vec3(direction.x, -direction.y, direction.z);
+
+    //A true mirror of the up vector would also flip triangle winding, this only flips the image vertically
+    glm::vec3 up = glm::vec3(-nominalUp.x, nominalUp.y, -nominalUp.z);
+
+    graphics->cameraUniforms.CameraDirection = mirroredDirection;
+    graphics->cameraUniforms.CameraPosition = mirroredPosition;
+    graphics->cameraUniforms.CameraProjection = projectionMatrix;
+    graphics->cameraUniforms.CameraView = glm::lookAt(mirroredPosition, mirroredPosition + mirroredDirection, up);
+    graphics->cameraUniforms.CameraAngle = glm::lookAt(glm::vec3(0, 0, 0), mirroredDirection, up);
 
     graphics->updateCameraUBO();
 }

@@ -1,4 +1,7 @@
 #include "OtherFunctions.h"
+#include "../GameLoop/ServerProgramData.h"
+
+extern ServerProgramData* LUA_pd;
 
 ExecutableArguments* LUA_args = nullptr;
 
@@ -196,10 +199,112 @@ static int LUA_debug(lua_State* L)
 	return 0;
 }
 
+//For setters that take exactly one number, logs an error and returns false for anything else
+static bool getOnlyNumberArgument(lua_State* L, double& result)
+{
+	int args = lua_gettop(L);
+	bool valid = args == 1 && lua_isnumber(L, 1);
+
+	if (valid)
+		result = lua_tonumber(L, 1);
+	else
+		error("Expected 1 number argument");
+
+	lua_pop(L, args);
+	return valid;
+}
+
+static int LUA_setTimeOfDay(lua_State* L)
+{
+	scope("LUA_setTimeOfDay");
+
+	double fraction;
+	if (!getOnlyNumberArgument(L, fraction))
+		return 0;
+
+	fraction -= floor(fraction);
+	LUA_pd->worldTimeSeconds = fraction * DAY_LENGTH_SECONDS;
+	LUA_pd->worldStateChanged = true;
+
+	return 0;
+}
+
+static int LUA_getTimeOfDay(lua_State* L)
+{
+	double fraction = fmod(LUA_pd->worldTimeSeconds, DAY_LENGTH_SECONDS) / DAY_LENGTH_SECONDS;
+	if (fraction < 0)
+		fraction += 1.0;
+
+	lua_pushnumber(L, fraction);
+	return 1;
+}
+
+static int LUA_setTimeScale(lua_State* L)
+{
+	scope("LUA_setTimeScale");
+
+	double scale;
+	if (!getOnlyNumberArgument(L, scale))
+		return 0;
+
+	LUA_pd->timeScale = (float)scale;
+	LUA_pd->worldStateChanged = true;
+
+	return 0;
+}
+
+static int LUA_getTimeScale(lua_State* L)
+{
+	lua_pushnumber(L, LUA_pd->timeScale);
+	return 1;
+}
+
+static int LUA_setWaterLevel(lua_State* L)
+{
+	scope("LUA_setWaterLevel");
+
+	int args = lua_gettop(L);
+
+	if (args == 0 || (args == 1 && lua_isnil(L, 1)))
+		LUA_pd->waterEnabled = false;
+	else if (args == 1 && lua_isnumber(L, 1))
+	{
+		LUA_pd->waterEnabled = true;
+		LUA_pd->waterLevel = (float)lua_tonumber(L, 1);
+	}
+	else
+	{
+		error("Expected no arguments or 1 number argument");
+		lua_pop(L, args);
+		return 0;
+	}
+
+	lua_pop(L, args);
+	LUA_pd->worldStateChanged = true;
+
+	return 0;
+}
+
+static int LUA_getWaterLevel(lua_State* L)
+{
+	if (LUA_pd->waterEnabled)
+		lua_pushnumber(L, LUA_pd->waterLevel);
+	else
+		lua_pushnil(L);
+
+	return 1;
+}
+
 void registerOtherFunctions(lua_State* L)
 {
 	lua_register(L, "info", LUA_info);
 	lua_register(L, "error", LUA_error);
 	lua_register(L, "debug", LUA_debug);
 	lua_register(L, "shutdown", LUA_shutdown);
+	lua_register(L, "setTimeOfDay", LUA_setTimeOfDay);
+	lua_register(L, "getTimeOfDay", LUA_getTimeOfDay);
+	lua_register(L, "setTimeScale", LUA_setTimeScale);
+	lua_register(L, "getTimeScale", LUA_getTimeScale);
+	lua_register(L, "setWaterLevel", LUA_setWaterLevel);
+	lua_register(L, "getWaterLevel", LUA_getWaterLevel);
 }

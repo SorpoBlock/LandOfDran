@@ -74,6 +74,10 @@ bool ShaderManager::readShaderList(const std::string &filePath)
 				brickShader = lastProgram;
 			else if (programName == "outline")
 				outlineShader = lastProgram;
+			else if (programName == "sky")
+				skyShader = lastProgram;
+			else if (programName == "water")
+				waterShader = lastProgram;
 			else
 				error("Invalid program name " + programName);
 		}
@@ -143,12 +147,23 @@ ShaderManager::ShaderManager()
 	glBindBuffer(GL_UNIFORM_BUFFER, cameraUBO);
 	glBufferData(GL_UNIFORM_BUFFER, 220, &cameraUniforms, GL_DYNAMIC_DRAW);
 	glBindBuffer(GL_UNIFORM_BUFFER, 0);
+
+	//Environment:
+
+	glGenBuffers(1, &environmentUBO);
+	if (!environmentUBO)
+		error("Could not allocate uniform buffer object!");
+
+	glBindBuffer(GL_UNIFORM_BUFFER, environmentUBO);
+	glBufferData(GL_UNIFORM_BUFFER, 112, &environmentUniforms, GL_DYNAMIC_DRAW);
+	glBindBuffer(GL_UNIFORM_BUFFER, 0);
 }
 
 ShaderManager::~ShaderManager()
 {
 	glDeleteBuffers(1, &basicUBO);
 	glDeleteBuffers(1, &cameraUBO);
+	glDeleteBuffers(1, &environmentUBO);
 }
 
 /*
@@ -159,6 +174,7 @@ void ShaderManager::bind(Program* target) const
 {
 	target->bindUniformBlock("BasicUniforms" , basicUBO , 0);
 	target->bindUniformBlock("CameraUniforms", cameraUBO, 1);
+	target->bindUniformBlock("EnvironmentUniforms", environmentUBO, 2);
 }
 
 //Push camera changes to GPU/OpenGL
@@ -174,6 +190,13 @@ void ShaderManager::updateBasicUBO() const
 {
 	glBindBuffer(GL_UNIFORM_BUFFER, basicUBO);
 	glBufferData(GL_UNIFORM_BUFFER, 224, &basicUniforms, GL_DYNAMIC_DRAW);
+	glBindBuffer(GL_UNIFORM_BUFFER, 0);
+}
+
+void ShaderManager::updateEnvironmentUBO() const
+{
+	glBindBuffer(GL_UNIFORM_BUFFER, environmentUBO);
+	glBufferData(GL_UNIFORM_BUFFER, 112, &environmentUniforms, GL_DYNAMIC_DRAW);
 	glBindBuffer(GL_UNIFORM_BUFFER, 0);
 }
  

@@ -41,6 +41,24 @@ layout (std140) uniform CameraUniforms
 	vec3 CameraDirection;
 };
 
+layout (std140) uniform EnvironmentUniforms
+{
+	//See EnvironmentUniforms in ShaderSpecification.h
+	vec3 SunDirection;
+	float FogDistanceMin;
+	vec3 LightDirection;
+	float FogDistanceMax;
+	vec3 LightColor;
+	float WaveTime;
+	vec3 SkyColor;
+	float WaterLevel;
+	vec3 FogColor;
+	float HorizonHeight;
+	vec4 ClipPlane;
+	vec3 AmbientColor;
+	float ShadowStrength;
+};
+
 uniform sampler2DArray PBRArray;
 uniform sampler2DArray DecalArray;
 uniform sampler2DArray ShadowArray;
@@ -142,10 +160,9 @@ void main()
 	
 	vec3 newNormal = getNormalFromMapGrad(uvs,dxuv,dyuv);
 		
-	//Testing:
-	vec3 sunDirection = normalize(vec3(0.2,1,0.4));
-	vec3 sunColor = 15.0 * vec3(1,0.7,0.5);
-	//End testing
+	//Sun during the day, moon at night
+	vec3 sunDirection = LightDirection;
+	vec3 sunColor = LightColor;
 	
 	//float bias = max(0.01 * (1.0 - dot(newNormal, normalize(sunDirection))), 0.001);  
 	float shadowCoverage = 0.0;
@@ -219,13 +236,19 @@ void main()
 	vec3 specular = numerator / denominator;
 	
 	color.rgb = (kD * albedo / PI + specular) * sunColor.rgb * NdotL * clamp((1.0 - shadowCoverage),0.35,1.0);
-	color.rgb += mor.g * albedo * sunColor.rgb * vec3(0.03) * clamp((1.0 - shadowCoverage),0.35,1.0);
+	//Ambient stays on while the direct light fades out at the horizon, and stops being shadowed there too, since the
+	//shadow maps are about to switch between the sun and moon
+	float ambientShadow = mix(1.0, clamp((1.0 - shadowCoverage),0.35,1.0), ShadowStrength);
+	color.rgb += mor.g * albedo * AmbientColor * ambientShadow;
 	color.a = 1.0;
 	
 	//Tone maping
 	color.rgb = color.rgb / (color.rgb + vec3(1.0));
 	//Gamma correction
 	color.rgb = pow(color.rgb, vec3(1.0/2.2));
+
+	float fogFactor = clamp((length(CameraPosition - worldPos) - FogDistanceMin) / (FogDistanceMax - FogDistanceMin), 0.0, 1.0);
+	color.rgb = mix(color.rgb, FogColor, fogFactor);
 }
 
 

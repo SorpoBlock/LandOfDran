@@ -30,6 +30,23 @@ source - if you add or change a binding, update this file too.
 | `debug(...)` | any number of values | Same as `info`, but only logged when the `logger/verbose` setting is on. |
 | `shutdown()` | none | Stops the main program loop (shuts the whole process down, not just the server). |
 
+## Time of day / water
+
+The server owns the time of day and the water level. It sends them to every client once a
+second, and right away when one of these functions changes them or a client finishes joining.
+
+| Function | Arguments | Returns | Description |
+|---|---|---|---|
+| `setTimeOfDay(fraction)` | `fraction`: `0` = midnight, `0.25` = sunrise, `0.5` = noon, `0.75` = sunset. Values outside 0-1 wrap around. | none | Jumps to that time of day. The server starts at noon. |
+| `getTimeOfDay()` | none | number, 0-1 | Current time of day, on the same scale as `setTimeOfDay`. |
+| `setTimeScale(scale)` | `scale`: in-game seconds that pass per real second | none | A full day is 1000 in-game seconds (`DAY_LENGTH_SECONDS` in `LandOfDran.h`), so the default of `1` is a ~16.7 minute day. `0` freezes time, negative values run it backwards. |
+| `getTimeScale()` | none | number | Current time scale. |
+| `setWaterLevel([y])` | `y`: world height of the water surface, or no argument / `nil` | none | Puts a water surface at height `y` across the whole world, or removes it when called with no argument. Off by default. Water is visual only: it doesn't affect physics. |
+| `getWaterLevel()` | none | number, or `nil` if there's no water | Current water height. |
+
+All of these except the getters use the strict `Expected 1 number argument` check described
+above (`setWaterLevel` also accepts no arguments).
+
 ## Scheduling
 
 | Function | Arguments | Returns | Description |

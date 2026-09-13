@@ -33,6 +33,15 @@ struct ServerProgramData
 		return autoAdminForLoopback && client->isLoopback();
 	}
 
+	//Time of day, see DAY_LENGTH_SECONDS, starts at noon
+	double worldTimeSeconds = DAY_LENGTH_SECONDS * 0.5;
+	//In-game seconds per real second, 0 freezes the time of day
+	float timeScale = 1.0;
+	bool waterEnabled = false;
+	float waterLevel = 0.0;
+	//Set when the above change other than time passing normally, or someone joins, so clients hear about it on the next tick
+	mutable bool worldStateChanged = true;
+
 	std::shared_ptr<PhysicsWorld>	physicsWorld = nullptr;
 	
 	lua_State * luaState = nullptr;

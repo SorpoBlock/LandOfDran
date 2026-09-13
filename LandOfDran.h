@@ -41,3 +41,6 @@
 
 //Target time between dedicated server ticks, in milliseconds. Matches ObjHolder's snapshot broadcast throttle so the server doesn't do physics work it won't send out yet
 #define SERVER_TICK_MS 25.0
+
+//In-game seconds from one midnight to the next, at a Lua setTimeScale of 1
+#define DAY_LENGTH_SECONDS 1000.0

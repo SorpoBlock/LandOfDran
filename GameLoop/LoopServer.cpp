@@ -35,6 +35,10 @@ void LoopServer::run(float deltaT, ExecutableArguments& cmdArgs, std::shared_ptr
 		slowestTickMS = 0;
 	}
 
+	pd.worldTimeSeconds += (deltaT / 1000.0) * pd.timeScale;
+	if (pd.worldStateChanged || SDL_GetTicks() - lastWorldStateBroadcast > 1000)
+		broadcastWorldState();
+
 	server->run(&pd,pd.luaState,pd.eventManager); //   <---- networking
 	pd.dynamics->sendRecent();
 	pd.statics->sendRecent();
@@ -73,6 +77,31 @@ void LoopServer::run(float deltaT, ExecutableArguments& cmdArgs, std::shared_ptr
 	}
 
 	scheduler->run(pd.luaState);
+}
+
+void LoopServer::broadcastWorldState()
+{
+	lastWorldStateBroadcast = SDL_GetTicks();
+	pd.worldStateChanged = false;
+
+	ENetPacket* packet = enet_packet_create(NULL, 1 + sizeof(double) + sizeof(float) * 2 + 1, getFlagsFromChannel(OtherReliable));
+	enet_uint8* data = packet->data;
+
+	data[0] = (unsigned char)WorldStateUpdate;
+	data++;
+
+	memcpy(data, &pd.worldTimeSeconds, sizeof(double));
+	data += sizeof(double);
+
+	memcpy(data, &pd.timeScale, sizeof(float));
+	data += sizeof(float);
+
+	memcpy(data, &pd.waterLevel, sizeof(float));
+	data += sizeof(float);
+
+	data[0] = pd.waterEnabled ? 1 : 0;
+
+	server->broadcast(packet, OtherReliable);
 }
 
 LoopServer::LoopServer(ExecutableArguments& cmdArgs, std::shared_ptr<SettingManager> settings)

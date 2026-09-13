@@ -32,5 +32,13 @@ static int LUA_debug(lua_State* L);
 
 static int LUA_shutdown(lua_State* L);
 
+//Time of day and water, see ServerProgramData::worldTimeSeconds
+static int LUA_setTimeOfDay(lua_State* L);
+static int LUA_getTimeOfDay(lua_State* L);
+static int LUA_setTimeScale(lua_State* L);
+static int LUA_getTimeScale(lua_State* L);
+static int LUA_setWaterLevel(lua_State* L);
+static int LUA_getWaterLevel(lua_State* L);
+
 //Register all funcs in this file
 void registerOtherFunctions(lua_State* L);

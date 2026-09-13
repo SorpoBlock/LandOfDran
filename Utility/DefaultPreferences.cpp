@@ -54,7 +54,7 @@ void populateDefaults(std::shared_ptr<SettingManager> settings)
 	settings->addFloat("audio/musicvolume",			0.5f, false,		"Music Volume",0,1);
 
 	//Graphics settings
-	settings->addEnum("graphics/waterquality",		1, 	 			"Water Quality",	{"No Reflections", "Half Res Reflections", "Full Reflections"});
+	settings->addEnum("graphics/waterquality",		1, 	 			"Water Quality",	{"No Reflection/Refraction", "Half Res Reflection/Refraction", "Full Res Reflection/Refraction"});
 	settings->addEnum("graphics/shadowresolution",	1, 	 			"Shadow Resolution", 	{"2k Shadows","4k Shadows","8k Shadows"});
 	settings->addEnum("graphics/shadowsoftness",		1,  			"Shadow Softness" , 	{"No PCF","2x PCF","4x PCF","8x PCF"});
 	settings->addBool("graphics/shadowcolor",		true, false, 	"Use colored shadows");

@@ -102,6 +102,7 @@ enum FromServerPacketType : unsigned char
 	ServerPerformanceDetails = 13,	//Server sends client the slowest frame time in MS every second
 	CenterPrint = 14,		//Show a temporary message in the center of the client's screen
 	HighlightAppearance = 15,	//Apply or clear the outline/highlight effect on a dynamic or static instance
+	WorldStateUpdate = 16,	//Time of day, how fast it passes, and water level, every second and whenever they change
 };
 
 //For use with AcceptConnection packets

@@ -38,6 +38,7 @@ void LoopClient::leaveServer(ExecutableArguments& cmdArgs)
 	pd.signals.typesToLoad = 0; //Disable progress bar in server browser UI until next join
 	
 	simulation.evalPassword = "";
+	simulation.waterEnabled = false;
 
 	//Destroy server specific physics
 	if (pd.physicsWorld)
@@ -156,6 +157,7 @@ void LoopClient::handleInput(float deltaT, ExecutableArguments& cmdArgs, std::sh
 			{
 				pd.context->setSize(e.window.data1, e.window.data2);
 				simulation.camera->setAspectRatio(pd.context->getResolution().x / pd.context->getResolution().y);
+				createWaterTargets(settings);
 			}
 		}
 		else if (e.type == SDL_MOUSEMOTION && pd.context->getMouseLocked())
@@ -207,6 +209,7 @@ void LoopClient::handleInput(float deltaT, ExecutableArguments& cmdArgs, std::sh
 		simulation.camera->updateSettings(settings);
 		pd.gui->updateSettings(settings);
 		simulation.idealBufferSize = settings->getInt("network/snapshotbuffer");
+		createWaterTargets(settings);
 	}
 
 	if (pd.debugMenu->passwordSubmitted())
@@ -395,52 +398,42 @@ void LoopClient::predictLocalCollisions()
 	}
 }
 
-void LoopClient::renderEverything(float deltaT)
+void LoopClient::createWaterTargets(std::shared_ptr<SettingManager> settings)
 {
-	//TODO: Get rid of this
-	if (simulation.dynamics)
-	{
-		for (unsigned a = 0; a < simulation.dynamics->size(); a++)
-		{
-			std::shared_ptr<Dynamic> d = simulation.dynamics->get(a);
-			bool predictingLocally = getTicksMS() < d->predictLocallyUntil;
+	pd.waterReflection.reset();
+	pd.waterRefraction.reset();
 
-			if (d->wasPredictingLocally && !predictingLocally)
-				d->handOffFromPrediction(simulation.idealBufferSize);
-			d->wasPredictingLocally = predictingLocally;
+	//0 = off, 1 = half resolution, 2 = full resolution
+	int quality = settings->getInt("graphics/waterquality");
+	if (quality <= 0)
+		return;
 
-			d->updateSnapshot(deltaT, pd.debugMenu->showDebugPhysicsView || predictingLocally);
-		}
-	}
+	int divisor = quality == 1 ? 2 : 1;
 
-	//Technically rendering related calculations based on previously inputted transform data
-	for (unsigned int a = 0; a < simulation.dynamicTypes.size(); a++)
-		simulation.dynamicTypes[a]->getModel()->updateAll(deltaT);
+	RenderTarget::RenderTargetSettings waterSettings;
+	waterSettings.width = std::max(1, (int)pd.context->getResolution().x / divisor);
+	waterSettings.height = std::max(1, (int)pd.context->getResolution().y / divisor);
 
-	simulation.camera->calculateLightSpaceMatricies(glm::normalize(glm::vec3(0.2, 1.0, 0.4)), pd.lightSpaceMatricies);
+	pd.waterReflection = std::make_shared<RenderTarget>(waterSettings, pd.textures);
+	pd.waterRefraction = std::make_shared<RenderTarget>(waterSettings, pd.textures);
+}
 
-	//Render shadows to texture:
-	pd.shadows->use();
-	pd.shaders->modelShadowShader->use();
-	glUniformMatrix4fv(pd.lightSpaceMatriciesUniformShadow, 3, GL_FALSE, (GLfloat*)pd.lightSpaceMatricies);
+void LoopClient::renderScene(bool clipAtWater)
+{
+	//Sky is behind everything, so it's drawn first without touching depth
+	pd.shaders->skyShader->use();
+	glDisable(GL_DEPTH_TEST);
+	glDepthMask(GL_FALSE);
+	glBindVertexArray(pd.skyVao);
+	glDrawArrays(GL_TRIANGLES, 0, 3);
+	glBindVertexArray(0);
+	glDepthMask(GL_TRUE);
+	glEnable(GL_DEPTH_TEST);
 
-	//Models:
-	pd.shaders->basicUniforms.nonInstanced = 0;
-	pd.shaders->basicUniforms.cameraSpacePosition = 0;
-	pd.shaders->updateBasicUBO();
-	for (unsigned int a = 0; a < simulation.dynamicTypes.size(); a++)
-		simulation.dynamicTypes[a]->render(pd.shaders,false);
+	//The sky shader doesn't write gl_ClipDistance, so clipping can only be turned on after it
+	if (clipAtWater)
+		glEnable(GL_CLIP_DISTANCE0);
 
-	//Bricks:
-	pd.shaders->basicUniforms.nonInstanced = true;
-	pd.shaders->updateBasicUBO();
-	testBricks.render(-1);
-
-	//Start rendering to screen:
-	pd.context->select();
-	pd.context->clear(0.4f, 0.4f, 0.8f);
-
-	simulation.camera->render(pd.shaders, deltaT, pd.physicsWorld);
 	pd.shaders->modelShader->use();
 	glUniformMatrix4fv(pd.lightSpaceMatriciesUniformModel, 3, GL_FALSE, (GLfloat*)pd.lightSpaceMatricies);
 	pd.shadows->bindDepthResult(ShadowArray);
@@ -472,6 +465,125 @@ void LoopClient::renderEverything(float deltaT)
 	pd.shaders->basicUniforms.nonInstanced = true;
 	pd.shaders->updateBasicUBO();
 	testBricks.render(pd.shaders->brickShader->getUniformLocation("brickChunkPos"));
+
+	if (clipAtWater)
+		glDisable(GL_CLIP_DISTANCE0);
+}
+
+void LoopClient::renderEverything(float deltaT)
+{
+	//TODO: Get rid of this
+	if (simulation.dynamics)
+	{
+		for (unsigned a = 0; a < simulation.dynamics->size(); a++)
+		{
+			std::shared_ptr<Dynamic> d = simulation.dynamics->get(a);
+			bool predictingLocally = getTicksMS() < d->predictLocallyUntil;
+
+			if (d->wasPredictingLocally && !predictingLocally)
+				d->handOffFromPrediction(simulation.idealBufferSize);
+			d->wasPredictingLocally = predictingLocally;
+
+			d->updateSnapshot(deltaT, pd.debugMenu->showDebugPhysicsView || predictingLocally);
+		}
+	}
+
+	//Technically rendering related calculations based on previously inputted transform data
+	for (unsigned int a = 0; a < simulation.dynamicTypes.size(); a++)
+		simulation.dynamicTypes[a]->getModel()->updateAll(deltaT);
+
+	simulation.camera->render(pd.shaders, deltaT, pd.physicsWorld);
+
+	pd.environment.calc(simulation.worldTimeSeconds);
+	pd.environment.passUniforms(pd.shaders);
+	//Every wave in water.vert/frag completes a whole number of cycles per 100 seconds, so wrapping here is seamless
+	pd.shaders->environmentUniforms.WaveTime = (float)fmod(getTicksMS() / 1000.0, 100.0);
+	pd.shaders->environmentUniforms.WaterLevel = simulation.waterLevel;
+	pd.shaders->environmentUniforms.HorizonHeight = simulation.waterEnabled ? std::max(0.0f, simulation.waterLevel) : 0.0f;
+	pd.shaders->environmentUniforms.ClipPlane = glm::vec4(0);
+	pd.shaders->updateEnvironmentUBO();
+
+	simulation.camera->calculateLightSpaceMatricies(pd.environment.lightDirection, pd.lightSpaceMatricies);
+
+	//Render shadows to texture:
+	pd.shadows->use();
+	pd.shaders->modelShadowShader->use();
+	glUniformMatrix4fv(pd.lightSpaceMatriciesUniformShadow, 3, GL_FALSE, (GLfloat*)pd.lightSpaceMatricies);
+
+	//Models:
+	pd.shaders->basicUniforms.nonInstanced = 0;
+	pd.shaders->basicUniforms.cameraSpacePosition = 0;
+	pd.shaders->updateBasicUBO();
+	for (unsigned int a = 0; a < simulation.dynamicTypes.size(); a++)
+		simulation.dynamicTypes[a]->render(pd.shaders,false);
+
+	//Bricks:
+	pd.shaders->basicUniforms.nonInstanced = true;
+	pd.shaders->updateBasicUBO();
+	testBricks.render(-1);
+
+	bool cameraUnderwater = simulation.camera->getPosition().y < simulation.waterLevel;
+	bool renderWaterPasses = simulation.waterEnabled && pd.waterReflection && pd.waterRefraction;
+
+	auto setClipPlane = [this](const glm::vec4& plane)
+	{
+		pd.shaders->environmentUniforms.ClipPlane = plane;
+		pd.shaders->updateEnvironmentUBO();
+	};
+
+	//Keep a little past the surface so wave troughs don't open gaps where objects meet the water
+	const float clipOverlap = 0.25f;
+
+	if (renderWaterPasses)
+	{
+		//Reflection: the scene above the water, from a camera mirrored below the surface
+		if (!cameraUnderwater)
+		{
+			pd.waterReflection->use();
+			simulation.camera->uploadReflectionUniforms(pd.shaders, simulation.waterLevel);
+			setClipPlane(glm::vec4(0, 1, 0, clipOverlap - simulation.waterLevel));
+			renderScene(true);
+			simulation.camera->uploadUniforms(pd.shaders);
+		}
+
+		//Refraction: whatever is on the other side of the surface from the camera
+		pd.waterRefraction->use();
+		if (cameraUnderwater)
+			setClipPlane(glm::vec4(0, 1, 0, clipOverlap - simulation.waterLevel));
+		else
+			setClipPlane(glm::vec4(0, -1, 0, clipOverlap + simulation.waterLevel));
+		renderScene(true);
+
+		setClipPlane(glm::vec4(0));
+	}
+
+	//Start rendering to screen:
+	pd.context->select();
+	pd.context->clear(pd.environment.fogColor.r, pd.environment.fogColor.g, pd.environment.fogColor.b);
+	renderScene(false);
+
+	if (simulation.waterEnabled)
+	{
+		pd.shaders->waterShader->use();
+		glUniform1f(pd.shaders->waterShader->getUniformLocation("waterRadius"), waterRadius);
+		glUniform1f(pd.shaders->waterShader->getUniformLocation("gridSpacing"), waterRadius * 2.0f / waterGridCells);
+		glUniform1i(pd.shaders->waterShader->getUniformLocation("useReflection"), renderWaterPasses && !cameraUnderwater);
+		glUniform1i(pd.shaders->waterShader->getUniformLocation("useRefraction"), renderWaterPasses);
+		glUniform1i(pd.shaders->waterShader->getUniformLocation("cameraUnderwater"), cameraUnderwater);
+
+		if (renderWaterPasses)
+		{
+			pd.waterReflection->bindColorResult(Reflection);
+			pd.waterRefraction->bindColorResult(Refraction);
+		}
+
+		//Visible from both above and below
+		glDisable(GL_CULL_FACE);
+		glBindVertexArray(pd.waterVao);
+		glDrawArrays(GL_TRIANGLES, 0, pd.waterVertexCount);
+		glBindVertexArray(0);
+		glEnable(GL_CULL_FACE);
+	}
 
 	//Outlines/highlights: a selection-style indicator that should show through everything in the scene except
 	//its own source object (so it doesn't just paint a solid blob over the object it's highlighting) and other
@@ -616,6 +728,9 @@ void LoopClient::run(float deltaT,ExecutableArguments& cmdArgs, std::shared_ptr<
 		}
 
 		sendControlledObjects();
+
+		//Keeps the sky moving smoothly between the server's once a second WorldStateUpdate packets
+		simulation.worldTimeSeconds += (deltaT / 1000.0) * simulation.timeScale;
 	}
 
 	//movement keys and camera direction as it relates to players / controlled objects 
@@ -631,6 +746,7 @@ void LoopClient::run(float deltaT,ExecutableArguments& cmdArgs, std::shared_ptr<
 		netInfo = { client->getPing(), client->getIncoming(), client->getOutgoing(), simulation.serverLastSlowestFrame, simulation.serverAverageFrame };
 	pd.debugMenu->passDetails(simulation.camera->getPosition(),simulation.camera->getDirection(), netInfo);
 
+	pd.debugMenu->addExtraLine("Time of day: " + std::to_string(pd.environment.dayFraction) + " (x" + std::to_string(simulation.timeScale) + ")");
 	if (simulation.dynamics && simulation.dynamics->size() > 0)
 		pd.debugMenu->addExtraLine("First other snaps: " + std::to_string(simulation.dynamics->get(0)->interpolator.getNumSnapshots()));
 	if (simulation.controlledDynamics.size() > 0)
@@ -761,6 +877,37 @@ LoopClient::LoopClient(ExecutableArguments& cmdArgs, std::shared_ptr<SettingMana
 	pd.lightSpaceMatriciesUniformModel = pd.shaders->modelShader->getUniformLocation("lightSpaceMatricies");
 	pd.lightSpaceMatriciesUniformBrick = pd.shaders->brickShader->getUniformLocation("lightSpaceMatricies");
 
+	glGenVertexArrays(1, &pd.skyVao);
+
+	//Integer grid coordinates go through the same math for every cell that shares a vertex, so no cracks between cells
+	auto gridPoint = [](int x, int z) { return glm::vec2(x, z) / (float)waterGridCells * 2.0f - 1.0f; };
+	std::vector<glm::vec2> waterGrid;
+	waterGrid.reserve(waterGridCells * waterGridCells * 6);
+	for (int x = 0; x < waterGridCells; x++)
+	{
+		for (int z = 0; z < waterGridCells; z++)
+		{
+			waterGrid.push_back(gridPoint(x, z));
+			waterGrid.push_back(gridPoint(x, z + 1));
+			waterGrid.push_back(gridPoint(x + 1, z));
+			waterGrid.push_back(gridPoint(x + 1, z));
+			waterGrid.push_back(gridPoint(x, z + 1));
+			waterGrid.push_back(gridPoint(x + 1, z + 1));
+		}
+	}
+	pd.waterVertexCount = (GLsizei)waterGrid.size();
+
+	glGenVertexArrays(1, &pd.waterVao);
+	glBindVertexArray(pd.waterVao);
+	glGenBuffers(1, &pd.waterVbo);
+	glBindBuffer(GL_ARRAY_BUFFER, pd.waterVbo);
+	glBufferData(GL_ARRAY_BUFFER, waterGrid.size() * sizeof(glm::vec2), waterGrid.data(), GL_STATIC_DRAW);
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, (void*)0);
+	glBindVertexArray(0);
+
+	createWaterTargets(settings);
+
 	info("Start up complete");
 
 	printAllGraphicsErrors("End of initalization");
@@ -857,9 +1004,14 @@ LoopClient::~LoopClient()
 	//testChunk.deleteAllBricks();
 
 	pd.shadows.reset();
+	pd.waterReflection.reset();
+	pd.waterRefraction.reset();
 
 	delete pd.grassMaterial;
 	glDeleteVertexArrays(1, &pd.grassVao);
+	glDeleteVertexArrays(1, &pd.skyVao);
+	glDeleteVertexArrays(1, &pd.waterVao);
+	glDeleteBuffers(1, &pd.waterVbo);
 
 	//Not needed this is a destructor lol
 	//Also this should only be called when the programs shutting down anyway 

@@ -36,6 +36,12 @@ class LoopServer
 	float slowestTickMS = 0;
 	float lastSlowestTickMS = 0;
 
+	//SDL_GetTicks of the last WorldStateUpdate packet
+	unsigned int lastWorldStateBroadcast = 0;
+
+	//Sends time of day and water level to every client
+	void broadcastWorldState();
+
 public:
 
 	//Constructor have any issues?

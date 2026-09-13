@@ -150,6 +150,10 @@ KickReason Client::run(const ClientProgramData& pd,Simulation &simulation, const
 						packets.push_back(new HighlightAppearancePacket(packetHoldTime, event.packet));
 						return NotKicked;
 
+					case WorldStateUpdate:
+						packets.push_back(new WorldStateUpdatePacket(packetHoldTime, event.packet));
+						return NotKicked;
+
 					//Can't process packet
 					case InvalidServer:
 					default:

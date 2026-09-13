@@ -126,7 +126,9 @@ add_executable (LandOfDran
 "Graphics/BrickRenderer.h"
 "Graphics/BrickRenderer.cpp"
 "Graphics/RenderTarget.h" 
-"Graphics/RenderTarget.cpp" 
+"Graphics/RenderTarget.cpp"
+"Graphics/Environment.h"
+"Graphics/Environment.cpp"
 
 "Interface/InputMap.h"  
 "Interface/InputMap.cpp" 
@@ -198,6 +200,8 @@ add_executable (LandOfDran
 "Networking/PacketsFromServer/CenterPrint.cpp"
 "Networking/PacketsFromServer/HighlightAppearance.h"
 "Networking/PacketsFromServer/HighlightAppearance.cpp"
+"Networking/PacketsFromServer/WorldStateUpdate.h"
+"Networking/PacketsFromServer/WorldStateUpdate.cpp"
 
 "Networking/PacketsFromClient/ConnectionRequest.cpp" 
 "Networking/PacketsFromClient/FinishedLoading.cpp" 

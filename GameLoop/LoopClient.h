@@ -52,6 +52,16 @@ class LoopClient
 
 	BrickRenderer testBricks;
 
+	//Water surface mesh: waterGridCells by waterGridCells quads reaching waterRadius out from the camera
+	static constexpr int waterGridCells = 200;
+	static constexpr float waterRadius = 300.0f;
+
+	//(Re)creates the water reflection/refraction render targets for the window size and graphics/waterquality
+	void createWaterTargets(std::shared_ptr<SettingManager> settings);
+
+	//Sky, models, grass, and bricks from the currently uploaded camera into the currently bound frame buffer
+	void renderScene(bool clipAtWater);
+
 public:
 
 	//Constructor have any issues?

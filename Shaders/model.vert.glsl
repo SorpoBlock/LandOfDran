@@ -39,6 +39,24 @@ layout (std140) uniform CameraUniforms
 	vec3 CameraDirection;
 };
 
+layout (std140) uniform EnvironmentUniforms
+{
+	//See EnvironmentUniforms in ShaderSpecification.h
+	vec3 SunDirection;
+	float FogDistanceMin;
+	vec3 LightDirection;
+	float FogDistanceMax;
+	vec3 LightColor;
+	float WaveTime;
+	vec3 SkyColor;
+	float WaterLevel;
+	vec3 FogColor;
+	float HorizonHeight;
+	vec4 ClipPlane;
+	vec3 AmbientColor;
+	float ShadowStrength;
+};
+
 uniform mat4 lightSpaceMatricies[3];
 
 out vec2 uvs;
@@ -80,6 +98,7 @@ void main()
 	for(int i = 0; i<3; i++)
 		shadowPos[i] = lightSpaceMatricies[i] * vec4(worldPos,1.0);
 	
+	gl_ClipDistance[0] = dot(vec4(worldPos, 1.0), ClipPlane);
 	gl_Position = CameraProjection * CameraView * vec4(worldPos,1.0);
 }
 
