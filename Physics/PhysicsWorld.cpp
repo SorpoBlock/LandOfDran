@@ -88,10 +88,23 @@ std::vector<btRigidBody*> PhysicsWorld::getTouching(const btRigidBody* body) con
 
 btRigidBody* PhysicsWorld::boxSweepTest(const btVector3& halfExtents, const btTransform& from, const btTransform& to, btRigidBody* ignore)
 {
+    return boxSweep(halfExtents, from, to, ignore).body;
+}
+
+SweepResult PhysicsWorld::boxSweep(const btVector3& halfExtents, const btTransform& from, const btTransform& to, btRigidBody* ignore)
+{
     btClosestNotMeConvexResultCallback callback(ignore, from.getOrigin(), to.getOrigin(), world->getPairCache(), world->getDispatcher());
     btBoxShape test(halfExtents);
     world->convexSweepTest(&test, from, to, callback);
-    return (btRigidBody*)callback.m_hitCollisionObject;
+
+    SweepResult result;
+    if (callback.hasHit())
+    {
+        result.body = (btRigidBody*)callback.m_hitCollisionObject;
+        result.fraction = callback.m_closestHitFraction;
+        result.normal = callback.m_hitNormalWorld;
+    }
+    return result;
 }
 
 btRigidBody *PhysicsWorld::doRaycast(const btVector3 &start,const btVector3 &end,btRigidBody *ignore,btVector3 &hitPos,btVector3 &hitNormal) const

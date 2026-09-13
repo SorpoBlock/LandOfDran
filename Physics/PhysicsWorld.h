@@ -37,6 +37,18 @@ enum RigidBodyUserIndex
 	brickBody = 40
 };
 
+//What a box sweep hit, body is nullptr if nothing was
+struct SweepResult
+{
+	btRigidBody* body = nullptr;
+
+	//0 at the start of the sweep, 1 at the end
+	btScalar fraction = 1;
+
+	//Surface normal of whatever was hit, pointing back toward the sweep
+	btVector3 normal = btVector3(0, 1, 0);
+};
+
 /*
 	Holds a btDynamicsWorld but also a few extra things like the ground plane we'll always have
 */
@@ -67,6 +79,10 @@ class PhysicsWorld
 
 	//Performs a sweep test using the body from its current transform to the supplied, and returns the closest non-from body contacted if any
 	btRigidBody* boxSweepTest(const btVector3& halfExtents, const btTransform& from, const btTransform& to, btRigidBody* ignore);
+
+	//Same sweep as boxSweepTest, but with how far along the sweep the hit was and its surface normal
+	//Ignores non-colliding bodies and anything the box is moving away from
+	SweepResult boxSweep(const btVector3& halfExtents, const btTransform& from, const btTransform& to, btRigidBody* ignore);
 
 	//Bodies with an actual (penetrating) contact against the given body as of the most recent step() - cheap, since Bullet
 	//already computes these each step, just reads the dispatcher's cached manifolds rather than testing anything itself

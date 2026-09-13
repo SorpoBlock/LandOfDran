@@ -1,5 +1,72 @@
 #include "PlayerController.h"
 
+#include "../Bricks/Brick.h"
+
+//Tallest ledge a walking player steps onto without jumping
+static constexpr float maxStepHeight = 4 * PLATE_SIZE;
+
+//Surfaces with a normal steeper than this are walls to step over, flatter ones are ground to step onto
+static constexpr float walkableNormalY = 0.7f;
+
+/*
+	If the player is walking into a wall no taller than maxStepHeight with room above it, lifts them on top of it
+	Works on anything solid except other dynamics, so walking into a loose object still pushes it
+*/
+static void stepUp(std::shared_ptr<PhysicsWorld> world, const std::shared_ptr<Dynamic>& player, const btVector3& walkDir)
+{
+	std::shared_ptr<Model> model = player->getType()->getModel();
+	btVector3 halfExtents = g2b3(model->getColHalfExtents());
+
+	btTransform bodyTransform = player->body->getWorldTransform();
+	btTransform box = bodyTransform * btTransform(btQuaternion::getIdentity(), g2b3(model->getColOffset()));
+
+	auto sweep = [&](const btVector3& from, const btVector3& to)
+	{
+		btTransform start = box;
+		btTransform end = box;
+		start.setOrigin(from);
+		end.setOrigin(to);
+		return world->boxSweep(halfExtents, start, end, player->body);
+	};
+
+	const btVector3 up = btVector3(0, 1, 0);
+	const btVector3 center = box.getOrigin();
+
+	//Slightly more than a frame of walking, so the step happens as the player reaches the ledge
+	const btVector3 ahead = walkDir * 0.3f;
+
+	//Only while standing on something, a jump or fall shouldn't grab ledges
+	if (!sweep(center + up * 0.05f, center - up * 0.2f).body)
+		return;
+
+	SweepResult wall = sweep(center, center + ahead);
+	if (!wall.body || wall.normal.getY() > walkableNormalY || wall.body->getUserIndex() == dynamicBody)
+		return;
+
+	//Probe from a little above the limit, a ledge exactly maxStepHeight tall would start the sweep already touching its top
+	const float probeHeight = maxStepHeight + 0.1f;
+
+	//Room above the player, and above the ledge
+	btVector3 raised = center + up * probeHeight;
+	if (sweep(center, raised).body || sweep(raised, raised + ahead).body)
+		return;
+
+	SweepResult ledge = sweep(raised + ahead, center + ahead);
+	if (!ledge.body || ledge.normal.getY() < walkableNormalY)
+		return;
+
+	float rise = probeHeight * (1.0f - ledge.fraction);
+	if (rise < 0.05f || rise > maxStepHeight + 0.02f)
+		return;
+
+	bodyTransform.setOrigin(bodyTransform.getOrigin() + up * (rise + 0.01f));
+	player->body->setWorldTransform(bodyTransform);
+
+	btVector3 velocity = player->getVelocity();
+	velocity.setY(std::max(velocity.getY(), (btScalar)0));
+	player->setVelocity(velocity);
+}
+
 
 //Client only, send last inputs to server for caching and reflection
 //Can return nullptr if object was deleted or packet was recently sent
@@ -139,6 +206,8 @@ bool PlayerController::control(std::shared_ptr<PhysicsWorld> world, float deltaT
 	playerYaw = playerYaw.slerp(turn, deltaT / blendTime);
 
 	btVector3 walkDir = btMatrix3x3(turn) * btVector3(0.0, 0.0, -1.0);
+
+	stepUp(world, targetLock, walkDir);
 
 	if (!serverSide)
 	{
