@@ -295,6 +295,25 @@ class ObjHolder
 		}
 	}
 
+	/*
+		Canonically destroy every object this holder has, e.g. when the client leaves a server
+		Each object's physics body holds a shared_ptr to the object itself, so simply dropping allObjects
+		(which is all the empty destructor does) leaks every object along with its ModelInstance
+		Must be called while SimObject::world still refers to the world these objects' bodies are in
+	*/
+	inline void destroyAll()
+	{
+		for (auto& obj : allObjects)
+		{
+			obj->requestDestruction();
+			obj->me.reset();
+			obj.reset();
+		}
+		allObjects.clear();
+		recentCreations.clear();
+		recentlyDeletedIDs.clear();
+	}
+
 	//Principle way of getting objects, outside of lua scripts and client packets that use netIDs
 	inline std::shared_ptr<T> operator[](const std::size_t& idx) const
 	{

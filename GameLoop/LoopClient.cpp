@@ -17,14 +17,18 @@ void LoopClient::leaveServer(ExecutableArguments& cmdArgs)
 	simulation.controllers.clear();
 	simulation.controlledDynamics.clear();
 
+	//destroyAll actually frees each object (and its ModelInstance, removing it from e.g. the highlight list)
+	//Deleting the holder alone would leak them, leaving their highlights drawn over the main menu
 	if (simulation.dynamics)
 	{
+		simulation.dynamics->destroyAll();
 		delete simulation.dynamics;
 		simulation.dynamics = nullptr;
 	}
 
 	if (simulation.statics)
 	{
+		simulation.statics->destroyAll();
 		delete simulation.statics;
 		simulation.statics = nullptr;
 	}

@@ -241,6 +241,12 @@ void ModelInstance::setHighlight(const glm::vec4& color, float thickness)
 	highlightUpdated = true;
 	anythingUpdated = true;
 
+	//highlightedInstances is only for the client's outline render pass. Server-side instances still track their
+	//highlight (for networking) but have nothing to render, and in single player they share this static list
+	//with the client, where they'd outlive their Model after the embedded server shuts down
+	if (!type || type->isServerSide())
+		return;
+
 	if (nowActive && !wasActive)
 		highlightedInstances.push_back(this);
 	else if (!nowActive && wasActive)
