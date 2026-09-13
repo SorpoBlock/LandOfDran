@@ -97,6 +97,9 @@ class ShaderManager
 	//Program for drawing bricks to screen
 	Program* brickShader = new Program();
 
+	//Program for drawing shadows of bricks to shadow texture
+	Program* brickShadowShader = new Program();
+
 	//Program for drawing the outline/highlight effect on top of normal models
 	Program* outlineShader = new Program();
 

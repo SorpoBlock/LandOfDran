@@ -160,6 +160,7 @@ Texture* TextureManager::createTexture(const std::string &filePath, bool makeMip
 	}
 
 	//Actually pass pixel data to OpenGL / graphics card
+	glBindTexture(ret->textureType, ret->handle);
 	glTexImage2D(
 		ret->textureType,
 		0,

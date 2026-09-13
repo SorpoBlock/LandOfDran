@@ -33,6 +33,10 @@ void LoopClient::leaveServer(ExecutableArguments& cmdArgs)
 		simulation.statics = nullptr;
 	}
 
+	//Removes brick bodies, so it has to happen before the physics world is destroyed below
+	delete simulation.bricks;
+	simulation.bricks = nullptr;
+
 	delete client;
 	client = nullptr;
 
@@ -43,6 +47,7 @@ void LoopClient::leaveServer(ExecutableArguments& cmdArgs)
 	
 	simulation.evalPassword = "";
 	simulation.waterEnabled = false;
+	pd.ghostBrick.hide();
 
 	//Destroy server specific physics
 	if (pd.physicsWorld)
@@ -200,6 +205,16 @@ void LoopClient::handleInput(float deltaT, ExecutableArguments& cmdArgs, std::sh
 
 			ENetPacket *mouseClickPacket = makeMouseClickPacket(worldPos, dir, mask);
 			client->send(mouseClickPacket, OtherReliable);
+
+			//With a brick picked in the brick selector, a left click puts the ghost brick wherever the crosshair points
+			if ((mask & SDL_BUTTON_LMASK) && pd.ghostBrick.canSpawn() && pd.physicsWorld)
+			{
+				glm::vec3 start = simulation.camera->getPosition();
+				btRigidBody* ignore = simulation.controlledDynamics.empty() ? nullptr : simulation.controlledDynamics[0]->body;
+				btVector3 hitPosition, hitNormal;
+				if (pd.physicsWorld->doRaycast(g2b3(start), g2b3(start + dir * 250.0f), ignore, hitPosition, hitNormal))
+					pd.ghostBrick.spawnAt(b2g3(hitPosition), b2g3(hitNormal));
+			}
 		}
 	}
 
@@ -316,6 +331,37 @@ void LoopClient::handleInput(float deltaT, ExecutableArguments& cmdArgs, std::sh
 
 	if (pd.input->pollCommand(DebugView))
 		pd.debugMenu->showDebugPhysicsView = !pd.debugMenu->showDebugPhysicsView;
+
+	//Building
+	if (pd.input->pollCommand(OpenBrickSelector))
+	{
+		pd.brickSelector->open();
+		pd.context->setMouseLock(false);
+	}
+
+	if (pd.brickSelector->hasSelection())
+	{
+		int width, height, length;
+		glm::u8vec4 color;
+		pd.brickSelector->getSelection(width, height, length, color);
+		pd.ghostBrick.select(width, height, length, color);
+	}
+
+	pd.ghostBrick.update(deltaT, pd.input, simulation.camera->getDirection());
+
+	//Polled every frame so presses made while the ghost is hidden don't fire later
+	bool plant = pd.input->pollCommand(PlantBrick);
+	bool hideGhost = pd.input->pollCommand(HideGhostBrick);
+	if (pd.ghostBrick.isVisible())
+	{
+		if (plant)
+			client->send(makePlantBrickPacket(pd.ghostBrick.get()), OtherReliable);
+		if (hideGhost)
+			pd.ghostBrick.hide();
+	}
+
+	if (pd.input->pollCommand(UndoBrick))
+		client->send(makeUndoBrickPacket(), OtherReliable);
 }
 
 void LoopClient::predictLocalCollisions()
@@ -461,14 +507,15 @@ void LoopClient::renderScene(bool clipAtWater)
 	glDrawArrays(GL_TRIANGLES, 0, 6);
 	glBindVertexArray(0);
 
-	//Bricks
-	if(pd.textures->getTexture(3))
-		pd.textures->getTexture(3)->bind(PBRArray);
+	//Bricks, transparent ones last
 	pd.shaders->brickShader->use();
 	glUniformMatrix4fv(pd.lightSpaceMatriciesUniformBrick, 3, GL_FALSE, (GLfloat*)pd.lightSpaceMatricies);
-	pd.shaders->basicUniforms.nonInstanced = true;
-	pd.shaders->updateBasicUBO();
-	testBricks.render(pd.shaders->brickShader->getUniformLocation("brickChunkPos"));
+	pd.brickRenderer->render(pd.shaders, false);
+	pd.brickRenderer->render(pd.shaders, true);
+
+	//Only in the main view, not reflected or refracted by water
+	if (!clipAtWater && pd.ghostBrick.isVisible())
+		pd.brickRenderer->renderGhost(pd.shaders, pd.ghostBrick.get());
 
 	if (clipAtWater)
 		glDisable(GL_CLIP_DISTANCE0);
@@ -509,6 +556,8 @@ void LoopClient::renderEverything(float deltaT)
 
 	simulation.camera->calculateLightSpaceMatricies(pd.environment.lightDirection, pd.lightSpaceMatricies);
 
+	pd.brickRenderer->rebuildDirty(4.0f);
+
 	//Render shadows to texture:
 	pd.shadows->use();
 	pd.shaders->modelShadowShader->use();
@@ -522,9 +571,9 @@ void LoopClient::renderEverything(float deltaT)
 		simulation.dynamicTypes[a]->render(pd.shaders,false);
 
 	//Bricks:
-	pd.shaders->basicUniforms.nonInstanced = true;
-	pd.shaders->updateBasicUBO();
-	testBricks.render(-1);
+	pd.shaders->brickShadowShader->use();
+	glUniformMatrix4fv(pd.lightSpaceMatriciesUniformBrickShadow, 3, GL_FALSE, (GLfloat*)pd.lightSpaceMatricies);
+	pd.brickRenderer->renderShadows();
 
 	bool cameraUnderwater = simulation.camera->getPosition().y < simulation.waterLevel;
 	bool renderWaterPasses = simulation.waterEnabled && pd.waterReflection && pd.waterRefraction;
@@ -643,6 +692,12 @@ void LoopClient::renderEverything(float deltaT)
 	std::vector<std::string> hudLines;
 	if (pd.debugMenu->showDebugPhysicsView)
 		hudLines.push_back("Debug physics view ON (Left Shift toggles)");
+	if (pd.ghostBrick.isVisible())
+	{
+		const Brick& ghost = pd.ghostBrick.get();
+		hudLines.push_back("Ghost brick " + std::to_string(ghost.width) + "x" + std::to_string(ghost.height) + "x" + std::to_string(ghost.length) +
+			": IJKL move, . , up/down, U rotate, Enter plant, 0 hide, Z undo, B bricks");
+	}
 
 	pd.escapeMenu->showLeaveServer = client != nullptr;
 	pd.gui->render(pd.context->getResolution().x, pd.context->getResolution().y,crossHair,hudLines);
@@ -751,6 +806,8 @@ void LoopClient::run(float deltaT,ExecutableArguments& cmdArgs, std::shared_ptr<
 	pd.debugMenu->passDetails(simulation.camera->getPosition(),simulation.camera->getDirection(), netInfo);
 
 	pd.debugMenu->addExtraLine("Time of day: " + std::to_string(pd.environment.dayFraction) + " (x" + std::to_string(simulation.timeScale) + ")");
+	if (simulation.bricks)
+		pd.debugMenu->addExtraLine("Bricks: " + std::to_string(simulation.bricks->size()));
 	if (simulation.dynamics && simulation.dynamics->size() > 0)
 		pd.debugMenu->addExtraLine("First other snaps: " + std::to_string(simulation.dynamics->get(0)->interpolator.getNumSnapshots()));
 	if (simulation.controlledDynamics.size() > 0)
@@ -789,6 +846,8 @@ void LoopClient::run(float deltaT,ExecutableArguments& cmdArgs, std::shared_ptr<
 		//Create holders for objects now that we will start receiving data about them
 		simulation.dynamics = new ObjHolder<Dynamic>(DynamicTypeId);
 		simulation.statics = new ObjHolder<StaticObject>(StaticTypeId);
+		simulation.bricks = new BrickHolder(pd.physicsWorld);
+		simulation.bricks->setRenderer(pd.brickRenderer);
 
 		ENetPacket* finishedLoading = makeLoadingFinished();
 		client->send(finishedLoading, OtherReliable);
@@ -835,6 +894,10 @@ LoopClient::LoopClient(ExecutableArguments& cmdArgs, std::shared_ptr<SettingMana
 		return;
 	}
 
+	//Created before the windows since the brick selector loads its icons through it
+	pd.textures = std::make_shared<TextureManager>();
+	pd.brickTypes.load("Assets/brick/types");
+
 	pd.gui = std::make_shared<UserInterface>();
 	pd.gui->updateSettings(settings);
 	pd.settingsMenu = pd.gui->createWindow<SettingsMenu>(settings, pd.input);
@@ -842,6 +905,7 @@ LoopClient::LoopClient(ExecutableArguments& cmdArgs, std::shared_ptr<SettingMana
 	pd.escapeMenu = pd.gui->createWindow<EscapeMenu>();
 	pd.serverBrowser = pd.gui->createWindow<ServerBrowser>();
 	pd.chatWindow = pd.gui->createWindow<ChatWindow>();
+	pd.brickSelector = pd.gui->createWindow<BrickSelector>(&pd.brickTypes, pd.textures);
 	pd.serverBrowser->passDefaultSettings(settings->getString("network/lastip"), settings->getInt("network/port"), settings->getString("network/username"));
 	pd.serverBrowser->open();
 
@@ -858,7 +922,6 @@ LoopClient::LoopClient(ExecutableArguments& cmdArgs, std::shared_ptr<SettingMana
 	simulation.camera->updateSettings(settings);
 
 	//A few test decals
-	pd.textures = std::make_shared<TextureManager>();
 	pd.textures->allocateForDecals(128);
 	pd.textures->finalizeDecals();
 
@@ -880,6 +943,9 @@ LoopClient::LoopClient(ExecutableArguments& cmdArgs, std::shared_ptr<SettingMana
 	pd.lightSpaceMatriciesUniformShadow = pd.shaders->modelShadowShader->getUniformLocation("lightSpaceMatricies");
 	pd.lightSpaceMatriciesUniformModel = pd.shaders->modelShader->getUniformLocation("lightSpaceMatricies");
 	pd.lightSpaceMatriciesUniformBrick = pd.shaders->brickShader->getUniformLocation("lightSpaceMatricies");
+	pd.lightSpaceMatriciesUniformBrickShadow = pd.shaders->brickShadowShader->getUniformLocation("lightSpaceMatricies");
+
+	pd.brickRenderer = new InstancedBrickRenderer(pd.shaders, pd.textures);
 
 	glGenVertexArrays(1, &pd.skyVao);
 
@@ -921,86 +987,6 @@ LoopClient::LoopClient(ExecutableArguments& cmdArgs, std::shared_ptr<SettingMana
 	//Automated testing convenience: skip the server browser and get straight into a game, same as clicking "Start Server"
 	if (cmdArgs.autoSinglePlayer)
 		hostSinglePlayer(cmdArgs, settings);
-
-	/* {
-		BrickRenderData* tmp = new BrickRenderData;
-		tmp->w = 2;
-		tmp->h = 2;
-		tmp->l = 2;
-		tmp->x = 5;
-		tmp->y = 5;
-		tmp->z = 5;
-		testBricks.addBrick(tmp);
-	}
-
-	{
-		BrickRenderData* tmp = new BrickRenderData;
-		tmp->w = 2;
-		tmp->h = 1;
-		tmp->l = 1;
-		tmp->x = 10;
-		tmp->y = 10;
-		tmp->z = 10;
-		testBricks.addBrick(tmp);
-	}
-
-	{
-		BrickRenderData* tmp = new BrickRenderData;
-		tmp->w = 1;
-		tmp->h = 5;
-		tmp->l = 1;
-		tmp->x = 15;
-		tmp->y = 15;
-		tmp->z = 15;
-		testBricks.addBrick(tmp);
-	}
-
-	{
-		BrickRenderData* tmp = new BrickRenderData;
-		tmp->w = 5;
-		tmp->h = 5;
-		tmp->l = 5;
-		tmp->x = 20;
-		tmp->y = 5;
-		tmp->z = 20;
-		testBricks.addBrick(tmp);
-	}
-	*/
-	{
-		BrickRenderData* tmp = new BrickRenderData;
-		tmp->w = 4;
-		tmp->h = 4;
-		tmp->l = 4;
-		tmp->x = 10;
-		tmp->y = 5;
-		tmp->z = 5;
-		testBricks.addBrick(tmp);
-	}
-
-	{
-		BrickRenderData* tmp = new BrickRenderData;
-		tmp->w = 1;
-		tmp->h = 1;
-		tmp->l = 1;
-		tmp->x = 15;
-		tmp->y = 5;
-		tmp->z = 5;
-		//testBricks.addBrick(tmp);
-	}
-
-	/*for (int i = 0; i < 100000; i++)
-	{
-		BrickRenderData * tmp = new BrickRenderData;
-		tmp->w = rand() % 5 + 1;
-		tmp->h = rand() % 5 + 1;
-		tmp->l = rand() % 5 + 1;
-		tmp->x = rand() % 500;
-		tmp->y = rand() % 300;
-		tmp->z = rand() % 500;
-		testBricks.addBrick(tmp);
-	}*/
-
-	testBricks.recompile();
 }
 
 LoopClient::~LoopClient()
@@ -1016,6 +1002,9 @@ LoopClient::~LoopClient()
 	glDeleteVertexArrays(1, &pd.skyVao);
 	glDeleteVertexArrays(1, &pd.waterVao);
 	glDeleteBuffers(1, &pd.waterVbo);
+
+	delete pd.brickRenderer;
+	pd.brickRenderer = nullptr;
 
 	//Not needed this is a destructor lol
 	//Also this should only be called when the programs shutting down anyway 

@@ -7,10 +7,10 @@ source - if you add or change a binding, update this file too.
 
 ## Conventions
 
-- Every `Dynamic`, `StaticObject`, and client table has an `id` field (its net ID) and a
-  `type` field you can compare against: `1` = Dynamic, `2` = Static, `3` = Client
+- Every `Dynamic`, `StaticObject`, client, and brick table has an `id` field (its net ID) and a
+  `type` field you can compare against: `1` = Dynamic, `2` = Static, `3` = Client, `4` = Brick
   (`NetTypes/NetType.h`'s `SimObjectType`). `raycast()` and `client:getCursorItem()` can
-  return either a Dynamic or a Static, so check `.type` before assuming which.
+  return a Dynamic, a Static, or a Brick, so check `.type` before assuming which.
 - Functions documented as `Expected N arguments` in an error message are strict about
   argument count - passing the wrong number logs an error and does nothing (they don't
   throw a Lua error, so a mistake here fails silently unless you're watching the log).
@@ -25,7 +25,7 @@ source - if you add or change a binding, update this file too.
 
 | Function | Arguments | Description |
 |---|---|---|
-| `info(...)` | any number of values | Logs a line to the server's info log. Values are stringified (tables holding a Dynamic/Static/Client print as `[Dynamic N]`/`[Static N]`/`[Client N]`). |
+| `info(...)` | any number of values | Logs a line to the server's info log. Values are stringified (tables holding a Dynamic/Static/Client/Brick print as `[Dynamic N]`/`[Static N]`/`[Client N]`/`[Brick N]`). |
 | `error(...)` | any number of values | Same as `info`, but logged as an error and prefixed accordingly. |
 | `debug(...)` | any number of values | Same as `info`, but only logged when the `logger/verbose` setting is on. |
 | `shutdown()` | none | Stops the main program loop (shuts the whole process down, not just the server). |
@@ -70,6 +70,7 @@ above (`setWaterLevel` also accepts no arguments).
 | `ClientJoin` | `function(client) ... return client end` | Fires once a client finishes phase-1 loading (right after connecting). `serverstart.lua`'s `join()` creates and gives them their player dynamic here. |
 | `ClientLeave` | `function(client) ... return client end` | Fires when a client disconnects, before it's removed from the client list. Use this to clean up anything the client owned (see `PickupSystem.lua`'s `dropHeldOnLeave`). |
 | `ClientChat` | `function(client, message) ... return client, message end` | Fires when a client sends a chat message, before it's broadcast. Return a modified `message` to alter it, or an empty string to suppress it. |
+| `ClientPlantBrick` | `function(client, brick) ... return client, brick end` | Fires after a client plants its ghost brick and the server accepts it. The brick is already placed and sent to clients; call `brick:remove()` to take it back out. |
 | `ClientClick` | `function(client, posX, posY, posZ, dirX, dirY, dirZ, mask) ... return client, posX, posY, posZ, dirX, dirY, dirZ, mask end` | Fires on every mouse click. `posX/Y/Z` and `dirX/Y/Z` are the camera's position and look direction *at the moment of the click*; `mask` is the SDL mouse button mask (see Conventions). |
 
 ---
@@ -89,7 +90,7 @@ Dynamics are physics-simulated objects (players, projectiles, pickups, etc).
 | `newDynamicType(scriptName, modelFilePath, scaleX, scaleY, scaleZ)` | `scriptName`: unique name used to refer to this type later; `modelFilePath`: path to the model file; scale on each axis | typeID | Registers a new kind of dynamic (model + scale). Call once at startup per type. |
 | `getDynamicType(scriptName)` | string | typeID | Looks up a previously-registered type's ID by its script name. |
 | `addAnimation(typeID, animationName, startFrame, endFrame, speed, fadeInMS, fadeOutMS)` | type to attach the animation to; frame range; playback speed; fade in/out durations in ms | none | Adds a named animation clip to a dynamic type. The first animation added to a type is used as its walk cycle. |
-| `raycast(startX, startY, startZ, endX, endY, endZ[, dynamicToIgnore])` | ray start/end points; optionally a Dynamic to exclude from the hit test | Dynamic, Static, or `nil` | Casts a ray through the physics world and returns whatever it hit first (or `nil`). |
+| `raycast(startX, startY, startZ, endX, endY, endZ[, dynamicToIgnore])` | ray start/end points; optionally a Dynamic to exclude from the hit test | Dynamic, Static, Brick, or `nil` | Casts a ray through the physics world and returns whatever it hit first (or `nil`). |
 
 ### `dynamic:` methods
 
@@ -160,6 +161,48 @@ Statics are non-moving objects that still have a mesh and physics presence (wall
 
 ---
 
+## Bricks
+
+Basic box bricks on a grid of 1 stud (1 world unit) horizontally by 1 plate (0.4 world units)
+vertically. Positions are a brick's **min corner** in whole studs/plates, not its center. Bricks
+can never overlap. A table for a brick that has since been removed stays valid Lua, but its
+methods log an error and do nothing.
+
+### Global functions
+
+| Function | Arguments | Returns | Description |
+|---|---|---|---|
+| `addBrick(x, y, z, width, height, length, r, g, b, a[, angleID])` | min corner in studs/plates; `width` and `length` in studs, `height` in plates, each 1-255; color; `angleID` is 0-3 quarter turns (default 0), where 1 and 3 swap width and length | Brick, or `nil` | Adds a brick. Returns `nil` without an error if it would overlap another brick or be out of bounds (`y` below 0). |
+| `getNumBricks()` | none | count | How many bricks exist. |
+| `getBrickIdx(index)` | 0-based index | Brick | Looks up a brick by its position in the internal list. Removing bricks changes the order. |
+| `getBrickId(id)` | net ID | Brick or `nil` | Looks up a brick by its net ID. |
+| `getBrickAt(x, y, z)` | one stud/plate grid cell | Brick or `nil` | The brick filling that cell, if any. |
+| `clearAllBricks()` | none | none | Removes every brick. |
+| `saveBuild(fileName[, omitOwnership])` | file name inside the `Saves` folder; `omitOwnership` writes every owner as `-1` | bool | Saves every brick in the old Land of Dran binary format. |
+| `loadLodSave(fileName[, x, y, z])` | file name inside `Saves`; optional offset in studs/plates | count, or `nil` | Loads an old Land of Dran binary save (either version) on top of the current bricks, returning how many were added. Special bricks, lights, music, and prints in the file are skipped. |
+| `loadBlocklandSave(fileName)` | file name inside `Saves` | count, or `nil` | Imports a Blockland `.bls` save using its own color palette, returning how many bricks were added. Brick names are matched against `Assets/brick/types`; special bricks (ramps, etc.) and unrecognized names are skipped and listed in the log. |
+
+Save and load functions only accept a plain file name, with no folders, since saves always live
+directly in `Saves/`. Bricks that would overlap an existing brick are skipped when loading.
+
+### `brick:` methods
+
+| Method | Arguments | Returns | Description |
+|---|---|---|---|
+| `brick:getPosition()` | none | x, y, z | Min corner, in studs/plates. |
+| `brick:getDimensions()` | none | width, height, length | Size before rotation. |
+| `brick:getAngleID()` | none | 0-3 | Quarter turns around the vertical axis. |
+| `brick:getColor()` | none | r, g, b, a | Color, 0-1. |
+| `brick:setColor(r, g, b, a)` | color | none | Recolors the brick. |
+| `brick:isColliding()` | none | bool | Whether players and objects collide with it. |
+| `brick:setColliding(collides)` | bool | none | Turns collision on or off. Non-colliding bricks can still be hit by `raycast()`. |
+| `brick:getOwner()` | none | client net ID, or `-1` | Who planted it. `-1` for bricks added by Lua or loaded from a save. |
+| `brick:getName()` | none | string | The brick's name, empty by default. |
+| `brick:setName(name)` | string | none | Sets the brick's name. |
+| `brick:remove()` | none | none | Removes the brick. |
+
+---
+
 ## Clients
 
 A "client" represents one connected player/connection.
@@ -193,5 +236,5 @@ A "client" represents one connected player/connection.
 | `client:bindCamera(dynamic, fixUpVector, maxFollowDistance)` | Dynamic to follow; whether to lock the camera's up vector; max third-person follow distance | none | Binds the client's camera to follow a dynamic. |
 | `client:staticCamera(posX, posY, posZ)` | fixed camera position | none | Detaches the camera and locks it to a fixed position (direction stays free/mouse-controlled). |
 | `client:staticCamera(posX, posY, posZ, dirX, dirY, dirZ)` | fixed camera position and direction | none | Same, but also locks the look direction. |
-| `client:getCursorItem(maxDistance)` | max ray distance | Dynamic, Static, or `nil` | Raycasts from the client's *live* camera position/direction (updated continuously, not just on click) out to `maxDistance`, ignoring the client's own first controlled object. Requires `setDefaultController` to have been called for this client. |
+| `client:getCursorItem(maxDistance)` | max ray distance | Dynamic, Static, Brick, or `nil` | Raycasts from the client's *live* camera position/direction (updated continuously, not just on click) out to `maxDistance`, ignoring the client's own first controlled object. Requires `setDefaultController` to have been called for this client. |
 | `client:centerPrint(text)` / `client:centerPrint(text, durationMS)` / `client:centerPrint(text, durationMS, red, green, blue)` | text (max 255 chars); duration in ms (default 3000, clamped to 60000); color 0-1 (default white) | none | Shows a temporary message in the center of just this client's screen. |

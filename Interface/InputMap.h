@@ -20,7 +20,22 @@ enum InputCommand
     FirstThirdPerson = 9,
     Jump = 10,
     DebugView = 11,
-    EndOfCommands = 12
+    BrickForward = 12,
+    BrickBackward = 13,
+    BrickLeft = 14,
+    BrickRight = 15,
+    BrickUp = 16,
+    BrickDown = 17,
+    BrickUpThree = 18,
+    BrickDownThree = 19,
+    BrickRotate = 20,
+    BrickRotateBack = 21,
+    BrickSuperShift = 22,
+    PlantBrick = 23,
+    OpenBrickSelector = 24,
+    HideGhostBrick = 25,
+    UndoBrick = 26,
+    EndOfCommands = 27
 };
 
 //For user interface

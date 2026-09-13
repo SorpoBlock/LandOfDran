@@ -1245,6 +1245,11 @@ void pushRaycastResult(lua_State* L, btRigidBody* result)
 			return;
 		}
 	}
+	else if (result->getUserIndex() == brickBody)
+	{
+		LUA_pd->bricks->pushLua(L, (Brick*)result->getUserPointer());
+		return;
+	}
 
 	lua_pushnil(L);
 }

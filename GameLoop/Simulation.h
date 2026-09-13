@@ -6,6 +6,7 @@
 #include "../Networking/ObjHolder.h"
 #include "../Graphics/PlayerCamera.h"
 #include "../GameLoop/PlayerController.h"
+#include "../Bricks/BrickHolder.h"
 
 /*
 	Client only
@@ -46,4 +47,5 @@ struct Simulation
 	//Objects (object holders):
 	ObjHolder<Dynamic>* dynamics = nullptr;
 	ObjHolder<StaticObject>* statics = nullptr;
+	BrickHolder* bricks = nullptr;
 };

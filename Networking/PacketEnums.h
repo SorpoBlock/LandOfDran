@@ -69,6 +69,8 @@ enum FromClientPacketType : unsigned char
 	ControlledPhysics = 6,	//Client to server transform updates for objects in simulation.controlledObjects
 	MovementInputs = 7	,	//Client to server movement inputs for player controller, server will cache these and apply them each frame until a new packet comes in
 	ClickDetails = 8,		//The client clicked in-game, includes world position, direction, and which mouse button it was
+	PlantBrickRequest = 9,	//Place the client's ghost brick
+	UndoBrickRequest = 10,	//Remove the last brick this client planted
 };
 
 //Used with ConsoleLine packet
@@ -103,6 +105,8 @@ enum FromServerPacketType : unsigned char
 	CenterPrint = 14,		//Show a temporary message in the center of the client's screen
 	HighlightAppearance = 15,	//Apply or clear the outline/highlight effect on a dynamic or static instance
 	WorldStateUpdate = 16,	//Time of day, how fast it passes, and water level, every second and whenever they change
+	AddBricks = 17,			//Bricks added or changed, sent on BrickLoading like every brick packet so they stay in order
+	RemoveBricks = 18,		//IDs of removed bricks
 };
 
 //For use with AcceptConnection packets

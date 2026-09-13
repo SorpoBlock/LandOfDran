@@ -7,6 +7,8 @@ in vec3 worldPos;
 in vec3 tangent;
 in vec3 bitangent;
 in vec4 preColor;
+//Only below 1 for transparent bricks, which are drawn with blending on
+in float opacity;
 in vec3 normal;
 flat in int useDecal;
 in vec4 shadowPos[3];
@@ -200,6 +202,10 @@ void main()
 		break;
 	}
 	
+	//Faces turned away from the light get no direct light anyway, sampling the shadow map there just adds acne
+	if(dot(normalize(normal), sunDirection) <= 0.0)
+		shadowCoverage = 1.0;
+
 	//color = vec4(uvs.x,uvs.y,0,1);
 	//color = vec4(normal,1);
 	//return;
@@ -240,7 +246,7 @@ void main()
 	//shadow maps are about to switch between the sun and moon
 	float ambientShadow = mix(1.0, clamp((1.0 - shadowCoverage),0.35,1.0), ShadowStrength);
 	color.rgb += mor.g * albedo * AmbientColor * ambientShadow;
-	color.a = 1.0;
+	color.a = opacity;
 	
 	//Tone maping
 	color.rgb = color.rgb / (color.rgb + vec3(1.0));

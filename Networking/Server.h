@@ -68,3 +68,5 @@ void parseEvalCommand(JoinedClient * source, Server const* const server, ENetPac
 void applyPhysicsAdjustment(JoinedClient * source, Server const* const server, ENetPacket const* const packet, const void* pdv);
 void movementInputs(JoinedClient* source, Server const* const server, ENetPacket const* const packet, const void* pdv);
 void clickDetails(JoinedClient* source, Server const* const server, ENetPacket const* const packet, const void* pdv);
+void plantBrick(JoinedClient* source, Server const* const server, ENetPacket const* const packet, const void* pdv);
+void undoBrick(JoinedClient* source, Server const* const server, ENetPacket const* const packet, const void* pdv);

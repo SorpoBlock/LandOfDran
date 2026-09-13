@@ -15,6 +15,10 @@
 #include "../Interface/ChatWindow.h"
 #include "../Graphics/RenderTarget.h"
 #include "../Graphics/Environment.h"
+#include "../Graphics/InstancedBrickRenderer.h"
+#include "../Bricks/GhostBrick.h"
+#include "../Bricks/BrickTypes.h"
+#include "../Interface/BrickSelector.h"
 
 /*
 	This exists so we can make all of this available to the various PacketsFromServer files since packets can do a wide range of activities
@@ -31,6 +35,16 @@ struct ClientProgramData
 	GLuint lightSpaceMatriciesUniformShadow = 0;
 	GLuint lightSpaceMatriciesUniformModel = 0;
 	GLuint lightSpaceMatriciesUniformBrick = 0;
+	GLuint lightSpaceMatriciesUniformBrickShadow = 0;
+
+	//Lives for the whole program, bricks of whichever server we're on are passed to it by Simulation's BrickHolder
+	InstancedBrickRenderer* brickRenderer = nullptr;
+
+	//Named brick sizes with icons, for the brick selector
+	BrickTypes brickTypes;
+
+	GhostBrick ghostBrick;
+	std::shared_ptr<BrickSelector> brickSelector = nullptr;
 	std::shared_ptr<RenderTarget> shadows = nullptr;
 
 	Environment environment;

@@ -8,6 +8,8 @@
 #include "../SimObjects/StaticObject.h"
 #include "../LuaFunctions/EventManager.h"
 #include "../Physics/PhysicsWorld.h"
+#include "../Bricks/BrickHolder.h"
+#include "../Bricks/BrickTypes.h"
 #include "ClientData.h"
 
 /*
@@ -56,6 +58,12 @@ struct ServerProgramData
 	//All dynamic objects:
 	ObjHolder<Dynamic>* dynamics = nullptr;
 	ObjHolder<StaticObject> * statics = nullptr;
+
+	//Created and destroyed with ServerLoop class, like the ObjHolders above
+	BrickHolder* bricks = nullptr;
+
+	//Named brick sizes, for loading Blockland saves
+	BrickTypes brickTypes;
 
 	//All clients:
 	std::vector<std::shared_ptr<ClientData>> clients;

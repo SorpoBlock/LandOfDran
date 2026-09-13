@@ -92,6 +92,19 @@ std::string makeStringFromArgs(lua_State* L)
 
 		if (lua_istable(L, a))
 		{
+			//Bricks have no ptr field, so check for them before the SimObject handling below
+			lua_getfield(L, a, "type");
+			bool isBrick = lua_isinteger(L, -1) && lua_tointeger(L, -1) == BrickTypeId;
+			lua_pop(L, 1);
+
+			if (isBrick)
+			{
+				lua_getfield(L, a, "id");
+				ret += "[Brick " + std::to_string(lua_tointeger(L, -1)) + "]";
+				lua_pop(L, 1);
+				continue;
+			}
+
 			lua_getfield(L, a, "ptr");
 			if (lua_isuserdata(L, -1))
 			{

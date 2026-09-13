@@ -85,6 +85,16 @@ void Server::switchPacketType(JoinedClient * source, ENetPacket* packet, const v
 			clickDetails(source, this, packet, pd);
 			return;
 		}
+		case PlantBrickRequest:
+		{
+			plantBrick(source, this, packet, pd);
+			return;
+		}
+		case UndoBrickRequest:
+		{
+			undoBrick(source, this, packet, pd);
+			return;
+		}
 
 		case InvalidClient:
 		default:

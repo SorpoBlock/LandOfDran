@@ -17,6 +17,21 @@ std::string GetInputCommandString(InputCommand command)
         case FirstThirdPerson: return "Switch 1st/3rd person";
         case Jump: return "Jump";
         case DebugView: return "Debug View";
+        case BrickForward: return "Move Brick Forward";
+        case BrickBackward: return "Move Brick Backward";
+        case BrickLeft: return "Move Brick Left";
+        case BrickRight: return "Move Brick Right";
+        case BrickUp: return "Brick Up 1 Plate";
+        case BrickDown: return "Brick Down 1 Plate";
+        case BrickUpThree: return "Brick Up 3 Plates";
+        case BrickDownThree: return "Brick Down 3 Plates";
+        case BrickRotate: return "Rotate Brick";
+        case BrickRotateBack: return "Rotate Brick Back";
+        case BrickSuperShift: return "Brick Super Shift (hold)";
+        case PlantBrick: return "Plant Brick";
+        case OpenBrickSelector: return "Open Brick Selector";
+        case HideGhostBrick: return "Hide Ghost Brick";
+        case UndoBrick: return "Undo Last Brick";
         default: return "Other error";
     }
 }
@@ -64,6 +79,23 @@ InputMap::InputMap(std::shared_ptr<SettingManager> settings)
         bindKey(FirstThirdPerson, SDL_SCANCODE_TAB);
         bindKey(Jump, SDL_SCANCODE_SPACE);
         bindKey(DebugView, SDL_SCANCODE_LSHIFT);
+
+        //Same as the old game's building controls
+        bindKey(BrickForward, SDL_SCANCODE_I);
+        bindKey(BrickBackward, SDL_SCANCODE_K);
+        bindKey(BrickLeft, SDL_SCANCODE_J);
+        bindKey(BrickRight, SDL_SCANCODE_L);
+        bindKey(BrickUp, SDL_SCANCODE_PERIOD);
+        bindKey(BrickDown, SDL_SCANCODE_COMMA);
+        bindKey(BrickUpThree, SDL_SCANCODE_P);
+        bindKey(BrickDownThree, SDL_SCANCODE_SEMICOLON);
+        bindKey(BrickRotate, SDL_SCANCODE_U);
+        bindKey(BrickRotateBack, SDL_SCANCODE_KP_7);
+        bindKey(BrickSuperShift, SDL_SCANCODE_LALT);
+        bindKey(PlantBrick, SDL_SCANCODE_RETURN);
+        bindKey(OpenBrickSelector, SDL_SCANCODE_B);
+        bindKey(HideGhostBrick, SDL_SCANCODE_0);
+        bindKey(UndoBrick, SDL_SCANCODE_Z);
 
         for (unsigned int a = 1; a < InputCommand::EndOfCommands; a++)
             settings->addInt("keybinds/" + std::to_string(a), keyForCommand[a]);

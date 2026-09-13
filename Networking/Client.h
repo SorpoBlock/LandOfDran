@@ -18,6 +18,8 @@
 #include "PacketsFromServer/CenterPrint.h"
 #include "PacketsFromServer/HighlightAppearance.h"
 #include "PacketsFromServer/WorldStateUpdate.h"
+#include "PacketsFromServer/AddBricks.h"
+#include "PacketsFromServer/RemoveBricks.h"
 #include "../GameLoop/ClientProgramData.h"
 #include "../GameLoop/Simulation.h"
 
@@ -43,6 +45,9 @@ class Client
 
 	//Try applying each held packet and deleting any that expired or have been applied
 	void tryApplyHeldPackets(const ClientProgramData& pd, Simulation& simulation, const ExecutableArguments& cmdArgs);
+
+	//Holds a received packet to be applied, or returns why we were disconnected
+	KickReason handleEvent(ENetEvent& event);
 
 	//For DebugMenu to show bandwidth usage over last second
 	float lastIncomingQueryTime = 0;

@@ -65,12 +65,14 @@ out vec3 tangent;
 out vec3 bitangent;
 out vec3 worldPos;
 out vec4 preColor;
+out float opacity;
 flat out int  useDecal;
 out vec4 shadowPos[3];
 
 void main()
 {
 	preColor = PreColor;
+	opacity = 1.0;
 	useDecal = (InstanceFlags & 131072) == 131072 ? ((InstanceFlags & 130560) >> 9) : -1;
 	uvs = TextureCoords;
 	

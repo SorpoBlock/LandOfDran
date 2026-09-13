@@ -34,6 +34,7 @@ void clientFinishedLoading(JoinedClient* source, Server const* const server, ENe
 	//They finished loading types, now send pre-existing SimObjects
 	pd->dynamics->sendAll(source);
 	pd->statics->sendAll(source);
+	pd->bricks->sendAll(source);
 
 	//Time of day and water level, instead of waiting up to a second for the regular update
 	pd->worldStateChanged = true;

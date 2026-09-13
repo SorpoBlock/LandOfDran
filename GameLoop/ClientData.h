@@ -20,4 +20,7 @@ struct ClientData
 
 	//Physics objects like the player that this client handles primary simulation of
 	std::vector<std::shared_ptr<Dynamic>> controlledObjects;
+
+	//IDs of bricks this client planted, newest last, for undo
+	std::vector<netIDType> plantedBricks;
 };

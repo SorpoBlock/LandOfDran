@@ -129,6 +129,8 @@ add_executable (LandOfDran
 "Graphics/RenderTarget.cpp"
 "Graphics/Environment.h"
 "Graphics/Environment.cpp"
+"Graphics/InstancedBrickRenderer.h"
+"Graphics/InstancedBrickRenderer.cpp"
 
 "Interface/InputMap.h"  
 "Interface/InputMap.cpp" 
@@ -202,6 +204,10 @@ add_executable (LandOfDran
 "Networking/PacketsFromServer/HighlightAppearance.cpp"
 "Networking/PacketsFromServer/WorldStateUpdate.h"
 "Networking/PacketsFromServer/WorldStateUpdate.cpp"
+"Networking/PacketsFromServer/AddBricks.h"
+"Networking/PacketsFromServer/AddBricks.cpp"
+"Networking/PacketsFromServer/RemoveBricks.h"
+"Networking/PacketsFromServer/RemoveBricks.cpp"
 
 "Networking/PacketsFromClient/ConnectionRequest.cpp" 
 "Networking/PacketsFromClient/FinishedLoading.cpp" 
@@ -239,7 +245,22 @@ add_executable (LandOfDran
 
 "Physics/PhysicsWorld.h" 
 "Physics/PhysicsWorld.cpp" 
-"Physics/SweepTest.h"   )   
+"Physics/SweepTest.h"
+
+"Bricks/Brick.h"
+"Bricks/BrickHolder.h"
+"Bricks/BrickHolder.cpp"
+"Bricks/BrickTypes.h"
+"Bricks/BrickTypes.cpp"
+"Bricks/BrickSaves.h"
+"Bricks/BrickSaves.cpp"
+"Bricks/GhostBrick.h"
+"Bricks/GhostBrick.cpp"
+"Interface/BrickSelector.h"
+"Interface/BrickSelector.cpp"
+"Networking/PacketsFromClient/PlantBrick.cpp"
+"LuaFunctions/BrickLua.h"
+"LuaFunctions/BrickLua.cpp"   )   
 
 target_include_directories(LandOfDran PRIVATE ${LUA_INCLUDE_DIR})
 

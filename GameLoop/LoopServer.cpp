@@ -42,6 +42,7 @@ void LoopServer::run(float deltaT, ExecutableArguments& cmdArgs, std::shared_ptr
 	server->run(&pd,pd.luaState,pd.eventManager); //   <---- networking
 	pd.dynamics->sendRecent();
 	pd.statics->sendRecent();
+	pd.bricks->sendRecent();
 	pd.physicsWorld->step(deltaT); 
 
 	for (unsigned int a = 0; a < Logger::getStorage()->size(); a++)
@@ -143,6 +144,9 @@ LoopServer::LoopServer(ExecutableArguments& cmdArgs, std::shared_ptr<SettingMana
 	pd.dynamics->makeLuaMetatable(pd.luaState, "metatable_dynamic", getDynamicFunctions(pd.luaState));
 	pd.statics = new ObjHolder<StaticObject>(SimObjectType::StaticTypeId, server);
 	pd.statics->makeLuaMetatable(pd.luaState, "metatable_static", getStaticFunctions(pd.luaState));
+	pd.bricks = new BrickHolder(pd.physicsWorld, server);
+	pd.brickTypes.load("Assets/brick/types");
+	pd.bricks->makeLuaMetatable(pd.luaState, "metatable_brick", getBrickFunctions(pd.luaState));
 
 	info("Loading serverstart.lua");
 
@@ -178,6 +182,10 @@ LoopServer::~LoopServer()
 
 	LUA_args = nullptr;
 	LUA_pd = nullptr;
+
+	//Removes brick bodies, so it has to go before the physics world
+	delete pd.bricks;
+	pd.bricks = nullptr;
 
 	pd.physicsWorld.reset();
 	SimObject::world = nullptr;

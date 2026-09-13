@@ -60,116 +60,131 @@ KickReason Client::run(const ClientProgramData& pd,Simulation &simulation, const
 
 	tryApplyHeldPackets(pd,simulation,cmdArgs);
 
+	//Handle everything that arrived since last frame. Taking one event per frame falls further behind the server every
+	//frame on a slow client, and a big burst like a join's brick packets takes one frame per packet
 	ENetEvent event;
-	int ret = enet_host_service(client, &event, 0);
-
-	if (ret < 0)
+	int ret;
+	while ((ret = enet_host_service(client, &event, 0)) > 0)
 	{
-		error("enet_host_server failed");
-		return NotKicked; //enet error, not sure if this should be true / kicked or false, probably won't happen 
+		KickReason reason = handleEvent(event);
+		if (reason != NotKicked)
+			return reason;
 	}
 
-	if (ret > 0)
+	if (ret < 0)
+		error("enet_host_server failed");
+
+	return NotKicked;
+}
+
+KickReason Client::handleEvent(ENetEvent& event)
+{
+	switch (event.type)
 	{
-		switch (event.type)
+		case ENET_EVENT_TYPE_DISCONNECT:
 		{
-			case ENET_EVENT_TYPE_DISCONNECT:
+			alreadyDisconnected = true;
+
+			//Lack of a kick reason because the server didn't intentionally kick us
+			if(event.data == 0)
+				event.data = KickReason::OtherReason;
+
+			info("Lost connection with server! Code: " + std::to_string(event.data));
+			return (KickReason)event.data;
+		}
+		case ENET_EVENT_TYPE_RECEIVE:
+		{
+			//Each packet type gets its own file with the function that processes it
+			FromServerPacketType type = (FromServerPacketType)event.packet->data[0];
+			switch (type)
 			{
-				alreadyDisconnected = true;
+				case AcceptConnection:
+					packets.push_back(new AcceptConnectionPacket(packetHoldTime, event.packet));
+					return NotKicked;
 
-				//Lack of a kick reason because the server didn't intentionally kick us
-				if(event.data == 0)
-					event.data = KickReason::OtherReason;
+				case AddSimObjectType:
+					packets.push_back(new AddSimObjectTypePacket(packetHoldTime, event.packet));
+					return NotKicked;
 
-				info("Lost connection with server! Code: " + std::to_string(event.data));
-				return (KickReason)event.data;
+				case AddSimObjects:
+					packets.push_back(new AddSimObjectsPacket(packetHoldTime, event.packet));
+					return NotKicked;
+
+				case UpdateSimObjects:
+					packets.push_back(new UpdateSimObjectsPacket(packetHoldTime, event.packet));
+					return NotKicked;
+
+				case DeleteSimObjects:
+					packets.push_back(new DeleteSimObjectsPacket(packetHoldTime, event.packet));
+					return NotKicked;
+
+				case ChatMessageFromServer:
+					packets.push_back(new ChatMessagePacket(packetHoldTime, event.packet));
+					return NotKicked;
+
+				case EvalLoginResponse:
+					packets.push_back(new EvalLoginResponsePacket(packetHoldTime, event.packet));
+					return NotKicked;
+
+				case ConsoleLine:
+					packets.push_back(new ConsoleLinePacket(packetHoldTime, event.packet));
+					return NotKicked;
+
+				case TakeOverPhysics:
+					packets.push_back(new TakeOverPhysicsPacket(packetHoldTime, event.packet));
+					return NotKicked;
+
+				case CameraSettings:
+					packets.push_back(new CameraSettingsPacket(packetHoldTime, event.packet));
+					return NotKicked;
+					 
+				case MovementSettings:
+					packets.push_back(new MovementSettingsPacket(packetHoldTime, event.packet));
+					return NotKicked;
+
+				case MeshAppearance:
+					packets.push_back(new MeshAppearancePacket(packetHoldTime, event.packet));
+					return NotKicked;
+
+				case ServerPerformanceDetails:
+					packets.push_back(new ServerPerformanceDetailsPacket(packetHoldTime, event.packet));
+					return NotKicked;
+
+				case CenterPrint:
+					packets.push_back(new CenterPrintPacket(packetHoldTime, event.packet));
+					return NotKicked;
+
+				case HighlightAppearance:
+					packets.push_back(new HighlightAppearancePacket(packetHoldTime, event.packet));
+					return NotKicked;
+
+				case WorldStateUpdate:
+					packets.push_back(new WorldStateUpdatePacket(packetHoldTime, event.packet));
+					return NotKicked;
+
+				case AddBricks:
+					packets.push_back(new AddBricksPacket(packetHoldTime, event.packet));
+					return NotKicked;
+
+				case RemoveBricks:
+					packets.push_back(new RemoveBricksPacket(packetHoldTime, event.packet));
+					return NotKicked;
+
+				//Can't process packet
+				case InvalidServer:
+				default:
+					error("Invalid packet type " + std::to_string(type) + " received from server.");
+					enet_packet_destroy(event.packet);
+					return NotKicked;
 			}
-			case ENET_EVENT_TYPE_RECEIVE:
-			{
-				//Each packet type gets its own file with the function that processes it
-				FromServerPacketType type = (FromServerPacketType)event.packet->data[0];
-				switch (type)
-				{
-					case AcceptConnection:
-						packets.push_back(new AcceptConnectionPacket(packetHoldTime, event.packet));
-						return NotKicked;
 
-					case AddSimObjectType:
-						packets.push_back(new AddSimObjectTypePacket(packetHoldTime, event.packet));
-						return NotKicked;
-
-					case AddSimObjects:
-						packets.push_back(new AddSimObjectsPacket(packetHoldTime, event.packet));
-						return NotKicked;
-
-					case UpdateSimObjects:
-						packets.push_back(new UpdateSimObjectsPacket(packetHoldTime, event.packet));
-						return NotKicked;
-
-					case DeleteSimObjects:
-						packets.push_back(new DeleteSimObjectsPacket(packetHoldTime, event.packet));
-						return NotKicked;
-
-					case ChatMessageFromServer:
-						packets.push_back(new ChatMessagePacket(packetHoldTime, event.packet));
-						return NotKicked;
-
-					case EvalLoginResponse:
-						packets.push_back(new EvalLoginResponsePacket(packetHoldTime, event.packet));
-						return NotKicked;
-
-					case ConsoleLine:
-						packets.push_back(new ConsoleLinePacket(packetHoldTime, event.packet));
-						return NotKicked;
-
-					case TakeOverPhysics:
-						packets.push_back(new TakeOverPhysicsPacket(packetHoldTime, event.packet));
-						return NotKicked;
-
-					case CameraSettings:
-						packets.push_back(new CameraSettingsPacket(packetHoldTime, event.packet));
-						return NotKicked;
-						 
-					case MovementSettings:
-						packets.push_back(new MovementSettingsPacket(packetHoldTime, event.packet));
-						return NotKicked;
-
-					case MeshAppearance:
-						packets.push_back(new MeshAppearancePacket(packetHoldTime, event.packet));
-						return NotKicked;
-
-					case ServerPerformanceDetails:
-						packets.push_back(new ServerPerformanceDetailsPacket(packetHoldTime, event.packet));
-						return NotKicked;
-
-					case CenterPrint:
-						packets.push_back(new CenterPrintPacket(packetHoldTime, event.packet));
-						return NotKicked;
-
-					case HighlightAppearance:
-						packets.push_back(new HighlightAppearancePacket(packetHoldTime, event.packet));
-						return NotKicked;
-
-					case WorldStateUpdate:
-						packets.push_back(new WorldStateUpdatePacket(packetHoldTime, event.packet));
-						return NotKicked;
-
-					//Can't process packet
-					case InvalidServer:
-					default:
-						error("Invalid packet type " + std::to_string(type) + " received from server.");
-						enet_packet_destroy(event.packet);
-						return NotKicked;
-				}
-
-				//Packet will be destroyed in destructor of HeldServerPacket
-				return NotKicked;
-			}
-			case ENET_EVENT_TYPE_CONNECT:
-			{
-				error("Got some kind of double connection from server!");
-				return NotKicked;
-			}
+			//Packet will be destroyed in destructor of HeldServerPacket
+			return NotKicked;
+		}
+		case ENET_EVENT_TYPE_CONNECT:
+		{
+			error("Got some kind of double connection from server!");
+			return NotKicked;
 		}
 	}
 	return NotKicked;

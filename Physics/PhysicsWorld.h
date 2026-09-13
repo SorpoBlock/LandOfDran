@@ -26,13 +26,15 @@ inline glm::vec3 b2g3(const btVector3 &in)
 	Passed to btRigidBody through setUserIndex
 	You can getUserIndex to figure out what type of pointer the btRigidBody's getUserData is meant to be
 	This is to physics code as SimObjectType is to net code
-	REMINDER: btRigidBody user data if not nullptr is always a pointer *to* a smart pointer *to* the underlying SimObject
+	REMINDER: btRigidBody user data if not nullptr is a pointer *to* a smart pointer *to* the underlying SimObject,
+	except for brickBody, where it's a plain Brick*
 */
 enum RigidBodyUserIndex
 {
 	groundPlane = 10,		//The single infinite ground plane at the bottom of the world created on start-up
 	dynamicBody = 20,
-	staticBody = 30
+	staticBody = 30,
+	brickBody = 40
 };
 
 /*

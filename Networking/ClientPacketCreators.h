@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../LandOfDran.h"
+#include "../Bricks/BrickHolder.h"
 
 /*
 	Global inline functions that help create miscellaneous packet types from passed parameters
@@ -77,6 +78,21 @@ inline ENetPacket* makeMovementInputs(netIDType controlledDynamicID, bool jump,b
 	memcpy(ret->data + 1 + sizeof(netIDType) + 1 + sizeof(float) * 5, &cameraPosition.z, sizeof(float));
 
 	return ret;
+}
+
+//1 byte packet type, then a brick record (see BrickHolder::writeRecord) whose id the server ignores
+inline ENetPacket* makePlantBrickPacket(const Brick& brick)
+{
+	ENetPacket* ret = enet_packet_create(NULL, 1 + BrickHolder::recordBytes, getFlagsFromChannel(OtherReliable));
+	ret->data[0] = (unsigned char)PlantBrickRequest;
+	BrickHolder::writeRecord(&brick, ret->data + 1);
+	return ret;
+}
+
+inline ENetPacket* makeUndoBrickPacket()
+{
+	char data = UndoBrickRequest;
+	return enet_packet_create(&data, 1, getFlagsFromChannel(OtherReliable));
 }
 
 //One byte lets the server know we finished phase one loading

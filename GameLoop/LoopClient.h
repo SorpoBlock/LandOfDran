@@ -6,7 +6,6 @@
 #include "ClientProgramData.h"
 #include "Simulation.h"
 #include "../Networking/ClientPacketCreators.h"
-#include "../Graphics/BrickRenderer.h"
 #include "LoopServer.h"
 
 /*
@@ -49,8 +48,6 @@ class LoopClient
 	//for the server to notice the same contact and broadcast a correction. Purely a client-side prediction - see
 	//Dynamic::predictLocallyUntil for the tradeoffs
 	void predictLocalCollisions();
-
-	BrickRenderer testBricks;
 
 	//Water surface mesh: waterGridCells by waterGridCells quads reaching waterRadius out from the camera
 	static constexpr int waterGridCells = 200;

@@ -120,6 +120,9 @@ class Texture
 	//Actually use the texture
 	void bind(TextureLocations loc) const;
 
+	//For handing to ImGui::Image
+	GLuint getHandle() const { return handle; }
+
 	//Loads one layer of a 2D texture array from a file
 	void addLayer(std::string filePath);
 };
