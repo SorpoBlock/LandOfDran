@@ -16,5 +16,7 @@ imgui.ini
 LandOfDran.cbp
 
 .idea/
+OldClient/
+OldServer/
 
 LandOfDran-release-*.tar.gz
