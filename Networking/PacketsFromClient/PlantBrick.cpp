@@ -49,7 +49,7 @@ void undoBrick(JoinedClient* source, Server const* const server, ENetPacket cons
 
 		if (Brick* brick = pd->bricks->find(id))
 		{
-			pd->bricks->remove(brick);
+			pd->bricks->remove(brick, true);
 			return;
 		}
 	}

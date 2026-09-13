@@ -27,11 +27,11 @@ std::string GetInputCommandString(InputCommand command)
         case BrickDownThree: return "Brick Down 3 Plates";
         case BrickRotate: return "Rotate Brick";
         case BrickRotateBack: return "Rotate Brick Back";
-        case BrickSuperShift: return "Brick Super Shift (hold)";
+        case BrickSuperShift: return "Toggle Brick Super Shift";
         case PlantBrick: return "Plant Brick";
         case OpenBrickSelector: return "Open Brick Selector";
         case HideGhostBrick: return "Hide Ghost Brick";
-        case UndoBrick: return "Undo Last Brick";
+        case UndoBrick: return "Undo Last Brick (with Ctrl)";
         default: return "Other error";
     }
 }

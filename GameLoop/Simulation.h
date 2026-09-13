@@ -7,6 +7,7 @@
 #include "../Graphics/PlayerCamera.h"
 #include "../GameLoop/PlayerController.h"
 #include "../Bricks/BrickHolder.h"
+#include "../Bricks/BrickDebris.h"
 
 /*
 	Client only
@@ -48,4 +49,5 @@ struct Simulation
 	ObjHolder<Dynamic>* dynamics = nullptr;
 	ObjHolder<StaticObject>* statics = nullptr;
 	BrickHolder* bricks = nullptr;
+	BrickDebris* brickDebris = nullptr;
 };

@@ -256,6 +256,8 @@ add_executable (LandOfDran
 "Bricks/BrickSaves.cpp"
 "Bricks/GhostBrick.h"
 "Bricks/GhostBrick.cpp"
+"Bricks/BrickDebris.h"
+"Bricks/BrickDebris.cpp"
 "Interface/BrickSelector.h"
 "Interface/BrickSelector.cpp"
 "Networking/PacketsFromClient/PlantBrick.cpp"

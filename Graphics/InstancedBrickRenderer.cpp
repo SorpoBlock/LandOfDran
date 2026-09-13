@@ -36,11 +36,17 @@ static int64_t chunkKey(const Brick* brick)
 	return (x << 42) | (y << 21) | z;
 }
 
-static void appendInstance(std::vector<float>& instances, const Brick& brick, float alpha)
+static glm::vec3 brickSize(const Brick& brick)
 {
+	return glm::vec3(brick.footprintWidth(), brick.height, brick.footprintLength());
+}
+
+//Corner in studs/plates, relative to wherever the brick transform puts it
+static void appendInstance(std::vector<float>& instances, const glm::vec3& corner, const Brick& brick, float alpha)
+{
+	glm::vec3 size = brickSize(brick);
 	glm::vec3 color = glm::vec3(brick.color) / 255.0f;
-	instances.insert(instances.end(), { (float)brick.x, (float)brick.y, (float)brick.z,
-		(float)brick.footprintWidth(), (float)brick.height, (float)brick.footprintLength(), color.r, color.g, color.b, alpha });
+	instances.insert(instances.end(), { corner.x, corner.y, corner.z, size.x, size.y, size.z, color.r, color.g, color.b, alpha });
 }
 
 static std::vector<float> makeCube()
@@ -205,11 +211,11 @@ void InstancedBrickRenderer::rebuild(Chunk* chunk)
 
 	for (const Brick* brick : chunk->bricks)
 	{
-		appendInstance(instances[brick->color.a < 255 ? 1 : 0], *brick, brick->color.a / 255.0f);
-
 		glm::vec3 corner = glm::vec3(brick->x, brick->y, brick->z);
+		appendInstance(instances[brick->color.a < 255 ? 1 : 0], corner, *brick, brick->color.a / 255.0f);
+
 		min = glm::min(min, corner);
-		max = glm::max(max, corner + glm::vec3(brick->footprintWidth(), brick->height, brick->footprintLength()));
+		max = glm::max(max, corner + brickSize(*brick));
 	}
 
 	chunk->min = min * gridScale;
@@ -240,7 +246,22 @@ void InstancedBrickRenderer::rebuildDirty(float budgetMS)
 	}
 }
 
-void InstancedBrickRenderer::drawInstances(std::shared_ptr<ShaderManager> shaders, const std::vector<InstanceSet>& sets) const
+void InstancedBrickRenderer::setTransform(const glm::mat4& transform) const
+{
+	glUniformMatrix4fv(brickTransformUniform, 1, GL_FALSE, &transform[0][0]);
+}
+
+void InstancedBrickRenderer::uploadSingleInstance(const glm::vec3& corner, const Brick& brick, float alpha) const
+{
+	std::vector<float> instance;
+	appendInstance(instance, corner, brick, alpha);
+
+	glBindBuffer(GL_ARRAY_BUFFER, singleInstanceBuffer);
+	glBufferData(GL_ARRAY_BUFFER, instance.size() * sizeof(float), instance.data(), GL_DYNAMIC_DRAW);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+}
+
+void InstancedBrickRenderer::drawInstances(std::shared_ptr<ShaderManager> shaders, const std::vector<InstanceSet>& sets, const std::function<void(size_t)>& beforeEach) const
 {
 	struct FaceGroup
 	{
@@ -262,10 +283,13 @@ void InstancedBrickRenderer::drawInstances(std::shared_ptr<ShaderManager> shader
 		group.material->use(shaders);
 		glUniform1i(tileByStudsUniform, group.tileByStuds);
 
-		for (const InstanceSet& set : sets)
+		for (size_t a = 0; a < sets.size(); a++)
 		{
-			glBindVertexArray(set.vao);
-			glDrawArraysInstanced(GL_TRIANGLES, group.first, group.count, set.count);
+			if (beforeEach)
+				beforeEach(a);
+
+			glBindVertexArray(sets[a].vao);
+			glDrawArraysInstanced(GL_TRIANGLES, group.first, group.count, sets[a].count);
 		}
 	}
 
@@ -289,6 +313,8 @@ void InstancedBrickRenderer::render(std::shared_ptr<ShaderManager> shaders, bool
 	if (visible.empty())
 		return;
 
+	setTransform(glm::mat4(1.0f));
+
 	if (transparent)
 	{
 		glEnable(GL_BLEND);
@@ -305,22 +331,43 @@ void InstancedBrickRenderer::render(std::shared_ptr<ShaderManager> shaders, bool
 	}
 }
 
-void InstancedBrickRenderer::renderGhost(std::shared_ptr<ShaderManager> shaders, const Brick& ghost) const
+void InstancedBrickRenderer::renderGhost(std::shared_ptr<ShaderManager> shaders, const Brick& ghost, float pulse) const
 {
-	std::vector<float> instance;
-	appendInstance(instance, ghost, 0.5f);
+	pulse = std::clamp(pulse, 0.0f, 1.0f);
 
-	glBindBuffer(GL_ARRAY_BUFFER, ghostInstanceBuffer);
-	glBufferData(GL_ARRAY_BUFFER, instance.size() * sizeof(float), instance.data(), GL_DYNAMIC_DRAW);
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	setTransform(glm::mat4(1.0f));
+	uploadSingleInstance(glm::vec3(ghost.x, ghost.y, ghost.z), ghost, 0.35f + 0.35f * pulse);
+	glUniform1f(glowUniform, 0.1f + 0.35f * pulse);
 
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	glDepthMask(GL_FALSE);
 
-	drawInstances(shaders, { { ghostVao, 1 } });
+	drawInstances(shaders, { { singleVao, 1 } });
 
 	glDepthMask(GL_TRUE);
+	glDisable(GL_BLEND);
+	glUniform1f(glowUniform, 0.0f);
+}
+
+void InstancedBrickRenderer::renderLoose(std::shared_ptr<ShaderManager> shaders, const std::vector<LooseBrick>& bricks) const
+{
+	if (bricks.empty())
+		return;
+
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+	std::vector<InstanceSet> sets(bricks.size(), { singleVao, 1 });
+	drawInstances(shaders, sets, [&](size_t index)
+	{
+		const LooseBrick& loose = bricks[index];
+		uploadSingleInstance(-brickSize(*loose.brick) * 0.5f, *loose.brick, loose.alpha);
+		setTransform(loose.transform);
+	});
+
+	setTransform(glm::mat4(1.0f));
+
 	glDisable(GL_BLEND);
 }
 
@@ -364,7 +411,7 @@ InstancedBrickRenderer::InstancedBrickRenderer(std::shared_ptr<ShaderManager> sh
 	glBufferData(GL_ARRAY_BUFFER, cube.size() * sizeof(float), cube.data(), GL_STATIC_DRAW);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-	createInstancedVao(ghostVao, ghostInstanceBuffer);
+	createInstancedVao(singleVao, singleInstanceBuffer);
 
 	topMaterial = new Material("Assets/brick/studs.txt", textures);
 	bottomMaterial = new Material("Assets/brick/bottoms.txt", textures);
@@ -374,14 +421,16 @@ InstancedBrickRenderer::InstancedBrickRenderer(std::shared_ptr<ShaderManager> sh
 		error("Could not load brick materials from Assets/brick/");
 
 	tileByStudsUniform = shaders->brickShader->getUniformLocation("tileByStuds");
+	brickTransformUniform = shaders->brickShader->getUniformLocation("brickTransform");
+	glowUniform = shaders->brickShader->getUniformLocation("glow");
 }
 
 InstancedBrickRenderer::~InstancedBrickRenderer()
 {
 	clear();
 
-	glDeleteVertexArrays(1, &ghostVao);
-	glDeleteBuffers(1, &ghostInstanceBuffer);
+	glDeleteVertexArrays(1, &singleVao);
+	glDeleteBuffers(1, &singleInstanceBuffer);
 	glDeleteBuffers(1, &cubeBuffer);
 
 	delete topMaterial;

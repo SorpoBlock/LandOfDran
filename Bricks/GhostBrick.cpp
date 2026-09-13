@@ -69,6 +69,9 @@ void GhostBrick::update(float deltaT, std::shared_ptr<InputMap> input, const glm
 	bool rotateForward = input->pollCommand(BrickRotate);
 	bool rotateBack = input->pollCommand(BrickRotateBack);
 
+	if (input->pollCommand(BrickSuperShift))
+		superShift = !superShift;
+
 	if (!visible)
 		return;
 
@@ -81,9 +84,6 @@ void GhostBrick::update(float deltaT, std::shared_ptr<InputMap> input, const glm
 		glm::ivec3(cameraDirection.x > 0 ? 1 : -1, 0, 0) :
 		glm::ivec3(0, 0, cameraDirection.z > 0 ? 1 : -1);
 	glm::ivec3 right = glm::ivec3(-forward.z, 0, forward.x);
-
-	//Super shift moves by the brick's own size instead of a single stud or plate
-	bool superShift = input->isCommandKeydown(BrickSuperShift);
 
 	const InputCommand commands[8] = { BrickForward, BrickBackward, BrickLeft, BrickRight, BrickUp, BrickDown, BrickUpThree, BrickDownThree };
 

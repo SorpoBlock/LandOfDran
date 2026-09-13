@@ -88,6 +88,9 @@ class UserInterface
 
 	std::string popupErrorMessage = "";
 
+	//Building super shift indicator in the corner of the HUD: -1 hidden, 0 off, 1 on
+	int superShiftIndicator = -1;
+
 	void updateSettings(std::shared_ptr<SettingManager> settings);
 
 	bool wantsSuppression() const;

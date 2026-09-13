@@ -45,6 +45,9 @@ uniform mat4 lightSpaceMatricies[3];
 //Top and bottom faces repeat their texture once per stud, side faces stretch it once across the whole face
 uniform bool tileByStuds;
 
+//Identity for placed bricks, rotation and position for loose bricks like undo debris
+uniform mat4 brickTransform;
+
 //STUD_SIZE and PLATE_SIZE in Bricks/Brick.h
 const vec3 gridScale = vec3(1.0, 0.4, 1.0);
 
@@ -60,11 +63,12 @@ out vec4 shadowPos[3];
 
 void main()
 {
-	worldPos = (BrickCorner + CubePosition * BrickSize) * gridScale;
+	worldPos = (brickTransform * vec4((BrickCorner + CubePosition * BrickSize) * gridScale, 1.0)).xyz;
 
-	normal = CubeNormal;
-	tangent = CubeTangent;
-	bitangent = CubeBitangent;
+	mat3 rotation = mat3(brickTransform);
+	normal = rotation * CubeNormal;
+	tangent = rotation * CubeTangent;
+	bitangent = rotation * CubeBitangent;
 
 	//Tiled faces are the top and bottom, whose texture axes run along x and z
 	uvs = tileByStuds ? CubeUV * BrickSize.xz : CubeUV;

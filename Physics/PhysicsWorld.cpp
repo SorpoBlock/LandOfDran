@@ -94,6 +94,8 @@ btRigidBody* PhysicsWorld::boxSweepTest(const btVector3& halfExtents, const btTr
 SweepResult PhysicsWorld::boxSweep(const btVector3& halfExtents, const btTransform& from, const btTransform& to, btRigidBody* ignore)
 {
     btClosestNotMeConvexResultCallback callback(ignore, from.getOrigin(), to.getOrigin(), world->getPairCache(), world->getDispatcher());
+    //Purely visual debris, like undone bricks, shouldn't block movement checks
+    callback.m_collisionFilterMask = btBroadphaseProxy::AllFilter ^ btBroadphaseProxy::DebrisFilter;
     btBoxShape test(halfExtents);
     world->convexSweepTest(&test, from, to, callback);
 
@@ -110,6 +112,8 @@ SweepResult PhysicsWorld::boxSweep(const btVector3& halfExtents, const btTransfo
 btRigidBody *PhysicsWorld::doRaycast(const btVector3 &start,const btVector3 &end,btRigidBody *ignore,btVector3 &hitPos,btVector3 &hitNormal) const
 {
   btCollisionWorld::AllHitsRayResultCallback ground(start,end);
+  //Purely visual debris, like undone bricks, shouldn't block clicks or the camera
+  ground.m_collisionFilterMask = btBroadphaseProxy::AllFilter ^ btBroadphaseProxy::DebrisFilter;
   world->rayTest(start,end,ground);
 
   if (ground.m_collisionObjects.size() < 1)

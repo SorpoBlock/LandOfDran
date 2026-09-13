@@ -5,13 +5,17 @@ bool RemoveBricksPacket::applyPacket(const ClientProgramData& pd, Simulation& si
 	if (cmdArgs.gameState != InGame || !simulation.bricks)
 		return false;
 
-	if (packet->dataLength < 3)
+	//Packet type, u16 count, then whether to show the bricks popping loose
+	static constexpr unsigned int headerBytes = 4;
+
+	if (packet->dataLength < headerBytes)
 		return true;
 
 	uint16_t count;
 	memcpy(&count, packet->data + 1, sizeof(uint16_t));
+	bool showEffect = packet->data[3] & 1;
 
-	if (packet->dataLength < 3 + count * sizeof(netIDType))
+	if (packet->dataLength < headerBytes + count * sizeof(netIDType))
 	{
 		error("RemoveBricks packet shorter than its brick count");
 		return true;
@@ -20,11 +24,17 @@ bool RemoveBricksPacket::applyPacket(const ClientProgramData& pd, Simulation& si
 	for (unsigned int a = 0; a < count; a++)
 	{
 		netIDType id;
-		memcpy(&id, packet->data + 3 + a * sizeof(netIDType), sizeof(netIDType));
+		memcpy(&id, packet->data + headerBytes + a * sizeof(netIDType), sizeof(netIDType));
 
 		//Can be a brick we never received, if it was removed right after being added
-		if (Brick* brick = simulation.bricks->find(id))
-			simulation.bricks->remove(brick);
+		Brick* brick = simulation.bricks->find(id);
+		if (!brick)
+			continue;
+
+		if (showEffect && simulation.brickDebris)
+			simulation.brickDebris->spawn(*brick);
+
+		simulation.bricks->remove(brick);
 	}
 
 	return true;

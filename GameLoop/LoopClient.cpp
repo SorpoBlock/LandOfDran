@@ -33,9 +33,11 @@ void LoopClient::leaveServer(ExecutableArguments& cmdArgs)
 		simulation.statics = nullptr;
 	}
 
-	//Removes brick bodies, so it has to happen before the physics world is destroyed below
+	//Removes brick and debris bodies, so it has to happen before the physics world is destroyed below
 	delete simulation.bricks;
 	simulation.bricks = nullptr;
+	delete simulation.brickDebris;
+	simulation.brickDebris = nullptr;
 
 	delete client;
 	client = nullptr;
@@ -360,7 +362,8 @@ void LoopClient::handleInput(float deltaT, ExecutableArguments& cmdArgs, std::sh
 			pd.ghostBrick.hide();
 	}
 
-	if (pd.input->pollCommand(UndoBrick))
+	//The key alone does nothing, undo is Ctrl plus the bound key
+	if (pd.input->pollCommand(UndoBrick) && (SDL_GetModState() & KMOD_CTRL))
 		client->send(makeUndoBrickPacket(), OtherReliable);
 }
 
@@ -511,11 +514,20 @@ void LoopClient::renderScene(bool clipAtWater)
 	pd.shaders->brickShader->use();
 	glUniformMatrix4fv(pd.lightSpaceMatriciesUniformBrick, 3, GL_FALSE, (GLfloat*)pd.lightSpaceMatricies);
 	pd.brickRenderer->render(pd.shaders, false);
-	pd.brickRenderer->render(pd.shaders, true);
 
 	//Only in the main view, not reflected or refracted by water
+	//Debris writes depth, so it goes before anything drawn without depth writes
+	if (!clipAtWater && simulation.brickDebris)
+		simulation.brickDebris->render(pd.shaders, pd.brickRenderer);
+
+	pd.brickRenderer->render(pd.shaders, true);
+
 	if (!clipAtWater && pd.ghostBrick.isVisible())
-		pd.brickRenderer->renderGhost(pd.shaders, pd.ghostBrick.get());
+	{
+		//Pulses a bit under once a second so the ghost can't be mistaken for a planted transparent brick
+		float pulse = 0.5f + 0.5f * std::sin(SDL_GetTicks() / 1000.0f * 6.2831853f * 0.8f);
+		pd.brickRenderer->renderGhost(pd.shaders, pd.ghostBrick.get(), pulse);
+	}
 
 	if (clipAtWater)
 		glDisable(GL_CLIP_DISTANCE0);
@@ -696,10 +708,11 @@ void LoopClient::renderEverything(float deltaT)
 	{
 		const Brick& ghost = pd.ghostBrick.get();
 		hudLines.push_back("Ghost brick " + std::to_string(ghost.width) + "x" + std::to_string(ghost.height) + "x" + std::to_string(ghost.length) +
-			": IJKL move, . , up/down, U rotate, Enter plant, 0 hide, Z undo, B bricks");
+			": IJKL move, . , up/down, U rotate, Left Alt super shift, Enter plant, 0 hide, Ctrl+Z undo, B bricks");
 	}
 
 	pd.escapeMenu->showLeaveServer = client != nullptr;
+	pd.gui->superShiftIndicator = pd.ghostBrick.isVisible() ? (pd.ghostBrick.isSuperShift() ? 1 : 0) : -1;
 	pd.gui->render(pd.context->getResolution().x, pd.context->getResolution().y,crossHair,hudLines);
 
 	//End frame
@@ -848,6 +861,7 @@ void LoopClient::run(float deltaT,ExecutableArguments& cmdArgs, std::shared_ptr<
 		simulation.statics = new ObjHolder<StaticObject>(StaticTypeId);
 		simulation.bricks = new BrickHolder(pd.physicsWorld);
 		simulation.bricks->setRenderer(pd.brickRenderer);
+		simulation.brickDebris = new BrickDebris(pd.physicsWorld);
 
 		ENetPacket* finishedLoading = makeLoadingFinished();
 		client->send(finishedLoading, OtherReliable);
@@ -867,6 +881,9 @@ void LoopClient::run(float deltaT,ExecutableArguments& cmdArgs, std::shared_ptr<
 
 	if (pd.physicsWorld)
 		pd.physicsWorld->step(deltaT);
+
+	if (simulation.brickDebris)
+		simulation.brickDebris->update(deltaT);
 
 	predictLocalCollisions();
 

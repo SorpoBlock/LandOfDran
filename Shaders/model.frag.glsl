@@ -67,6 +67,9 @@ uniform sampler2DArray ShadowArray;
 
 uniform bool debug;
 
+//Unlit brightening on top of lighting, e.g. the ghost brick's pulse, 0 (the default) for none
+uniform float glow;
+
 //Start tutorial code
 //https://github.com/JoeyDeVries/LearnOpenGL/blob/master/src/6.pbr/1.2.lighting_textured/1.2.pbr.fs
 const float PI = 3.14159265359;
@@ -247,11 +250,14 @@ void main()
 	float ambientShadow = mix(1.0, clamp((1.0 - shadowCoverage),0.35,1.0), ShadowStrength);
 	color.rgb += mor.g * albedo * AmbientColor * ambientShadow;
 	color.a = opacity;
-	
+
 	//Tone maping
 	color.rgb = color.rgb / (color.rgb + vec3(1.0));
 	//Gamma correction
 	color.rgb = pow(color.rgb, vec3(1.0/2.2));
+
+	//After tone mapping, which would otherwise squash the glow to almost nothing on bright or sunlit surfaces
+	color.rgb = mix(color.rgb, vec3(1.0), glow);
 
 	float fogFactor = clamp((length(CameraPosition - worldPos) - FogDistanceMin) / (FogDistanceMax - FogDistanceMin), 0.0, 1.0);
 	color.rgb = mix(color.rgb, FogColor, fogFactor);

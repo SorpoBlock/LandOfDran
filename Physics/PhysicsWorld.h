@@ -96,6 +96,12 @@ class PhysicsWorld
 		world->addRigidBody(body);
 	}
 
+	//group and mask are btBroadphaseProxy::CollisionFilterGroups, bodies collide when each one's group is in the other's mask
+	void addBody(btRigidBody* body, int group, int mask)
+	{
+		world->addRigidBody(body, group, mask);
+	}
+
 	void removeBody(btRigidBody* body)
 	{
 		world->removeRigidBody(body);

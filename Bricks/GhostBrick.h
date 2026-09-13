@@ -15,6 +15,9 @@ class GhostBrick
 	//A brick has been picked in the brick selector, so clicking the world can spawn the ghost
 	bool hasSelection = false;
 
+	//Toggled, moves by the brick's own size instead of one stud or plate
+	bool superShift = false;
+
 	//Key repeat state for each movement command, see update
 	struct HeldKey
 	{
@@ -36,6 +39,8 @@ class GhostBrick
 
 	//Places the ghost just outside a surface hit by a raycast from the camera
 	void spawnAt(const glm::vec3& hitPoint, const glm::vec3& hitNormal);
+
+	bool isSuperShift() const { return superShift; }
 
 	void hide() { visible = false; }
 	bool isVisible() const { return visible; }

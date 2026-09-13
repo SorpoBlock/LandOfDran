@@ -416,9 +416,10 @@ static int LUA_brickRemove(lua_State* L)
 {
 	scope("(LUA) brick:remove");
 
-	if (lua_gettop(L) != 1)
+	int args = lua_gettop(L);
+	if (args != 1 && args != 2)
 	{
-		error("Expected 1 argument brick:remove()");
+		error("Expected 1 or 2 arguments brick:remove([showEffect])");
 		return 0;
 	}
 
@@ -426,7 +427,7 @@ static int LUA_brickRemove(lua_State* L)
 	if (!brick)
 		return 0;
 
-	LUA_pd->bricks->remove(brick);
+	LUA_pd->bricks->remove(brick, args == 2 && lua_toboolean(L, 2));
 	return 0;
 }
 

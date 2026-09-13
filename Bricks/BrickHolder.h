@@ -43,6 +43,12 @@ class BrickHolder
 	std::unordered_set<netIDType> pendingSends;
 	std::vector<netIDType> pendingRemovals;
 
+	//Server only: removed since the last sendRecent, and clients should show them popping loose
+	std::vector<netIDType> pendingEffectRemovals;
+
+	//Sends RemoveBricks packets for ids, each under the MTU
+	void sendRemovals(const std::vector<netIDType>& ids, bool showEffect) const;
+
 	netIDType lastNetId = 0;
 
 	std::string metatableName = "";
@@ -71,8 +77,11 @@ class BrickHolder
 	*/
 	Brick* addFromServer(const Brick& desc);
 
-	//Removes and deletes the brick
-	void remove(Brick* brick);
+	/*
+		Removes and deletes the brick
+		showEffect has clients show it popping loose and flying off, for a brick removed on purpose one at a time
+	*/
+	void remove(Brick* brick, bool showEffect = false);
 
 	void clear();
 

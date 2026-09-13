@@ -40,15 +40,17 @@ class InstancedBrickRenderer
 
 	GLuint cubeBuffer = 0;
 
-	//One instance, for the ghost brick
-	GLuint ghostVao = 0;
-	GLuint ghostInstanceBuffer = 0;
+	//One instance, for the ghost brick and loose bricks
+	GLuint singleVao = 0;
+	GLuint singleInstanceBuffer = 0;
 
 	Material* topMaterial = nullptr;
 	Material* bottomMaterial = nullptr;
 	Material* sideMaterial = nullptr;
 
 	GLint tileByStudsUniform = -1;
+	GLint brickTransformUniform = -1;
+	GLint glowUniform = -1;
 
 	void createInstancedVao(GLuint& vao, GLuint& instanceBuffer) const;
 
@@ -57,10 +59,21 @@ class InstancedBrickRenderer
 	void rebuild(Chunk* chunk);
 	void destroyChunk(Chunk* chunk);
 
-	//Draws each face group with its material, for every instance set
-	void drawInstances(std::shared_ptr<ShaderManager> shaders, const std::vector<InstanceSet>& sets) const;
+	void setTransform(const glm::mat4& transform) const;
+	void uploadSingleInstance(const glm::vec3& corner, const Brick& brick, float alpha) const;
+
+	//Draws each face group with its material, for every instance set, calling beforeEach(set index) before each draw
+	void drawInstances(std::shared_ptr<ShaderManager> shaders, const std::vector<InstanceSet>& sets, const std::function<void(size_t)>& beforeEach = nullptr) const;
 
 	public:
+
+	//A brick drawn on its own with any rotation, centered on the transform's origin
+	struct LooseBrick
+	{
+		const Brick* brick;
+		glm::mat4 transform;
+		float alpha;
+	};
 
 	void addBrick(Brick* brick);
 	void removeBrick(Brick* brick);
@@ -76,8 +89,14 @@ class InstancedBrickRenderer
 	//Expects shaders->brickShader to be in use, culls chunks against the camera currently in shaders->cameraUniforms
 	void render(std::shared_ptr<ShaderManager> shaders, bool transparent) const;
 
-	//Expects shaders->brickShader to be in use, draws one translucent brick
-	void renderGhost(std::shared_ptr<ShaderManager> shaders, const Brick& ghost) const;
+	//Expects shaders->brickShader to be in use, draws one translucent brick that brightens and turns more opaque as pulse goes from 0 to 1
+	void renderGhost(std::shared_ptr<ShaderManager> shaders, const Brick& ghost, float pulse) const;
+
+	/*
+		Expects shaders->brickShader to be in use
+		Draws blended since loose bricks fade out, but still writes depth so later transparent geometry can't show through them
+	*/
+	void renderLoose(std::shared_ptr<ShaderManager> shaders, const std::vector<LooseBrick>& bricks) const;
 
 	//Expects shaders->brickShadowShader to be in use, draws every opaque brick
 	void renderShadows() const;

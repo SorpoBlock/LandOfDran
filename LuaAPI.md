@@ -199,7 +199,7 @@ directly in `Saves/`. Bricks that would overlap an existing brick are skipped wh
 | `brick:getOwner()` | none | client net ID, or `-1` | Who planted it. `-1` for bricks added by Lua or loaded from a save. |
 | `brick:getName()` | none | string | The brick's name, empty by default. |
 | `brick:setName(name)` | string | none | Sets the brick's name. |
-| `brick:remove()` | none | none | Removes the brick. |
+| `brick:remove([showEffect])` | optional bool | none | Removes the brick. With `true`, clients show it popping loose and flying off like an undone brick. Leave it off when removing many bricks at once. |
 
 ---
 

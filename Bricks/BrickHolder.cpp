@@ -147,12 +147,12 @@ void BrickHolder::insert(Brick* brick)
 		renderer->addBrick(brick);
 }
 
-void BrickHolder::remove(Brick* brick)
+void BrickHolder::remove(Brick* brick, bool showEffect)
 {
 	if (server)
 	{
 		pendingSends.erase(brick->netId);
-		pendingRemovals.push_back(brick->netId);
+		(showEffect ? pendingEffectRemovals : pendingRemovals).push_back(brick->netId);
 	}
 
 	int min[3], max[3];
@@ -286,24 +286,15 @@ void BrickHolder::sendRecent()
 	{
 		pendingSends.clear();
 		pendingRemovals.clear();
+		pendingEffectRemovals.clear();
 		return;
 	}
 
 	//Removals first, in case a removed brick's space was reused this tick
-	static constexpr unsigned int idsPerPacket = (maxPacketBytes - packetHeaderBytes) / sizeof(netIDType);
-
-	for (size_t start = 0; start < pendingRemovals.size(); start += idsPerPacket)
-	{
-		uint16_t count = std::min<size_t>(idsPerPacket, pendingRemovals.size() - start);
-
-		ENetPacket* packet = enet_packet_create(NULL, packetHeaderBytes + count * sizeof(netIDType), getFlagsFromChannel(BrickLoading));
-		packet->data[0] = RemoveBricks;
-		memcpy(packet->data + 1, &count, sizeof(uint16_t));
-		memcpy(packet->data + packetHeaderBytes, pendingRemovals.data() + start, count * sizeof(netIDType));
-
-		server->broadcast(packet, BrickLoading);
-	}
+	sendRemovals(pendingRemovals, false);
+	sendRemovals(pendingEffectRemovals, true);
 	pendingRemovals.clear();
+	pendingEffectRemovals.clear();
 
 	std::vector<const Brick*> toSend;
 	toSend.reserve(pendingSends.size());
@@ -316,6 +307,26 @@ void BrickHolder::sendRecent()
 
 	for (ENetPacket* packet : makeAddPackets(toSend))
 		server->broadcast(packet, BrickLoading);
+}
+
+void BrickHolder::sendRemovals(const std::vector<netIDType>& ids, bool showEffect) const
+{
+	//Packet type, u16 count, then whether to show the brick popping loose
+	static constexpr unsigned int removalHeaderBytes = 4;
+	static constexpr unsigned int idsPerPacket = (maxPacketBytes - removalHeaderBytes) / sizeof(netIDType);
+
+	for (size_t start = 0; start < ids.size(); start += idsPerPacket)
+	{
+		uint16_t count = std::min<size_t>(idsPerPacket, ids.size() - start);
+
+		ENetPacket* packet = enet_packet_create(NULL, removalHeaderBytes + count * sizeof(netIDType), getFlagsFromChannel(BrickLoading));
+		packet->data[0] = RemoveBricks;
+		memcpy(packet->data + 1, &count, sizeof(uint16_t));
+		packet->data[3] = showEffect ? 1 : 0;
+		memcpy(packet->data + removalHeaderBytes, ids.data() + start, count * sizeof(netIDType));
+
+		server->broadcast(packet, BrickLoading);
+	}
 }
 
 void BrickHolder::sendAll(JoinedClient const* client) const
