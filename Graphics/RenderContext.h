@@ -51,7 +51,11 @@ struct RenderContext
 		//Changes screen resolution
 		void setSize(unsigned int x, unsigned int y);
 
-		RenderContext(std::shared_ptr<SettingManager> settings);
+		//Asks SDL to resize the window, which comes back as a SDL_WINDOWEVENT_SIZE_CHANGED event
+		void resizeWindow(unsigned int x, unsigned int y);
+
+		//A windowed start uses state's remembered window/width and height if there are any, fullscreen always uses settings
+		RenderContext(std::shared_ptr<SettingManager> settings, std::shared_ptr<SettingManager> state);
 		~RenderContext();
 
 		//Calls ImGui_ImplSDL2_InitForOpenGL

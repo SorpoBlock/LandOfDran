@@ -132,6 +132,13 @@ class SettingManager
 		PreferencePair const * getPreference(std::string path) const;
 
 		/*
+			Removes a preference, or a node and everything under it, by path like getPreference
+			Returns false if nothing was at that path
+			Any pointers to what was removed, e.g. from nextPreferenceBinding, become invalid
+		*/
+		bool remove(std::string path);
+
+		/*
 			Gets a preference by specifiying a path to a preference
 			i.e. AvatarPreferences/NodeColors/LeftHand
 			Use / and never \

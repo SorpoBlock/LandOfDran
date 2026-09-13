@@ -35,7 +35,19 @@ enum InputCommand
     OpenBrickSelector = 24,
     HideGhostBrick = 25,
     UndoBrick = 26,
-    EndOfCommands = 27
+    ResizeToggle = 27,
+    //Hot bar slots, keep these 10 in order, see BrickHotbar
+    UseBrick1 = 28,
+    UseBrick2 = 29,
+    UseBrick3 = 30,
+    UseBrick4 = 31,
+    UseBrick5 = 32,
+    UseBrick6 = 33,
+    UseBrick7 = 34,
+    UseBrick8 = 35,
+    UseBrick9 = 36,
+    UseBrick10 = 37,
+    EndOfCommands = 38
 };
 
 //For user interface

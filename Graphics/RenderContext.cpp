@@ -48,6 +48,11 @@ void RenderContext::clear(float r, float g, float b, float a, bool depth) const
 		glClear(GL_COLOR_BUFFER_BIT);
 }
 
+void RenderContext::resizeWindow(unsigned int x, unsigned int y)
+{
+	SDL_SetWindowSize(window, x, y);
+}
+
 //Changes screen resolution
 void RenderContext::setSize(unsigned int x, unsigned int y)
 {
@@ -57,7 +62,7 @@ void RenderContext::setSize(unsigned int x, unsigned int y)
 	height = y;
 }
 
-RenderContext::RenderContext(std::shared_ptr<SettingManager> settings) 
+RenderContext::RenderContext(std::shared_ptr<SettingManager> settings, std::shared_ptr<SettingManager> state)
 	: context((SDL_GLContext)nullptr) // Exists to suppress warning, SDL_GL_CreateContext can return 0 anyway
 {
 	scope("RenderContext::RenderContext");
@@ -78,7 +83,21 @@ RenderContext::RenderContext(std::shared_ptr<SettingManager> settings)
 		return;
 	}
 
-	int flag = settings->getBool("graphics/startfullscreen") ? SDL_WINDOW_FULLSCREEN : SDL_WINDOW_RESIZABLE;
+	bool fullscreen = settings->getBool("graphics/startfullscreen");
+
+	//Windowed reopens at the size it was last closed at
+	if (!fullscreen && state && state->getPreference("window/width") && state->getPreference("window/height"))
+	{
+		int rememberedWidth = state->getInt("window/width");
+		int rememberedHeight = state->getInt("window/height");
+		if (rememberedWidth > 0 && rememberedWidth <= 10000 && rememberedHeight > 0 && rememberedHeight <= 10000)
+		{
+			width = rememberedWidth;
+			height = rememberedHeight;
+		}
+	}
+
+	int flag = fullscreen ? SDL_WINDOW_FULLSCREEN : SDL_WINDOW_RESIZABLE;
 
 	int version = GAME_VERSION;
 	std::string windowName = "Land of Dran v" + std::to_string(version);

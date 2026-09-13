@@ -71,6 +71,7 @@ above (`setWaterLevel` also accepts no arguments).
 | `ClientLeave` | `function(client) ... return client end` | Fires when a client disconnects, before it's removed from the client list. Use this to clean up anything the client owned (see `PickupSystem.lua`'s `dropHeldOnLeave`). |
 | `ClientChat` | `function(client, message) ... return client, message end` | Fires when a client sends a chat message, before it's broadcast. Return a modified `message` to alter it, or an empty string to suppress it. |
 | `ClientPlantBrick` | `function(client, brick) ... return client, brick end` | Fires after a client plants its ghost brick and the server accepts it. The brick is already placed and sent to clients; call `brick:remove()` to take it back out. |
+| `ClientAdminLogin` | `function(client) ... return client end` | Fires when a client enters the right eval console password. Not fired for the single player host, who is made admin automatically. `serverstart.lua` plays the `Admin` sound to them here. |
 | `ClientClick` | `function(client, posX, posY, posZ, dirX, dirY, dirZ, mask) ... return client, posX, posY, posZ, dirX, dirY, dirZ, mask end` | Fires on every mouse click. `posX/Y/Z` and `dirX/Y/Z` are the camera's position and look direction *at the moment of the click*; `mask` is the SDL mouse button mask (see Conventions). |
 
 ---
@@ -126,6 +127,8 @@ Dynamics are physics-simulated objects (players, projectiles, pickups, etc).
 | `dynamic:unsnap()` | none | none | Detaches from the cursor (if snapped) and restores the gravity it had before snapping. No-op if not snapped. |
 | `dynamic:isSnapped()` | none | bool | Whether the dynamic is currently snapped to any client's cursor. |
 | `dynamic:getSnapClient()` | none | Client or `nil` | The client it's snapped to, or `nil` if not snapped. |
+| `dynamic:playSound(name[, pitch, volume])` | sound type name; see [Sounds](#sounds) | none | Plays a sound once for everyone, following the dynamic as it moves. |
+| `dynamic:startSoundLoop(name[, pitch, volume])` | sound type name; see [Sounds](#sounds) | loop ID | Starts a looping sound that follows the dynamic. It stops by itself when the dynamic is destroyed. |
 
 ---
 
@@ -203,6 +206,38 @@ directly in `Saves/`. Bricks that would overlap an existing brick are skipped wh
 
 ---
 
+## Sounds
+
+Sounds are registered by name with `newSoundType`, then played by that name. Clients load the
+file from their own copy of the game folder when they join (or right away if they're already
+connected), so the file has to exist on the clients too. `.wav` (any bit depth) and `.ogg`
+(Vorbis) files work, mono or stereo.
+
+Sounds with no position play at the same volume wherever the listener is. Sounds with a position
+get quieter with distance and pan left and right. The listener is the client's camera.
+
+Clients play a few sounds by name on their own when the server has registered them: `ClickMove`
+and `ClickRotate` when the ghost brick moves or turns, `Jump` when their player jumps, and
+`BrickBreak` where a removed brick pops loose. `serverstart.lua` registers these along with
+`ClickPlant`, `PlayerConnect`, `PlayerLeave`, `Admin` (played to a client who logs into the eval
+console), and `BrickClear` (played to everyone when someone types `/clearbricks` in chat to remove
+all of their own bricks).
+
+In the functions below, `pitch` is a playback speed multiplier (default `1`, clamped to 0.05-10)
+and `volume` is 0-1 (default `1`). They can only be given together.
+
+| Function | Arguments | Returns | Description |
+|---|---|---|---|
+| `newSoundType(name, filePath[, isMusic])` | unique name and a path relative to the game folder, each 1-255 characters; `isMusic` marks it as music (not used yet) | none | Registers a sound. Logs an error and skips it if the name is taken or the file doesn't exist on the server. |
+| `playSound(name[, x, y, z][, pitch, volume])` | sound type name; optional world position | none | Plays a sound once for every client, with no position or at `x, y, z`. Sent unreliably, so a client can occasionally miss one. |
+| `startSoundLoop(name[, x, y, z][, pitch, volume])` | sound type name; optional world position | loop ID | Starts a sound that repeats until `stopSoundLoop`, with no position or at `x, y, z`. Clients who join later hear it too. Each client only plays the 16 loops closest to them at once; farther ones pause and pick up where they left off. Loops use the music volume setting on top of `volume`. |
+| `stopSoundLoop(loopID)` | ID from `startSoundLoop` or `dynamic:startSoundLoop` | none | Stops a loop. Does nothing if it already ended. |
+| `setAudioEffect(preset)` | preset name, case insensitive | none | Puts a reverb effect on every sound for every client, including ones who join later. `none` turns it off. Presets: `generic`, `paddedcell`, `auditorium`, `concerthall`, `cave`, `forest`, `plain`, `underwater`, `drugged`, `dizzy`, `psychotic`, `outhouse`, `heaven`, `hell`, `memory`, `dustyroom`, `waterroom`, `racer`, `tunnel`. |
+
+See also `dynamic:playSound`, `dynamic:startSoundLoop`, `client:playSound`, and `client:setAudioEffect`.
+
+---
+
 ## Clients
 
 A "client" represents one connected player/connection.
@@ -238,3 +273,5 @@ A "client" represents one connected player/connection.
 | `client:staticCamera(posX, posY, posZ, dirX, dirY, dirZ)` | fixed camera position and direction | none | Same, but also locks the look direction. |
 | `client:getCursorItem(maxDistance)` | max ray distance | Dynamic, Static, Brick, or `nil` | Raycasts from the client's *live* camera position/direction (updated continuously, not just on click) out to `maxDistance`, ignoring the client's own first controlled object. Requires `setDefaultController` to have been called for this client. |
 | `client:centerPrint(text)` / `client:centerPrint(text, durationMS)` / `client:centerPrint(text, durationMS, red, green, blue)` | text (max 255 chars); duration in ms (default 3000, clamped to 60000); color 0-1 (default white) | none | Shows a temporary message in the center of just this client's screen. |
+| `client:playSound(name[, x, y, z][, pitch, volume])` | same as `playSound` | none | Plays a sound once for just this client. |
+| `client:setAudioEffect(preset)` | same as `setAudioEffect` | none | Sets the reverb effect for just this client, until something sets it again. Not remembered: `setAudioEffect`'s preset is what a client gets when they join. |

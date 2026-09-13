@@ -20,6 +20,10 @@
 #include "PacketsFromServer/WorldStateUpdate.h"
 #include "PacketsFromServer/AddBricks.h"
 #include "PacketsFromServer/RemoveBricks.h"
+#include "PacketsFromServer/AddSoundType.h"
+#include "PacketsFromServer/OneShotSound.h"
+#include "PacketsFromServer/SoundLoop.h"
+#include "PacketsFromServer/AudioEffect.h"
 #include "../GameLoop/ClientProgramData.h"
 #include "../GameLoop/Simulation.h"
 

@@ -1,5 +1,6 @@
 #include "../Server.h"
 #include "../../GameLoop/ServerProgramData.h"
+#include "../../LuaFunctions/ClientLua.h"
 
 /*
 	Do not attempt to assign a handle to JoinedClient to other objects directly
@@ -36,6 +37,10 @@ void attemptEvalLogin(JoinedClient* source, Server const* const server, ENetPack
 		ret[0] = EvalLoginResponse;
 		ret[1] = 255;	//True: you got the right password
 		source->send(ret, 2, OtherReliable);
+
+		pushClientLua(pd->luaState, source->me);
+		pd->eventManager->callEvent(pd->luaState, "ClientAdminLogin", 1);
+		lua_settop(pd->luaState, 0);
 		return;
 	}
 

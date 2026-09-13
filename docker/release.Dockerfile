@@ -17,6 +17,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         libassimp-dev \
         libsdl2-dev \
         libglew-dev \
+        libopenal-dev \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /src

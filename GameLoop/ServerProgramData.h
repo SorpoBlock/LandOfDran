@@ -54,6 +54,33 @@ struct ServerProgramData
 	//Various specific kinds of types
 	std::vector<std::shared_ptr<DynamicType>> dynamicTypes;
 
+	//Sounds added with Lua's newSoundType, a sound's index is the ID clients know it by
+	struct RegisteredSound
+	{
+		std::string name = "";
+		std::string filePath = "";
+		bool isMusic = false;
+	};
+	std::vector<RegisteredSound> soundTypes;
+
+	//Looping sounds started from Lua, kept so clients who join later hear them too
+	struct ActiveSoundLoop
+	{
+		unsigned int id = 0;
+		uint16_t soundID = 0;
+		SoundLocationKind kind = SoundLocationFlat;
+		glm::vec3 position = glm::vec3(0);
+		//Only for SoundLocationDynamic, the loop ends when this does
+		std::weak_ptr<Dynamic> dynamic;
+		float pitch = 1.0f;
+		float volume = 1.0f;
+	};
+	std::vector<ActiveSoundLoop> soundLoops;
+	unsigned int nextSoundLoopID = 0;
+
+	//See Audio/ReverbPresets.h, sent to clients as they finish loading
+	std::string reverbPreset = "none";
+
 	//ObjHolders created and destroyed with ServerLoop class
 	//All dynamic objects:
 	ObjHolder<Dynamic>* dynamics = nullptr;

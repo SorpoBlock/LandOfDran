@@ -18,17 +18,17 @@ Land of Dran uses entirely free and open source cross platform libraries so gett
   * Windows: wsock32, ws2_32, winmm
 * ENet     (Reliable UDP)
 * Lua      (Scripting language)
+* OpenAL   (Playing audio, client only)
 
 Eventually a few other libraries will be added:
 
 * CURL     (HTTP requests for logging in and reading/posting to master server)
-* OpenAL   (Playing audio, client only)
 
 About half the dependencies are used on the client only, but at the moment they still need to be linked even if you are just building it to use as a server. Eventually dynamic libraries will be loaded at runtime.
 
 ### Windows
 
-The project is an MSVC CMake project using vcpkg (manifest mode) to manage libraries, including ENet — every dependency in `vcpkg.json` is fetched and built by vcpkg, so there's nothing to download or configure by hand. ImGui, stb_image, and CRC++ are included with the project code itself.
+The project is an MSVC CMake project using vcpkg (manifest mode) to manage libraries, including ENet — every dependency in `vcpkg.json` is fetched and built by vcpkg, so there's nothing to download or configure by hand. ImGui, stb_image, dr_wav, stb_vorbis, and CRC++ are included with the project code itself.
 
 1. Install Visual Studio 2022 (or the standalone Build Tools) with the "Desktop development with C++" workload — this brings MSVC and CMake.
 2. Install [vcpkg](https://github.com/microsoft/vcpkg) somewhere (`git clone https://github.com/microsoft/vcpkg && .\vcpkg\bootstrap-vcpkg.bat`), then set a `VCPKG_ROOT` environment variable pointing at that folder.
@@ -47,7 +47,7 @@ If you'd rather not use the presets, pass `-DCMAKE_TOOLCHAIN_FILE=<path-to-vcpkg
 Getting this working on debian/ubuntu should be as easy as:
 
 (Have CMake and Make working beforehand, obviously)
-1. Run `sudo apt-get install liblua5.4-dev libglm-dev libenet-dev zlib1g-dev libbullet-dev libassimp-dev libsdl2-dev mesa-utils libglew-dev` to get the required dependencies.
+1. Run `sudo apt-get install liblua5.4-dev libglm-dev libenet-dev zlib1g-dev libbullet-dev libassimp-dev libsdl2-dev mesa-utils libglew-dev libopenal-dev` to get the required dependencies.
 2. Clone repo / unzip to folder
 3. Navigate to folder in terminal
 4. `cmake -B cmake-build-release -DCMAKE_BUILD_TYPE=Release`

@@ -170,6 +170,22 @@ KickReason Client::handleEvent(ENetEvent& event)
 					packets.push_back(new RemoveBricksPacket(packetHoldTime, event.packet));
 					return NotKicked;
 
+				case AddSoundType:
+					packets.push_back(new AddSoundTypePacket(packetHoldTime, event.packet));
+					return NotKicked;
+
+				case OneShotSound:
+					packets.push_back(new OneShotSoundPacket(packetHoldTime, event.packet));
+					return NotKicked;
+
+				case SoundLoop:
+					packets.push_back(new SoundLoopPacket(packetHoldTime, event.packet));
+					return NotKicked;
+
+				case AudioEffect:
+					packets.push_back(new AudioEffectPacket(packetHoldTime, event.packet));
+					return NotKicked;
+
 				//Can't process packet
 				case InvalidServer:
 				default:

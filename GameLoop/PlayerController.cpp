@@ -113,6 +113,7 @@ bool PlayerController::control(std::shared_ptr<PhysicsWorld> world, float deltaT
 	lastBackward = backward;
 	lastLeft = left;
 	lastRight = right;
+	jumped = false;
 
 	//Prevent huge deltaTs from causing huge jumps (like when debugging and pausing the game for a while)
 	deltaT = std::clamp(deltaT, 0.0f, 33.0f);
@@ -135,8 +136,11 @@ bool PlayerController::control(std::shared_ptr<PhysicsWorld> world, float deltaT
 		btRigidBody *sweepResult = world->boxSweepTest(boxSize, feetStart, feetEnd, targetLock->body);
 
 		//TODO: Check if we're on the ground
-		if(sweepResult)
+		if (sweepResult)
+		{
 			targetLock->body->applyCentralImpulse(btVector3(0, 30, 0));
+			jumped = true;
+		}
 	}
 
 

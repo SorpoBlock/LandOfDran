@@ -38,6 +38,10 @@ class LoopClient
 
 	unsigned int lastSentControlledObjects = 0;
 
+	//How long Ctrl+undo has been held, and since the last repeated undo, see handleInput
+	float undoHeldMS = 0;
+	float undoSinceRepeatMS = 0;
+
 	//Send simulation.controlledObjects physics/transform data to server
 	void sendControlledObjects();
 

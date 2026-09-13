@@ -61,6 +61,7 @@ find_package(Bullet CONFIG REQUIRED)
 find_package(OpenGL REQUIRED)
 find_package(SDL2 CONFIG REQUIRED)
 find_package(Lua REQUIRED)
+find_package(OpenAL REQUIRED)
 
 # Add source to this project's executable.
 add_executable (LandOfDran 
@@ -86,6 +87,7 @@ add_executable (LandOfDran
 "External/CRC.h" 
 "External/stb_image.h" 
 "External/RTree.h"
+"External/dr_wav.h"
 
 "External/Imgui/imgui.h"
 "External/Imgui/imgui.cpp"
@@ -208,6 +210,14 @@ add_executable (LandOfDran
 "Networking/PacketsFromServer/AddBricks.cpp"
 "Networking/PacketsFromServer/RemoveBricks.h"
 "Networking/PacketsFromServer/RemoveBricks.cpp"
+"Networking/PacketsFromServer/AddSoundType.h"
+"Networking/PacketsFromServer/AddSoundType.cpp"
+"Networking/PacketsFromServer/OneShotSound.h"
+"Networking/PacketsFromServer/OneShotSound.cpp"
+"Networking/PacketsFromServer/SoundLoop.h"
+"Networking/PacketsFromServer/SoundLoop.cpp"
+"Networking/PacketsFromServer/AudioEffect.h"
+"Networking/PacketsFromServer/AudioEffect.cpp"
 
 "Networking/PacketsFromClient/ConnectionRequest.cpp" 
 "Networking/PacketsFromClient/FinishedLoading.cpp" 
@@ -229,6 +239,15 @@ add_executable (LandOfDran
 "GameLoop/ClientData.cpp"
 "GameLoop/PlayerController.h" 
 "GameLoop/PlayerController.cpp"
+
+"Audio/AudioSystem.h"
+"Audio/AudioSystem.cpp"
+"Audio/SoundFile.h"
+"Audio/SoundFile.cpp"
+"Audio/StbVorbis.cpp"
+"Audio/ReverbPresets.h"
+"LuaFunctions/SoundLua.h"
+"LuaFunctions/SoundLua.cpp"
 
 "LuaFunctions/OtherFunctions.h" 
 "LuaFunctions/OtherFunctions.cpp" 
@@ -258,6 +277,8 @@ add_executable (LandOfDran
 "Bricks/GhostBrick.cpp"
 "Bricks/BrickDebris.h"
 "Bricks/BrickDebris.cpp"
+"Interface/BrickHotbar.h"
+"Interface/BrickHotbar.cpp"
 "Interface/BrickSelector.h"
 "Interface/BrickSelector.cpp"
 "Networking/PacketsFromClient/PlantBrick.cpp"
@@ -271,6 +292,17 @@ target_link_libraries(LandOfDran PRIVATE SDL2::SDL2 SDL2::SDL2main)
 target_link_libraries(LandOfDran PRIVATE OpenGL::GL)
 target_link_libraries(LandOfDran PRIVATE assimp::assimp)
 target_link_libraries(LandOfDran PRIVATE ${LUA_LIBRARIES})
+
+# FindOpenAL's include dir is the AL folder itself, and the code includes <AL/al.h>
+if(OPENAL_INCLUDE_DIR)
+	get_filename_component(OPENAL_PARENT_INCLUDE_DIR "${OPENAL_INCLUDE_DIR}" DIRECTORY)
+	target_include_directories(LandOfDran PRIVATE "${OPENAL_PARENT_INCLUDE_DIR}")
+endif()
+if(TARGET OpenAL::OpenAL)
+	target_link_libraries(LandOfDran PRIVATE OpenAL::OpenAL)
+else()
+	target_link_libraries(LandOfDran PRIVATE ${OPENAL_LIBRARY})
+endif()
 
 if(UNIX AND NOT APPLE)
 	target_include_directories(LandOfDran PRIVATE /usr/include/bullet)

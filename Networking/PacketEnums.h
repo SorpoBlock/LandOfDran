@@ -107,6 +107,25 @@ enum FromServerPacketType : unsigned char
 	WorldStateUpdate = 16,	//Time of day, how fast it passes, and water level, every second and whenever they change
 	AddBricks = 17,			//Bricks added or changed, sent on BrickLoading like every brick packet so they stay in order
 	RemoveBricks = 18,		//IDs of removed bricks
+	AddSoundType = 19,		//A sound's ID, name, and file, for every sound as a client joins and whenever Lua adds one
+	OneShotSound = 20,		//Play a sound once, with no position, at a position, or following a dynamic
+	SoundLoop = 21,			//Start or stop a looping sound, see SoundLoopOperation
+	AudioEffect = 22,		//Reverb preset for every sound, see Audio/ReverbPresets.h
+};
+
+//Where an OneShotSound or SoundLoop packet's sound plays, and what follows this byte
+enum SoundLocationKind : unsigned char
+{
+	SoundLocationFlat = 0,		//No position, nothing follows
+	SoundLocationFixed = 1,		//x, y, z floats
+	SoundLocationDynamic = 2	//Net ID of a dynamic to follow
+};
+
+//Second byte of a SoundLoop packet
+enum SoundLoopOperation : unsigned char
+{
+	SoundLoopStart = 0,
+	SoundLoopStop = 1
 };
 
 //For use with AcceptConnection packets

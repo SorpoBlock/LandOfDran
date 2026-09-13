@@ -50,6 +50,9 @@ void LoopClient::leaveServer(ExecutableArguments& cmdArgs)
 	simulation.evalPassword = "";
 	simulation.waterEnabled = false;
 	pd.ghostBrick.hide();
+	pd.brickHotbar->putAway();
+	pd.brickHotbar->takeChange();
+	pd.audio->clear();
 
 	//Destroy server specific physics
 	if (pd.physicsWorld)
@@ -79,11 +82,11 @@ void LoopClient::connectToServer(std::string ip, unsigned int port, std::string 
 	pd.serverBrowser->setConnectionNote("Connecting to server...");
 	info("Attempting connection to " + ip + ":" + std::to_string(port));
 
-	//TODO: Make it so I can do this without having to re-write descriptions
-	settings->addString("network/username", userName, true, "Guest name if not logged in");
-	settings->addString("network/lastip", ip, true, "Last IP connected to");
-	settings->addInt("network/port", port, true, "Connection port");
-	settings->exportToFile("Config/settings.txt");
+	if (userName.length() > 0)
+		pd.state->addString("network/username", userName);
+	pd.state->addString("network/lastip", ip);
+	pd.state->addInt("network/lastport", port, true, "", 1, 65535);
+	pd.state->exportToFile(ClientProgramData::stateFilePath);
 
 	cmdArgs.gameState = Connecting;
 
@@ -127,11 +130,25 @@ void LoopClient::hostSinglePlayer(ExecutableArguments& cmdArgs, std::shared_ptr<
 		return;
 	}
 
-	std::string userName = settings->getString("network/username");
+	std::string userName = pd.state->getString("network/username");
 	if (userName.length() < 1)
 		userName = "Player";
 
 	connectToServer("127.0.0.1", DEFAULT_PORT, userName, cmdArgs, settings);
+}
+
+//Puts the ghost brick on whatever the camera is pointing at, if anything is in reach
+static void spawnGhostFromCamera(ClientProgramData& pd, Simulation& simulation)
+{
+	if (!pd.physicsWorld || !simulation.camera)
+		return;
+
+	glm::vec3 start = simulation.camera->getPosition();
+	glm::vec3 direction = simulation.camera->getDirection();
+	btRigidBody* ignore = simulation.controlledDynamics.empty() ? nullptr : simulation.controlledDynamics[0]->body;
+	btVector3 hitPosition, hitNormal;
+	if (pd.physicsWorld->doRaycast(g2b3(start), g2b3(start + direction * 250.0f), ignore, hitPosition, hitNormal))
+		pd.ghostBrick.spawnAt(b2g3(hitPosition), b2g3(hitNormal));
 }
 
 void LoopClient::handleInput(float deltaT, ExecutableArguments& cmdArgs, std::shared_ptr<SettingManager> settings)
@@ -153,10 +170,14 @@ void LoopClient::handleInput(float deltaT, ExecutableArguments& cmdArgs, std::sh
 			//Remember the window size we're closing at so next launch starts at the same size
 			//instead of the fixed default, which is what left saved ImGui window positions
 			//(and the server browser) partially off-screen after a resize.
-			glm::vec2 resolution = pd.context->getResolution();
-			settings->addInt("graphics/startresolutionx", (int)resolution.x, true, "Program X resolution to start with", 1, 4096);
-			settings->addInt("graphics/startresolutiony", (int)resolution.y, true, "Program Y resolution to start with", 1, 4096);
-			settings->exportToFile("Config/settings.txt");
+			//Fullscreen always uses graphics/startresolution from the settings menu instead
+			if (!settings->getBool("graphics/startfullscreen"))
+			{
+				glm::vec2 resolution = pd.context->getResolution();
+				pd.state->addInt("window/width", (int)resolution.x, true, "", 1, 10000);
+				pd.state->addInt("window/height", (int)resolution.y, true, "", 1, 10000);
+				pd.state->exportToFile(ClientProgramData::stateFilePath);
+			}
 
 			leaveServer(cmdArgs);
 			cmdArgs.mainLoopRun = false;
@@ -194,6 +215,12 @@ void LoopClient::handleInput(float deltaT, ExecutableArguments& cmdArgs, std::sh
 				}
 			}
 		}
+		else if (e.type == SDL_MOUSEWHEEL && pd.context->getMouseLocked() && !pd.gui->shouldUnlockMouse())
+		{
+			//Scrolls through hot bar slots while building, like the old game
+			int amount = e.wheel.direction == SDL_MOUSEWHEEL_FLIPPED ? -e.wheel.y : e.wheel.y;
+			pd.brickHotbar->scroll(amount);
+		}
 		else if (e.type == SDL_MOUSEBUTTONDOWN && simulation.camera && !pd.gui->shouldUnlockMouse() && cmdArgs.gameState == InGame)
 		{
 			int mx, my;
@@ -208,15 +235,9 @@ void LoopClient::handleInput(float deltaT, ExecutableArguments& cmdArgs, std::sh
 			ENetPacket *mouseClickPacket = makeMouseClickPacket(worldPos, dir, mask);
 			client->send(mouseClickPacket, OtherReliable);
 
-			//With a brick picked in the brick selector, a left click puts the ghost brick wherever the crosshair points
-			if ((mask & SDL_BUTTON_LMASK) && pd.ghostBrick.canSpawn() && pd.physicsWorld)
-			{
-				glm::vec3 start = simulation.camera->getPosition();
-				btRigidBody* ignore = simulation.controlledDynamics.empty() ? nullptr : simulation.controlledDynamics[0]->body;
-				btVector3 hitPosition, hitNormal;
-				if (pd.physicsWorld->doRaycast(g2b3(start), g2b3(start + dir * 250.0f), ignore, hitPosition, hitNormal))
-					pd.ghostBrick.spawnAt(b2g3(hitPosition), b2g3(hitNormal));
-			}
+			//While building, a left click puts the ghost brick wherever the crosshair points
+			if ((mask & SDL_BUTTON_LMASK) && pd.brickHotbar->isBuilding())
+				spawnGhostFromCamera(pd, simulation);
 		}
 	}
 
@@ -226,11 +247,24 @@ void LoopClient::handleInput(float deltaT, ExecutableArguments& cmdArgs, std::sh
 	//Someone just applied setting changes
 	if (pd.settingsMenu->pollForChanges())
 	{
+		//A newly picked resolution resizes a windowed game right away, which is then remembered as the window size on exit
+		//Fullscreen picks it up on the next launch
+		glm::ivec2 pickedResolution(settings->getInt("graphics/startresolutionx"), settings->getInt("graphics/startresolutiony"));
+		if (pickedResolution != pd.appliedStartResolution)
+		{
+			pd.appliedStartResolution = pickedResolution;
+			if (!settings->getBool("graphics/startfullscreen"))
+				pd.context->resizeWindow(pickedResolution.x, pickedResolution.y);
+		}
+
 		Logger::setDebug(settings->getBool("logger/verbose"));
 		simulation.camera->updateSettings(settings);
 		pd.gui->updateSettings(settings);
 		simulation.idealBufferSize = settings->getInt("network/snapshotbuffer");
 		createWaterTargets(settings);
+		pd.audio->setVolumes(settings->getFloat("audio/mastervolume"), settings->getFloat("audio/musicvolume"));
+		if (simulation.brickDebris)
+			simulation.brickDebris->setLifetime(settings->getFloat("graphics/brickdebrisseconds"));
 	}
 
 	if (pd.debugMenu->passwordSubmitted())
@@ -341,30 +375,90 @@ void LoopClient::handleInput(float deltaT, ExecutableArguments& cmdArgs, std::sh
 		pd.context->setMouseLock(false);
 	}
 
-	if (pd.brickSelector->hasSelection())
+	HotbarBrick picked;
+	bool slotsChanged = false;
+	while (pd.brickSelector->popPick(picked))
 	{
-		int width, height, length;
-		glm::u8vec4 color;
-		pd.brickSelector->getSelection(width, height, length, color);
-		pd.ghostBrick.select(width, height, length, color);
+		pd.brickHotbar->add(picked);
+		slotsChanged = true;
 	}
 
-	pd.ghostBrick.update(deltaT, pd.input, simulation.camera->getDirection());
-
-	//Polled every frame so presses made while the ghost is hidden don't fire later
-	bool plant = pd.input->pollCommand(PlantBrick);
-	bool hideGhost = pd.input->pollCommand(HideGhostBrick);
-	if (pd.ghostBrick.isVisible())
+	bool colorChanged = pd.brickSelector->takeColorChanged();
+	if (slotsChanged || colorChanged)
 	{
-		if (plant)
-			client->send(makePlantBrickPacket(pd.ghostBrick.get()), OtherReliable);
-		if (hideGhost)
+		pd.brickHotbar->save(pd.state);
+		pd.brickSelector->save(pd.state);
+
+		//Written right away rather than on exit, since not every way of quitting saves
+		pd.state->exportToFile(ClientProgramData::stateFilePath);
+	}
+	pd.brickHotbar->peek = pd.brickSelector->isOpen();
+
+	for (int a = 0; a < BrickHotbar::slotCount; a++)
+	{
+		if (pd.input->pollCommand((InputCommand)(UseBrick1 + a)))
+			pd.brickHotbar->pressSlot(a);
+	}
+	if (pd.input->pollCommand(HideGhostBrick))
+		pd.brickHotbar->putAway();
+
+	if (pd.brickHotbar->takeChange())
+	{
+		HotbarBrick building;
+		if (pd.brickHotbar->getSelected(building))
+		{
+			//Starting to build again begins in move mode, like the old game
+			if (!pd.ghostBrick.isVisible())
+				pd.ghostBrick.setResizeMode(false);
+
+			pd.ghostBrick.select(building.width, building.height, building.length);
+			if (!pd.ghostBrick.show())
+				spawnGhostFromCamera(pd, simulation);
+		}
+		else
 			pd.ghostBrick.hide();
 	}
 
+	pd.ghostBrick.setColor(pd.brickSelector->getColor());
+	pd.ghostBrick.update(deltaT, pd.input, simulation.camera->getDirection());
+
+	//Clicks like the old game, if the server registered sounds by these names
+	if (pd.ghostBrick.didRotate())
+		pd.audio->playSound("ClickRotate");
+	if (pd.ghostBrick.didMove())
+		pd.audio->playSound("ClickMove");
+
+	//Polled every frame so presses made while the ghost is hidden don't fire later
+	if (pd.input->pollCommand(PlantBrick) && pd.ghostBrick.isVisible())
+		client->send(makePlantBrickPacket(pd.ghostBrick.get()), OtherReliable);
+
 	//The key alone does nothing, undo is Ctrl plus the bound key
-	if (pd.input->pollCommand(UndoBrick) && (SDL_GetModState() & KMOD_CTRL))
+	//A press removes one brick, holding it keeps removing more after a short delay
+	static constexpr float undoRepeatDelayMS = 500.0f;
+	static constexpr float undoRepeatIntervalMS = 100.0f;
+
+	bool ctrlDown = SDL_GetModState() & KMOD_CTRL;
+	bool undoPressed = pd.input->pollCommand(UndoBrick) && ctrlDown;
+	bool undoHeld = ctrlDown && pd.input->isCommandKeydown(UndoBrick);
+
+	if (undoPressed)
+	{
 		client->send(makeUndoBrickPacket(), OtherReliable);
+		undoHeldMS = 0;
+		undoSinceRepeatMS = 0;
+	}
+	else if (undoHeld)
+	{
+		undoHeldMS += deltaT;
+		undoSinceRepeatMS += deltaT;
+		if (undoHeldMS > undoRepeatDelayMS && undoSinceRepeatMS > undoRepeatIntervalMS)
+		{
+			client->send(makeUndoBrickPacket(), OtherReliable);
+			undoSinceRepeatMS = 0;
+		}
+	}
+	else
+		undoHeldMS = 0;
 }
 
 void LoopClient::predictLocalCollisions()
@@ -703,16 +797,17 @@ void LoopClient::renderEverything(float deltaT)
 
 	std::vector<std::string> hudLines;
 	if (pd.debugMenu->showDebugPhysicsView)
-		hudLines.push_back("Debug physics view ON (Left Shift toggles)");
+		hudLines.push_back("Debug physics view ON (F2 toggles)");
 	if (pd.ghostBrick.isVisible())
 	{
 		const Brick& ghost = pd.ghostBrick.get();
 		hudLines.push_back("Ghost brick " + std::to_string(ghost.width) + "x" + std::to_string(ghost.height) + "x" + std::to_string(ghost.length) +
-			": IJKL move, . , up/down, U rotate, Left Alt super shift, Enter plant, 0 hide, Ctrl+Z undo, B bricks");
+			": IJKL move, . , up/down, U rotate, Left Shift resize, Left Alt super shift, Enter plant, / put away, Ctrl+Z undo");
 	}
 
 	pd.escapeMenu->showLeaveServer = client != nullptr;
 	pd.gui->superShiftIndicator = pd.ghostBrick.isVisible() ? (pd.ghostBrick.isSuperShift() ? 1 : 0) : -1;
+	pd.gui->resizeIndicator = pd.ghostBrick.isVisible() ? (pd.ghostBrick.isResizeMode() ? 1 : 0) : -1;
 	pd.gui->render(pd.context->getResolution().x, pd.context->getResolution().y,crossHair,hudLines);
 
 	//End frame
@@ -758,6 +853,9 @@ void LoopClient::updateControllers(float deltaT)
 		}
 		else
 		{
+			if ((*ctrlIter)->jumped)
+				pd.audio->playSound("Jump");
+
 			//Send movement inputs to server to be applied there
 			if (!client)
 			{
@@ -862,6 +960,7 @@ void LoopClient::run(float deltaT,ExecutableArguments& cmdArgs, std::shared_ptr<
 		simulation.bricks = new BrickHolder(pd.physicsWorld);
 		simulation.bricks->setRenderer(pd.brickRenderer);
 		simulation.brickDebris = new BrickDebris(pd.physicsWorld);
+		simulation.brickDebris->setLifetime(settings->getFloat("graphics/brickdebrisseconds"));
 
 		ENetPacket* finishedLoading = makeLoadingFinished();
 		client->send(finishedLoading, OtherReliable);
@@ -888,6 +987,9 @@ void LoopClient::run(float deltaT,ExecutableArguments& cmdArgs, std::shared_ptr<
 	predictLocalCollisions();
 
 	renderEverything(deltaT);
+
+	//After rendering, which moves the camera for this frame
+	pd.audio->update(simulation.camera->getPosition(), simulation.camera->getDirection());
 }
 
 LoopClient::LoopClient(ExecutableArguments& cmdArgs, std::shared_ptr<SettingManager> settings)
@@ -900,8 +1002,22 @@ LoopClient::LoopClient(ExecutableArguments& cmdArgs, std::shared_ptr<SettingMana
 
 	simulation.idealBufferSize = settings->getInt("network/snapshotbuffer");
 
+	//Created empty the first time, so loading it doesn't log a missing file error
+	if (!std::filesystem::exists(ClientProgramData::stateFilePath))
+		std::ofstream emptyStateFile(ClientProgramData::stateFilePath);
+	pd.state = std::make_shared<SettingManager>(ClientProgramData::stateFilePath);
+
+	//Older builds kept the last server and name in settings.txt
+	if (!pd.state->getPreference("network/username") && settings->getPreference("network/username"))
+		pd.state->addString("network/username", settings->getString("network/username"));
+	if (!pd.state->getPreference("network/lastip") && settings->getPreference("network/lastip"))
+		pd.state->addString("network/lastip", settings->getString("network/lastip"));
+	if (!pd.state->getPreference("network/lastport") && settings->getPreference("network/port"))
+		pd.state->addInt("network/lastport", settings->getInt("network/port"), true, "", 1, 65535);
+
 	//Create our program window
-	pd.context = std::make_shared<RenderContext>(settings);
+	pd.context = std::make_shared<RenderContext>(settings, pd.state);
+	pd.appliedStartResolution = glm::ivec2(settings->getInt("graphics/startresolutionx"), settings->getInt("graphics/startresolutiony"));
 	if (!pd.context->isValid())
 	{
 		//RenderContext already logged exactly what went wrong (window/GL context creation failure). Bail out
@@ -913,6 +1029,10 @@ LoopClient::LoopClient(ExecutableArguments& cmdArgs, std::shared_ptr<SettingMana
 
 	//Created before the windows since the brick selector loads its icons through it
 	pd.textures = std::make_shared<TextureManager>();
+
+	//Carries on silently if there's no audio device
+	pd.audio = std::make_shared<AudioSystem>();
+	pd.audio->setVolumes(settings->getFloat("audio/mastervolume"), settings->getFloat("audio/musicvolume"));
 	pd.brickTypes.load("Assets/brick/types");
 
 	pd.gui = std::make_shared<UserInterface>();
@@ -923,7 +1043,28 @@ LoopClient::LoopClient(ExecutableArguments& cmdArgs, std::shared_ptr<SettingMana
 	pd.serverBrowser = pd.gui->createWindow<ServerBrowser>();
 	pd.chatWindow = pd.gui->createWindow<ChatWindow>();
 	pd.brickSelector = pd.gui->createWindow<BrickSelector>(&pd.brickTypes, pd.textures);
-	pd.serverBrowser->passDefaultSettings(settings->getString("network/lastip"), settings->getInt("network/port"), settings->getString("network/username"));
+	pd.brickHotbar = pd.gui->createWindow<BrickHotbar>();
+	//Builds from before the state file kept the hot bar in settings.txt
+	std::shared_ptr<SettingManager> hotbarSource = pd.state;
+	if (!pd.state->getPreference("hotbar/slot1/filled") && settings->getPreference("hotbar/slot1/filled"))
+		hotbarSource = settings;
+	pd.brickSelector->load(hotbarSource);
+	pd.brickHotbar->load(hotbarSource, [this](const std::string& brickName) { return pd.brickSelector->findIcon(brickName); });
+	pd.brickSelector->save(pd.state);
+	pd.brickHotbar->save(pd.state);
+	pd.state->exportToFile(ClientProgramData::stateFilePath);
+
+	//Anything moved to the state file comes out of settings.txt, otherwise it would linger in the settings menu doing nothing
+	bool removedFromSettings = settings->remove("hotbar");
+	for (const char* moved : { "network/username", "network/lastip", "network/port" })
+		removedFromSettings = settings->remove(moved) || removedFromSettings;
+	if (removedFromSettings)
+		settings->exportToFile("Config/settings.txt");
+
+	std::string lastIp = pd.state->getPreference("network/lastip") ? pd.state->getString("network/lastip") : "localhost";
+	int lastPort = pd.state->getPreference("network/lastport") ? pd.state->getInt("network/lastport") : DEFAULT_PORT;
+	std::string lastName = pd.state->getPreference("network/username") ? pd.state->getString("network/username") : "Guest";
+	pd.serverBrowser->passDefaultSettings(lastIp, lastPort, lastName);
 	pd.serverBrowser->open();
 
 	pd.gui->initAll();
@@ -1029,6 +1170,7 @@ LoopClient::~LoopClient()
 	pd.gui.reset(); //Will handle indivdual windows
 	pd.shaders.reset();
 	pd.textures.reset();
+	pd.audio.reset();
 
 	//This one is actually useful because the server will learn we disconnected faster if we do it properly
 	if(client)

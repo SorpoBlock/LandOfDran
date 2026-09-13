@@ -16,30 +16,72 @@ void BrickSelector::loadIcons()
 {
 	iconsLoaded = true;
 
-	Texture* unknown = textures->createTexture("Assets/brick/types/Unknown.png");
+	unknownIcon = textures->createTexture("Assets/brick/types/Unknown.png");
 
 	for (const BasicBrickType& type : types->getBasicTypes())
 	{
 		Texture* icon = type.iconPath.empty() ? nullptr : textures->createTexture(type.iconPath);
-		icons.push_back(icon && icon->isValid() ? icon : unknown);
+		icons.push_back(icon && icon->isValid() ? icon : unknownIcon);
 	}
 }
 
-void BrickSelector::choose(int width, int height, int length)
+void BrickSelector::pick(int width, int height, int length, const std::string& brickName, Texture* icon)
 {
-	selectedSize[0] = width;
-	selectedSize[1] = height;
-	selectedSize[2] = length;
-	selectionWaiting = true;
+	HotbarBrick brick;
+	brick.width = width;
+	brick.height = height;
+	brick.length = length;
+	brick.name = brickName;
+	brick.icon = icon;
+	picks.push_back(brick);
 }
 
-void BrickSelector::getSelection(int& width, int& height, int& length, glm::u8vec4& brickColor)
+bool BrickSelector::popPick(HotbarBrick& brick)
 {
-	selectionWaiting = false;
-	width = selectedSize[0];
-	height = selectedSize[1];
-	length = selectedSize[2];
-	brickColor = glm::u8vec4(glm::clamp(color, 0.0f, 1.0f) * 255.0f + 0.5f);
+	if (picks.empty())
+		return false;
+
+	brick = picks.front();
+	picks.erase(picks.begin());
+	return true;
+}
+
+glm::u8vec4 BrickSelector::getColor() const
+{
+	return glm::u8vec4(glm::clamp(color, 0.0f, 1.0f) * 255.0f + 0.5f);
+}
+
+bool BrickSelector::takeColorChanged()
+{
+	bool result = colorChanged;
+	colorChanged = false;
+	return result;
+}
+
+void BrickSelector::save(std::shared_ptr<SettingManager> settings) const
+{
+	settings->addColor("hotbar/color", color);
+}
+
+void BrickSelector::load(std::shared_ptr<SettingManager> settings)
+{
+	//Defaults to white when it's never been saved
+	color = glm::clamp(settings->getColor("hotbar/color"), 0.0f, 1.0f);
+}
+
+Texture* BrickSelector::findIcon(const std::string& brickName)
+{
+	if (!iconsLoaded)
+		loadIcons();
+
+	const std::vector<BasicBrickType>& basicTypes = types->getBasicTypes();
+	for (size_t a = 0; a < basicTypes.size() && a < icons.size(); a++)
+	{
+		if (basicTypes[a].uiName == brickName)
+			return icons[a];
+	}
+
+	return unknownIcon;
 }
 
 void BrickSelector::render(ImGuiIO* io)
@@ -65,7 +107,7 @@ void BrickSelector::render(ImGuiIO* io)
 		if (ImGui::ColorButton("##palette", swatch, ImGuiColorEditFlags_AlphaPreview, ImVec2(24, 24)))
 		{
 			color = palette[a];
-			choose(selectedSize[0], selectedSize[1], selectedSize[2]);
+			colorChanged = true;
 		}
 		ImGui::PopID();
 
@@ -73,8 +115,10 @@ void BrickSelector::render(ImGuiIO* io)
 			ImGui::SameLine();
 	}
 
-	if (ImGui::ColorEdit4("Custom color", &color[0], ImGuiColorEditFlags_AlphaBar))
-		choose(selectedSize[0], selectedSize[1], selectedSize[2]);
+	//Only counts as changed once an edit finishes, not every frame of a drag, since changes get saved to file
+	ImGui::ColorEdit4("Custom color", &color[0], ImGuiColorEditFlags_AlphaBar);
+	if (ImGui::IsItemDeactivatedAfterEdit())
+		colorChanged = true;
 
 	ImGui::Separator();
 
@@ -83,11 +127,15 @@ void BrickSelector::render(ImGuiIO* io)
 	for (int& dimension : customSize)
 		dimension = std::clamp(dimension, 1, 255);
 	ImGui::SameLine();
-	if (ImGui::Button("Use size"))
-		choose(customSize[0], customSize[1], customSize[2]);
+	if (ImGui::Button("Add size"))
+	{
+		std::string sizeName = std::to_string(customSize[0]) + "x" + std::to_string(customSize[2]) + ", " + std::to_string(customSize[1]) + " plates tall";
+		pick(customSize[0], customSize[1], customSize[2], sizeName, unknownIcon);
+	}
 
 	ImGui::Separator();
 
+	ImGui::TextWrapped("%s", "Click a brick to add it to the hot bar, then press its number key to build with it");
 	ImGui::BeginChild("brickTypes");
 
 	const std::vector<BasicBrickType>& basicTypes = types->getBasicTypes();
@@ -111,7 +159,7 @@ void BrickSelector::render(ImGuiIO* io)
 		ImGui::EndGroup();
 
 		if (clicked)
-			choose(type.width, type.height, type.length);
+			pick(type.width, type.height, type.length, type.uiName, icons[a]);
 
 		ImGui::PopID();
 

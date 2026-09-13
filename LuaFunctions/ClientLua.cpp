@@ -1,5 +1,6 @@
 #include "ClientLua.h"
 #include "Dynamic.h" //pushRaycastResult
+#include "SoundLua.h"
 
 Server * LUA_server = nullptr;
 
@@ -791,6 +792,8 @@ void registerClientFunctions(lua_State* L)
 		{ "getPacketLoss", LUA_clientGetPacketLoss },
 		{ "getCursorItem", LUA_clientGetCursorItem },
 		{ "centerPrint", LUA_clientCenterPrint },
+		{ "playSound", LUA_clientPlaySound },
+		{ "setAudioEffect", LUA_clientSetAudioEffect },
 		{ NULL, NULL }
 	};
 

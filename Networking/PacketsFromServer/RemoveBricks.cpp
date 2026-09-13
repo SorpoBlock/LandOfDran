@@ -32,7 +32,10 @@ bool RemoveBricksPacket::applyPacket(const ClientProgramData& pd, Simulation& si
 			continue;
 
 		if (showEffect && simulation.brickDebris)
+		{
 			simulation.brickDebris->spawn(*brick);
+			pd.audio->playSound("BrickBreak", SoundLocation::at(brick->getWorldCenter()));
+		}
 
 		simulation.bricks->remove(brick);
 	}

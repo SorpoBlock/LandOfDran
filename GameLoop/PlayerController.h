@@ -31,6 +31,9 @@ struct PlayerController
 	//Client only, last time we sent a packet to the server
 	unsigned int lastSentControls = 0;
 
+	//Whether the last control call made the target jump
+	bool jumped = false;
+
 	//Client only, send last inputs to server for caching and reflection
 	//Can return nullptr if object was deleted or packet was recently sent
 	ENetPacket* makeMovementInputsPacket();

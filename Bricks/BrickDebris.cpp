@@ -1,6 +1,6 @@
 #include "BrickDebris.h"
 
-static constexpr float lifetimeMS = 3600.0f;
+//Or the whole lifetime, if that's shorter
 static constexpr float fadeMS = 400.0f;
 
 //Enough for a few quick undos, more than this at once are simply removed without the effect
@@ -9,9 +9,21 @@ static constexpr size_t maxPieces = 64;
 //Weaker than the world's gravity so the pop reads as a little hop rather than an instant drop
 static const btVector3 debrisGravity = btVector3(0, -25, 0);
 
+void BrickDebris::setLifetime(float seconds)
+{
+	lifetimeMS = std::max(seconds, 0.0f) * 1000.0f;
+
+	if (lifetimeMS > 0)
+		return;
+
+	for (Piece& piece : pieces)
+		destroy(piece);
+	pieces.clear();
+}
+
 void BrickDebris::spawn(const Brick& brick)
 {
-	if (pieces.size() >= maxPieces)
+	if (lifetimeMS <= 0 || pieces.size() >= maxPieces)
 		return;
 
 	Piece piece;
@@ -79,7 +91,7 @@ void BrickDebris::render(std::shared_ptr<ShaderManager> shaders, const Instanced
 		glm::mat4 transform;
 		piece.body->getWorldTransform().getOpenGLMatrix(&transform[0][0]);
 
-		float fade = std::clamp((lifetimeMS - piece.ageMS) / fadeMS, 0.0f, 1.0f);
+		float fade = std::clamp((lifetimeMS - piece.ageMS) / std::min(fadeMS, lifetimeMS), 0.0f, 1.0f);
 		looseBricks.push_back({ &piece.brick, transform, piece.brick.color.a / 255.0f * fade });
 	}
 

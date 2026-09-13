@@ -12,6 +12,18 @@ centerPlate = newDynamicType("center","Assets/cube/cube.txt",0.1,0.01,0.1)
 
 button = newDynamicType("button","Assets/button/button.txt",1,1,1)
 
+--Sounds, with the old game's names and file names. Clients play ClickMove, ClickRotate, Jump, and BrickBreak on their own
+--when the server has sounds by those names. A file that isn't in Assets/sound/ logs an error and is skipped
+newSoundType("ClickMove","Assets/sound/clickMove.wav")
+newSoundType("ClickRotate","Assets/sound/clickRotate.wav")
+newSoundType("ClickPlant","Assets/sound/clickPlant.wav")
+newSoundType("Jump","Assets/sound/jump.wav")
+newSoundType("BrickBreak","Assets/sound/breakBrick.wav")
+newSoundType("PlayerConnect","Assets/sound/playerConnect.wav")
+newSoundType("PlayerLeave","Assets/sound/playerLeave.wav")
+newSoundType("Admin","Assets/sound/admin.wav")
+newSoundType("BrickClear","Assets/sound/brickClear.wav")
+
 --Different arrays of kinds of plates that can be made to dissapear with their own button
 larges = {}
 mediums = {}
@@ -304,8 +316,10 @@ function join(client)
 	client:bindCamera(dynamic,true,20)
 	
 	--This function will be replaced with something better, for now the only way to un-control the object is to delete it
-	client:setDefaultController(dynamic) 
-	
+	client:setDefaultController(dynamic)
+
+	playSound("PlayerConnect")
+
 	return client
 end
 registerEventListener("ClientJoin","join")
@@ -317,10 +331,65 @@ function leave(client)
 	for i = 0, client:getNumControlled() - 1, 1 do
 		client:getControlledIdx(i):destroy()
 	end
-	
+
+	playSound("PlayerLeave")
+
 	return client
 end
 registerEventListener("ClientLeave","leave")
+
+--Everyone nearby hears a brick get planted, from its center
+function plantSound(client, brick)
+	local x, y, z = brick:getPosition()
+	local width, height, length = brick:getDimensions()
+	if brick:getAngleID() % 2 == 1 then
+		width, length = length, width
+	end
+	playSound("ClickPlant", x + width / 2, (y + height / 2) * 0.4, z + length / 2)
+	return client, brick
+end
+registerEventListener("ClientPlantBrick","plantSound")
+
+--Just the player who got the eval password right hears it
+function adminLoginSound(client)
+	client:playSound("Admin")
+	return client
+end
+registerEventListener("ClientAdminLogin","adminLoginSound")
+
+--Removes every brick planted by the client with that net ID, returns how many
+function clearBricksOwnedBy(ownerID)
+	local count = 0
+	--Backwards, so removing a brick never moves one we haven't looked at yet
+	for i = getNumBricks() - 1, 0, -1 do
+		local brick = getBrickIdx(i)
+		if brick:getOwner() == ownerID then
+			brick:remove()
+			count = count + 1
+		end
+	end
+	return count
+end
+
+--Chat commands, the message arrives as "Name: text"
+function chatCommands(client, message)
+	local text = string.sub(message, string.len(client:getName()) + 3)
+
+	if text == "/clearbricks" then
+		local count = clearBricksOwnedBy(client:getID())
+		if count == 0 then
+			client:message("You don't have any bricks to clear.")
+		else
+			messageAll(client:getName() .. " cleared their " .. count .. (count == 1 and " brick." or " bricks."))
+			playSound("BrickClear")
+		end
+		--Don't show the command itself in chat
+		return client, ""
+	end
+
+	return client, message
+end
+registerEventListener("ClientChat","chatCommands")
 
 --For easy testing
 function gc()

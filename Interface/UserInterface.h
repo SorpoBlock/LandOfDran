@@ -59,6 +59,8 @@ class Window
 
 	//Closes window if it was open
 	void close();
+
+	bool isOpen() const { return opened; }
 };
 
 /*
@@ -88,8 +90,9 @@ class UserInterface
 
 	std::string popupErrorMessage = "";
 
-	//Building super shift indicator in the corner of the HUD: -1 hidden, 0 off, 1 on
+	//Building mode toggle indicators in the corner of the HUD: -1 hidden, 0 off, 1 on
 	int superShiftIndicator = -1;
+	int resizeIndicator = -1;
 
 	void updateSettings(std::shared_ptr<SettingManager> settings);
 

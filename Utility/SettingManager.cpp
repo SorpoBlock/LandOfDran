@@ -421,6 +421,58 @@ PreferencePair const * SettingManager::getPreference(std::string path) const
 	return nullptr;
 }
 
+bool SettingManager::remove(std::string path)
+{
+	path = lowercase(path);
+	if (path.length() > 0 && path.back() == '/')
+		path.pop_back();
+
+	PreferenceNode* parent = &rootNode;
+	while (path.find("/") != std::string::npos)
+	{
+		std::string nextNodeName = path.substr(0, path.find("/"));
+		path = path.substr(path.find("/") + 1, std::string::npos);
+
+		auto child = std::find_if(parent->childNodes.begin(), parent->childNodes.end(), [&](PreferenceNode* node) { return node->name == nextNodeName; });
+		if (child == parent->childNodes.end())
+			return false;
+		parent = *child;
+	}
+
+	//The binding search holds indices into what's about to change
+	preferenceSearchIndex = 0;
+	nodeSearchIndex = 0;
+
+	auto preference = std::find_if(parent->childPreferences.begin(), parent->childPreferences.end(), [&](PreferencePair* pref) { return pref->name == path; });
+	if (preference != parent->childPreferences.end())
+	{
+		delete *preference;
+		parent->childPreferences.erase(preference);
+		return true;
+	}
+
+	auto node = std::find_if(parent->childNodes.begin(), parent->childNodes.end(), [&](PreferenceNode* child) { return child->name == path; });
+	if (node == parent->childNodes.end())
+		return false;
+
+	std::vector<PreferenceNode*> toDelete = { *node };
+	parent->childNodes.erase(node);
+
+	while (!toDelete.empty())
+	{
+		PreferenceNode* current = toDelete.back();
+		toDelete.pop_back();
+
+		allNodes.erase(std::remove(allNodes.begin(), allNodes.end(), current), allNodes.end());
+		toDelete.insert(toDelete.end(), current->childNodes.begin(), current->childNodes.end());
+		for (PreferencePair* pref : current->childPreferences)
+			delete pref;
+		delete current;
+	}
+
+	return true;
+}
+
 void PreferenceNode::readFromLine(std::string &line,int lineNumber,PreferenceNode *currentNode)
 {
 	//Preference lines look like this:

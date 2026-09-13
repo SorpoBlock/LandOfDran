@@ -19,6 +19,8 @@
 #include "../Bricks/GhostBrick.h"
 #include "../Bricks/BrickTypes.h"
 #include "../Interface/BrickSelector.h"
+#include "../Interface/BrickHotbar.h"
+#include "../Audio/AudioSystem.h"
 
 /*
 	This exists so we can make all of this available to the various PacketsFromServer files since packets can do a wide range of activities
@@ -45,6 +47,17 @@ struct ClientProgramData
 
 	GhostBrick ghostBrick;
 	std::shared_ptr<BrickSelector> brickSelector = nullptr;
+	std::shared_ptr<BrickHotbar> brickHotbar = nullptr;
+
+	/*
+		Things the game remembers between launches rather than settings the player picks: last server and name,
+		window size, hot bar. Kept out of Config/settings.txt so they can be written often without rewriting that
+	*/
+	std::shared_ptr<SettingManager> state = nullptr;
+	static constexpr const char* stateFilePath = "Config/state.txt";
+
+	//graphics/startresolutionx and y as of launch or the last settings save, so a newly picked one can be applied
+	glm::ivec2 appliedStartResolution = glm::ivec2(0);
 	std::shared_ptr<RenderTarget> shadows = nullptr;
 
 	Environment environment;
@@ -70,6 +83,9 @@ struct ClientProgramData
 	std::shared_ptr<InputMap>		input = nullptr;
 	std::shared_ptr<EscapeMenu>		escapeMenu = nullptr;
 	std::shared_ptr<ChatWindow>		chatWindow = nullptr;
+
+	//Lives for the whole program, sound types come from whichever server we're on
+	std::shared_ptr<AudioSystem>	audio = nullptr;
 
 	//TODO: Move to simulation
 	std::shared_ptr<PhysicsWorld>	physicsWorld = nullptr;

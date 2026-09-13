@@ -1,6 +1,7 @@
 #include "../Server.h"
 #include "../../GameLoop/ServerProgramData.h"
 #include "../../LuaFunctions/ClientLua.h"
+#include "../../LuaFunctions/SoundLua.h"
 
 /*
 	Do not attempt to assign a handle to JoinedClient to other objects directly
@@ -35,6 +36,9 @@ void clientFinishedLoading(JoinedClient* source, Server const* const server, ENe
 	pd->dynamics->sendAll(source);
 	pd->statics->sendAll(source);
 	pd->bricks->sendAll(source);
+
+	//Loops already playing and the reverb preset
+	sendSoundState(pd, source);
 
 	//Time of day and water level, instead of waiting up to a second for the regular update
 	pd->worldStateChanged = true;

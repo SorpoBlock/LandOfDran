@@ -1,5 +1,6 @@
 #include "Dynamic.h"
 #include "ClientLua.h"
+#include "SoundLua.h"
 
 ServerProgramData* LUA_pd = nullptr;
 
@@ -1520,7 +1521,7 @@ luaL_Reg* getDynamicFunctions(lua_State *L)
 	lua_register(L, "raycast", LUA_raycast);
 
 	//Create table of dynamic metatable functions:
-	luaL_Reg* regs = new luaL_Reg[30];
+	luaL_Reg* regs = new luaL_Reg[32];
 
 	int iter = 0;
 	regs[iter++] = { "destroy",     LUA_dynamicDestroy };
@@ -1552,6 +1553,8 @@ luaL_Reg* getDynamicFunctions(lua_State *L)
 	regs[iter++] = { "unsnap", LUA_dynamicUnsnap };
 	regs[iter++] = { "isSnapped", LUA_dynamicIsSnapped };
 	regs[iter++] = { "getSnapClient", LUA_dynamicGetSnapClient };
+	regs[iter++] = { "playSound", LUA_dynamicPlaySound };
+	regs[iter++] = { "startSoundLoop", LUA_dynamicStartSoundLoop };
 	regs[iter++] = { NULL, NULL };
 
 	return regs;

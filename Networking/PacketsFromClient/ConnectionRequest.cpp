@@ -1,6 +1,7 @@
 #include "../Server.h"
 #include "../../GameLoop/ServerProgramData.h"
 #include "../../GameLoop/ClientData.h"
+#include "../../LuaFunctions/SoundLua.h"
 
 /*	
 	Do not attempt to assign a handle to JoinedClient to other objects directly
@@ -78,6 +79,9 @@ void applyConnectionRequest(JoinedClient * source,Server const * const server, E
 
 	info("Client joined as guest with name " + desiredName);
 	server->broadcastChat(desiredName + " connected.");
+
+	//Sounds first, they don't count toward the types the loading bar waits for
+	sendSoundTypes(pd, source);
 
 	//Send types to client:
 	for (size_t a = 0; a < pd->allNetTypes.size(); a++)

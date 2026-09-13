@@ -24,9 +24,15 @@ class BrickDebris
 	std::shared_ptr<PhysicsWorld> world = nullptr;
 	std::mt19937 random;
 
+	//See setLifetime
+	float lifetimeMS = 3600.0f;
+
 	void destroy(Piece& piece);
 
 	public:
+
+	//From graphics/brickdebrisseconds, 0 turns the effect off and clears any debris already out
+	void setLifetime(float seconds);
 
 	void spawn(const Brick& brick);
 

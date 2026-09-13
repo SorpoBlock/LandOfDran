@@ -2,6 +2,9 @@
 
 std::string GetInputCommandString(InputCommand command)
 {
+    if (command >= UseBrick1 && command <= UseBrick10)
+        return "Use Hot Bar Slot " + std::to_string(command - UseBrick1 + 1);
+
     switch (command)
     {
         case NoCommand: return "No command";
@@ -30,8 +33,9 @@ std::string GetInputCommandString(InputCommand command)
         case BrickSuperShift: return "Toggle Brick Super Shift";
         case PlantBrick: return "Plant Brick";
         case OpenBrickSelector: return "Open Brick Selector";
-        case HideGhostBrick: return "Hide Ghost Brick";
+        case HideGhostBrick: return "Put Bricks Away";
         case UndoBrick: return "Undo Last Brick (with Ctrl)";
+        case ResizeToggle: return "Toggle Brick Resize Mode";
         default: return "Other error";
     }
 }
@@ -78,7 +82,7 @@ InputMap::InputMap(std::shared_ptr<SettingManager> settings)
         bindKey(OpenChatWindow, SDL_SCANCODE_C);
         bindKey(FirstThirdPerson, SDL_SCANCODE_TAB);
         bindKey(Jump, SDL_SCANCODE_SPACE);
-        bindKey(DebugView, SDL_SCANCODE_LSHIFT);
+        bindKey(DebugView, SDL_SCANCODE_F2);
 
         //Same as the old game's building controls
         bindKey(BrickForward, SDL_SCANCODE_I);
@@ -94,8 +98,13 @@ InputMap::InputMap(std::shared_ptr<SettingManager> settings)
         bindKey(BrickSuperShift, SDL_SCANCODE_LALT);
         bindKey(PlantBrick, SDL_SCANCODE_RETURN);
         bindKey(OpenBrickSelector, SDL_SCANCODE_B);
-        bindKey(HideGhostBrick, SDL_SCANCODE_0);
+        bindKey(HideGhostBrick, SDL_SCANCODE_SLASH);
         bindKey(UndoBrick, SDL_SCANCODE_Z);
+        bindKey(ResizeToggle, SDL_SCANCODE_LSHIFT);
+
+        //Number keys 1 through 9 then 0, SDL's scancodes for them are in that order
+        for (int a = 0; a < 10; a++)
+            bindKey((InputCommand)(UseBrick1 + a), (SDL_Scancode)(SDL_SCANCODE_1 + a));
 
         for (unsigned int a = 1; a < InputCommand::EndOfCommands; a++)
             settings->addInt("keybinds/" + std::to_string(a), keyForCommand[a]);

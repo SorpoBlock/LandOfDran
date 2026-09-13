@@ -31,9 +31,7 @@ void populateDefaults(std::shared_ptr<SettingManager> settings)
 	//Network settings
 	//settings->addInt("network/incomingbandwidth",		0, false, 		"ENet incoming assumption, 0 for dynamic",0,500000);
 	//settings->addInt("network/outgoingbandwidth",		0, false, 		"ENet outgoing assumption, 0 for dynamic",0,500000);
-	settings->addString("network/username",			"Guest", false,	"Guest name if not logged in");
-	settings->addString("network/lastip",			"localhost", false, "Last IP connected to");
-	settings->addInt("network/port",				DEFAULT_PORT, false, "Hosting port", 1, 65535);
+	//The last server, port, and name connected with are remembered in Config/state.txt instead, see ClientProgramData::state
 	settings->addInt("network/packetholdtime",		10000, false, "Max packet hold time MS", 1, 65535);
 	settings->addInt("network/snapshotbuffer",			4, true,  "Snapshot buffer size", 2, 8);
 	
@@ -60,6 +58,7 @@ void populateDefaults(std::shared_ptr<SettingManager> settings)
 	settings->addBool("graphics/shadowcolor",		true, false, 	"Use colored shadows");
 	settings->addEnum("graphics/godrayquality",		1, 	 			"God ray samples", 	{"None","32 samples","64 samples","96 samples","128 samples"});
 	settings->addEnum("graphics/spritedensity",		1, 				"Sprite density",	{"Low","Medium","High","Very High"});
+	settings->addFloat("graphics/brickdebrisseconds",	3.6f, false,	"Seconds removed bricks stay as debris (0 for none)",0,15);
 
 	//Hosting settings
 	settings->addBool("hosting/useevalpassword",	false, false,	"Enable password for remote Lua execution");

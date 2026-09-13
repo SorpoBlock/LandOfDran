@@ -275,20 +275,31 @@ void UserInterface::render(int screenX,int screenY,bool drawCrossHair,const std:
 		}
 	}
 
-	if (superShiftIndicator >= 0)
+	//Building mode toggles, from the bottom right corner leftwards
 	{
 		auto draw = ImGui::GetBackgroundDrawList();
-		const char* label = "Super Shift";
-		bool on = superShiftIndicator == 1;
+		float right = screenX - 10.0f;
 
-		ImVec2 padding(8.0f, 4.0f);
-		ImVec2 textSize = ImGui::CalcTextSize(label);
-		ImVec2 max(screenX - 10.0f, screenY - 10.0f);
-		ImVec2 min(max.x - textSize.x - padding.x * 2.0f, max.y - textSize.y - padding.y * 2.0f);
+		auto drawIndicator = [&](const char* label, int state)
+		{
+			if (state < 0)
+				return;
 
-		draw->AddRectFilled(min, max, on ? IM_COL32(40, 150, 60, 220) : IM_COL32(30, 30, 30, 160), 4.0f);
-		draw->AddRect(min, max, on ? IM_COL32(130, 255, 150, 255) : IM_COL32(120, 120, 120, 200), 4.0f);
-		draw->AddText(ImVec2(min.x + padding.x, min.y + padding.y), on ? IM_COL32_WHITE : IM_COL32(160, 160, 160, 255), label);
+			bool on = state == 1;
+			ImVec2 padding(8.0f, 4.0f);
+			ImVec2 textSize = ImGui::CalcTextSize(label);
+			ImVec2 max(right, screenY - 10.0f);
+			ImVec2 min(max.x - textSize.x - padding.x * 2.0f, max.y - textSize.y - padding.y * 2.0f);
+
+			draw->AddRectFilled(min, max, on ? IM_COL32(40, 150, 60, 220) : IM_COL32(30, 30, 30, 160), 4.0f);
+			draw->AddRect(min, max, on ? IM_COL32(130, 255, 150, 255) : IM_COL32(120, 120, 120, 200), 4.0f);
+			draw->AddText(ImVec2(min.x + padding.x, min.y + padding.y), on ? IM_COL32_WHITE : IM_COL32(160, 160, 160, 255), label);
+
+			right = min.x - 6.0f;
+		};
+
+		drawIndicator("Super Shift", superShiftIndicator);
+		drawIndicator("Resize", resizeIndicator);
 	}
 
 	if (!centerPrints.empty())
