@@ -1,0 +1,4 @@
+String	Name	BlockSide
+String	BlockSide_Roughness	scuffed-plastic-rough.png
+String	BlockSide_Normal	brickSideNormal2.png
+String	BlockSide_AO	brickSideAO.png

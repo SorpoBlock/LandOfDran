@@ -1,0 +1,4 @@
+String	Name	Blocks
+String	Blocks_Roughness	scuffed-plastic-rough.png
+String	Blocks_Normal	studNormal2.png
+String	Blocks_AO	studAO.png

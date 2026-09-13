@@ -1,0 +1,4 @@
+name	BrickBottoms
+normal	bottomNormal2.png
+occlusion	bottomAO2.png
+roughness	scuffed-plastic-rough.png

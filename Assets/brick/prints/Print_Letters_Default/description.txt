@@ -1,0 +1,3 @@
+Title: Default Letter Prints
+Author: Eric Hartman
+Letter print textures that can be applied to all print bricks.

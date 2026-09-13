@@ -1,0 +1,4 @@
+name	BrickSides
+normal	brickSideNormal2.png
+occlusion	brickSideAO.png
+roughness	scuffed-plastic-rough.png

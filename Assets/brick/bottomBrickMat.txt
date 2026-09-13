@@ -1,0 +1,4 @@
+String	Name	BlockBottom
+String	BlockBottom_Roughness	scuffed-plastic-rough.png
+String	BlockBottom_Normal	bottomNormal2.png
+String	BlockBottom_AO	bottomAO2.png

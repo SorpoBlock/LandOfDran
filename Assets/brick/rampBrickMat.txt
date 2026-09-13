@@ -1,0 +1,4 @@
+String	Name	BlockRamp
+String	BlockRamp_Roughness	brickRampAO.png
+String	BlockRamp_Normal	brickRampNormal.png
+String	BlockRamp_AO	brickRampAO.png

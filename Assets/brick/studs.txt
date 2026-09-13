@@ -1,0 +1,4 @@
+name	BrickStuds
+normal	studNormal2.png
+occlusion	studAO.png
+roughness	scuffed-plastic-rough.png
