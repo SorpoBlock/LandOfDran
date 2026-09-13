@@ -614,6 +614,18 @@ void LoopClient::renderScene(bool clipAtWater)
 	if (!clipAtWater && simulation.brickDebris)
 		simulation.brickDebris->render(pd.shaders, pd.brickRenderer);
 
+	if (clipAtWater)
+		glDisable(GL_CLIP_DISTANCE0);
+}
+
+void LoopClient::renderTransparent(bool clipAtWater)
+{
+	if (clipAtWater)
+		glEnable(GL_CLIP_DISTANCE0);
+
+	pd.shaders->brickShader->use();
+	glUniformMatrix4fv(pd.lightSpaceMatriciesUniformBrick, 3, GL_FALSE, (GLfloat*)pd.lightSpaceMatricies);
+	pd.shadows->bindDepthResult(ShadowArray);
 	pd.brickRenderer->render(pd.shaders, true);
 
 	if (!clipAtWater && pd.ghostBrick.isVisible())
@@ -702,6 +714,7 @@ void LoopClient::renderEverything(float deltaT)
 			simulation.camera->uploadReflectionUniforms(pd.shaders, simulation.waterLevel);
 			setClipPlane(glm::vec4(0, 1, 0, clipOverlap - simulation.waterLevel));
 			renderScene(true);
+			renderTransparent(true);
 			simulation.camera->uploadUniforms(pd.shaders);
 		}
 
@@ -712,6 +725,7 @@ void LoopClient::renderEverything(float deltaT)
 		else
 			setClipPlane(glm::vec4(0, -1, 0, clipOverlap + simulation.waterLevel));
 		renderScene(true);
+		renderTransparent(true);
 
 		setClipPlane(glm::vec4(0));
 	}
@@ -743,6 +757,9 @@ void LoopClient::renderEverything(float deltaT)
 		glBindVertexArray(0);
 		glEnable(GL_CULL_FACE);
 	}
+
+	//After the water, which writes depth, so water behind a transparent brick can't paint over it
+	renderTransparent(false);
 
 	//Outlines/highlights: a selection-style indicator that should show through everything in the scene except
 	//its own source object (so it doesn't just paint a solid blob over the object it's highlighting) and other

@@ -63,6 +63,9 @@ class LoopClient
 	//Sky, models, grass, and bricks from the currently uploaded camera into the currently bound frame buffer
 	void renderScene(bool clipAtWater);
 
+	//Transparent bricks and the ghost brick, which don't write depth, so they go after renderScene and the water surface
+	void renderTransparent(bool clipAtWater);
+
 public:
 
 	//Constructor have any issues?

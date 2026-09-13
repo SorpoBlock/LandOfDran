@@ -216,6 +216,10 @@ Server::Server(int port)
 
 Server::~Server()
 {
+	//enet_host_create failed (e.g. the port is already in use), there's no host to service or destroy
+	if (!valid)
+		return;
+
 	for (unsigned int a = 0; a < clients.size(); a++)
 		clients[a]->kick(KickReason::ServerShutdown);
 
@@ -224,6 +228,5 @@ Server::~Server()
 	for(int a = 0; a<10; a++)
 		enet_host_service(server, &event, 100);
 
-	if (valid)
-		enet_host_destroy(server);
+	enet_host_destroy(server);
 }
