@@ -64,11 +64,17 @@ static void stepUp(std::shared_ptr<PhysicsWorld> world, const std::shared_ptr<Dy
 		return;
 
 	//Probe from a little above the limit, a ledge exactly maxStepHeight tall would start the sweep already touching its top
-	const float probeHeight = maxStepHeight + 0.1f;
+	float probeHeight = maxStepHeight + 0.1f;
 
-	//Room above the player, and above the ledge
+	//A low ceiling, like the top of a doorway, only lowers the probe, the step just can't rise past it
+	//Stays well clear of it, sweeps count anything within the collision margin as touching
+	SweepResult ceiling = sweep(center, center + up * probeHeight);
+	if (ceiling.body)
+		probeHeight = probeHeight * ceiling.fraction - 0.1f;
+
+	//Room above the ledge
 	btVector3 raised = center + up * probeHeight;
-	if (sweep(center, raised).body || sweep(raised, raised + ahead).body)
+	if (probeHeight < 0.06f || sweep(raised, raised + ahead).body)
 		return;
 
 	SweepResult ledge = sweep(raised + ahead, center + ahead);
@@ -76,7 +82,7 @@ static void stepUp(std::shared_ptr<PhysicsWorld> world, const std::shared_ptr<Dy
 		return;
 
 	float rise = probeHeight * (1.0f - ledge.fraction);
-	if (rise < 0.05f || rise > maxStepHeight + 0.02f)
+	if (rise < 0.05f || rise > maxStepHeight + 0.02f || rise + 0.01f > probeHeight)
 		return;
 
 	bodyTransform.setOrigin(bodyTransform.getOrigin() + up * (rise + 0.01f));
