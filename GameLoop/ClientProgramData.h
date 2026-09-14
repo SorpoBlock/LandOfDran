@@ -35,10 +35,14 @@ struct ClientProgramData
 
 	//TODO: Move this to environment class and don't hardcode it to 3
 	glm::mat4 lightSpaceMatricies[3];
-	GLuint lightSpaceMatriciesUniformShadow = 0;
 	GLuint lightSpaceMatriciesUniformModel = 0;
 	GLuint lightSpaceMatriciesUniformBrick = 0;
-	GLuint lightSpaceMatriciesUniformBrickShadow = 0;
+	//The one cascade being drawn into, see the shadow pass in LoopClient::renderEverything
+	GLint shadowCascadeMatrixUniformModel = -1;
+	GLint shadowCascadeMatrixUniformBrick = -1;
+	GLint shadowTintMatrixUniform = -1;
+	GLint shadowCascadeMinOpacityUniform = -1;
+	GLint shadowTintMinOpacityUniform = -1;
 
 	//Lives for the whole program, bricks of whichever server we're on are passed to it by Simulation's BrickHolder
 	InstancedBrickRenderer* brickRenderer = nullptr;
@@ -60,6 +64,18 @@ struct ClientProgramData
 	//graphics/startresolutionx and y as of launch or the last settings save, so a newly picked one can be applied
 	glm::ivec2 appliedStartResolution = glm::ivec2(0);
 	std::shared_ptr<RenderTarget> shadows = nullptr;
+	//graphics/shadowresolution, graphics/shadowsoftness, and graphics/shadowcolor as of launch or the last settings save
+	int shadowResolution = 0;
+	int shadowSoftness = 1;
+	bool coloredShadows = true;
+
+	//Depth of the nearest transparent brick and the color light picks up through transparent bricks, per cascade
+	//A single texel while colored shadows are off, so the samplers in model.frag always have something bound
+	std::shared_ptr<RenderTarget> shadowTint = nullptr;
+	int shadowTintResolution = 0;
+
+	//Colored shadows are on and there's at least one transparent brick to tint with, as of this frame's shadow pass
+	bool tintShadowsActive = false;
 
 	Environment environment;
 

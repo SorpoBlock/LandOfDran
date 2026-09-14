@@ -137,6 +137,67 @@ btScalar PhysicsWorld::rayHitFraction(const btVector3& start, const btVector3& e
     return callback.hasHit() ? callback.m_closestHitFraction : 1;
 }
 
+//Every hit that isn't one of two particular bodies
+struct IgnoringAllHitsRayCallback : public btCollisionWorld::AllHitsRayResultCallback
+{
+    const btCollisionObject* ignoreA;
+    const btCollisionObject* ignoreB;
+
+    IgnoringAllHitsRayCallback(const btVector3& from, const btVector3& to, const btCollisionObject* a, const btCollisionObject* b)
+        : AllHitsRayResultCallback(from, to), ignoreA(a), ignoreB(b)
+    {
+        m_collisionFilterMask = btBroadphaseProxy::AllFilter ^ btBroadphaseProxy::DebrisFilter;
+    }
+
+    bool needsCollision(btBroadphaseProxy* proxy) const override
+    {
+        const btCollisionObject* object = (const btCollisionObject*)proxy->m_clientObject;
+        if (object == ignoreA || object == ignoreB)
+            return false;
+        return AllHitsRayResultCallback::needsCollision(proxy);
+    }
+};
+
+btScalar PhysicsWorld::solidThickness(const btVector3& start, const btVector3& end, const btRigidBody* ignoreA, const btRigidBody* ignoreB) const
+{
+    btScalar length = (end - start).length();
+    if (length <= 0)
+        return 0;
+
+    IgnoringAllHitsRayCallback forward(start, end, ignoreA, ignoreB);
+    world->rayTest(start, end, forward);
+    if (forward.m_collisionObjects.size() == 0)
+        return 0;
+
+    //Casting back from the end finds where the forward ray leaves each body
+    IgnoringAllHitsRayCallback backward(end, start, ignoreA, ignoreB);
+    world->rayTest(end, start, backward);
+
+    //A ray that starts inside something reports it right at its start, so there's no real entry or exit to measure
+    const btScalar insideFraction = 0.0001f;
+
+    btScalar total = 0;
+    for (int a = 0; a < forward.m_collisionObjects.size(); a++)
+    {
+        btScalar entry = forward.m_hitFractions[a];
+        if (entry < insideFraction)
+            continue;
+
+        for (int b = 0; b < backward.m_collisionObjects.size(); b++)
+        {
+            if (backward.m_collisionObjects[b] != forward.m_collisionObjects[a])
+                continue;
+
+            btScalar exit = 1 - backward.m_hitFractions[b];
+            if (backward.m_hitFractions[b] >= insideFraction && exit > entry)
+                total += (exit - entry) * length;
+            break;
+        }
+    }
+
+    return total;
+}
+
 btRigidBody *PhysicsWorld::doRaycast(const btVector3 &start,const btVector3 &end,btRigidBody *ignore,btVector3 &hitPos,btVector3 &hitNormal) const
 {
   btCollisionWorld::AllHitsRayResultCallback ground(start,end);

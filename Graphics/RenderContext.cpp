@@ -117,6 +117,14 @@ RenderContext::RenderContext(std::shared_ptr<SettingManager> settings, std::shar
 	context = SDL_GL_CreateContext(window);
 	if(!context)
 	{
+		//Older hardware or drivers, which just miss out on anything needing a newer version
+		error("Failed to create the requested GL context, trying 3.3. SDL_GetError: " + std::string(SDL_GetError()));
+		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
+		context = SDL_GL_CreateContext(window);
+	}
+	if(!context)
+	{
 		error("Failed to create GL context, SDL_GetError: " + std::string(SDL_GetError()) + " glGetError: " + std::to_string(glGetError()));
 		return;
 	}

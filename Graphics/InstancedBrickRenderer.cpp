@@ -371,16 +371,37 @@ void InstancedBrickRenderer::renderLoose(std::shared_ptr<ShaderManager> shaders,
 	glDisable(GL_BLEND);
 }
 
-void InstancedBrickRenderer::renderShadows() const
+bool InstancedBrickRenderer::hasTransparentBricks() const
 {
 	for (const auto& entry : chunks)
 	{
+		if (entry.second->count[1] > 0)
+			return true;
+	}
+	return false;
+}
+
+void InstancedBrickRenderer::renderShadowCascade(const glm::mat4& lightSpaceMatrix, bool opaque, bool transparent) const
+{
+	std::array<glm::vec4, 6> planes = frustumPlanes(lightSpaceMatrix);
+	//Chunks between the light and the cascade still shadow it, GL_DEPTH_CLAMP flattens them onto its near plane
+	planes[4] = glm::vec4(0, 0, 0, 1);
+
+	for (const auto& entry : chunks)
+	{
 		const Chunk* chunk = entry.second;
-		if (chunk->count[0] < 1)
+		if (!boxVisible(planes, chunk->min, chunk->max))
 			continue;
 
-		glBindVertexArray(chunk->vao[0]);
-		glDrawArraysInstanced(GL_TRIANGLES, 0, topCount + bottomCount + sidesCount, chunk->count[0]);
+		//brickShadowCascade.vert drops transparent bricks under its minOpacity
+		for (int transparency = 0; transparency < 2; transparency++)
+		{
+			if (chunk->count[transparency] < 1 || !(transparency ? transparent : opaque))
+				continue;
+
+			glBindVertexArray(chunk->vao[transparency]);
+			glDrawArraysInstanced(GL_TRIANGLES, 0, topCount + bottomCount + sidesCount, chunk->count[transparency]);
+		}
 	}
 
 	glBindVertexArray(0);

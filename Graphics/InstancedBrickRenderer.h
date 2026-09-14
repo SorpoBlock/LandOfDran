@@ -98,8 +98,10 @@ class InstancedBrickRenderer
 	*/
 	void renderLoose(std::shared_ptr<ShaderManager> shaders, const std::vector<LooseBrick>& bricks) const;
 
-	//Expects shaders->brickShadowShader to be in use, draws every opaque brick
-	void renderShadows() const;
+	//Expects shaders->brickShadowCascadeShader or brickShadowTintShader to be in use, draws the chunks that can cast into one shadow cascade
+	void renderShadowCascade(const glm::mat4& lightSpaceMatrix, bool opaque, bool transparent) const;
+
+	bool hasTransparentBricks() const;
 
 	InstancedBrickRenderer(std::shared_ptr<ShaderManager> shaders, std::shared_ptr<TextureManager> textures);
 	~InstancedBrickRenderer();

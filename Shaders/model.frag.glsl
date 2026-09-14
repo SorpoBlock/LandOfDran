@@ -11,7 +11,6 @@ in vec4 preColor;
 in float opacity;
 in vec3 normal;
 flat in int useDecal;
-in vec4 shadowPos[3];
 
 layout (std140) uniform BasicUniforms
 {
@@ -63,7 +62,19 @@ layout (std140) uniform EnvironmentUniforms
 
 uniform sampler2DArray PBRArray;
 uniform sampler2DArray DecalArray;
-uniform sampler2DArray ShadowArray;
+uniform sampler2DArrayShadow ShadowArray;
+
+//Sun or moon view of each shadow cascade, nearest first, see Camera::calculateLightSpaceMatricies
+uniform mat4 lightSpaceMatricies[3];
+
+//graphics/shadowsoftness: 0 is one filtered sample, 1 to 3 are 3x3, 5x5 and 7x7 texel filters
+uniform int shadowSoftness;
+
+//Depth of the transparent brick nearest the light, and the color light picks up passing through transparent bricks, per cascade
+//Only used when coloredShadows is set, see graphics/shadowcolor
+uniform sampler2DArrayShadow TintDepthArray;
+uniform sampler2DArray TintColorArray;
+uniform bool coloredShadows;
 
 uniform bool debug;
 
@@ -142,6 +153,100 @@ vec3 fresnelSchlickRoughness(float cosTheta, vec3 F0, float roughness)
 
 uniform float test;
 
+//Per axis sample offsets (in texels) and weights for filterShadow, s is how far into its texel the position is
+//level 1 to 3 is a 3x3, 5x5 or 7x7 texel filter
+//Castaño's optimized PCF from The Witness, see SampleShadowMapOptimizedPCF in https://github.com/TheRealMJP/Shadows
+int shadowFilterAxis(float s, int level, out vec4 weight, out vec4 offset)
+{
+	if(level == 1)
+	{
+		weight.xy = vec2(3.0 - 2.0 * s, 1.0 + 2.0 * s);
+		offset.xy = vec2((2.0 - s) / weight.x - 1.0, s / weight.y + 1.0);
+		return 2;
+	}
+	if(level == 2)
+	{
+		weight.xyz = vec3(4.0 - 3.0 * s, 7.0, 1.0 + 3.0 * s);
+		offset.xyz = vec3((3.0 - 2.0 * s) / weight.x - 2.0, (3.0 + s) / weight.y, s / weight.z + 2.0);
+		return 3;
+	}
+	weight = vec4(5.0 * s - 6.0, 11.0 * s - 28.0, -(11.0 * s + 17.0), -(5.0 * s + 1.0));
+	offset = vec4((4.0 * s - 5.0) / weight.x - 3.0, (4.0 * s - 16.0) / weight.y - 1.0, -(7.0 * s + 5.0) / weight.z + 1.0, -s / weight.w + 3.0);
+	return 4;
+}
+
+//How much of the light reaches coords (xy in the map, z its depth) in one cascade, 1 for fully lit
+//Every sample is a hardware filtered 2x2 comparison, so the filter is smooth rather than a grid of hard edges
+float filterShadow(sampler2DArrayShadow map, vec3 coords, int layer, int level)
+{
+	if(level <= 0)
+		return texture(map, vec4(coords.xy, layer, coords.z));
+
+	vec2 mapSize = vec2(textureSize(map, 0).xy);
+	vec2 uv = coords.xy * mapSize;
+	vec2 base = floor(uv + 0.5);
+	vec2 into = uv + 0.5 - base;
+	base -= 0.5;
+
+	vec4 uWeight, uOffset, vWeight, vOffset;
+	int taps = shadowFilterAxis(into.x, level, uWeight, uOffset);
+	shadowFilterAxis(into.y, level, vWeight, vOffset);
+
+	float lit = 0.0;
+	float total = 0.0;
+	for(int x = 0; x < taps; x++)
+	{
+		for(int y = 0; y < taps; y++)
+		{
+			float weight = uWeight[x] * vWeight[y];
+			lit += weight * texture(map, vec4((base + vec2(uOffset[x], vOffset[y])) / mapSize, layer, coords.z));
+			total += weight;
+		}
+	}
+
+	return lit / total;
+}
+
+//World size of one texel in a cascade. The light matrices are orthographic, so their first row is a world axis scaled by 2 / cascade width
+float shadowTexelWorldSize(int cascade, float mapSize)
+{
+	mat4 light = lightSpaceMatricies[cascade];
+	return 2.0 / (length(vec3(light[0][0], light[1][0], light[2][0])) * mapSize);
+}
+
+//How much light, and of what color, reaches this surface according to one cascade, 1 for fully lit and untinted
+//edgeDistance is how far inside the cascade's edges the surface is, as a fraction of its width, and negative if it's outside
+vec3 cascadeLight(int cascade, vec3 surfaceNormal, float grazing, out float edgeDistance)
+{
+	float mapSize = float(textureSize(ShadowArray, 0).x);
+	float texelWorldSize = shadowTexelWorldSize(cascade, mapSize);
+
+	//Farther cascades have bigger texels, so they get smaller filters, keeping soft edges about as wide in the world as in the nearest one
+	float filterWidth = float(shadowSoftness * 2 + 1) * shadowTexelWorldSize(0, mapSize) / texelWorldSize;
+	int level = clamp(int(floor((filterWidth - 1.0) * 0.5 + 0.5)), 0, shadowSoftness);
+	float reach = float(level + 1);
+
+	//Surfaces tilted away from the light need to be lifted further off themselves before the filter's outer samples stop hitting them
+	vec3 offsetPos = worldPos + surfaceNormal * texelWorldSize * (0.5 + reach * grazing);
+	vec3 coords = (lightSpaceMatricies[cascade] * vec4(offsetPos, 1.0)).xyz * 0.5 + 0.5;
+
+	vec2 inside = min(coords.xy, 1.0 - coords.xy) - reach / mapSize;
+	edgeDistance = min(inside.x, inside.y);
+	if(edgeDistance < 0.0)
+		return vec3(1.0);
+
+	//Casters nearer the light than a cascade are flattened onto its near plane by GL_DEPTH_CLAMP, see LoopClient::renderEverything
+	coords.z = clamp(coords.z, 0.0, 1.0);
+	float lit = filterShadow(ShadowArray, coords, cascade, level);
+	if(!coloredShadows || lit <= 0.0)
+		return vec3(lit);
+
+	//Only the part of the filter behind a transparent brick picks up its color
+	float behindTransparent = 1.0 - filterShadow(TintDepthArray, coords, cascade, level);
+	vec3 tint = texture(TintColorArray, vec3(coords.xy, cascade)).rgb;
+	return lit * mix(vec3(1.0), tint, behindTransparent);
+}
+
 void main()
 {			
 	vec2 dxuv = dFdx(uvs);
@@ -169,45 +274,42 @@ void main()
 	vec3 sunDirection = LightDirection;
 	vec3 sunColor = LightColor;
 	
-	//float bias = max(0.01 * (1.0 - dot(newNormal, normalize(sunDirection))), 0.001);  
-	float shadowCoverage = 0.0;
-	
-	for(int i = 0; i<3; i++)
-	{		
-		vec3 shadowCoords = shadowPos[i].xyz / shadowPos[i].w;
-		shadowCoords = shadowCoords * 0.5 + 0.5;
-		if(shadowCoords.x < 0 || shadowCoords.x > 1 || shadowCoords.y < 0 || shadowCoords.y > 1 || shadowCoords.z < 0 || shadowCoords.z > 1)
-			continue;
-		
-		float bias = 0.0001;
-
-		float fragDepth = shadowCoords.z;
-			
-		int samplesTaken = 0;
-		float sTex = 500.0;
-		vec2 sTexSize = vec2(1.0/sTex,1.0/sTex);
-		int pcf = 2;
-		if(i > 1)
-			pcf = 0;
-		for(int x = -pcf; x <= pcf; ++x)
-		{
-			for(int y = -pcf; y <= pcf; ++y)
-			{
-				samplesTaken++;
-				vec2 offset = vec2(x,y) * sTexSize;
-				float depth =		texture(ShadowArray,vec3(shadowCoords.xy+offset,i)).r;
-				shadowCoverage += ((fragDepth - bias) > depth) ? 1.0 : 0.0;
-			}
-		}
-		
-		shadowCoverage /= samplesTaken;
-		
-		break;
-	}
-	
 	//Faces turned away from the light get no direct light anyway, sampling the shadow map there just adds acne
-	if(dot(normalize(normal), sunDirection) <= 0.0)
-		shadowCoverage = 1.0;
+	vec3 sunlight = vec3(0.0);
+	vec3 surfaceNormal = normalize(normal);
+	float lightFacing = dot(surfaceNormal, sunDirection);
+	if(lightFacing > 0.0)
+	{
+		float grazing = sqrt(1.0 - lightFacing * lightFacing);
+
+		//Share of a cascade's width, along its edges, spent fading into the next cascade so the change in detail isn't a visible line
+		const float blendBand = 0.1;
+
+		vec3 lit = vec3(1.0);
+		for(int i = 0; i<3; i++)
+		{
+			float edgeDistance;
+			vec3 cascadeLit = cascadeLight(i, surfaceNormal, grazing, edgeDistance);
+			if(edgeDistance < 0.0)
+				continue;
+
+			lit = cascadeLit;
+			if(edgeDistance < blendBand)
+			{
+				//Nothing past the last cascade is shadowed, though that's only ever deep in the fog
+				vec3 nextLit = vec3(1.0);
+				if(i < 2)
+				{
+					float nextEdgeDistance;
+					nextLit = cascadeLight(i + 1, surfaceNormal, grazing, nextEdgeDistance);
+				}
+				lit = mix(nextLit, cascadeLit, smoothstep(0.0, blendBand, edgeDistance));
+			}
+			break;
+		}
+
+		sunlight = lit;
+	}
 
 	//color = vec4(uvs.x,uvs.y,0,1);
 	//color = vec4(normal,1);
@@ -244,10 +346,11 @@ void main()
 	float denominator = 4 * NdotV * NdotL + 0.001; // 0.001 to prevent divide by zero
 	vec3 specular = numerator / denominator;
 	
-	color.rgb = (kD * albedo / PI + specular) * sunColor.rgb * NdotL * clamp((1.0 - shadowCoverage),0.35,1.0);
+	vec3 shadowLight = clamp(sunlight, 0.35, 1.0);
+	color.rgb = (kD * albedo / PI + specular) * sunColor.rgb * NdotL * shadowLight;
 	//Ambient stays on while the direct light fades out at the horizon, and stops being shadowed there too, since the
 	//shadow maps are about to switch between the sun and moon
-	float ambientShadow = mix(1.0, clamp((1.0 - shadowCoverage),0.35,1.0), ShadowStrength);
+	vec3 ambientShadow = mix(vec3(1.0), shadowLight, ShadowStrength);
 	color.rgb += mor.g * albedo * AmbientColor * ambientShadow;
 	color.a = opacity;
 

@@ -40,5 +40,18 @@ static int LUA_getTimeScale(lua_State* L);
 static int LUA_setWaterLevel(lua_State* L);
 static int LUA_getWaterLevel(lua_State* L);
 
+//Look of the day/night cycle, see ServerProgramData::dayCycle
+static int LUA_setSkyColor(lua_State* L);
+static int LUA_getSkyColor(lua_State* L);
+static int LUA_setFogColor(lua_State* L);
+static int LUA_getFogColor(lua_State* L);
+static int LUA_setSunColor(lua_State* L);
+static int LUA_getSunColor(lua_State* L);
+static int LUA_setAmbientColor(lua_State* L);
+static int LUA_getAmbientColor(lua_State* L);
+static int LUA_setFogDistance(lua_State* L);
+static int LUA_getFogDistance(lua_State* L);
+static int LUA_resetDayCycle(lua_State* L);
+
 //Register all funcs in this file
 void registerOtherFunctions(lua_State* L);

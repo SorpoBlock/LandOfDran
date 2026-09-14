@@ -1,5 +1,16 @@
 #include "RenderTarget.h"
 
+void RenderTarget::useLayer(int layer)
+{
+	glBindFramebuffer(GL_FRAMEBUFFER, frameBuffer);
+	glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, depthResult->getHandle(), 0, layer);
+	if (colorResult)
+		glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, colorResult->getHandle(), 0, layer);
+	glViewport(0, 0, settings.width, settings.height);
+	glClearColor(settings.clearColor.r, settings.clearColor.g, settings.clearColor.b, settings.clearColor.a);
+	glClear(GL_DEPTH_BUFFER_BIT | (colorResult ? GL_COLOR_BUFFER_BIT : 0));
+}
+
 void RenderTarget::use()
 {
 	glBindFramebuffer(GL_FRAMEBUFFER, frameBuffer);
@@ -28,6 +39,9 @@ RenderTarget::RenderTarget(const RenderTargetSettings& _settings,std::shared_ptr
 	{
 		colorResult = textures->createBlankTexture(settings.width, settings.height, settings.channels, settings.layers);
 		colorResult->setFilter(settings.magFilter, settings.minFilter);
+		//Shadow targets, whose filters shouldn't wrap around to the other side, see below
+		if (settings.depthCompare)
+			colorResult->setWrapping(GL_CLAMP_TO_EDGE);
 		colorResult->addToFramebuffer();
 		drawBuffers = new GLenum[1];
 		drawBuffers[0] = { GL_COLOR_ATTACHMENT0 };
@@ -41,6 +55,16 @@ RenderTarget::RenderTarget(const RenderTargetSettings& _settings,std::shared_ptr
 	{
 		depthResult = textures->createBlankShadow32(settings.width, settings.height, settings.layers);
 		depthResult->setFilter(settings.magFilter, settings.minFilter);
+		if (settings.depthCompare)
+		{
+			//Filter samples reaching past the edge shouldn't wrap around to the other side
+			depthResult->setWrapping(GL_CLAMP_TO_EDGE);
+			GLenum type = (settings.layers == 1) ? GL_TEXTURE_2D : GL_TEXTURE_2D_ARRAY;
+			glBindTexture(type, depthResult->getHandle());
+			glTexParameteri(type, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE);
+			glTexParameteri(type, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL);
+			glBindTexture(type, 0);
+		}
 		depthResult->addToFramebuffer(GL_DEPTH_ATTACHMENT);
 	}
 	else

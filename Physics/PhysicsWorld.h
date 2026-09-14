@@ -95,6 +95,10 @@ class PhysicsWorld
 	//Cheaper than doRaycast, which collects every hit along the ray
 	btScalar rayHitFraction(const btVector3& start, const btVector3& end, const btRigidBody* ignoreA, const btRigidBody* ignoreB) const;
 
+	//Total length of solid the segment from start to end passes through, skipping up to two bodies and debris
+	//Only bodies it enters and leaves again count, so something start or end is inside of (like the brick a sound comes from) doesn't
+	btScalar solidThickness(const btVector3& start, const btVector3& end, const btRigidBody* ignoreA, const btRigidBody* ignoreB) const;
+
 	void addBody(btRigidBody* body)
 	{
 		world->addRigidBody(body);

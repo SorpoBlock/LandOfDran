@@ -5,7 +5,7 @@ bool WorldStateUpdatePacket::applyPacket(const ClientProgramData& pd, Simulation
 	if (cmdArgs.gameState != InGame)
 		return false;
 
-	if (packet->dataLength < 1 + sizeof(double) + sizeof(float) * 2 + 1)
+	if (packet->dataLength < 1 + sizeof(double) + sizeof(float) * 2 + 1 + sizeof(float) * DayCycle::networkFloats)
 		return true;
 
 	enet_uint8* data = packet->data + 1;
@@ -20,6 +20,25 @@ bool WorldStateUpdatePacket::applyPacket(const ClientProgramData& pd, Simulation
 	data += sizeof(float);
 
 	simulation.waterEnabled = data[0] != 0;
+	data++;
+
+	auto readColor = [&data](glm::vec3& color)
+	{
+		memcpy(&color[0], data, sizeof(float) * 3);
+		data += sizeof(float) * 3;
+	};
+	for (SkyKeyframe& phase : simulation.dayCycle.phases)
+	{
+		readColor(phase.skyColor);
+		readColor(phase.fogColor);
+		readColor(phase.lightColor);
+		readColor(phase.ambientColor);
+	}
+
+	memcpy(&simulation.dayCycle.fogStart, data, sizeof(float));
+	data += sizeof(float);
+
+	memcpy(&simulation.dayCycle.fogEnd, data, sizeof(float));
 
 	return true;
 }

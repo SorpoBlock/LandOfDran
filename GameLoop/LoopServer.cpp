@@ -166,7 +166,7 @@ void LoopServer::broadcastWorldState()
 	lastWorldStateBroadcast = SDL_GetTicks();
 	pd.worldStateChanged = false;
 
-	ENetPacket* packet = enet_packet_create(NULL, 1 + sizeof(double) + sizeof(float) * 2 + 1, getFlagsFromChannel(OtherReliable));
+	ENetPacket* packet = enet_packet_create(NULL, 1 + sizeof(double) + sizeof(float) * 2 + 1 + sizeof(float) * DayCycle::networkFloats, getFlagsFromChannel(OtherReliable));
 	enet_uint8* data = packet->data;
 
 	data[0] = (unsigned char)WorldStateUpdate;
@@ -182,6 +182,25 @@ void LoopServer::broadcastWorldState()
 	data += sizeof(float);
 
 	data[0] = pd.waterEnabled ? 1 : 0;
+	data++;
+
+	auto writeColor = [&data](const glm::vec3& color)
+	{
+		memcpy(data, &color[0], sizeof(float) * 3);
+		data += sizeof(float) * 3;
+	};
+	for (const SkyKeyframe& phase : pd.dayCycle.phases)
+	{
+		writeColor(phase.skyColor);
+		writeColor(phase.fogColor);
+		writeColor(phase.lightColor);
+		writeColor(phase.ambientColor);
+	}
+
+	memcpy(data, &pd.dayCycle.fogStart, sizeof(float));
+	data += sizeof(float);
+
+	memcpy(data, &pd.dayCycle.fogEnd, sizeof(float));
 
 	server->broadcast(packet, OtherReliable);
 }

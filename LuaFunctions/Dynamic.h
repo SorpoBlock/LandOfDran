@@ -23,5 +23,9 @@ extern ServerProgramData* LUA_pd;
 */
 luaL_Reg *getDynamicFunctions(lua_State *L);
 
-//Shared by raycast() and client:getCursorItem() - pushes the Dynamic/Static Lua wrapper for a raycast hit, or nil
-void pushRaycastResult(lua_State* L, btRigidBody* result);
+//Pushes the Dynamic/Static/Brick Lua wrapper for a raycast hit and returns true, or pushes nil and returns false
+bool pushRaycastResult(lua_State* L, btRigidBody* result);
+
+//Shared by raycast() and client:getCursorItem(): pushes what was hit followed by the hit position, surface normal, and distance from start
+//Pushes just nil if nothing was hit. Returns how many values were pushed
+int pushRaycastHit(lua_State* L, btRigidBody* result, const btVector3& start, const btVector3& hitPosition, const btVector3& hitNormal);

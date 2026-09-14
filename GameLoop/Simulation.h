@@ -8,6 +8,7 @@
 #include "../GameLoop/PlayerController.h"
 #include "../Bricks/BrickHolder.h"
 #include "../Bricks/BrickDebris.h"
+#include "../Graphics/DayCycle.h"
 
 /*
 	Client only
@@ -25,6 +26,7 @@ struct Simulation
 	float timeScale = 1.0;
 	bool waterEnabled = false;
 	float waterLevel = 0.0;
+	DayCycle dayCycle;
 
 	//Only stored if we succesfully managed to log in to the server we're currently playing on
 	std::string evalPassword = "";

@@ -77,21 +77,21 @@ float AcousticProbe::occlusion(const PhysicsWorld& world, const glm::vec3& liste
 	//With more than one ray, the others aim a little to either side of the sound, so a sound just around a corner is partly muffled
 	glm::vec3 targets[3] = { source, source + side * 0.75f + up * 0.4f, source - side * 0.75f + up * 0.4f };
 
-	int blocked = 0;
+	float muffled = 0;
 	for (int a = 0; a < occlusionRays; a++)
 	{
-		float length = glm::length(targets[a] - listener);
-		btScalar fraction = world.rayHitFraction(g2b3(listener), g2b3(targets[a]), ignoreA, ignoreB);
+		//Whatever the sound is coming from inside of, like the brick being planted, doesn't count, see PhysicsWorld::solidThickness
+		float thickness = world.solidThickness(g2b3(listener), g2b3(targets[a]), ignoreA, ignoreB);
 
-		//Hits within a stud of the sound are whatever it's sitting on or inside, like the brick being planted
-		if (fraction * length < length - 1.0f)
-			blocked++;
+		//Each stud of solid muffles some of what's left, so thick or layered walls block more than a thin one
+		muffled += 1.0f - std::exp(-thickness / muffleThickness);
 	}
 
-	raysThisSecond += occlusionRays;
+	//Each ray is cast there and back
+	raysThisSecond += occlusionRays * 2;
 	msThisSecond += std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - started).count();
 
-	return (float)blocked / occlusionRays;
+	return muffled / occlusionRays;
 }
 
 void AcousticProbe::updateStats(float deltaT)

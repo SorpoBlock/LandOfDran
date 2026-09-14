@@ -2,15 +2,7 @@
 
 #include "../LandOfDran.h"
 #include "ShaderSpecification.h"
-
-//Sky, fog, and light colors for one part of the day
-struct SkyKeyframe
-{
-	glm::vec3 skyColor;
-	glm::vec3 fogColor;
-	glm::vec3 lightColor;
-	glm::vec3 ambientColor;
-};
+#include "DayCycle.h"
 
 /*
 	Client only: turns the server's world clock into sun position, lighting, sky, and fog colors
@@ -18,9 +10,10 @@ struct SkyKeyframe
 */
 class Environment
 {
-	SkyKeyframe night, dawn, day, dusk;
-
 	public:
+
+	//Colors for each part of the day and the fog distances, as last sent by the server
+	DayCycle cycle;
 
 	//0 = midnight, 0.25 = sunrise, 0.5 = noon, 0.75 = sunset
 	float dayFraction = 0.5;
@@ -42,7 +35,7 @@ class Environment
 	glm::vec3 skyColor = glm::vec3(0, 0, 1);
 	glm::vec3 fogColor = glm::vec3(1, 1, 1);
 
-	//Grass and water only extend 300 units from the camera, fog needs to fully hide their edges before that
+	//Copied from cycle by calc. Grass and water stretch out a little past fogDistanceMax so fog always hides their edges
 	float fogDistanceMin = 150;
 	float fogDistanceMax = 290;
 

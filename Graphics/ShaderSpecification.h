@@ -91,14 +91,15 @@ class ShaderManager
 	//Program for drawing normal meshes to screen will full PBR based lighting
 	Program* modelShader = new Program();
 
-	//Program for drawing shadows of normal meshes to shadow texture
-	Program* modelShadowShader = new Program();
-
 	//Program for drawing bricks to screen
 	Program* brickShader = new Program();
 
-	//Program for drawing shadows of bricks to shadow texture
-	Program* brickShadowShader = new Program();
+	//Programs for drawing shadows of normal meshes and bricks into one shadow cascade at a time
+	Program* modelShadowCascadeShader = new Program();
+	Program* brickShadowCascadeShader = new Program();
+
+	//Program for multiplying transparent bricks' colors into the shadow tint map
+	Program* brickShadowTintShader = new Program();
 
 	//Program for drawing the outline/highlight effect on top of normal models
 	Program* outlineShader = new Program();

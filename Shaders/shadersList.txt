@@ -3,16 +3,16 @@
 #	bdrf	vert	bdrf.vert.glsl
 model	frag	model.frag.glsl
 model	vert	model.vert.glsl
-modelShadow	frag	modelShadow.frag.glsl
-modelShadow	vert	modelShadow.vert.glsl
-modelShadow	geom	modelShadow.geom.glsl
 brick	frag	model.frag.glsl
 brick	vert	brick.vert.glsl
 outline	vert	highlight.vert.glsl
 outline	frag	highlight.frag.glsl
-brickShadow	vert	brickShadow.vert.glsl
-brickShadow	geom	modelShadow.geom.glsl
-brickShadow	frag	modelShadow.frag.glsl
+modelShadowCascade	vert	modelShadowCascade.vert.glsl
+modelShadowCascade	frag	modelShadow.frag.glsl
+brickShadowCascade	vert	brickShadowCascade.vert.glsl
+brickShadowCascade	frag	modelShadow.frag.glsl
+brickShadowTint	vert	brickShadowCascade.vert.glsl
+brickShadowTint	frag	shadowTint.frag.glsl
 sky	vert	sky.vert.glsl
 sky	frag	sky.frag.glsl
 water	vert	water.vert.glsl

@@ -308,6 +308,231 @@ static int LUA_getWaterLevel(lua_State* L)
 	return 1;
 }
 
+//A phase name then r, g, b, and when allowBrightness is set optionally a 5th number, for the day cycle color setters
+//Logs an error and returns -1 for anything else, otherwise returns the DayPhase
+static int getPhaseColorArguments(lua_State* L, bool allowBrightness, glm::vec3& color, float& brightness, bool& hasBrightness)
+{
+	int args = lua_gettop(L);
+	bool valid = (args == 4 || (allowBrightness && args == 5)) && lua_type(L, 1) == LUA_TSTRING;
+	for (int a = 2; valid && a <= args; a++)
+		valid = lua_isnumber(L, a);
+
+	int phase = -1;
+	if (!valid)
+		error(allowBrightness ? "Expected a phase name, r, g, b, and optionally brightness" : "Expected a phase name, r, g, b");
+	else
+	{
+		phase = dayPhaseFromName(lua_tostring(L, 1));
+		if (phase == -1)
+			error("Unknown phase " + std::string(lua_tostring(L, 1)) + ", expected night, dawn, day, or dusk");
+
+		color = glm::max(glm::vec3(lua_tonumber(L, 2), lua_tonumber(L, 3), lua_tonumber(L, 4)), glm::vec3(0.0f));
+		hasBrightness = args == 5;
+		if (hasBrightness)
+			brightness = std::max(0.0f, (float)lua_tonumber(L, 5));
+	}
+
+	lua_pop(L, args);
+	return phase;
+}
+
+//Just a phase name, for the day cycle color getters, logs an error and returns -1 for anything else
+static int getPhaseArgument(lua_State* L)
+{
+	int args = lua_gettop(L);
+
+	int phase = -1;
+	if (args != 1 || lua_type(L, 1) != LUA_TSTRING)
+		error("Expected a phase name");
+	else
+	{
+		phase = dayPhaseFromName(lua_tostring(L, 1));
+		if (phase == -1)
+			error("Unknown phase " + std::string(lua_tostring(L, 1)) + ", expected night, dawn, day, or dusk");
+	}
+
+	lua_pop(L, args);
+	return phase;
+}
+
+static void pushColor(lua_State* L, const glm::vec3& color)
+{
+	lua_pushnumber(L, color.r);
+	lua_pushnumber(L, color.g);
+	lua_pushnumber(L, color.b);
+}
+
+static int LUA_setSkyColor(lua_State* L)
+{
+	scope("LUA_setSkyColor");
+
+	glm::vec3 color;
+	float unused;
+	bool unusedFlag;
+	int phase = getPhaseColorArguments(L, false, color, unused, unusedFlag);
+	if (phase == -1)
+		return 0;
+
+	LUA_pd->dayCycle.phases[phase].skyColor = color;
+	LUA_pd->worldStateChanged = true;
+
+	return 0;
+}
+
+static int LUA_getSkyColor(lua_State* L)
+{
+	scope("LUA_getSkyColor");
+
+	int phase = getPhaseArgument(L);
+	if (phase == -1)
+		return 0;
+
+	pushColor(L, LUA_pd->dayCycle.phases[phase].skyColor);
+	return 3;
+}
+
+static int LUA_setFogColor(lua_State* L)
+{
+	scope("LUA_setFogColor");
+
+	glm::vec3 color;
+	float unused;
+	bool unusedFlag;
+	int phase = getPhaseColorArguments(L, false, color, unused, unusedFlag);
+	if (phase == -1)
+		return 0;
+
+	LUA_pd->dayCycle.phases[phase].fogColor = color;
+	LUA_pd->worldStateChanged = true;
+
+	return 0;
+}
+
+static int LUA_getFogColor(lua_State* L)
+{
+	scope("LUA_getFogColor");
+
+	int phase = getPhaseArgument(L);
+	if (phase == -1)
+		return 0;
+
+	pushColor(L, LUA_pd->dayCycle.phases[phase].fogColor);
+	return 3;
+}
+
+static int LUA_setSunColor(lua_State* L)
+{
+	scope("LUA_setSunColor");
+
+	glm::vec3 color;
+	float brightness = 0;
+	bool hasBrightness = false;
+	int phase = getPhaseColorArguments(L, true, color, brightness, hasBrightness);
+	if (phase == -1)
+		return 0;
+
+	//Light colors go past 1, so brightness scales the color. Leaving it out keeps the phase's current brightness
+	glm::vec3& light = LUA_pd->dayCycle.phases[phase].lightColor;
+	if (!hasBrightness)
+		brightness = std::max(light.r, std::max(light.g, light.b));
+
+	light = color * brightness;
+	LUA_pd->worldStateChanged = true;
+
+	return 0;
+}
+
+static int LUA_getSunColor(lua_State* L)
+{
+	scope("LUA_getSunColor");
+
+	int phase = getPhaseArgument(L);
+	if (phase == -1)
+		return 0;
+
+	//Split back into a color whose brightest channel is 1, and how bright that channel is
+	const glm::vec3& light = LUA_pd->dayCycle.phases[phase].lightColor;
+	float brightness = std::max(light.r, std::max(light.g, light.b));
+	pushColor(L, brightness > 0 ? light / brightness : glm::vec3(0.0f));
+	lua_pushnumber(L, brightness);
+	return 4;
+}
+
+static int LUA_setAmbientColor(lua_State* L)
+{
+	scope("LUA_setAmbientColor");
+
+	glm::vec3 color;
+	float unused;
+	bool unusedFlag;
+	int phase = getPhaseColorArguments(L, false, color, unused, unusedFlag);
+	if (phase == -1)
+		return 0;
+
+	LUA_pd->dayCycle.phases[phase].ambientColor = color;
+	LUA_pd->worldStateChanged = true;
+
+	return 0;
+}
+
+static int LUA_getAmbientColor(lua_State* L)
+{
+	scope("LUA_getAmbientColor");
+
+	int phase = getPhaseArgument(L);
+	if (phase == -1)
+		return 0;
+
+	pushColor(L, LUA_pd->dayCycle.phases[phase].ambientColor);
+	return 3;
+}
+
+static int LUA_setFogDistance(lua_State* L)
+{
+	scope("LUA_setFogDistance");
+
+	int args = lua_gettop(L);
+	if (args != 2 || !lua_isnumber(L, 1) || !lua_isnumber(L, 2))
+	{
+		error("Expected 2 number arguments");
+		lua_pop(L, args);
+		return 0;
+	}
+
+	float start = (float)lua_tonumber(L, 1);
+	float end = (float)lua_tonumber(L, 2);
+	lua_pop(L, args);
+
+	if (start < 0 || end <= start || end > DayCycle::maxFogEnd)
+	{
+		error("Fog distances need 0 <= start < end <= " + std::to_string((int)DayCycle::maxFogEnd));
+		return 0;
+	}
+
+	LUA_pd->dayCycle.fogStart = start;
+	LUA_pd->dayCycle.fogEnd = end;
+	LUA_pd->worldStateChanged = true;
+
+	return 0;
+}
+
+static int LUA_getFogDistance(lua_State* L)
+{
+	lua_pushnumber(L, LUA_pd->dayCycle.fogStart);
+	lua_pushnumber(L, LUA_pd->dayCycle.fogEnd);
+	return 2;
+}
+
+static int LUA_resetDayCycle(lua_State* L)
+{
+	lua_pop(L, lua_gettop(L));
+
+	LUA_pd->dayCycle = DayCycle();
+	LUA_pd->worldStateChanged = true;
+
+	return 0;
+}
+
 void registerOtherFunctions(lua_State* L)
 {
 	lua_register(L, "info", LUA_info);
@@ -320,4 +545,15 @@ void registerOtherFunctions(lua_State* L)
 	lua_register(L, "getTimeScale", LUA_getTimeScale);
 	lua_register(L, "setWaterLevel", LUA_setWaterLevel);
 	lua_register(L, "getWaterLevel", LUA_getWaterLevel);
+	lua_register(L, "setSkyColor", LUA_setSkyColor);
+	lua_register(L, "getSkyColor", LUA_getSkyColor);
+	lua_register(L, "setFogColor", LUA_setFogColor);
+	lua_register(L, "getFogColor", LUA_getFogColor);
+	lua_register(L, "setSunColor", LUA_setSunColor);
+	lua_register(L, "getSunColor", LUA_getSunColor);
+	lua_register(L, "setAmbientColor", LUA_setAmbientColor);
+	lua_register(L, "getAmbientColor", LUA_getAmbientColor);
+	lua_register(L, "setFogDistance", LUA_setFogDistance);
+	lua_register(L, "getFogDistance", LUA_getFogDistance);
+	lua_register(L, "resetDayCycle", LUA_resetDayCycle);
 }

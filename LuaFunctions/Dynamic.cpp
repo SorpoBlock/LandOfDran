@@ -1212,18 +1212,32 @@ static int LUA_raycast(lua_State* L)
 	btVector3 start = btVector3(startX, startY, startZ);
 	btVector3 end = btVector3(endX, endY, endZ);
 
-	btRigidBody * result = LUA_pd->physicsWorld->doRaycast(start, end, ignore);
-	pushRaycastResult(L, result);
-	return 1;
+	btVector3 hitPosition, hitNormal;
+	btRigidBody * result = LUA_pd->physicsWorld->doRaycast(start, end, ignore, hitPosition, hitNormal);
+	return pushRaycastHit(L, result, start, hitPosition, hitNormal);
 }
 
-//Shared by raycast() and client:getCursorItem() - pushes the Dynamic/Static Lua wrapper for a raycast hit, or nil
-void pushRaycastResult(lua_State* L, btRigidBody* result)
+int pushRaycastHit(lua_State* L, btRigidBody* result, const btVector3& start, const btVector3& hitPosition, const btVector3& hitNormal)
+{
+	if (!pushRaycastResult(L, result))
+		return 1;
+
+	lua_pushnumber(L, hitPosition.x());
+	lua_pushnumber(L, hitPosition.y());
+	lua_pushnumber(L, hitPosition.z());
+	lua_pushnumber(L, hitNormal.x());
+	lua_pushnumber(L, hitNormal.y());
+	lua_pushnumber(L, hitNormal.z());
+	lua_pushnumber(L, (hitPosition - start).length());
+	return 8;
+}
+
+bool pushRaycastResult(lua_State* L, btRigidBody* result)
 {
 	if (!result)
 	{
 		lua_pushnil(L);
-		return;
+		return false;
 	}
 
 	if (result->getUserIndex() == dynamicBody)
@@ -1233,7 +1247,7 @@ void pushRaycastResult(lua_State* L, btRigidBody* result)
 		if (resultDynamic)
 		{
 			LUA_pd->dynamics->pushLua(L, resultDynamic);
-			return;
+			return true;
 		}
 	}
 	else if (result->getUserIndex() == staticBody)
@@ -1243,16 +1257,17 @@ void pushRaycastResult(lua_State* L, btRigidBody* result)
 		if (resultStatic)
 		{
 			LUA_pd->statics->pushLua(L, resultStatic);
-			return;
+			return true;
 		}
 	}
 	else if (result->getUserIndex() == brickBody)
 	{
 		LUA_pd->bricks->pushLua(L, (Brick*)result->getUserPointer());
-		return;
+		return true;
 	}
 
 	lua_pushnil(L);
+	return false;
 }
 
 static int LUA_dynamicGetNumControllers(lua_State* L)

@@ -10,6 +10,7 @@
 #include "../Physics/PhysicsWorld.h"
 #include "../Bricks/BrickHolder.h"
 #include "../Bricks/BrickTypes.h"
+#include "../Graphics/DayCycle.h"
 #include "ClientData.h"
 
 /*
@@ -41,6 +42,8 @@ struct ServerProgramData
 	float timeScale = 1.0;
 	bool waterEnabled = false;
 	float waterLevel = 0.0;
+	//Sky, fog, and sun colors for each part of the day, and the fog distances
+	DayCycle dayCycle;
 	//Set when the above change other than time passing normally, or someone joins, so clients hear about it on the next tick
 	mutable bool worldStateChanged = true;
 

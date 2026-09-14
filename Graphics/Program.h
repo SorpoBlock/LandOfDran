@@ -22,6 +22,8 @@ enum TextureLocations
 	PBRArray = 0,
 	DecalArray = 1,
 	ShadowArray = 2,
+	TintDepthArray = 3,
+	TintColorArray = 4,
 	Refraction = 5,
 	Reflection = 6,
 	//Add as needed:

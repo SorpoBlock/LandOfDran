@@ -15,12 +15,26 @@ static constexpr float speedOfSound = 343.0f;
 static constexpr float reverbSmoothingMS = 400.0f;
 static constexpr float reverbApplyIntervalMS = 50.0f;
 
-//Low-pass filter amounts for a completely blocked sound, and for being underwater, multiplied together when both apply
-static constexpr float occludedGain = 0.7f;
-static constexpr float occludedGainHF = 0.15f;
+//Low-pass filter amounts for a sound behind a thick wall, and for being underwater, multiplied together when both apply
+static constexpr float occludedGain = 0.25f;
+static constexpr float occludedGainHF = 0.05f;
 static constexpr float underwaterGain = 0.7f;
 static constexpr float underwaterGainHF = 0.1f;
 static constexpr float occlusionSmoothingMS = 80.0f;
+
+//Positioned sounds are at full volume within this many studs, then lose about 10 dB each time the distance doubles
+static constexpr float fullVolumeDistance = 5.0f;
+static constexpr float distanceRolloff = 1.66f;
+//How much high end distant sounds lose on top of that, OpenAL's air absorption treating a stud as a meter
+static constexpr float airAbsorption = 1.5f;
+
+//Doppler effect, with sound traveling speedOfSound studs a second. Sounds on a Dynamic use its physics velocity. A listener that
+//isn't given a velocity gets one from how it moves, measured over at least velocitySampleMS and smoothed over roughly velocitySmoothingMS,
+//where moving faster than maxDopplerSpeed is a teleport or camera snap rather than real movement
+static constexpr float dopplerStrength = 1.0f;
+static constexpr float maxDopplerSpeed = 150.0f;
+static constexpr float velocitySampleMS = 50.0f;
+static constexpr float velocitySmoothingMS = 100.0f;
 static constexpr float underwaterFadeMS = 250.0f;
 
 static const EFXEAXREVERBPROPERTIES underwaterReverb = EFX_REVERB_PRESET_UNDERWATER;
@@ -177,17 +191,70 @@ void AudioSystem::placeSource(ALuint source, const SoundLocation& where)
 		alSourcei(source, AL_SOURCE_SPATIALIZE_SOFT, positioned ? AL_TRUE : AL_FALSE);
 }
 
+//How fast a sound is moving, for the Doppler effect. The physics velocity the server sends, rather than how the smoothed drawn
+//position moves, which would turn teleports into fast glides and overshoot while the drawn position catches up
+static glm::vec3 soundVelocity(const SoundLocation& where)
+{
+	if (where.kind != SoundLocation::Attached)
+		return glm::vec3(0);
+
+	const btRigidBody* body = where.body();
+	if (!body)
+		return glm::vec3(0);
+
+	const btVector3& velocity = body->getLinearVelocity();
+	return glm::vec3(velocity.x(), velocity.y(), velocity.z());
+}
+
+glm::vec3 AudioSystem::trackVelocity(Motion& motion, const glm::vec3& position, float deltaT)
+{
+	if (!motion.tracked)
+	{
+		motion.tracked = true;
+		motion.lastPosition = position;
+		motion.sinceSampleMS = 0;
+		return motion.velocity;
+	}
+
+	//Interpolated positions wobble a little from frame to frame, which at hundreds of frames a second would look like huge speeds
+	motion.sinceSampleMS += deltaT;
+	if (motion.sinceSampleMS < velocitySampleMS)
+		return motion.velocity;
+
+	float sampleMS = motion.sinceSampleMS;
+	glm::vec3 moved = (position - motion.lastPosition) / (sampleMS / 1000.0f);
+	motion.lastPosition = position;
+	motion.sinceSampleMS = 0;
+
+	//Teleports and the like would otherwise swoop the pitch
+	if (glm::length(moved) > maxDopplerSpeed)
+	{
+		motion.velocity = glm::vec3(0);
+		return motion.velocity;
+	}
+
+	motion.velocity += (moved - motion.velocity) * (1.0f - std::exp(-sampleMS / velocitySmoothingMS));
+	return motion.velocity;
+}
+
 void AudioSystem::connectReverb(bool on)
 {
 	if (!effectSlot)
 		return;
 
+	reverbConnected = on;
 	ALint slot = on ? (ALint)effectSlot : AL_EFFECTSLOT_NULL;
 
 	for (int a = 0; a < generalSourceCount; a++)
 		alSource3i(generalSources[a], AL_AUXILIARY_SEND_FILTER, slot, 0, AL_FILTER_NULL);
 	for (int a = 0; a < loopSourceCount; a++)
 		alSource3i(loopSources[a], AL_AUXILIARY_SEND_FILTER, slot, 0, AL_FILTER_NULL);
+
+	//The muffling filters go back on the new sends the next time each source's filter is applied
+	for (Occlusion& occlusion : generalOcclusion)
+		occlusion.appliedGain = -1;
+	for (Occlusion& occlusion : loopOcclusion)
+		occlusion.appliedGain = -1;
 }
 
 void AudioSystem::updateReverbConnection()
@@ -282,6 +349,10 @@ void AudioSystem::applyDirectFilter(ALuint source, Occlusion& occlusion)
 	alFilterf(directFilter, AL_LOWPASS_GAIN, gain);
 	alFilterf(directFilter, AL_LOWPASS_GAINHF, gainHF);
 	alSourcei(source, AL_DIRECT_FILTER, (ALint)directFilter);
+
+	//The reverb hears the sound through the same wall or water, or its echo would give a muffled sound away
+	if (reverbConnected)
+		alSource3i(source, AL_AUXILIARY_SEND_FILTER, (ALint)effectSlot, 0, (ALint)directFilter);
 
 	occlusion.appliedGain = gain;
 	occlusion.appliedGainHF = gainHF;
@@ -569,14 +640,18 @@ void AudioSystem::setVolumes(float master, float music)
 			alSourcef(loopSources[loop.source], AL_GAIN, loop.volume * musicVolume);
 }
 
-void AudioSystem::update(const glm::vec3& position, const glm::vec3& listenerDirection, float deltaT)
+void AudioSystem::update(const glm::vec3& position, const glm::vec3& listenerDirection, std::optional<glm::vec3> listenerVelocity, float deltaT)
 {
 	if (!valid)
 		return;
 
 	listenerPosition = position;
 	alListener3f(AL_POSITION, position.x, position.y, position.z);
-	alListener3f(AL_VELOCITY, 0, 0, 0);
+
+	//Tracked even while given a velocity, so going without one later doesn't start from a stale position
+	glm::vec3 moved = trackVelocity(listenerMotion, position, deltaT);
+	glm::vec3 listenerMoving = listenerVelocity.value_or(moved);
+	alListener3f(AL_VELOCITY, listenerMoving.x, listenerMoving.y, listenerMoving.z);
 
 	//Up is world up tilted to be perpendicular to where the camera looks
 	glm::vec3 forward = glm::length(listenerDirection) > 0.0001f ? glm::normalize(listenerDirection) : glm::vec3(0, 0, -1);
@@ -615,6 +690,9 @@ void AudioSystem::update(const glm::vec3& position, const glm::vec3& listenerDir
 
 		if (generalLocations[a].kind == SoundLocation::Attached && generalLocations[a].follow())
 			alSource3f(generalSources[a], AL_POSITION, generalLocations[a].position.x, generalLocations[a].position.y, generalLocations[a].position.z);
+
+		glm::vec3 sourceVelocity = soundVelocity(generalLocations[a]);
+		alSource3f(generalSources[a], AL_VELOCITY, sourceVelocity.x, sourceVelocity.y, sourceVelocity.z);
 
 		updateOcclusion(generalSources[a], generalOcclusion[a], generalLocations[a], deltaT);
 	}
@@ -655,7 +733,11 @@ void AudioSystem::update(const glm::vec3& position, const glm::vec3& listenerDir
 		if (loop.source != -1)
 		{
 			if (loop.where.kind != SoundLocation::Flat)
+			{
 				alSource3f(loopSources[loop.source], AL_POSITION, loop.where.position.x, loop.where.position.y, loop.where.position.z);
+				glm::vec3 sourceVelocity = soundVelocity(loop.where);
+				alSource3f(loopSources[loop.source], AL_VELOCITY, sourceVelocity.x, sourceVelocity.y, sourceVelocity.z);
+			}
 			updateOcclusion(loopSources[loop.source], loopOcclusion[loop.source], loop.where, deltaT);
 			continue;
 		}
@@ -761,6 +843,23 @@ AudioSystem::AudioSystem()
 
 	canSpatializeStereo = alIsExtensionPresent("AL_SOFT_source_spatialize");
 
+	//Gain is (distance / fullVolumeDistance) to the power of -distanceRolloff, never louder than full volume up close
+	//OpenAL's default of 1 / distance is how sound spreads out in open air, but with nothing else to mask them far off sounds stay too loud in game
+	alDistanceModel(AL_EXPONENT_DISTANCE_CLAMPED);
+	for (ALuint source : generalSources)
+	{
+		alSourcef(source, AL_REFERENCE_DISTANCE, fullVolumeDistance);
+		alSourcef(source, AL_ROLLOFF_FACTOR, distanceRolloff);
+	}
+	for (ALuint source : loopSources)
+	{
+		alSourcef(source, AL_REFERENCE_DISTANCE, fullVolumeDistance);
+		alSourcef(source, AL_ROLLOFF_FACTOR, distanceRolloff);
+	}
+
+	alDopplerFactor(dopplerStrength);
+	alSpeedOfSound(speedOfSound);
+
 	if (alcIsExtensionPresent(device, "ALC_EXT_EFX"))
 	{
 		alGenEffects(1, &effect);
@@ -784,6 +883,12 @@ AudioSystem::AudioSystem()
 			error("OpenAL error " + std::to_string(alError) + " creating a low-pass filter, sounds won't be muffled");
 			directFilter = 0;
 		}
+
+		//Distant sounds lose their high end on top of getting quieter, like they do through real air
+		for (ALuint source : generalSources)
+			alSourcef(source, AL_AIR_ABSORPTION_FACTOR, airAbsorption);
+		for (ALuint source : loopSources)
+			alSourcef(source, AL_AIR_ABSORPTION_FACTOR, airAbsorption);
 	}
 	else
 		info("OpenAL implementation has no EFX, reverb and muffling won't do anything");

@@ -40,8 +40,6 @@ layout (std140) uniform EnvironmentUniforms
 	float ShadowStrength;
 };
 
-uniform mat4 lightSpaceMatricies[3];
-
 //Top and bottom faces repeat their texture once per stud, side faces stretch it once across the whole face
 uniform bool tileByStuds;
 
@@ -59,7 +57,6 @@ out vec3 worldPos;
 out vec4 preColor;
 out float opacity;
 flat out int useDecal;
-out vec4 shadowPos[3];
 
 void main()
 {
@@ -76,9 +73,6 @@ void main()
 	preColor = vec4(BrickColor.rgb, 1.0);
 	opacity = BrickColor.a;
 	useDecal = -1;
-
-	for(int i = 0; i<3; i++)
-		shadowPos[i] = lightSpaceMatricies[i] * vec4(worldPos,1.0);
 
 	gl_ClipDistance[0] = dot(vec4(worldPos, 1.0), ClipPlane);
 	gl_Position = CameraProjection * CameraView * vec4(worldPos,1.0);

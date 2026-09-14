@@ -49,6 +49,7 @@ void LoopClient::leaveServer(ExecutableArguments& cmdArgs)
 	
 	simulation.evalPassword = "";
 	simulation.waterEnabled = false;
+	simulation.dayCycle = DayCycle();
 	pd.ghostBrick.hide();
 	pd.brickHotbar->putAway();
 	pd.brickHotbar->takeChange();
@@ -262,6 +263,7 @@ void LoopClient::handleInput(float deltaT, ExecutableArguments& cmdArgs, std::sh
 		pd.gui->updateSettings(settings);
 		simulation.idealBufferSize = settings->getInt("network/snapshotbuffer");
 		createWaterTargets(settings);
+		createShadowTarget(settings);
 		pd.audio->setVolumes(settings->getFloat("audio/mastervolume"), settings->getFloat("audio/musicvolume"));
 		pd.audio->setEnvironmentOptions(settings->getInt("audio/reverbquality"), settings->getInt("audio/occlusionquality"));
 		pd.acousticProbe.setQuality(settings->getInt("audio/reverbquality"), settings->getInt("audio/occlusionquality"));
@@ -567,6 +569,50 @@ void LoopClient::createWaterTargets(std::shared_ptr<SettingManager> settings)
 	pd.waterRefraction = std::make_shared<RenderTarget>(waterSettings, pd.textures);
 }
 
+void LoopClient::createShadowTarget(std::shared_ptr<SettingManager> settings)
+{
+	pd.shadowSoftness = std::min(std::max(settings->getInt("graphics/shadowsoftness"), 0), 3);
+
+	//0 = 2k, 1 = 4k, 2 = 8k, capped at what the graphics card allows
+	GLint maxTextureSize = 0;
+	glGetIntegerv(GL_MAX_TEXTURE_SIZE, &maxTextureSize);
+	int resolution = 2048 << std::min(std::max(settings->getInt("graphics/shadowresolution"), 0), 2);
+	if (maxTextureSize > 0)
+		resolution = std::min(resolution, (int)maxTextureSize);
+
+	if (!pd.shadows || resolution != pd.shadowResolution)
+	{
+		pd.shadowResolution = resolution;
+
+		RenderTarget::RenderTargetSettings shadowSettings;
+		shadowSettings.width = resolution;
+		shadowSettings.height = resolution;
+		shadowSettings.layers = 3;
+		shadowSettings.useColor = false;
+		shadowSettings.depthCompare = true;
+		pd.shadows.reset();
+		pd.shadows = std::make_shared<RenderTarget>(shadowSettings, pd.textures);
+	}
+
+	//Half resolution to save memory, colored shadows just come out a little softer
+	pd.coloredShadows = settings->getBool("graphics/shadowcolor");
+	int tintResolution = pd.coloredShadows ? std::max(1, resolution / 2) : 1;
+	if (pd.shadowTint && tintResolution == pd.shadowTintResolution)
+		return;
+	pd.shadowTintResolution = tintResolution;
+
+	RenderTarget::RenderTargetSettings tintSettings;
+	tintSettings.width = tintResolution;
+	tintSettings.height = tintResolution;
+	tintSettings.layers = 3;
+	tintSettings.channels = 3;
+	tintSettings.depthCompare = true;
+	//Untinted light, which each transparent brick then multiplies its color into
+	tintSettings.clearColor = glm::vec4(1);
+	pd.shadowTint.reset();
+	pd.shadowTint = std::make_shared<RenderTarget>(tintSettings, pd.textures);
+}
+
 void LoopClient::renderScene(bool clipAtWater)
 {
 	//Sky is behind everything, so it's drawn first without touching depth
@@ -585,7 +631,11 @@ void LoopClient::renderScene(bool clipAtWater)
 
 	pd.shaders->modelShader->use();
 	glUniformMatrix4fv(pd.lightSpaceMatriciesUniformModel, 3, GL_FALSE, (GLfloat*)pd.lightSpaceMatricies);
+	glUniform1i(pd.shaders->modelShader->getUniformLocation("shadowSoftness"), pd.shadowSoftness);
+	glUniform1i(pd.shaders->modelShader->getUniformLocation("coloredShadows"), pd.tintShadowsActive);
 	pd.shadows->bindDepthResult(ShadowArray);
+	pd.shadowTint->bindDepthResult(TintDepthArray);
+	pd.shadowTint->bindColorResult(TintColorArray);
 
 	//Models:
 	pd.shaders->basicUniforms.nonInstanced = 0;
@@ -609,6 +659,8 @@ void LoopClient::renderScene(bool clipAtWater)
 	//Bricks, transparent ones last
 	pd.shaders->brickShader->use();
 	glUniformMatrix4fv(pd.lightSpaceMatriciesUniformBrick, 3, GL_FALSE, (GLfloat*)pd.lightSpaceMatricies);
+	glUniform1i(pd.shaders->brickShader->getUniformLocation("shadowSoftness"), pd.shadowSoftness);
+	glUniform1i(pd.shaders->brickShader->getUniformLocation("coloredShadows"), pd.tintShadowsActive);
 	pd.brickRenderer->render(pd.shaders, false);
 
 	//Only in the main view, not reflected or refracted by water
@@ -627,7 +679,11 @@ void LoopClient::renderTransparent(bool clipAtWater)
 
 	pd.shaders->brickShader->use();
 	glUniformMatrix4fv(pd.lightSpaceMatriciesUniformBrick, 3, GL_FALSE, (GLfloat*)pd.lightSpaceMatricies);
+	glUniform1i(pd.shaders->brickShader->getUniformLocation("shadowSoftness"), pd.shadowSoftness);
+	glUniform1i(pd.shaders->brickShader->getUniformLocation("coloredShadows"), pd.tintShadowsActive);
 	pd.shadows->bindDepthResult(ShadowArray);
+	pd.shadowTint->bindDepthResult(TintDepthArray);
+	pd.shadowTint->bindColorResult(TintColorArray);
 	pd.brickRenderer->render(pd.shaders, true);
 
 	if (!clipAtWater && pd.ghostBrick.isVisible())
@@ -665,6 +721,7 @@ void LoopClient::renderEverything(float deltaT)
 
 	simulation.camera->render(pd.shaders, deltaT, pd.physicsWorld);
 
+	pd.environment.cycle = simulation.dayCycle;
 	pd.environment.calc(simulation.worldTimeSeconds);
 	pd.environment.passUniforms(pd.shaders);
 	//Every wave in water.vert/frag completes a whole number of cycles per 100 seconds, so wrapping here is seamless
@@ -674,26 +731,77 @@ void LoopClient::renderEverything(float deltaT)
 	pd.shaders->environmentUniforms.ClipPlane = glm::vec4(0);
 	pd.shaders->updateEnvironmentUBO();
 
-	simulation.camera->calculateLightSpaceMatricies(pd.environment.lightDirection, pd.lightSpaceMatricies);
+	//Fog fully hides anything past fogDistanceMax, so shadows don't need to reach further
+	simulation.camera->calculateLightSpaceMatricies(pd.environment.lightDirection, pd.environment.fogDistanceMax, pd.shadowResolution, pd.lightSpaceMatricies);
 
 	pd.brickRenderer->rebuildDirty(4.0f);
 
-	//Render shadows to texture:
-	pd.shadows->use();
-	pd.shaders->modelShadowShader->use();
-	glUniformMatrix4fv(pd.lightSpaceMatriciesUniformShadow, 3, GL_FALSE, (GLfloat*)pd.lightSpaceMatricies);
+	//Render shadows to texture, one cascade at a time so each only draws the chunks that can cast into it
+	//Casters between the light and a cascade still shadow it, flattened onto its near plane instead of clipped away
+	glEnable(GL_DEPTH_CLAMP);
+	//Pushes casters back by their slope, more for wider filters, so a filter's outer samples don't land on the surface being shaded
+	glEnable(GL_POLYGON_OFFSET_FILL);
+	glPolygonOffset(1.0f + (float)pd.shadowSoftness, 1.0f);
 
-	//Models:
 	pd.shaders->basicUniforms.nonInstanced = 0;
 	pd.shaders->basicUniforms.cameraSpacePosition = 0;
 	pd.shaders->updateBasicUBO();
-	for (unsigned int a = 0; a < simulation.dynamicTypes.size(); a++)
-		simulation.dynamicTypes[a]->render(pd.shaders,false);
 
-	//Bricks:
-	pd.shaders->brickShadowShader->use();
-	glUniformMatrix4fv(pd.lightSpaceMatriciesUniformBrickShadow, 3, GL_FALSE, (GLfloat*)pd.lightSpaceMatricies);
-	pd.brickRenderer->renderShadows();
+	//With colored shadows on, transparent bricks tint the light passing through them instead of blocking it
+	pd.tintShadowsActive = pd.coloredShadows && pd.brickRenderer->hasTransparentBricks();
+
+	for (int cascade = 0; cascade < 3; cascade++)
+	{
+		pd.shadows->useLayer(cascade);
+
+		//Models aren't guaranteed to be closed meshes, so both sides cast
+		glDisable(GL_CULL_FACE);
+		pd.shaders->modelShadowCascadeShader->use();
+		glUniformMatrix4fv(pd.shadowCascadeMatrixUniformModel, 1, GL_FALSE, &pd.lightSpaceMatricies[cascade][0][0]);
+		for (unsigned int a = 0; a < simulation.dynamicTypes.size(); a++)
+			simulation.dynamicTypes[a]->render(pd.shaders, false);
+		glEnable(GL_CULL_FACE);
+
+		//Bricks are closed boxes, so only their far sides are drawn, which leaves a whole brick between a lit face and the depth it's compared to
+		glCullFace(GL_FRONT);
+		pd.shaders->brickShadowCascadeShader->use();
+		glUniformMatrix4fv(pd.shadowCascadeMatrixUniformBrick, 1, GL_FALSE, &pd.lightSpaceMatricies[cascade][0][0]);
+		//Without colored shadows, mostly see-through bricks don't block any light
+		glUniform1f(pd.shadowCascadeMinOpacityUniform, 0.5f);
+		pd.brickRenderer->renderShadowCascade(pd.lightSpaceMatricies[cascade], true, !pd.tintShadowsActive);
+
+		if (pd.tintShadowsActive)
+		{
+			pd.shadowTint->useLayer(cascade);
+
+			//Depth of the transparent brick nearest the light, so surfaces in front of it aren't tinted
+			//Every transparent brick tints however see-through it is, the tint just gets fainter
+			glUniform1f(pd.shadowCascadeMinOpacityUniform, 0.0f);
+			glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+			pd.brickRenderer->renderShadowCascade(pd.lightSpaceMatricies[cascade], false, true);
+			glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+
+			//Each channel keeps the least light any transparent brick along the way lets through, so order doesn't matter and
+			//a wall of stacked transparent plates tints like one brick instead of compounding into a plain shadow
+			glDisable(GL_DEPTH_TEST);
+			glDepthMask(GL_FALSE);
+			glEnable(GL_BLEND);
+			glBlendEquation(GL_MIN);
+			pd.shaders->brickShadowTintShader->use();
+			glUniformMatrix4fv(pd.shadowTintMatrixUniform, 1, GL_FALSE, &pd.lightSpaceMatricies[cascade][0][0]);
+			glUniform1f(pd.shadowTintMinOpacityUniform, 0.0f);
+			pd.brickRenderer->renderShadowCascade(pd.lightSpaceMatricies[cascade], false, true);
+			glBlendEquation(GL_FUNC_ADD);
+			glDisable(GL_BLEND);
+			glDepthMask(GL_TRUE);
+			glEnable(GL_DEPTH_TEST);
+		}
+
+		glCullFace(GL_BACK);
+	}
+
+	glDisable(GL_POLYGON_OFFSET_FILL);
+	glDisable(GL_DEPTH_CLAMP);
 
 	bool cameraUnderwater = simulation.camera->getPosition().y < simulation.waterLevel;
 	bool renderWaterPasses = simulation.waterEnabled && pd.waterReflection && pd.waterRefraction;
@@ -740,8 +848,10 @@ void LoopClient::renderEverything(float deltaT)
 	if (simulation.waterEnabled)
 	{
 		pd.shaders->waterShader->use();
-		glUniform1f(pd.shaders->waterShader->getUniformLocation("waterRadius"), waterRadius);
-		glUniform1f(pd.shaders->waterShader->getUniformLocation("gridSpacing"), waterRadius * 2.0f / waterGridCells);
+		//Always reaches past the end of the fog, so its edge is never visible
+		float surfaceRadius = std::max(waterRadius, pd.environment.fogDistanceMax + 10.0f);
+		glUniform1f(pd.shaders->waterShader->getUniformLocation("waterRadius"), surfaceRadius);
+		glUniform1f(pd.shaders->waterShader->getUniformLocation("gridSpacing"), surfaceRadius * 2.0f / waterGridCells);
 		glUniform1i(pd.shaders->waterShader->getUniformLocation("useReflection"), renderWaterPasses && !cameraUnderwater);
 		glUniform1i(pd.shaders->waterShader->getUniformLocation("useRefraction"), renderWaterPasses);
 		glUniform1i(pd.shaders->waterShader->getUniformLocation("cameraUnderwater"), cameraUnderwater);
@@ -1033,7 +1143,15 @@ void LoopClient::run(float deltaT,ExecutableArguments& cmdArgs, std::shared_ptr<
 			pd.audio->setListenerSpace(averageDistance, enclosure);
 	}
 
-	pd.audio->update(listener, simulation.camera->getDirection(), deltaT);
+	//The Doppler effect goes by the velocity of what the camera follows, so swinging a third person camera around doesn't bend every sound's pitch
+	std::optional<glm::vec3> listenerVelocity;
+	if (std::shared_ptr<Dynamic> followed = simulation.camera->target.lock())
+	{
+		btVector3 velocity = followed->getVelocity();
+		listenerVelocity = glm::vec3(velocity.x(), velocity.y(), velocity.z());
+	}
+
+	pd.audio->update(listener, simulation.camera->getDirection(), listenerVelocity, deltaT);
 }
 
 LoopClient::LoopClient(ExecutableArguments& cmdArgs, std::shared_ptr<SettingManager> settings)
@@ -1152,16 +1270,14 @@ LoopClient::LoopClient(ExecutableArguments& cmdArgs, std::shared_ptr<SettingMana
 
 	pd.grassVao = createQuadVAO();
 
-	RenderTarget::RenderTargetSettings shadowSettings;
-	shadowSettings.width = 2048;
-	shadowSettings.height = 2048;
-	shadowSettings.layers = 3;
-	shadowSettings.useColor = false;
-	pd.shadows = std::make_shared<RenderTarget>(shadowSettings,pd.textures);
-	pd.lightSpaceMatriciesUniformShadow = pd.shaders->modelShadowShader->getUniformLocation("lightSpaceMatricies");
+	createShadowTarget(settings);
 	pd.lightSpaceMatriciesUniformModel = pd.shaders->modelShader->getUniformLocation("lightSpaceMatricies");
 	pd.lightSpaceMatriciesUniformBrick = pd.shaders->brickShader->getUniformLocation("lightSpaceMatricies");
-	pd.lightSpaceMatriciesUniformBrickShadow = pd.shaders->brickShadowShader->getUniformLocation("lightSpaceMatricies");
+	pd.shadowCascadeMatrixUniformModel = pd.shaders->modelShadowCascadeShader->getUniformLocation("lightSpaceMatrix");
+	pd.shadowCascadeMatrixUniformBrick = pd.shaders->brickShadowCascadeShader->getUniformLocation("lightSpaceMatrix");
+	pd.shadowTintMatrixUniform = pd.shaders->brickShadowTintShader->getUniformLocation("lightSpaceMatrix");
+	pd.shadowCascadeMinOpacityUniform = pd.shaders->brickShadowCascadeShader->getUniformLocation("minOpacity");
+	pd.shadowTintMinOpacityUniform = pd.shaders->brickShadowTintShader->getUniformLocation("minOpacity");
 
 	pd.brickRenderer = new InstancedBrickRenderer(pd.shaders, pd.textures);
 
@@ -1212,6 +1328,7 @@ LoopClient::~LoopClient()
 	//testChunk.deleteAllBricks();
 
 	pd.shadows.reset();
+	pd.shadowTint.reset();
 	pd.waterReflection.reset();
 	pd.waterRefraction.reset();
 

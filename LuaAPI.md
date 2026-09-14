@@ -30,10 +30,11 @@ source - if you add or change a binding, update this file too.
 | `debug(...)` | any number of values | Same as `info`, but only logged when the `logger/verbose` setting is on. |
 | `shutdown()` | none | Stops the main program loop (shuts the whole process down, not just the server). |
 
-## Time of day / water
+## Time of day, sky, and water
 
-The server owns the time of day and the water level. It sends them to every client once a
-second, and right away when one of these functions changes them or a client finishes joining.
+The server owns the time of day, the look of the day/night cycle, and the water level. It sends
+them to every client once a second, and right away when one of these functions changes them or a
+client finishes joining.
 
 | Function | Arguments | Returns | Description |
 |---|---|---|---|
@@ -46,6 +47,30 @@ second, and right away when one of these functions changes them or a client fini
 
 All of these except the getters use the strict `Expected 1 number argument` check described
 above (`setWaterLevel` also accepts no arguments).
+
+The day/night cycle blends between four phases: `"night"`, `"dawn"`, `"day"`, and `"dusk"` (phase
+names ignore case). Each has its own sky, fog, and sun color, and the colors you see at any moment
+are a mix of the phases on either side of the current time. Everything is lit by the ambient color,
+light from the sky itself, and the sun adds its light on top wherever it reaches, so shadows are
+the ambient color with the sun taken away. At night the "sun" is the moon, shining from the opposite
+side of the sky.
+
+| Function | Arguments | Returns | Description |
+|---|---|---|---|
+| `setSkyColor(phase, r, g, b)` | phase name, color | none | Color of the sky straight up during that phase. It fades into the fog color toward the horizon. |
+| `getSkyColor(phase)` | phase name | r, g, b | That phase's sky color. |
+| `setFogColor(phase, r, g, b)` | phase name, color | none | Color of the fog, and of the sky near the horizon, during that phase. |
+| `getFogColor(phase)` | phase name | r, g, b | That phase's fog color. |
+| `setSunColor(phase, r, g, b[, brightness])` | phase name, color, optional brightness | none | Color of the sunlight (moonlight for `"night"`) during that phase. Sunlight is much brighter than a screen color, so the color is multiplied by `brightness`; leave it out to keep the phase's current brightness. Defaults: `day` is `1, 0.7, 0.5` at brightness `15`, `dawn` and `dusk` are about `6`, `night` is `0.5, 0.6, 1` at `0.35`. |
+| `getSunColor(phase)` | phase name | r, g, b, brightness | That phase's sunlight, split into a color whose brightest channel is 1 and its brightness. |
+| `setAmbientColor(phase, r, g, b)` | phase name, color | none | Light from the sky that reaches everything, shadows included, during that phase. It's dim next to sunlight, so small values go a long way. Defaults: `day` is about `0.45, 0.32, 0.22`, `dawn` and `dusk` about `0.25, 0.2, 0.2`, `night` about `0.015, 0.018, 0.03`. Values above 1 are allowed. |
+| `getAmbientColor(phase)` | phase name | r, g, b | That phase's ambient color. |
+| `setFogDistance(start, end)` | distances from the camera in world units | none | Fog begins at `start` and completely hides everything past `end`. Needs `0 <= start < end <= 900`. Defaults to `150, 290`. Grass and water always reach past `end`, and shadows cover the view out to `end`, so a longer fog distance spreads the same shadow detail over more ground. |
+| `getFogDistance()` | none | start, end | Current fog distances. |
+| `resetDayCycle()` | none | none | Puts every phase's sky, fog, sun, and ambient color and the fog distances back to their defaults. Doesn't change the time of day or time scale. |
+
+The setters log an error and do nothing if the phase name is unknown or the arguments are the wrong
+count or type. Negative colors and brightness are treated as 0.
 
 ## Scheduling
 
@@ -91,7 +116,7 @@ Dynamics are physics-simulated objects (players, projectiles, pickups, etc).
 | `newDynamicType(scriptName, modelFilePath, scaleX, scaleY, scaleZ)` | `scriptName`: unique name used to refer to this type later; `modelFilePath`: path to the model file; scale on each axis | typeID | Registers a new kind of dynamic (model + scale). Call once at startup per type. |
 | `getDynamicType(scriptName)` | string | typeID | Looks up a previously-registered type's ID by its script name. |
 | `addAnimation(typeID, animationName, startFrame, endFrame, speed, fadeInMS, fadeOutMS)` | type to attach the animation to; frame range; playback speed; fade in/out durations in ms | none | Adds a named animation clip to a dynamic type. The first animation added to a type is used as its walk cycle. |
-| `raycast(startX, startY, startZ, endX, endY, endZ[, dynamicToIgnore])` | ray start/end points; optionally a Dynamic to exclude from the hit test | Dynamic, Static, Brick, or `nil` | Casts a ray through the physics world and returns whatever it hit first (or `nil`). |
+| `raycast(startX, startY, startZ, endX, endY, endZ[, dynamicToIgnore])` | ray start/end points; optionally a Dynamic to exclude from the hit test | hit object, x, y, z, normalX, normalY, normalZ, distance; or `nil` | Casts a ray through the physics world. Returns the Dynamic, Static, or Brick it hit first, then the world position of the hit, the normal of the surface it hit (pointing out of it), and the distance from the start point. Returns just `nil` if it hit nothing. `local hit = raycast(...)` still works if you only need the object. |
 
 ### `dynamic:` methods
 
@@ -216,13 +241,19 @@ connected), so the file has to exist on the clients too. `.wav` (any bit depth) 
 (Vorbis) files work, mono or stereo.
 
 Sounds with no position play at the same volume wherever the listener is. Sounds with a position
-get quieter with distance and pan left and right. The listener is the client's camera.
+pan left and right, are at full volume within 5 studs, and past that lose about 10 dB every time
+the distance doubles, getting duller as well, so they're close to silent a couple hundred studs
+away. Sounds moving toward or away from the listener, or a listener moving toward or away from
+them, shift in pitch (the Doppler effect, with sound traveling 343 studs a second). The listener
+is the client's camera, but its movement for the Doppler effect is that of whatever the camera
+follows, so swinging the camera around doesn't change pitch.
 
 Unless Lua picks a preset with `setAudioEffect`, each client's reverb follows the space around
 their camera: out in the open there's almost none, and it gets louder and longer the more
 closed in and bigger the space is (bricks, statics, and dynamics all count as walls). Under
 the water level everything is muffled and sounds like the `underwater` preset. Positioned
-sounds with bricks or objects between them and the camera are muffled too. Players can turn
+sounds with bricks or objects between them and the camera are muffled too, more the thicker
+the bricks in the way, and their echo is muffled along with them. Players can turn
 these off or change how many raycasts they use in the audio settings.
 
 Clients play a few sounds by name on their own when the server has registered them: `ClickMove`
@@ -282,7 +313,7 @@ A "client" represents one connected player/connection.
 | `client:bindCamera(dynamic, fixUpVector, maxFollowDistance)` | Dynamic to follow; whether to lock the camera's up vector; max third-person follow distance | none | Binds the client's camera to follow a dynamic. |
 | `client:staticCamera(posX, posY, posZ)` | fixed camera position | none | Detaches the camera and locks it to a fixed position (direction stays free/mouse-controlled). |
 | `client:staticCamera(posX, posY, posZ, dirX, dirY, dirZ)` | fixed camera position and direction | none | Same, but also locks the look direction. |
-| `client:getCursorItem(maxDistance)` | max ray distance | Dynamic, Static, Brick, or `nil` | Raycasts from the client's *live* camera position/direction (updated continuously, not just on click) out to `maxDistance`, ignoring the client's own first controlled object. Requires `setDefaultController` to have been called for this client. |
+| `client:getCursorItem(maxDistance)` | max ray distance | hit object, x, y, z, normalX, normalY, normalZ, distance; or `nil` | Same return values as `raycast()`. Raycasts from the client's *live* camera position/direction (updated continuously, not just on click) out to `maxDistance`, ignoring the client's own first controlled object. Requires `setDefaultController` to have been called for this client. |
 | `client:centerPrint(text)` / `client:centerPrint(text, durationMS)` / `client:centerPrint(text, durationMS, red, green, blue)` | text (max 255 chars); duration in ms (default 3000, clamped to 60000); color 0-1 (default white) | none | Shows a temporary message in the center of just this client's screen. |
 | `client:playSound(name[, x, y, z][, pitch, volume])` | same as `playSound` | none | Plays a sound once for just this client. |
 | `client:setAudioEffect(preset)` | same as `setAudioEffect` | none | Sets the reverb effect for just this client, until something sets it again. Not remembered: `setAudioEffect`'s preset is what a client gets when they join. |

@@ -655,10 +655,9 @@ static int LUA_clientGetCursorItem(lua_State* L)
 	btVector3 start = btVector3(cameraPosition.x, cameraPosition.y, cameraPosition.z);
 	btVector3 end = start + btVector3(cameraDirection.x, cameraDirection.y, cameraDirection.z) * maxDistance;
 
-	btRigidBody* result = LUA_pd->physicsWorld->doRaycast(start, end, ignore);
-	pushRaycastResult(L, result);
-
-	return 1;
+	btVector3 hitPosition, hitNormal;
+	btRigidBody* result = LUA_pd->physicsWorld->doRaycast(start, end, ignore, hitPosition, hitNormal);
+	return pushRaycastHit(L, result, start, hitPosition, hitNormal);
 }
 
 //durationMS is clamped to 60000 (60s) in JoinedClient::makeCenterPrintPacket

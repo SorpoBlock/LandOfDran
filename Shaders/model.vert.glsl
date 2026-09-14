@@ -57,8 +57,6 @@ layout (std140) uniform EnvironmentUniforms
 	float ShadowStrength;
 };
 
-uniform mat4 lightSpaceMatricies[3];
-
 out vec2 uvs;
 out vec3 normal;
 out vec3 tangent;
@@ -67,7 +65,6 @@ out vec3 worldPos;
 out vec4 preColor;
 out float opacity;
 flat out int  useDecal;
-out vec4 shadowPos[3];
 
 void main()
 {
@@ -89,17 +86,16 @@ void main()
 		
 	if(cameraSpacePosition)
 	{
-		worldPos = vec3(CameraPosition.x+ModelSpace.x*300.0,0,CameraPosition.z+ModelSpace.z*300.0);
+		//Grass reaches a little past the end of the fog, so its edge is never visible
+		float grassRadius = max(300.0, FogDistanceMax + 10.0);
+		worldPos = vec3(CameraPosition.x+ModelSpace.x*grassRadius,0,CameraPosition.z+ModelSpace.z*grassRadius);
 		uvs = worldPos.xz / 20.0;
 	}
 	
 	normal = (transform * vec4(NormalVector,0)).xyz;
 	tangent = (transform * vec4(TangentVector,0)).xyz;
 	bitangent = (transform * vec4(BitangentVector,0)).xyz;
-	
-	for(int i = 0; i<3; i++)
-		shadowPos[i] = lightSpaceMatricies[i] * vec4(worldPos,1.0);
-	
+
 	gl_ClipDistance[0] = dot(vec4(worldPos, 1.0), ClipPlane);
 	gl_Position = CameraProjection * CameraView * vec4(worldPos,1.0);
 }

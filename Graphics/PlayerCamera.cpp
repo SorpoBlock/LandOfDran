@@ -7,89 +7,59 @@ glm::vec3 Camera::mouseCoordsToWorldSpace(glm::vec2 mouseCoords) const
     return glm::vec3(worldCoords.x,worldCoords.y,worldCoords.z);
 }
 
-std::vector<glm::vec4> getFrustumCornersWorldSpace(const glm::mat4& proj, const glm::mat4& view)
+void Camera::calculateLightSpaceMatricies(glm::vec3 lightDirection, float shadowDistance, int mapResolution, glm::mat4* result)
 {
-    const auto inv = glm::inverse(proj * view);
-
-    std::vector<glm::vec4> frustumCorners;
-    for (unsigned int x = 0; x < 2; ++x)
+    //Where each cascade ends: the practical split scheme, mostly logarithmic (even detail on screen) with some uniform mixed in
+    const float logarithmicShare = 0.75f;
+    float farthest = std::max(nearPlane * 2.0f, std::min(farPlane, shadowDistance));
+    float splits[4];
+    for (int a = 0; a <= 3; a++)
     {
-        for (unsigned int y = 0; y < 2; ++y)
-        {
-            for (unsigned int z = 0; z < 2; ++z)
-            {
-                const glm::vec4 pt =
-                    inv * glm::vec4(
-                        2.0f * x - 1.0f,
-                        2.0f * y - 1.0f,
-                        2.0f * z - 1.0f,
-                        1.0f);
-                frustumCorners.push_back(pt / pt.w);
-            }
-        }
+        float fraction = a / 3.0f;
+        float logarithmic = nearPlane * std::pow(farthest / nearPlane, fraction);
+        float uniform = glm::mix(nearPlane, farthest, fraction);
+        splits[a] = glm::mix(uniform, logarithmic, logarithmicShare);
     }
 
-    return frustumCorners;
-}
+    //Light space axes don't depend on the camera, so cascades can be kept to whole texel steps along them, see below
+    glm::vec3 up = std::abs(lightDirection.y) > 0.99f ? glm::vec3(0, 0, 1) : glm::vec3(0, 1, 0);
+    glm::mat4 lightRotation = glm::lookAt(glm::vec3(0), -lightDirection, up);
 
-void Camera::calculateLightSpaceMatricies(glm::vec3 sunDirection, glm::mat4* result)
-{
-    float manualFracs[4] = { 0,0.08,0.2,1 };
-    float manualZMults[3] = { 20,10,7 };
+    glm::mat4 inverseView = glm::inverse(viewMatrix);
+    glm::vec3 eye = glm::vec3(inverseView[3]);
+    glm::vec3 forward = -glm::normalize(glm::vec3(inverseView[2]));
 
-    for (unsigned int a = 0; a < 3; a++)
+    //Squared distance from the view axis to a corner of the screen, per unit forward
+    float tanHalfHeight = std::tan(glm::radians(fieldOfVision) * 0.5f);
+    float cornerSlopeSquared = tanHalfHeight * tanHalfHeight * (1.0f + aspectRatio * aspectRatio);
+
+    //A little depth past each sphere, anything further toward the light is flattened onto the near plane by GL_DEPTH_CLAMP
+    //Keeping the range tight matters since the depth a shadow can be off by grows with it
+    const float depthMargin = 1.0f;
+
+    //Room for model.frag's widest filter plus the texel snapping below, so neither reaches past the edge of the slice
+    const float paddingTexels = 6.0f;
+
+    for (int a = 0; a < 3; a++)
     {
-        //float startFrac = ((float)a) * frac;        //i.e. 0 = 0, 2 = 0.6666
-        //float endFrac = ((float)a+1) * frac;       //i.e. 0 = 0.3333, 2 = 1.0
-        float startFrac = manualFracs[a];
-        float endFrac = manualFracs[a + 1];
-        float neara = glm::mix(nearPlane, farPlane, startFrac);
-        float fara = glm::mix(nearPlane, farPlane, endFrac);
-        glm::mat4 playerCameraNearMapProjSlice = glm::perspective(glm::radians(fieldOfVision), aspectRatio, neara, fara);
-        std::vector<glm::vec4> frustumCorners = getFrustumCornersWorldSpace(playerCameraNearMapProjSlice, viewMatrix);
+        float sliceNear = splits[a];
+        float sliceFar = splits[a + 1];
 
-        glm::vec3 playerViewCenter = glm::vec3(0, 0, 0);
-        for (const auto& v : frustumCorners)
-            playerViewCenter += glm::vec3(v);
-        playerViewCenter /= frustumCorners.size();
+        //Smallest sphere around this slice of the view, which stays the same size however the camera turns
+        //Its center is on the view axis where the near and far corners are equally far from it, or at the far end for wide views
+        float centerDistance = std::min(sliceFar, 0.5f * (sliceNear + sliceFar) * (1.0f + cornerSlopeSquared));
+        float radius = std::sqrt((sliceFar - centerDistance) * (sliceFar - centerDistance) + sliceFar * sliceFar * cornerSlopeSquared);
+        radius *= mapResolution / (mapResolution - 2.0f * paddingTexels);
 
-        glm::mat4 lightView = glm::lookAt(playerViewCenter + sunDirection, playerViewCenter, glm::vec3(0, 1, 0));
-        float minX = std::numeric_limits<float>::max();
-        float maxX = std::numeric_limits<float>::lowest();
-        float minY = std::numeric_limits<float>::max();
-        float maxY = std::numeric_limits<float>::lowest();
-        float minZ = std::numeric_limits<float>::max();
-        float maxZ = std::numeric_limits<float>::lowest();
-        for (const auto& v : frustumCorners)
-        {
-            const auto trf = lightView * v;
-            minX = std::min(minX, trf.x);
-            maxX = std::max(maxX, trf.x);
-            minY = std::min(minY, trf.y);
-            maxY = std::max(maxY, trf.y);
-            minZ = std::min(minZ, trf.z);
-            maxZ = std::max(maxZ, trf.z);
-        }
+        //Moving the cascade only in whole texels keeps casters landing on the same texels, so shadow edges don't crawl as the camera moves
+        float texelSize = 2.0f * radius / mapResolution;
+        glm::vec3 center = glm::vec3(lightRotation * glm::vec4(eye + forward * centerDistance, 1.0f));
+        center.x = std::floor(center.x / texelSize) * texelSize;
+        center.y = std::floor(center.y / texelSize) * texelSize;
 
-        float zMult = manualZMults[a];
-        if (minZ < 0)
-        {
-            minZ *= zMult;
-        }
-        else
-        {
-            minZ /= zMult;
-        }
-        if (maxZ < 0)
-        {
-            maxZ /= zMult;
-        }
-        else
-        {
-            maxZ *= zMult;
-        }
-
-        result[a] = glm::ortho(minX, maxX, minY, maxY, minZ, maxZ) * lightView;
+        //View space looks down -z, so the side toward the light has the larger z
+        result[a] = glm::ortho(center.x - radius, center.x + radius, center.y - radius, center.y + radius,
+            -(center.z + radius) - depthMargin, -(center.z - radius) + depthMargin) * lightRotation;
     }
 }
 

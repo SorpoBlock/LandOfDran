@@ -131,6 +131,7 @@ add_executable (LandOfDran
 "Graphics/RenderTarget.cpp"
 "Graphics/Environment.h"
 "Graphics/Environment.cpp"
+"Graphics/DayCycle.h"
 "Graphics/InstancedBrickRenderer.h"
 "Graphics/InstancedBrickRenderer.cpp"
 

@@ -6,6 +6,7 @@
 #include <AL/alc.h>
 #include <AL/efx-presets.h>
 
+#include <optional>
 #include <set>
 
 //Not included, ClientProgramData includes this and Dynamic's headers lead back to ClientProgramData
@@ -89,6 +90,15 @@ private:
 		float appliedGainHF = -1;
 	};
 
+	//Where the listener was and how fast it's been moving, for the Doppler effect when update isn't given its velocity, see trackVelocity
+	struct Motion
+	{
+		glm::vec3 lastPosition = glm::vec3(0);
+		glm::vec3 velocity = glm::vec3(0);
+		float sinceSampleMS = 0;
+		bool tracked = false;
+	};
+
 	ALuint generalSources[generalSourceCount] = {};
 	SoundLocation generalLocations[generalSourceCount];
 	Occlusion generalOcclusion[generalSourceCount];
@@ -124,6 +134,8 @@ private:
 	ALuint effectSlot = 0;
 	ALuint directFilter = 0;
 	bool useEaxReverb = false;
+	//Whether sources are sending to effectSlot, which then also gets each source's muffling filter, see applyDirectFilter
+	bool reverbConnected = false;
 
 	//Auto follows the listener's space and water (see setListenerSpace), Preset holds one Lua picked, Off has none
 	enum ReverbMode
@@ -150,9 +162,13 @@ private:
 	float underwaterAmount = 0.0f;
 
 	glm::vec3 listenerPosition = glm::vec3(0);
+	Motion listenerMotion;
 
 	//Sets the source up to play from where, including whether it's positioned at all
 	void placeSource(ALuint source, const SoundLocation& where);
+
+	//Velocity from how far position moved since the last call, smoothed, ignoring jumps too fast to be real movement
+	static glm::vec3 trackVelocity(Motion& motion, const glm::vec3& position, float deltaT);
 
 	//Routes every source through the reverb slot, or takes them all off it
 	void connectReverb(bool on);
@@ -212,7 +228,8 @@ public:
 	void setVolumes(float master, float music);
 
 	//Call every frame: moves the listener, follows moving sounds, updates reverb and muffling, and hands loop sources to the closest loops
-	void update(const glm::vec3& listenerPosition, const glm::vec3& listenerDirection, float deltaT);
+	//listenerVelocity is for the Doppler effect, like that of the player the camera follows. Without one, it comes from how the listener moves
+	void update(const glm::vec3& listenerPosition, const glm::vec3& listenerDirection, std::optional<glm::vec3> listenerVelocity, float deltaT);
 
 	//Stops everything and forgets the server's sounds, loops, and reverb preset, for leaving a server
 	void clear();

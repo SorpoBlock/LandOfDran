@@ -18,6 +18,12 @@ void Program::registerSamplerUniforms()
     if (glGetUniformLocation(handle, "ShadowArray") != -1)
         glUniform1i(glGetUniformLocation(handle, "ShadowArray"),        ShadowArray);
 
+    if (glGetUniformLocation(handle, "TintDepthArray") != -1)
+        glUniform1i(glGetUniformLocation(handle, "TintDepthArray"), TintDepthArray);
+
+    if (glGetUniformLocation(handle, "TintColorArray") != -1)
+        glUniform1i(glGetUniformLocation(handle, "TintColorArray"), TintColorArray);
+
     if (glGetUniformLocation(handle, "Refraction") != -1)
         glUniform1i(glGetUniformLocation(handle, "Refraction"), Refraction);
 

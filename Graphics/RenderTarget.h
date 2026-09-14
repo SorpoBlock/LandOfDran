@@ -27,6 +27,8 @@ class RenderTarget
 		glm::vec4 clearColor = glm::vec4(0, 0, 0, 0);
 		GLenum minFilter = GL_LINEAR;
 		GLenum magFilter = GL_LINEAR;
+		//Depth result is read with a sampler2DShadow / sampler2DArrayShadow, which filters comparisons instead of depths
+		bool depthCompare = false;
 	} settings;
 
 	void bindDepthResult(TextureLocations loc) const { if (!depthResult) return; depthResult->bind(loc); }
@@ -36,5 +38,8 @@ class RenderTarget
 	~RenderTarget();
 
 	void use();
+
+	//Renders into just one layer of a layered depth result, clearing only that layer
+	void useLayer(int layer);
 };
 

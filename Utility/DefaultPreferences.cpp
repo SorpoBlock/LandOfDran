@@ -10,8 +10,9 @@ void populateDefaults(std::shared_ptr<SettingManager> settings)
 	*/
 
 	//Global SDL / GL settings:
-	settings->addInt("graphics/openglmajor", 		3, false,		"OpenGL Verison Major",1,4);
-	settings->addInt("graphics/openglminor", 		3, false,		"OpenGL Version Minor",0,10);
+	//RenderContext falls back to 3.3 if the driver can't make this
+	settings->addInt("graphics/openglmajor", 		4, false,		"OpenGL Verison Major",1,4);
+	settings->addInt("graphics/openglminor", 		6, false,		"OpenGL Version Minor",0,10);
 	settings->addInt("graphics/multisamplebuffers", 	1, false,		"Anti-Aliasing Buffers",0,10);
 	settings->addInt("graphics/multisamplesamples", 	8, false,		"Anti-Aliasing Samples",0,64);
 	settings->addBool("graphics/compatibilityprofile",false, false,	"Use OpenGL Compatability Profile");
@@ -56,8 +57,8 @@ void populateDefaults(std::shared_ptr<SettingManager> settings)
 	//Graphics settings
 	settings->addEnum("graphics/waterquality",		1, 	 			"Water Quality",	{"No Reflection/Refraction", "Half Res Reflection/Refraction", "Full Res Reflection/Refraction"});
 	settings->addEnum("graphics/shadowresolution",	1, 	 			"Shadow Resolution", 	{"2k Shadows","4k Shadows","8k Shadows"});
-	settings->addEnum("graphics/shadowsoftness",		1,  			"Shadow Softness" , 	{"No PCF","2x PCF","4x PCF","8x PCF"});
-	settings->addBool("graphics/shadowcolor",		true, false, 	"Use colored shadows");
+	settings->addEnum("graphics/shadowsoftness",		1,  			"Shadow Softness" , 	{"Hard","Soft (3x3 texels)","Softer (5x5 texels)","Softest (7x7 texels)"});
+	settings->addBool("graphics/shadowcolor",		true, false, 	"Colored shadows through transparent bricks");
 	settings->addEnum("graphics/godrayquality",		1, 	 			"God ray samples", 	{"None","32 samples","64 samples","96 samples","128 samples"});
 	settings->addEnum("graphics/spritedensity",		1, 				"Sprite density",	{"Low","Medium","High","Very High"});
 	settings->addFloat("graphics/brickdebrisseconds",	3.6f, false,	"Seconds removed bricks stay as debris (0 for none)",0,15);

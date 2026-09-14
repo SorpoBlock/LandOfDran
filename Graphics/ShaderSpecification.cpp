@@ -68,12 +68,14 @@ bool ShaderManager::readShaderList(const std::string &filePath)
 			//There are a limited amount of hard-coded shader programs, find the right one
 			if (programName == "model")
 				modelShader = lastProgram;
-			else if (programName == "modelShadow")
-				modelShadowShader = lastProgram;
 			else if (programName == "brick")
 				brickShader = lastProgram;
-			else if (programName == "brickShadow")
-				brickShadowShader = lastProgram;
+			else if (programName == "modelShadowCascade")
+				modelShadowCascadeShader = lastProgram;
+			else if (programName == "brickShadowCascade")
+				brickShadowCascadeShader = lastProgram;
+			else if (programName == "brickShadowTint")
+				brickShadowTintShader = lastProgram;
 			else if (programName == "outline")
 				outlineShader = lastProgram;
 			else if (programName == "sky")

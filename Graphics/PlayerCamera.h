@@ -44,7 +44,8 @@ class Camera
 	glm::vec3 mouseCoordsToWorldSpace(glm::vec2 mouseCoords) const;
 
 	//TODO: Move this to environment class
-	void calculateLightSpaceMatricies(glm::vec3 sunDirection,glm::mat4 *result);
+	//Three shadow cascades covering the view out to shadowDistance, nearest first, for a mapResolution square shadow map
+	void calculateLightSpaceMatricies(glm::vec3 lightDirection, float shadowDistance, int mapResolution, glm::mat4 *result);
 
 	float maxThirdPersonDistance = 30.0;
 
