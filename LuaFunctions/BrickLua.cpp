@@ -83,7 +83,7 @@ void updateBrickAttachments(Brick* brick)
 			emitter = settings.emitterName.empty() ? nullptr : spawnEmitterAt(settings.emitterName, center);
 			if (emitter)
 			{
-				emitter->brickID = brick->netId;
+				emitter->attachToBrick(brick->netId, center);
 				settings.emitterID = emitter->getID();
 			}
 		}

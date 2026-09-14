@@ -1062,7 +1062,7 @@ void LoopClient::updateParticles()
 
 			//The server removes it too, this just keeps a short burst from running long while that's on its way
 			const EmitterTypeData* type = pd.particles->getEmitterType(emitter->getTypeID());
-			bool expired = type && type->lifetimeMS > 0 && ticks - emitter->startMS > (int64_t)type->lifetimeMS;
+			bool expired = type && emitter->getAttachKind() != EmitterAttachBrick && type->lifetimeMS > 0 && ticks - emitter->startMS > (int64_t)type->lifetimeMS;
 
 			if (expired || glm::distance(position, cameraPosition) > ejectDistance)
 				ParticleSystem::skipEmission(emitter->clock, position, rotation, nowMS);

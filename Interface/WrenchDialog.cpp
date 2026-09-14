@@ -154,7 +154,7 @@ void WrenchDialog::render(ImGuiIO* io)
 			ImGui::SliderFloat("Flicker", &settings.lightFlicker, 0.0f, 16.0f, "%.2f studs");
 			tooltip("How far the light jumps around, like a flame");
 
-			ImGui::SliderFloat("Corona", &settings.lightCoronaWidth, 0.0f, 256.0f, "%.2f studs", ImGuiSliderFlags_Logarithmic);
+			ImGui::SliderFloat("Corona", &settings.lightCoronaWidth, 0.0f, 30.0f, "%.2f studs", ImGuiSliderFlags_Logarithmic);
 			tooltip("Width of the glow drawn at the light, 0 for none");
 
 			ImGui::DragFloat3("Offset", &settings.lightOffset[0], 0.05f, -BrickAttachments::maxLightOffset, BrickAttachments::maxLightOffset, "%.2f");

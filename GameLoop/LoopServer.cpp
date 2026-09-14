@@ -198,7 +198,8 @@ void LoopServer::updateEmitters()
 		std::shared_ptr<Emitter> emitter = pd.emitters->get(a);
 
 		uint16_t typeID = emitter->getTypeID();
-		bool expired = typeID < pd.emitterTypes.size() && pd.emitterTypes[typeID].lifetimeMS > 0 && now - emitter->getCreationTime() > pd.emitterTypes[typeID].lifetimeMS;
+		//Ones on bricks last as long as the brick, their particles still live out their own lifetimes
+		bool expired = emitter->getAttachKind() != EmitterAttachBrick && typeID < pd.emitterTypes.size() && pd.emitterTypes[typeID].lifetimeMS > 0 && now - emitter->getCreationTime() > pd.emitterTypes[typeID].lifetimeMS;
 		bool dynamicGone = emitter->getAttachKind() == EmitterAttachDynamic && emitter->dynamic.expired();
 		bool brickGone = emitter->brickID != NO_ID && !pd.bricks->find(emitter->brickID);
 

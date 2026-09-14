@@ -317,7 +317,7 @@ The table passed to `addEmitterType`.
 | `thetaMin`, `thetaMax` | `0`, `90` | Degrees down from the emitter's up each particle goes out at, picked between these (0-180). `0, 0` shoots straight up, `90, 90` flat outward, `180, 180` straight down. |
 | `phiReferenceVel` | `0` | Degrees per second the direction particles go out in turns around the vertical, for spirals. |
 | `phiVariance` | `360` | Degrees around the vertical past that direction a particle can go, `360` for every way. |
-| `lifetimeMS` | `0` | Emitters of this type remove themselves this long after they're made, for one-off bursts. `0` lasts until removed. |
+| `lifetimeMS` | `0` | Emitters of this type remove themselves this long after they're made, for one-off bursts. `0` lasts until removed. Emitters on a brick ignore this and last as long as the brick, though their particles still use their own `lifetimeMS`. |
 | `uiName` | `""` | Name for menus, not used yet. |
 
 ### Global functions
@@ -345,7 +345,7 @@ These use the strict argument count check.
 | `emitter:getTypeName()` | none | string | Its emitter type's name. |
 | `emitter:setType(typeName)` | emitter type name | none | Switches it to another emitter type. |
 | `emitter:attachToDynamic(dynamic[, meshName])` | dynamic; name of one of its model's meshes | none | Follows the dynamic, or the middle of that mesh as it animates, ejecting particles turned the way the dynamic (or mesh) is turned. Removed along with the dynamic. |
-| `emitter:attachToBrick(brick)` | brick, or `nil` | none | Moves it to the middle of the brick, and it's removed along with the brick. `nil` leaves it where it is, no longer on or following anything. |
+| `emitter:attachToBrick(brick)` | brick, or `nil` | none | Moves it to the middle of the brick, and it's removed along with the brick instead of after its type's `lifetimeMS`. `nil` leaves it where it is, no longer on or following anything. |
 
 ---
 

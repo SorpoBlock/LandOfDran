@@ -879,8 +879,7 @@ static int LUA_emitterAttachToBrick(lua_State* L)
 		return 0;
 	}
 
-	emitter->setPosition(brick->getWorldCenter());
-	emitter->brickID = brick->netId;
+	emitter->attachToBrick(brick->netId, brick->getWorldCenter());
 	return 0;
 }
 

@@ -44,6 +44,13 @@ void Emitter::attachToDynamic(std::shared_ptr<Dynamic> target, int _meshIndex)
 	updatesLeft = resendCount;
 }
 
+void Emitter::attachToBrick(netIDType _brickID, const glm::vec3& brickPosition)
+{
+	setPosition(brickPosition);
+	attachKind = EmitterAttachBrick;
+	brickID = _brickID;
+}
+
 void Emitter::writeState(enet_uint8* dest) const
 {
 	memcpy(dest, &typeID, sizeof(uint16_t));
@@ -63,7 +70,7 @@ void Emitter::readFromPacket(const enet_uint8* src)
 		clock = EmitterClock();
 	typeID = newType;
 
-	attachKind = src[2] == EmitterAttachDynamic ? EmitterAttachDynamic : EmitterAttachFixed;
+	attachKind = src[2] <= EmitterAttachBrick ? (EmitterAttachKind)src[2] : EmitterAttachFixed;
 	meshIndex = src[3] == 255 ? -1 : src[3];
 	memcpy(&dynamicID, src + 4, sizeof(netIDType));
 	memcpy(&position[0], src + 4 + sizeof(netIDType), sizeof(float) * 3);

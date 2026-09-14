@@ -8,7 +8,8 @@
 enum EmitterAttachKind : unsigned char
 {
 	EmitterAttachFixed = 0,		//Its own position
-	EmitterAttachDynamic = 1	//A dynamic, or the middle of one of its meshes
+	EmitterAttachDynamic = 1,	//A dynamic, or the middle of one of its meshes
+	EmitterAttachBrick = 2		//Its own position, on a brick, which keeps it past its type's lifetime
 };
 
 /*
@@ -77,6 +78,9 @@ class Emitter : public SimObject
 
 	//meshIndex -1 follows the dynamic's position
 	void attachToDynamic(std::shared_ptr<Dynamic> target, int _meshIndex);
+
+	//Stays put at the brick's position, removed along with the brick, and never for its type's lifetime
+	void attachToBrick(netIDType _brickID, const glm::vec3& brickPosition);
 
 	//Client: applies packetBytes of state written by the server
 	void readFromPacket(const enet_uint8* src);
