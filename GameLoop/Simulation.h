@@ -63,4 +63,12 @@ struct Simulation
 	unsigned int staticsChanged = 0;
 	BrickHolder* bricks = nullptr;
 	BrickDebris* brickDebris = nullptr;
+
+	/*
+		Special brick types are matched by name, since the server and client may have found theirs in a different order
+		Indexed by the server's type ID, gives ours, or 0 for a type we don't have, see SpecialBrickTypesPacket
+	*/
+	std::vector<uint16_t> brickTypeFromServer;
+	//Indexed by our type ID, gives the server's, or 0 if the server doesn't have it
+	std::vector<uint16_t> brickTypeToServer;
 };

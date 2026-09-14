@@ -1,0 +1,188 @@
+4 4 10
+SPECIAL
+
+xuuu
+xxxx
+xxxx
+xxxx
+xxxx
+xxxx
+xxxx
+xxxx
+xxxx
+dddd
+
+xxuu
+xxxx
+xxxx
+xxxx
+xxxx
+xxxx
+xxxx
+xxxx
+xxxx
+dddd
+
+-xxu
+-xxx
+xxxx
+xxxx
+xxxx
+xxxx
+xxxx
+xxxx
+xxxx
+dddd
+
+--xx
+--xx
+-xxx
+-xxx
+-xxx
+xxxx
+xxxx
+xxxx
+xxxx
+dddd
+//COLLISION
+0
+COVERAGE: //TBNESW 
+1 : 8
+1 : 16
+1 : 40
+1 : 40
+1 : 20
+1 : 20
+----------------top quads:
+1
+
+TEX:PRINT
+POSITION:
+2 -2 5
+-2 2 5
+2 2 5
+2 -2 5
+UV COORDS:
+0 -1
+-1 0
+-1 -1 
+0 -1
+NORMALS:
+0 0 1
+0 0 1
+0 0 1
+0 0 1
+----------------bottom quads:
+1
+
+TEX:PRINT
+POSITION:
+-2 -2 -5
+2 -2 -5
+2 2 -5
+-2 2 -5
+UV COORDS:
+-1 0
+-1 -1
+0 -1
+0 0
+NORMALS:
+0 0 -1
+0 0 -1
+0 0 -1
+0 0 -1
+----------------north quads:
+1
+
+TEX:PRINT
+POSITION:
+-2 2 5
+-2 2 -5
+2 2 -5
+2 2 5
+UV COORDS:
+1 0
+1 1
+0 1
+0 0
+NORMALS:
+0 1 0
+0 1 0
+0 1 0
+0 1 0
+----------------east quads:
+1
+
+TEX:PRINT
+POSITION:
+2 -2 5
+2 2 5
+2 2 -5
+2 -2 -5
+UV COORDS:
+0 0
+1 0
+1 1
+0 1
+NORMALS:
+1 0 0
+1 0 0
+1 0 0
+1 0 0
+----------------south quads:
+1
+
+TEX:PRINT
+POSITION:
+2 -2 5
+2 -2 -5
+-2 -2 -5
+-2 -2 -5
+UV COORDS:
+1 0
+1 1
+0 1
+0 1
+NORMALS:
+0 -1 0
+0 -1 0
+0 -1 0
+0 -1 0
+----------------west quads:
+1
+
+TEX:PRINT
+POSITION:
+-2 -2 -5
+-2 2 -5
+-2 2 5
+-2 -2 -5
+UV COORDS:
+1 1
+0 1
+0 0
+1 1
+NORMALS:
+-1 0 0
+-1 0 0
+-1 0 0
+-1 0 0
+----------------omni quads:
+1
+
+TEX:PRINT
+POSITION:
+-2 -2 -5
+-2 2 5
+2 -2 5
+2 -2 5
+UV COORDS:
+-1 1
+-1 0
+0 0
+0 0
+NORMALS:
+-0.577350 -0.577350 0.577350
+-0.577350 -0.577350 0.577350
+-0.577350 -0.577350 0.577350
+-0.577350 -0.577350 0.577350

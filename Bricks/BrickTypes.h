@@ -4,6 +4,8 @@
 
 #include <unordered_set>
 
+class btCollisionShape;
+
 //A named basic brick size, only needed because Blockland saves store bricks by name rather than size
 struct BasicBrickType
 {
@@ -18,9 +20,73 @@ struct BasicBrickType
 	std::string iconPath = "";
 };
 
+//Which brick material a special brick face uses, from the TEX: line of each quad in its .blb
+enum BrickFaceTexture
+{
+	BrickTextureTop = 0,		//TEX:TOP, studs
+	BrickTextureBottom = 1,		//TEX:BOTTOMLOOP and TEX:BOTTOMEDGE
+	BrickTextureSide = 2,		//TEX:SIDE
+	BrickTextureRamp = 3,		//TEX:RAMP
+	BrickTexturePrint = 4,		//TEX:PRINT, drawn plain since prints aren't supported yet
+	BrickTextureCount = 5
+};
+
+//Position, normal, tangent, bitangent, uv, vertex color
+constexpr int specialVertexFloats = 18;
+
 /*
-	Brick names from a types folder like Assets/brick/types: test.cs maps names to .blb files, and each .blb's
-	first two lines give its size and whether it's a basic box or a special brick
+	A brick with its own shape from a Blockland .blb file, like a ramp
+	Occupies its width x height x length on the grid like a basic brick, and turns in quarter turns around its middle
+*/
+struct SpecialBrickType
+{
+	//As written in .bls saves and shown in the brick selector, UTF-8
+	std::string uiName = "";
+
+	//From the datablock, for grouping in the brick selector
+	std::string category = "";
+	std::string subCategory = "";
+
+	std::string blbPath = "";
+	//"" if there isn't one
+	std::string iconPath = "";
+
+	//Studs, plates, studs before rotation, like Brick
+	unsigned char width = 1;
+	unsigned char height = 1;
+	unsigned char length = 1;
+
+	//Some faces have see-through vertex colors, so the whole brick is drawn with transparent bricks
+	bool hasTransparency = false;
+
+	/*
+		Triangles in world units, centered on the brick's middle, specialVertexFloats each
+		Sorted by BrickFaceTexture, group n is groupCount[n] vertices starting at groupFirst[n]
+		A vertex color alpha of 0 means the face takes the brick's color
+	*/
+	std::vector<float> vertices;
+	int groupFirst[BrickTextureCount] = {};
+	int groupCount[BrickTextureCount] = {};
+
+	//The .blb's collision boxes, or a convex hull of its shape if it lists none, centered like vertices
+	btCollisionShape* shape = nullptr;
+	std::vector<btCollisionShape*> childShapes;
+
+	int vertexCount() const { return (int)(vertices.size() / specialVertexFloats); }
+
+	SpecialBrickType() = default;
+	SpecialBrickType(const SpecialBrickType&) = delete;
+	~SpecialBrickType();
+};
+
+//Blockland's files are Latin-1 (e.g. the degree sign in "45° Ramp 2x"), anything that isn't already valid UTF-8 is converted from it
+std::string blocklandTextToUtf8(const std::string& text);
+
+/*
+	Brick types from a folder like Assets/brick/types:
+	fxDTSBrickData datablocks in any .cs file name .blb files and their icons, like a Blockland add-on,
+	test.cs maps more names to basic .blb files, and any other .blb goes by its file name
+	Each .blb's first two lines give its size and whether it's a basic box or a special brick
 */
 class BrickTypes
 {
@@ -29,8 +95,11 @@ class BrickTypes
 	//Lowercase name to index in basicTypes
 	std::unordered_map<std::string, size_t> basicByName;
 
-	//Lowercase names of special bricks, which can't be loaded yet
-	std::unordered_set<std::string> specialNames;
+	//Sorted by category, then sub category, then name
+	std::vector<std::unique_ptr<SpecialBrickType>> specialTypes;
+
+	//Lowercase ui name, .blb file name, and .blb file name without extension to index in specialTypes
+	std::unordered_map<std::string, size_t> specialByName;
 
 	public:
 
@@ -44,4 +113,12 @@ class BrickTypes
 	bool getBasicSize(const std::string& name, int& width, int& height, int& length) const;
 
 	const std::vector<BasicBrickType>& getBasicTypes() const { return basicTypes; }
+
+	//Index of a special type by ui name or .blb file name (with or without extension), case-insensitive, -1 if there isn't one
+	int findSpecial(const std::string& name) const;
+
+	size_t getSpecialCount() const { return specialTypes.size(); }
+
+	//nullptr if index is out of range
+	const SpecialBrickType* getSpecial(int index) const;
 };

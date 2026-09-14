@@ -67,6 +67,56 @@ static int LUA_addBrick(lua_State* L)
 	return 1;
 }
 
+static int LUA_addSpecialBrick(lua_State* L)
+{
+	scope("(LUA) addSpecialBrick");
+
+	int args = lua_gettop(L);
+
+	if ((args != 8 && args != 9) || !lua_isstring(L, 4))
+	{
+		error("Expected 8 or 9 arguments addSpecialBrick(x, y, z, typeName, r, g, b, a[, angleID])");
+		lua_settop(L, 0);
+		return 0;
+	}
+
+	std::string typeName = lua_tostring(L, 4);
+	int special = LUA_pd->brickTypes.findSpecial(typeName);
+	int angleID = args == 9 ? (int)lua_tonumber(L, 9) : 0;
+
+	if (special < 0)
+	{
+		error("No special brick type named " + typeName);
+		lua_settop(L, 0);
+		return 0;
+	}
+
+	if (angleID < 0 || angleID > 3)
+	{
+		error("Brick angleID must be between 0 and 3");
+		lua_settop(L, 0);
+		return 0;
+	}
+
+	Brick desc;
+	desc.x = (int)floor(lua_tonumber(L, 1));
+	desc.y = (int)floor(lua_tonumber(L, 2));
+	desc.z = (int)floor(lua_tonumber(L, 3));
+	desc.typeID = (uint16_t)(special + 1);
+	desc.color = glm::u8vec4(colorByte(lua_tonumber(L, 5)), colorByte(lua_tonumber(L, 6)), colorByte(lua_tonumber(L, 7)), colorByte(lua_tonumber(L, 8)));
+	desc.angleID = angleID;
+
+	lua_settop(L, 0);
+
+	Brick* brick = LUA_pd->bricks->add(desc);
+	if (brick)
+		LUA_pd->bricks->pushLua(L, brick);
+	else
+		lua_pushnil(L);
+
+	return 1;
+}
+
 static int LUA_getNumBricks(lua_State* L)
 {
 	lua_settop(L, 0);
@@ -412,6 +462,43 @@ static int LUA_brickSetName(lua_State* L)
 	return 0;
 }
 
+static int LUA_brickIsSpecial(lua_State* L)
+{
+	scope("(LUA) brick:isSpecial");
+
+	if (lua_gettop(L) != 1)
+	{
+		error("Expected 1 argument brick:isSpecial()");
+		return 0;
+	}
+
+	Brick* brick = brickArgument(L);
+	if (!brick)
+		return 0;
+
+	lua_pushboolean(L, brick->isSpecial());
+	return 1;
+}
+
+static int LUA_brickGetTypeName(lua_State* L)
+{
+	scope("(LUA) brick:getTypeName");
+
+	if (lua_gettop(L) != 1)
+	{
+		error("Expected 1 argument brick:getTypeName()");
+		return 0;
+	}
+
+	Brick* brick = brickArgument(L);
+	if (!brick)
+		return 0;
+
+	const SpecialBrickType* type = LUA_pd->brickTypes.getSpecial(brick->typeID - 1);
+	lua_pushstring(L, type ? type->uiName.c_str() : "");
+	return 1;
+}
+
 static int LUA_brickRemove(lua_State* L)
 {
 	scope("(LUA) brick:remove");
@@ -434,6 +521,7 @@ static int LUA_brickRemove(lua_State* L)
 luaL_Reg* getBrickFunctions(lua_State* L)
 {
 	lua_register(L, "addBrick", LUA_addBrick);
+	lua_register(L, "addSpecialBrick", LUA_addSpecialBrick);
 	lua_register(L, "getNumBricks", LUA_getNumBricks);
 	lua_register(L, "getBrickIdx", LUA_getBrickIdx);
 	lua_register(L, "getBrickId", LUA_getBrickId);
@@ -443,7 +531,7 @@ luaL_Reg* getBrickFunctions(lua_State* L)
 	lua_register(L, "loadLodSave", LUA_loadLodSave);
 	lua_register(L, "loadBlocklandSave", LUA_loadBlocklandSave);
 
-	luaL_Reg* methods = new luaL_Reg[13];
+	luaL_Reg* methods = new luaL_Reg[15];
 	methods[0] = { "getPosition", LUA_brickGetPosition };
 	methods[1] = { "getDimensions", LUA_brickGetDimensions };
 	methods[2] = { "getAngleID", LUA_brickGetAngleID };
@@ -455,7 +543,9 @@ luaL_Reg* getBrickFunctions(lua_State* L)
 	methods[8] = { "getName", LUA_brickGetName };
 	methods[9] = { "setName", LUA_brickSetName };
 	methods[10] = { "remove", LUA_brickRemove };
-	methods[11] = { NULL, NULL };
-	methods[12] = { NULL, NULL };
+	methods[11] = { "isSpecial", LUA_brickIsSpecial };
+	methods[12] = { "getTypeName", LUA_brickGetTypeName };
+	methods[13] = { NULL, NULL };
+	methods[14] = { NULL, NULL };
 	return methods;
 }

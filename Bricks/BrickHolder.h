@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Brick.h"
+#include "BrickTypes.h"
 #include "../Physics/PhysicsWorld.h"
 #include "../Networking/Server.h"
 #include "../External/RTree.h"
@@ -33,6 +34,9 @@ class BrickHolder
 
 	std::shared_ptr<PhysicsWorld> world = nullptr;
 
+	//Non-owning, for special bricks' sizes and collision shapes
+	const BrickTypes* types = nullptr;
+
 	//Non-owning, nullptr on the client
 	Server* server = nullptr;
 
@@ -63,12 +67,16 @@ class BrickHolder
 	public:
 
 	//Bytes per brick in AddBricks packets
-	static constexpr unsigned int recordBytes = 19;
+	static constexpr unsigned int recordBytes = 21;
 
+	//typeID is written as is, so the caller maps it between the client's and server's special types
 	static void writeRecord(const Brick* brick, enet_uint8* data);
 	static Brick readRecord(const enet_uint8* data);
 
-	//Returns nullptr if the brick is zero sized, out of bounds, or would overlap another brick
+	/*
+		Returns nullptr if the brick is zero sized, out of bounds, would overlap another brick, or is an unknown special type
+		Special bricks take their size from their type, whatever desc says
+	*/
 	Brick* add(const Brick& desc);
 
 	/*
@@ -106,6 +114,9 @@ class BrickHolder
 	//Server: every brick, to a client that just finished loading
 	void sendAll(JoinedClient const* client) const;
 
+	//Server: the ID and name of every special type, to a client that just connected, see SpecialBrickTypesPacket
+	void sendSpecialTypes(JoinedClient const* client) const;
+
 	/*
 		Lua bricks are tables with integer id and type (BrickTypeId) fields, looked up by id on each use so a
 		table for a removed brick safely resolves to nullptr
@@ -119,7 +130,9 @@ class BrickHolder
 	//Client: every brick added, changed, or removed from here on is passed along to this renderer
 	void setRenderer(InstancedBrickRenderer* _renderer) { renderer = _renderer; }
 
+	const BrickTypes* getTypes() const { return types; }
+
 	//Pass nullptr as _server on the client
-	BrickHolder(std::shared_ptr<PhysicsWorld> _world, Server* _server = nullptr);
+	BrickHolder(std::shared_ptr<PhysicsWorld> _world, const BrickTypes* _types, Server* _server = nullptr);
 	~BrickHolder();
 };

@@ -1,0 +1,4 @@
+name	BrickRamps
+normal	brickRampNormal.png
+occlusion	brickRampAO.png
+roughness	scuffed-plastic-rough.png

@@ -12,6 +12,12 @@ layout(location = 5) in vec3 BrickCorner;
 layout(location = 6) in vec3 BrickSize;
 layout(location = 7) in vec4 BrickColor;
 
+//Special bricks only: with specialMesh set, locations 0-4 are the type's shape in world units around its middle instead of the cube
+//A vertex color with alpha above 0 replaces the brick's color on that face
+layout(location = 8) in vec4 VertexColor;
+//Quarter turns counter-clockwise around +y, see Brick::getAngle
+layout(location = 9) in float BrickAngle;
+
 layout (std140) uniform CameraUniforms
 {
 	//Camera Uniforms:
@@ -46,6 +52,9 @@ uniform bool tileByStuds;
 //Identity for placed bricks, rotation and position for loose bricks like undo debris
 uniform mat4 brickTransform;
 
+//Drawing special bricks, see the inputs above
+uniform bool specialMesh;
+
 //STUD_SIZE and PLATE_SIZE in Bricks/Brick.h
 const vec3 gridScale = vec3(1.0, 0.4, 1.0);
 
@@ -61,19 +70,39 @@ flat out int decalCutout;
 
 void main()
 {
-	worldPos = (brickTransform * vec4((BrickCorner + CubePosition * BrickSize) * gridScale, 1.0)).xyz;
-
 	mat3 rotation = mat3(brickTransform);
+
+	if(specialMesh)
+	{
+		float c = cos(BrickAngle * 1.5707963);
+		float s = sin(BrickAngle * 1.5707963);
+		mat3 turn = mat3(c, 0.0, -s, 0.0, 1.0, 0.0, s, 0.0, c);
+
+		vec3 center = (BrickCorner + BrickSize * 0.5) * gridScale;
+		worldPos = (brickTransform * vec4(center + turn * CubePosition, 1.0)).xyz;
+
+		rotation = rotation * turn;
+		uvs = CubeUV;
+
+		bool painted = VertexColor.a < 0.01;
+		preColor = vec4(painted ? BrickColor.rgb : VertexColor.rgb, 1.0);
+		opacity = BrickColor.a * (painted ? 1.0 : VertexColor.a);
+	}
+	else
+	{
+		worldPos = (brickTransform * vec4((BrickCorner + CubePosition * BrickSize) * gridScale, 1.0)).xyz;
+
+		//Tiled faces are the top and bottom, whose texture axes run along x and z
+		uvs = tileByStuds ? CubeUV * BrickSize.xz : CubeUV;
+
+		preColor = vec4(BrickColor.rgb, 1.0);
+		opacity = BrickColor.a;
+	}
+
 	normal = rotation * CubeNormal;
 	tangent = rotation * CubeTangent;
 	//Brick normal maps point green toward the top of the image, which is v = 0 since textures load unflipped, so it runs against the face's v
 	bitangent = -(rotation * CubeBitangent);
-
-	//Tiled faces are the top and bottom, whose texture axes run along x and z
-	uvs = tileByStuds ? CubeUV * BrickSize.xz : CubeUV;
-
-	preColor = vec4(BrickColor.rgb, 1.0);
-	opacity = BrickColor.a;
 	useDecal = -1;
 	decalCutout = 0;
 

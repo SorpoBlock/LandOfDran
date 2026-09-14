@@ -1,0 +1,3 @@
+Title: checkpoint Brick
+Author: Eric Hartman
+A brick.  You touch it, then next time you die you spawn there.  /clearcheckpoint to revert to default spawn.

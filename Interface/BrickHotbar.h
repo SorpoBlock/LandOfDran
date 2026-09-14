@@ -7,13 +7,16 @@
 
 #include <functional>
 
-//A basic brick size picked in the brick selector and held in a hot bar slot
+//A brick picked in the brick selector and held in a hot bar slot
 struct HotbarBrick
 {
 	int width = 1;
 	int height = 1;
 	int length = 1;
 	std::string name = "";
+
+	//name is a special brick type's ui name, looked up each time building starts so a missing type just doesn't show
+	bool special = false;
 
 	//Not owned, one of the brick selector's icons
 	Texture* icon = nullptr;

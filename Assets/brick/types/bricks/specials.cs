@@ -1,0 +1,20 @@
+//Blockland's default special bricks, whose own datablocks only ship compiled
+//Names were matched to files by shape, see BrickTypes::load
+
+datablock fxDTSBrickData(brick1x1PrintData)
+{
+	brickFile = "./1x1Print.blb";
+	category = "Special";
+	subCategory = "Prints";
+	uiName = "1x1 Print";
+	iconName = "./1x1 Print";
+};
+
+datablock fxDTSBrickData(brick1x4x4PrintData)
+{
+	brickFile = "./1x4x4Print.blb";
+	category = "Special";
+	subCategory = "Prints";
+	uiName = "1x4x4 Print";
+	iconName = "./1x4x4 Print";
+};

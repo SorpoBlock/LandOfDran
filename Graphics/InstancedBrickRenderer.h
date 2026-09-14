@@ -2,16 +2,25 @@
 
 #include "../LandOfDran.h"
 #include "../Bricks/Brick.h"
+#include "../Bricks/BrickTypes.h"
 #include "Material.h"
 #include "ShaderSpecification.h"
 
 /*
-	Draws every brick as one instance of a shared cube, grouped into chunks so edits only re-upload one chunk and
-	chunks outside the view are skipped
+	Draws every basic brick as one instance of a shared cube, and every special brick as an instance of its type's shape,
+	grouped into chunks so edits only re-upload one chunk and chunks outside the view are skipped
 	Each face keeps its own texture mapping, so neighbouring bricks show seams like the old game
 */
 class InstancedBrickRenderer
 {
+	//Consecutive special bricks of one type in a chunk's special instance buffer
+	struct SpecialRun
+	{
+		int type;
+		GLsizei first;
+		GLsizei count;
+	};
+
 	struct Chunk
 	{
 		int64_t key = 0;
@@ -26,6 +35,11 @@ class InstancedBrickRenderer
 		GLuint vao[2] = { 0, 0 };
 		GLuint instanceBuffer[2] = { 0, 0 };
 		GLsizei count[2] = { 0, 0 };
+
+		//Special bricks, sorted by type, same indexing
+		GLuint specialVao[2] = { 0, 0 };
+		GLuint specialInstanceBuffer[2] = { 0, 0 };
+		std::vector<SpecialRun> specialRuns[2];
 	};
 
 	//A VAO and instance buffer to draw drawInstances with
@@ -33,6 +47,14 @@ class InstancedBrickRenderer
 	{
 		GLuint vao;
 		GLsizei count;
+	};
+
+	//Special bricks to draw with drawSpecial
+	struct SpecialSet
+	{
+		GLuint vao;
+		GLuint instanceBuffer;
+		const std::vector<SpecialRun>* runs;
 	};
 
 	std::unordered_map<int64_t, Chunk*> chunks;
@@ -46,27 +68,56 @@ class InstancedBrickRenderer
 	//One instance, for the ghost brick and loose bricks
 	GLuint singleVao = 0;
 	GLuint singleInstanceBuffer = 0;
+	GLuint singleSpecialVao = 0;
+	GLuint singleSpecialInstanceBuffer = 0;
+
+	//Non-owning
+	const BrickTypes* types = nullptr;
+
+	//Every special type's shape one after another, see SpecialBrickType::vertices
+	GLuint specialMeshBuffer = 0;
+	//Vertex each special type starts at in specialMeshBuffer
+	std::vector<GLint> specialTypeOffsets;
 
 	Material* topMaterial = nullptr;
 	Material* bottomMaterial = nullptr;
 	Material* sideMaterial = nullptr;
+	Material* rampMaterial = nullptr;
+	//Print faces are drawn plain until prints are supported
+	Material* printMaterial = nullptr;
 
 	GLint tileByStudsUniform = -1;
 	GLint brickTransformUniform = -1;
 	GLint glowUniform = -1;
 
+	//specialMesh in brick.vert and brickShadowCascade.vert, for each program that uses them
+	GLint specialMeshUniform = -1;
+	GLint shadowSpecialMeshUniform = -1;
+	GLint tintSpecialMeshUniform = -1;
+
 	void createInstancedVao(GLuint& vao, GLuint& instanceBuffer) const;
+	void createSpecialVao(GLuint& vao, GLuint& instanceBuffer) const;
 
 	Chunk* getChunk(const Brick* brick);
 	void markDirty(Chunk* chunk);
 	void rebuild(Chunk* chunk);
 	void destroyChunk(Chunk* chunk);
 
+	//nullptr for basic bricks, and for special types this client never loaded
+	const SpecialBrickType* specialType(const Brick& brick) const;
+
 	void setTransform(const glm::mat4& transform) const;
 	void uploadSingleInstance(const glm::vec3& corner, const Brick& brick, float alpha) const;
+	void uploadSingleSpecialInstance(const glm::vec3& corner, const Brick& brick, float alpha) const;
+
+	//Expects the run's instance buffer to be bound, OpenGL 3.3 has no base instance so the attributes start at the run's first instance instead
+	void pointSpecialInstances(GLsizei firstInstance) const;
 
 	//Draws each face group with its material, for every instance set, calling beforeEach(set index) before each draw
 	void drawInstances(std::shared_ptr<ShaderManager> shaders, const std::vector<InstanceSet>& sets, const std::function<void(size_t)>& beforeEach = nullptr) const;
+
+	//Like drawInstances for special bricks, turns on specialMesh in brickShader while it draws
+	void drawSpecial(std::shared_ptr<ShaderManager> shaders, const std::vector<SpecialSet>& sets, const std::function<void(size_t)>& beforeEach = nullptr) const;
 
 	public:
 
@@ -101,14 +152,17 @@ class InstancedBrickRenderer
 	*/
 	void renderLoose(std::shared_ptr<ShaderManager> shaders, const std::vector<LooseBrick>& bricks) const;
 
-	//Expects shaders->brickShadowCascadeShader or brickShadowTintShader to be in use, draws the chunks that can cast into one shadow cascade
-	void renderShadowCascade(const glm::mat4& lightSpaceMatrix, bool opaque, bool transparent) const;
+	/*
+		Expects shaders->brickShadowCascadeShader, or brickShadowTintShader with tintProgram set, to be in use
+		Draws the chunks that can cast into one shadow cascade
+	*/
+	void renderShadowCascade(const glm::mat4& lightSpaceMatrix, bool opaque, bool transparent, bool tintProgram = false) const;
 
 	bool hasTransparentBricks() const;
 
 	//Goes up every time a chunk is rebuilt, so anything drawn from the bricks earlier (like point light shadows) knows they've changed
 	unsigned int getGeneration() const { return generation; }
 
-	InstancedBrickRenderer(std::shared_ptr<ShaderManager> shaders, std::shared_ptr<TextureManager> textures);
+	InstancedBrickRenderer(std::shared_ptr<ShaderManager> shaders, std::shared_ptr<TextureManager> textures, const BrickTypes* _types);
 	~InstancedBrickRenderer();
 };

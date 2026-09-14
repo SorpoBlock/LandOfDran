@@ -1,0 +1,3 @@
+Title: Teledoor
+Author: Eric Hartman
+Easy teleportation entrance/exit pairs

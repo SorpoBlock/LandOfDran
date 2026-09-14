@@ -354,7 +354,7 @@ LoopServer::LoopServer(ExecutableArguments& cmdArgs, std::shared_ptr<SettingMana
 	pd.lights->makeLuaMetatable(pd.luaState, "metatable_light", getLightFunctions(pd.luaState));
 	pd.emitters = new ObjHolder<Emitter>(SimObjectType::EmitterTypeId, server);
 	pd.emitters->makeLuaMetatable(pd.luaState, "metatable_emitter", getEmitterFunctions(pd.luaState));
-	pd.bricks = new BrickHolder(pd.physicsWorld, server);
+	pd.bricks = new BrickHolder(pd.physicsWorld, &pd.brickTypes, server);
 	pd.brickTypes.load("Assets/brick/types");
 	pd.bricks->makeLuaMetatable(pd.luaState, "metatable_brick", getBrickFunctions(pd.luaState));
 

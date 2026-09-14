@@ -18,7 +18,15 @@ bool AddBricksPacket::applyPacket(const ClientProgramData& pd, Simulation& simul
 	}
 
 	for (unsigned int a = 0; a < count; a++)
-		simulation.bricks->addFromServer(BrickHolder::readRecord(packet->data + 3 + a * BrickHolder::recordBytes));
+	{
+		Brick desc = BrickHolder::readRecord(packet->data + 3 + a * BrickHolder::recordBytes);
+
+		//The record has the server's type ID, see SpecialBrickTypesPacket
+		if (desc.isSpecial())
+			desc.typeID = desc.typeID < simulation.brickTypeFromServer.size() ? simulation.brickTypeFromServer[desc.typeID] : 0;
+
+		simulation.bricks->addFromServer(desc);
+	}
 
 	return true;
 }

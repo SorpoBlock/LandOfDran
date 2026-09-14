@@ -1,0 +1,3 @@
+Title: Treasure Chest
+Author: Eric Hartman
+Treasure box brick that acts as a findable object

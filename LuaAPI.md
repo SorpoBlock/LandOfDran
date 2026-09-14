@@ -350,24 +350,33 @@ These use the strict argument count check.
 
 ## Bricks
 
-Basic box bricks on a grid of 1 stud (1 world unit) horizontally by 1 plate (0.4 world units)
+Bricks on a grid of 1 stud (1 world unit) horizontally by 1 plate (0.4 world units)
 vertically. Positions are a brick's **min corner** in whole studs/plates, not its center. Bricks
 can never overlap. A table for a brick that has since been removed stays valid Lua, but its
 methods log an error and do nothing.
+
+Besides basic boxes of any size there are special bricks, like ramps, with their own shapes from
+Blockland `.blb` files. Their types come from `Assets/brick/types`: `fxDTSBrickData` datablocks in
+any `.cs` file there (Blockland add-on style, `uiName`/`brickFile`/`iconName`/`category`) and any
+`.blb` not named elsewhere, by its file name. A special brick fills its type's size on the grid like
+a basic brick and turns around its middle. It collides using the collision boxes listed in its
+`.blb`, or a convex hull of its shape if it lists none. Clients match the server's types by name
+as they join, and draw bricks of types they don't have as plain boxes.
 
 ### Global functions
 
 | Function | Arguments | Returns | Description |
 |---|---|---|---|
 | `addBrick(x, y, z, width, height, length, r, g, b, a[, angleID])` | min corner in studs/plates; `width` and `length` in studs, `height` in plates, each 1-255; color; `angleID` is 0-3 quarter turns (default 0), where 1 and 3 swap width and length | Brick, or `nil` | Adds a brick. Returns `nil` without an error if it would overlap another brick or be out of bounds (`y` below 0). |
+| `addSpecialBrick(x, y, z, typeName, r, g, b, a[, angleID])` | min corner in studs/plates; a special brick type's name (like `"45° Ramp 2x"`, case-insensitive, or its `.blb` file name); color; `angleID` 0-3 | Brick, or `nil` | Adds a special brick, which takes its type's size. Logs an error if there's no type by that name. Returns `nil` without an error if it would overlap another brick or be out of bounds. The shape's color faces (like a pine tree's green) keep their own color. |
 | `getNumBricks()` | none | count | How many bricks exist. |
 | `getBrickIdx(index)` | 0-based index | Brick | Looks up a brick by its position in the internal list. Removing bricks changes the order. |
 | `getBrickId(id)` | net ID | Brick or `nil` | Looks up a brick by its net ID. |
 | `getBrickAt(x, y, z)` | one stud/plate grid cell | Brick or `nil` | The brick filling that cell, if any. |
 | `clearAllBricks()` | none | none | Removes every brick. |
 | `saveBuild(fileName[, omitOwnership])` | file name inside the `Saves` folder; `omitOwnership` writes every owner as `-1` | bool | Saves every brick in the old Land of Dran binary format. |
-| `loadLodSave(fileName[, x, y, z])` | file name inside `Saves`; optional offset in studs/plates | count, or `nil` | Loads an old Land of Dran binary save (either version) on top of the current bricks, returning how many were added. Special bricks, lights, music, and prints in the file are skipped. |
-| `loadBlocklandSave(fileName)` | file name inside `Saves` | count, or `nil` | Imports a Blockland `.bls` save using its own color palette, returning how many bricks were added. Brick names are matched against `Assets/brick/types`; special bricks (ramps, etc.) and unrecognized names are skipped and listed in the log. |
+| `loadLodSave(fileName[, x, y, z])` | file name inside `Saves`; optional offset in studs/plates | count, or `nil` | Loads an old Land of Dran binary save (either version) on top of the current bricks, returning how many were added. Special bricks of types in `Assets/brick/types` are loaded; other special types, lights, music, and prints in the file are skipped. |
+| `loadBlocklandSave(fileName)` | file name inside `Saves` | count, or `nil` | Imports a Blockland `.bls` save using its own color palette, returning how many bricks were added. Brick names are matched against `Assets/brick/types`, special bricks included; unrecognized names are skipped and listed in the log. |
 
 Save and load functions only accept a plain file name, with no folders, since saves always live
 directly in `Saves/`. Bricks that would overlap an existing brick are skipped when loading.
@@ -387,6 +396,8 @@ directly in `Saves/`. Bricks that would overlap an existing brick are skipped wh
 | `brick:getName()` | none | string | The brick's name, empty by default. |
 | `brick:setName(name)` | string | none | Sets the brick's name. |
 | `brick:remove([showEffect])` | optional bool | none | Removes the brick. With `true`, clients show it popping loose and flying off like an undone brick. Leave it off when removing many bricks at once. |
+| `brick:isSpecial()` | none | bool | Whether it's a special brick with its own shape, rather than a basic box. |
+| `brick:getTypeName()` | none | string | A special brick's type name, like `"45° Ramp 2x"`. Empty for basic bricks. |
 
 ---
 

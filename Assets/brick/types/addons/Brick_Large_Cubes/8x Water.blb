@@ -1,0 +1,55 @@
+8 8 20
+SPECIALBRICK
+
+1
+
+0 0 0
+8 8 20
+----------------top quads:
+1
+
+TEX:TOP
+POSITION:
+-4 -4 9.90
+-4 4 9.90
+4 4 9.90
+4 -4 9.90
+UV COORDS:
+8 0
+8 8
+0 8
+0 0
+NORMALS:
+0 0 1
+0 0 1
+0 0 1
+0 0 1
+----------------bottom quads:
+0
+----------------north quads:
+0
+----------------east quads:
+0
+----------------south quads:
+0
+----------------west quads:
+0
+----------------omni quads:
+1
+
+TEX:TOP
+POSITION:
+4 -4 9.90
+4 4 9.90
+-4 4 9.90
+-4 -4 9.90
+UV COORDS:
+0 0
+0 8
+8 8
+8 0
+NORMALS:
+0 0 -1
+0 0 -1
+0 0 -1
+0 0 -1

@@ -71,6 +71,7 @@ void BrickHotbar::save(std::shared_ptr<SettingManager> settings) const
 		settings->addInt(path + "height", slots[a].height, true, "", 1, 255);
 		settings->addInt(path + "length", slots[a].length, true, "", 1, 255);
 		settings->addString(path + "name", slots[a].name);
+		settings->addBool(path + "special", slots[a].special);
 	}
 }
 
@@ -88,6 +89,7 @@ void BrickHotbar::load(std::shared_ptr<SettingManager> settings, const std::func
 		brick.height = std::clamp(settings->getInt(path + "height"), 1, 255);
 		brick.length = std::clamp(settings->getInt(path + "length"), 1, 255);
 		brick.name = settings->getString(path + "name");
+		brick.special = settings->getBool(path + "special");
 		brick.icon = findIcon(brick.name);
 		slots[a] = brick;
 	}

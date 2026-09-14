@@ -1,0 +1,127 @@
+32 32 60
+SPECIALBRICK
+//COLLISION
+0
+COVERAGE: //TBNESW 
+1 : 1024
+1 : 1024
+1 : 1920
+1 : 1920
+1 : 1920
+1 : 1920
+----------------top quads:
+1
+
+TEX:PRINT
+POSITION:
+16 -16 30
+-16 -16 30
+-16 16 30
+16 16 30
+UV COORDS:
+4 0
+4 4
+0 4
+0 0
+NORMALS:
+0 0 1
+0 0 1
+0 0 1
+0 0 1
+----------------bottom quads:
+1
+
+TEX:PRINT
+POSITION:
+-16 -16 -30
+16 -16 -30
+16 16 -30
+-16 16 -30
+UV COORDS:
+-4 0
+-4 -4
+0 -4
+0 0
+NORMALS:
+0 0 -1
+0 0 -1
+0 0 -1
+0 0 -1
+----------------north quads:
+1
+
+TEX:PRINT
+POSITION:
+-16 16 30
+-16 16 -30
+16 16 -30
+16 16 30
+UV COORDS:
+4 0
+4 3
+0 3
+0 0
+NORMALS:
+0 1 0
+0 1 0
+0 1 0
+0 1 0
+----------------east quads:
+1
+
+TEX:PRINT
+POSITION:
+16 -16 30
+16 16 30
+16 16 -30
+16 -16 -30
+UV COORDS:
+0 0
+4 0
+4 3
+0 3
+NORMALS:
+1 0 0
+1 0 0
+1 0 0
+1 0 0
+----------------south quads:
+1
+
+TEX:PRINT
+POSITION:
+16 -16 30
+16 -16 -30
+-16 -16 -30
+-16 -16 30
+UV COORDS:
+4 0
+4 3
+0 3
+0 0
+NORMALS:
+0 -1 0
+0 -1 0
+0 -1 0
+0 -1 0
+----------------west quads:
+1
+
+TEX:PRINT
+POSITION:
+-16 -16 -30
+-16 16 -30
+-16 16 30
+-16 -16 30
+UV COORDS:
+4 3
+0 3
+0 0
+4 0
+NORMALS:
+-1 0 0
+-1 0 0
+-1 0 0
+-1 0 0
+----------------omni quads:
+0

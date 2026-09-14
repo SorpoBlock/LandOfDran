@@ -1,0 +1,3 @@
+Title: Poster 8x
+Author: Eric Hartman
+A flat print brick the size of an 8x cube.  Used in tutorial.

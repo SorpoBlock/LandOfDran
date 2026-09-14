@@ -3,11 +3,16 @@
 static constexpr float repeatDelayMS = 500.0f;
 static constexpr float repeatIntervalMS = 80.0f;
 
-void GhostBrick::select(int width, int height, int length)
+void GhostBrick::select(int width, int height, int length, uint16_t typeID)
 {
 	brick.width = width;
 	brick.height = height;
 	brick.length = length;
+	brick.typeID = typeID;
+
+	//Like the old game, only basic bricks resize
+	if (brick.isSpecial())
+		resizeMode = false;
 }
 
 void GhostBrick::spawnAt(const glm::vec3& hitPoint, const glm::vec3& hitNormal)
@@ -107,7 +112,7 @@ void GhostBrick::update(float deltaT, std::shared_ptr<InputMap> input, const glm
 	if (!visible)
 		return;
 
-	if (toggleResize)
+	if (toggleResize && !brick.isSpecial())
 		resizeMode = !resizeMode;
 
 	if (rotateForward)

@@ -230,6 +230,8 @@ add_executable (LandOfDran
 "Networking/PacketsFromServer/AddBricks.cpp"
 "Networking/PacketsFromServer/RemoveBricks.h"
 "Networking/PacketsFromServer/RemoveBricks.cpp"
+"Networking/PacketsFromServer/SpecialBrickTypes.h"
+"Networking/PacketsFromServer/SpecialBrickTypes.cpp"
 "Networking/PacketsFromServer/AddSoundType.h"
 "Networking/PacketsFromServer/AddSoundType.cpp"
 "Networking/PacketsFromServer/OneShotSound.h"

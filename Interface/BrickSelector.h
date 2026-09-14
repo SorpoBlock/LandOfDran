@@ -12,13 +12,17 @@ class BrickSelector : public Window
 	const BrickTypes* types = nullptr;
 	std::shared_ptr<TextureManager> textures = nullptr;
 
-	//One per basic type, loaded the first time the window opens
+	//One per basic type and one per special type, loaded the first time the window opens
 	std::vector<Texture*> icons;
+	std::vector<Texture*> specialIcons;
 	Texture* unknownIcon = nullptr;
 	bool iconsLoaded = false;
 
 	int customSize[3] = { 2, 3, 4 };
 	glm::vec4 color = glm::vec4(1, 1, 1, 1);
+
+	//Only special bricks whose name or category contains this are listed
+	char specialFilter[64] = "";
 
 	//Bricks clicked since the last popPick, oldest first
 	std::vector<HotbarBrick> picks;
@@ -26,7 +30,13 @@ class BrickSelector : public Window
 	bool colorChanged = false;
 
 	void loadIcons();
-	void pick(int width, int height, int length, const std::string& brickName, Texture* icon);
+	void pick(int width, int height, int length, const std::string& brickName, Texture* icon, bool special = false);
+
+	//One icon button with its name under it, true if clicked, wraps to a new row when the last one filled the row
+	bool iconButton(int id, Texture* icon, const std::string& label, int& column, int columns);
+
+	void renderBasic();
+	void renderSpecial();
 
 	public:
 
@@ -42,7 +52,7 @@ class BrickSelector : public Window
 	void save(std::shared_ptr<SettingManager> settings) const;
 	void load(std::shared_ptr<SettingManager> settings);
 
-	//A basic type's icon by its name, or the unknown icon, loading icons first if needed
+	//A basic or special type's icon by its name, or the unknown icon, loading icons first if needed
 	Texture* findIcon(const std::string& brickName);
 
 	virtual void render(ImGuiIO* io) override;

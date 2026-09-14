@@ -178,6 +178,10 @@ KickReason Client::handleEvent(ENetEvent& event)
 					packets.push_back(new RemoveBricksPacket(packetHoldTime, event.packet));
 					return NotKicked;
 
+				case SpecialBrickTypes:
+					packets.push_back(new SpecialBrickTypesPacket(packetHoldTime, event.packet));
+					return NotKicked;
+
 				case AddSoundType:
 					packets.push_back(new AddSoundTypePacket(packetHoldTime, event.packet));
 					return NotKicked;

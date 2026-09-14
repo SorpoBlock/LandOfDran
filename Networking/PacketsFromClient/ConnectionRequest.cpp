@@ -83,6 +83,7 @@ void applyConnectionRequest(JoinedClient * source,Server const * const server, E
 
 	//Sounds, particles, and emitters first, they don't count toward the types the loading bar waits for
 	sendSoundTypes(pd, source);
+	pd->bricks->sendSpecialTypes(source);
 	sendParticleEmitterTypes(pd, source);
 
 	//Send types to client:

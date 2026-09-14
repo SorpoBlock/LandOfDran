@@ -34,6 +34,7 @@ void BrickHolder::writeRecord(const Brick* brick, enet_uint8* data)
 	for (int channel = 0; channel < 4; channel++)
 		data[14 + channel] = brick->color[channel];
 	data[18] = brick->collides ? 1 : 0;
+	memcpy(data + 19, &brick->typeID, sizeof(uint16_t));
 }
 
 Brick BrickHolder::readRecord(const enet_uint8* data)
@@ -57,6 +58,7 @@ Brick BrickHolder::readRecord(const enet_uint8* data)
 	for (int channel = 0; channel < 4; channel++)
 		brick.color[channel] = data[14 + channel];
 	brick.collides = data[18] & 1;
+	memcpy(&brick.typeID, data + 19, sizeof(uint16_t));
 	return brick;
 }
 
@@ -85,8 +87,20 @@ Brick* BrickHolder::find(netIDType netId) const
 	return it == byId.end() ? nullptr : it->second;
 }
 
-Brick* BrickHolder::add(const Brick& desc)
+Brick* BrickHolder::add(const Brick& requested)
 {
+	Brick desc = requested;
+	if (desc.isSpecial())
+	{
+		const SpecialBrickType* type = types ? types->getSpecial(desc.typeID - 1) : nullptr;
+		if (!type)
+			return nullptr;
+
+		desc.width = type->width;
+		desc.height = type->height;
+		desc.length = type->length;
+	}
+
 	if (desc.width == 0 || desc.height == 0 || desc.length == 0 || desc.angleID > 3)
 		return nullptr;
 
@@ -127,6 +141,11 @@ Brick* BrickHolder::addFromServer(const Brick& desc)
 		return nullptr;
 
 	Brick* brick = new Brick(desc);
+
+	//A special type this client doesn't have is still in the right place, as a plain box
+	if (brick->isSpecial() && (!types || !types->getSpecial(brick->typeID - 1)))
+		brick->typeID = 0;
+
 	insert(brick);
 	return brick;
 }
@@ -201,13 +220,26 @@ void BrickHolder::createBody(Brick* brick)
 	int footprintWidth = brick->footprintWidth();
 	int footprintLength = brick->footprintLength();
 
-	btBoxShape*& shape = shapes[footprintWidth | (brick->height << 8) | (footprintLength << 16)];
-	if (!shape)
-		shape = new btBoxShape(btVector3(footprintWidth * STUD_SIZE, brick->height * PLATE_SIZE, footprintLength * STUD_SIZE) * 0.5f);
+	btCollisionShape* shape = nullptr;
+	const SpecialBrickType* special = brick->isSpecial() && types ? types->getSpecial(brick->typeID - 1) : nullptr;
+
+	if (special && special->shape)
+		shape = special->shape;
+	else
+	{
+		btBoxShape*& box = shapes[footprintWidth | (brick->height << 8) | (footprintLength << 16)];
+		if (!box)
+			box = new btBoxShape(btVector3(footprintWidth * STUD_SIZE, brick->height * PLATE_SIZE, footprintLength * STUD_SIZE) * 0.5f);
+		shape = box;
+	}
 
 	btRigidBody::btRigidBodyConstructionInfo info(0, nullptr, shape);
 	info.m_startWorldTransform.setIdentity();
 	info.m_startWorldTransform.setOrigin(g2b3(brick->getWorldCenter()));
+
+	//Special shapes are built unturned, boxes already have their footprint swapped
+	if (special)
+		info.m_startWorldTransform.setRotation(btQuaternion(btVector3(0, 1, 0), brick->getAngle()));
 	info.m_friction = 1.0f;
 
 	brick->body = new btRigidBody(info);
@@ -337,6 +369,44 @@ void BrickHolder::sendAll(JoinedClient const* client) const
 		client->send(packet, BrickLoading);
 }
 
+void BrickHolder::sendSpecialTypes(JoinedClient const* client) const
+{
+	//Packet type, u16 count, then a u16 type ID, a name length byte, and the name for each
+	std::vector<unsigned char> bytes;
+	uint16_t count = 0;
+
+	auto flush = [&]()
+	{
+		if (count == 0)
+			return;
+
+		bytes[0] = SpecialBrickTypes;
+		memcpy(bytes.data() + 1, &count, sizeof(uint16_t));
+		client->send(enet_packet_create(bytes.data(), bytes.size(), getFlagsFromChannel(JoinNegotiation)), JoinNegotiation);
+		count = 0;
+	};
+
+	size_t typeCount = types ? std::min<size_t>(types->getSpecialCount(), 65534) : 0;
+	for (size_t a = 0; a < typeCount; a++)
+	{
+		std::string name = types->getSpecial((int)a)->uiName.substr(0, 255);
+		if (count > 0 && bytes.size() + 3 + name.length() > maxPacketBytes)
+			flush();
+
+		if (count == 0)
+			bytes.assign(packetHeaderBytes, 0);
+
+		uint16_t typeID = (uint16_t)(a + 1);
+		bytes.resize(bytes.size() + sizeof(uint16_t));
+		memcpy(bytes.data() + bytes.size() - sizeof(uint16_t), &typeID, sizeof(uint16_t));
+		bytes.push_back((unsigned char)name.length());
+		bytes.insert(bytes.end(), name.begin(), name.end());
+		count++;
+	}
+
+	flush();
+}
+
 void BrickHolder::makeLuaMetatable(lua_State* L, const std::string& name, luaL_Reg* functions)
 {
 	metatableName = name;
@@ -395,7 +465,7 @@ Brick* BrickHolder::popLua(lua_State* L) const
 	return brick;
 }
 
-BrickHolder::BrickHolder(std::shared_ptr<PhysicsWorld> _world, Server* _server) : world(_world), server(_server)
+BrickHolder::BrickHolder(std::shared_ptr<PhysicsWorld> _world, const BrickTypes* _types, Server* _server) : world(_world), types(_types), server(_server)
 {
 }
 

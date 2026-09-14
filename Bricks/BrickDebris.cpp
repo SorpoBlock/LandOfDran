@@ -29,8 +29,17 @@ void BrickDebris::spawn(const Brick& brick)
 	Piece piece;
 	piece.brick = brick;
 
-	glm::vec3 size = glm::vec3(brick.footprintWidth() * STUD_SIZE, brick.height * PLATE_SIZE, brick.footprintLength() * STUD_SIZE);
-	piece.shape = new btBoxShape(g2b3(size * 0.5f));
+	const SpecialBrickType* special = brick.isSpecial() && types ? types->getSpecial(brick.typeID - 1) : nullptr;
+	if (special && special->shape)
+	{
+		piece.shape = special->shape;
+		piece.ownsShape = false;
+	}
+	else
+	{
+		glm::vec3 size = glm::vec3(brick.footprintWidth() * STUD_SIZE, brick.height * PLATE_SIZE, brick.footprintLength() * STUD_SIZE);
+		piece.shape = new btBoxShape(g2b3(size * 0.5f));
+	}
 
 	btScalar mass = 1;
 	btVector3 inertia;
@@ -39,6 +48,8 @@ void BrickDebris::spawn(const Brick& brick)
 	btRigidBody::btRigidBodyConstructionInfo info(mass, nullptr, piece.shape, inertia);
 	info.m_startWorldTransform.setIdentity();
 	info.m_startWorldTransform.setOrigin(g2b3(brick.getWorldCenter()));
+	if (!piece.ownsShape)
+		info.m_startWorldTransform.setRotation(btQuaternion(btVector3(0, 1, 0), brick.getAngle()));
 
 	piece.body = new btRigidBody(info);
 	piece.body->setActivationState(DISABLE_DEACTIVATION);
@@ -61,7 +72,8 @@ void BrickDebris::destroy(Piece& piece)
 {
 	world->removeBody(piece.body);
 	delete piece.body;
-	delete piece.shape;
+	if (piece.ownsShape)
+		delete piece.shape;
 }
 
 void BrickDebris::update(float deltaT)
@@ -98,7 +110,7 @@ void BrickDebris::render(std::shared_ptr<ShaderManager> shaders, const Instanced
 	renderer->renderLoose(shaders, looseBricks);
 }
 
-BrickDebris::BrickDebris(std::shared_ptr<PhysicsWorld> _world) : world(_world), random(std::random_device{}())
+BrickDebris::BrickDebris(std::shared_ptr<PhysicsWorld> _world, const BrickTypes* _types) : world(_world), types(_types), random(std::random_device{}())
 {
 }
 

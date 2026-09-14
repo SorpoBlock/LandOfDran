@@ -1,0 +1,74 @@
+//Blockland's default special bricks, whose own datablocks only ship compiled
+//Names were matched to files by shape, see BrickTypes::load
+
+datablock fxDTSBrickData(brick1x1musicData)
+{
+	brickFile = "./1x1music.blb";
+	category = "Special";
+	subCategory = "";
+	uiName = "Music Brick";
+	iconName = "./Music Brick";
+};
+
+datablock fxDTSBrickData(brick2x2x5girderData)
+{
+	brickFile = "./2x2x5girder.blb";
+	category = "Special";
+	subCategory = "";
+	uiName = "2x2x5 Lattice";
+	iconName = "./2x2x5 Lattice";
+};
+
+datablock fxDTSBrickData(brick3x1x7wallData)
+{
+	brickFile = "./3x1x7wall.blb";
+	category = "Special";
+	subCategory = "";
+	uiName = "Castle Wall";
+	iconName = "./Castle Wall";
+};
+
+datablock fxDTSBrickData(brick4x1x2FenceData)
+{
+	brickFile = "./4x1x2Fence.blb";
+	category = "Special";
+	subCategory = "";
+	uiName = "1x4x2 Fence";
+	iconName = "./1x4x2 Fence";
+};
+
+datablock fxDTSBrickData(brick4x1x5windowData)
+{
+	brickFile = "./4x1x5window.blb";
+	category = "Special";
+	subCategory = "";
+	uiName = "1x4x5 Window";
+	iconName = "./1x4x5 Window";
+};
+
+datablock fxDTSBrickData(brickpineTreeData)
+{
+	brickFile = "./pineTree.blb";
+	category = "Special";
+	subCategory = "";
+	uiName = "Pine Tree";
+	iconName = "./Pine Tree";
+};
+
+datablock fxDTSBrickData(brickspawnPointData)
+{
+	brickFile = "./spawnPoint.blb";
+	category = "Special";
+	subCategory = "";
+	uiName = "Spawn Point";
+	iconName = "./Spawn Point";
+};
+
+datablock fxDTSBrickData(brickvehicleSpawnData)
+{
+	brickFile = "./vehicleSpawn.blb";
+	category = "Special";
+	subCategory = "";
+	uiName = "Vehicle Spawn";
+	iconName = "./Vehicle Spawn";
+};

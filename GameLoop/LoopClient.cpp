@@ -53,6 +53,8 @@ void LoopClient::leaveServer(ExecutableArguments& cmdArgs)
 	simulation.bricks = nullptr;
 	delete simulation.brickDebris;
 	simulation.brickDebris = nullptr;
+	simulation.brickTypeFromServer.clear();
+	simulation.brickTypeToServer.clear();
 
 	delete client;
 	client = nullptr;
@@ -606,13 +608,29 @@ void LoopClient::handleInput(float deltaT, ExecutableArguments& cmdArgs, std::sh
 		HotbarBrick building;
 		if (pd.brickHotbar->getSelected(building))
 		{
-			//Starting to build again begins in move mode, like the old game
-			if (!pd.ghostBrick.isVisible())
-				pd.ghostBrick.setResizeMode(false);
+			//Special slots hold a type name, which might not be among the types this copy of the game has
+			int special = building.special ? pd.brickTypes.findSpecial(building.name) : -1;
+			const SpecialBrickType* type = pd.brickTypes.getSpecial(special);
 
-			pd.ghostBrick.select(building.width, building.height, building.length);
-			if (!pd.ghostBrick.show())
-				spawnGhostFromCamera(pd, simulation);
+			if (building.special && !type)
+			{
+				pd.ghostBrick.hide();
+				pd.gui->addCenterPrint("Missing special brick " + building.name, 2000, 1.0f, 0.4f, 0.4f);
+			}
+			else
+			{
+				//Starting to build again begins in move mode, like the old game
+				if (!pd.ghostBrick.isVisible())
+					pd.ghostBrick.setResizeMode(false);
+
+				if (type)
+					pd.ghostBrick.select(type->width, type->height, type->length, (uint16_t)(special + 1));
+				else
+					pd.ghostBrick.select(building.width, building.height, building.length);
+
+				if (!pd.ghostBrick.show())
+					spawnGhostFromCamera(pd, simulation);
+			}
 		}
 		else
 			pd.ghostBrick.hide();
@@ -629,7 +647,17 @@ void LoopClient::handleInput(float deltaT, ExecutableArguments& cmdArgs, std::sh
 
 	//Polled every frame so presses made while the ghost is hidden don't fire later
 	if (pd.input->pollCommand(PlantBrick) && pd.ghostBrick.isVisible())
-		client->send(makePlantBrickPacket(pd.ghostBrick.get()), OtherReliable);
+	{
+		//Special types go by the server's ID for them
+		Brick planted = pd.ghostBrick.get();
+		if (planted.isSpecial())
+			planted.typeID = planted.typeID < simulation.brickTypeToServer.size() ? simulation.brickTypeToServer[planted.typeID] : 0;
+
+		if (pd.ghostBrick.get().isSpecial() && !planted.isSpecial())
+			pd.gui->addCenterPrint("This server doesn't have that brick", 2000, 1.0f, 0.4f, 0.4f);
+		else
+			client->send(makePlantBrickPacket(planted), OtherReliable);
+	}
 
 	//The key alone does nothing, undo is Ctrl plus the bound key
 	//A press removes one brick, holding it keeps removing more after a short delay
@@ -1109,7 +1137,7 @@ void LoopClient::renderEverything(float deltaT)
 		pd.shaders->brickShadowTintShader->use();
 		glUniformMatrix4fv(pd.shadowTintMatrixUniform, 1, GL_FALSE, &lightSpaceMatrix[0][0]);
 		glUniform1f(pd.shadowTintMinOpacityUniform, 0.0f);
-		pd.brickRenderer->renderShadowCascade(lightSpaceMatrix, false, true);
+		pd.brickRenderer->renderShadowCascade(lightSpaceMatrix, false, true, true);
 		glBlendEquation(GL_FUNC_ADD);
 		glDisable(GL_BLEND);
 		glDepthMask(GL_TRUE);
@@ -1392,8 +1420,11 @@ void LoopClient::renderEverything(float deltaT)
 	if (pd.ghostBrick.isVisible())
 	{
 		const Brick& ghost = pd.ghostBrick.get();
-		hudLines.push_back("Ghost brick " + std::to_string(ghost.width) + "x" + std::to_string(ghost.height) + "x" + std::to_string(ghost.length) +
-			": IJKL move, . , up/down, U rotate, Left Shift resize, Left Alt super shift, Enter plant, / put away, Ctrl+Z undo");
+		if (const SpecialBrickType* type = pd.brickTypes.getSpecial(ghost.typeID - 1))
+			hudLines.push_back("Ghost brick " + type->uiName + ": IJKL move, . , up/down, U rotate, Left Alt super shift, Enter plant, / put away, Ctrl+Z undo");
+		else
+			hudLines.push_back("Ghost brick " + std::to_string(ghost.width) + "x" + std::to_string(ghost.height) + "x" + std::to_string(ghost.length) +
+				": IJKL move, . , up/down, U rotate, Left Shift resize, Left Alt super shift, Enter plant, / put away, Ctrl+Z undo");
 	}
 
 	pd.escapeMenu->showLeaveServer = client != nullptr;
@@ -1561,9 +1592,9 @@ void LoopClient::run(float deltaT,ExecutableArguments& cmdArgs, std::shared_ptr<
 		simulation.statics = new ObjHolder<StaticObject>(StaticTypeId);
 		simulation.lights = new ObjHolder<Light>(LightTypeId);
 		simulation.emitters = new ObjHolder<Emitter>(EmitterTypeId);
-		simulation.bricks = new BrickHolder(pd.physicsWorld);
+		simulation.bricks = new BrickHolder(pd.physicsWorld, &pd.brickTypes);
 		simulation.bricks->setRenderer(pd.brickRenderer);
-		simulation.brickDebris = new BrickDebris(pd.physicsWorld);
+		simulation.brickDebris = new BrickDebris(pd.physicsWorld, &pd.brickTypes);
 		simulation.brickDebris->setLifetime(settings->getFloat("graphics/brickdebrisseconds"));
 
 		ENetPacket* finishedLoading = makeLoadingFinished();
@@ -1795,7 +1826,7 @@ LoopClient::LoopClient(ExecutableArguments& cmdArgs, std::shared_ptr<SettingMana
 	pd.shadowCascadeMinOpacityUniform = pd.shaders->brickShadowCascadeShader->getUniformLocation("minOpacity");
 	pd.shadowTintMinOpacityUniform = pd.shaders->brickShadowTintShader->getUniformLocation("minOpacity");
 
-	pd.brickRenderer = new InstancedBrickRenderer(pd.shaders, pd.textures);
+	pd.brickRenderer = new InstancedBrickRenderer(pd.shaders, pd.textures, &pd.brickTypes);
 
 	glGenVertexArrays(1, &pd.skyVao);
 

@@ -42,16 +42,47 @@ bool saveLodBuild(const BrickHolder& bricks, const std::string& path, bool omitO
 		return false;
 	}
 
-	unsigned int count = bricks.size();
-	writeValue(file, lodMagic + 1);
-	writeValue(file, count);
-	writeValue(file, (unsigned int)0); //Special brick type names
+	const BrickTypes* types = bricks.getTypes();
 
-	writeValue(file, count);
+	std::vector<const Brick*> basic;
+	std::vector<const Brick*> special;
+
+	//Special types used in this save, and each one's index among them, which is what its bricks store
+	std::vector<std::string> typeNames;
+	std::unordered_map<uint16_t, unsigned int> saveTypeIDs;
+
 	for (size_t a = 0; a < bricks.size(); a++)
 	{
 		const Brick* brick = bricks.get(a);
+		const SpecialBrickType* type = brick->isSpecial() && types ? types->getSpecial(brick->typeID - 1) : nullptr;
+		if (!type)
+		{
+			basic.push_back(brick);
+			continue;
+		}
 
+		if (!saveTypeIDs.count(brick->typeID))
+		{
+			saveTypeIDs[brick->typeID] = typeNames.size();
+			typeNames.push_back(type->uiName.substr(0, 255));
+		}
+		special.push_back(brick);
+	}
+
+	unsigned int count = bricks.size();
+	writeValue(file, lodMagic + 1);
+	writeValue(file, count);
+
+	writeValue(file, (unsigned int)typeNames.size());
+	for (const std::string& typeName : typeNames)
+	{
+		writeValue(file, (unsigned char)typeName.length());
+		file.write(typeName.c_str(), typeName.length());
+	}
+
+	//Color, center, then either a size and print mask or a special type, then the turn and everything after it, the same for both
+	auto writeRecord = [&](const Brick* brick)
+	{
 		for (int channel = 0; channel < 4; channel++)
 			writeValue(file, (unsigned char)brick->color[channel]);
 
@@ -60,10 +91,16 @@ bool saveLodBuild(const BrickHolder& bricks, const std::string& path, bool omitO
 		writeValue(file, (float)((brick->y + brick->height * 0.5) * PLATE_SIZE));
 		writeValue(file, (float)(brick->z + brick->footprintLength() * 0.5));
 
-		writeValue(file, brick->width);
-		writeValue(file, brick->height);
-		writeValue(file, brick->length);
-		writeValue(file, (unsigned char)0); //Print mask
+		if (brick->isSpecial())
+			writeValue(file, saveTypeIDs[brick->typeID]);
+		else
+		{
+			writeValue(file, brick->width);
+			writeValue(file, brick->height);
+			writeValue(file, brick->length);
+			writeValue(file, (unsigned char)0); //Print mask
+		}
+
 		writeValue(file, brick->angleID);
 		writeValue(file, (unsigned char)0); //Material
 
@@ -74,11 +111,17 @@ bool saveLodBuild(const BrickHolder& bricks, const std::string& path, bool omitO
 		file.write(name.c_str(), name.length());
 
 		writeValue(file, (unsigned char)(brick->collides ? 1 : 0));
-	}
+	};
+
+	writeValue(file, (unsigned int)basic.size());
+	for (const Brick* brick : basic)
+		writeRecord(brick);
 
 	writeValue(file, (unsigned int)0); //Transparent basic bricks, the old game only filled this in when clients saved
-	writeValue(file, (unsigned int)0); //Special bricks
-	writeValue(file, (unsigned int)0);
+
+	writeValue(file, (unsigned int)special.size());
+	for (const Brick* brick : special)
+		writeRecord(brick);
 
 	if (!file)
 	{
@@ -157,15 +200,32 @@ int loadLodBuild(BrickHolder& bricks, const std::string& path, int offsetX, int 
 		return -1;
 	}
 
+	//Special type names, bricks in the save refer to them by index, which becomes our own type ID or 0 if we don't have it
+	const BrickTypes* types = bricks.getTypes();
+	std::vector<uint16_t> typeIDs;
+	std::map<std::string, int> missingTypes;
+
 	for (unsigned int a = 0; a < typeCount; a++)
 	{
 		unsigned char nameLength;
+		std::string typeName;
 		if (!readValue(file, nameLength))
 		{
 			error(path + " ended early");
 			return -1;
 		}
-		file.seekg(nameLength, std::ios::cur);
+		typeName.resize(nameLength);
+		if (nameLength > 0 && !file.read(&typeName[0], nameLength))
+		{
+			error(path + " ended early");
+			return -1;
+		}
+
+		typeName = blocklandTextToUtf8(typeName);
+		int special = types ? types->findSpecial(typeName) : -1;
+		typeIDs.push_back(special < 0 ? 0 : (uint16_t)(special + 1));
+		if (special < 0)
+			missingTypes[typeName] = 0;
 	}
 
 	int loaded = 0;
@@ -208,10 +268,20 @@ int loadLodBuild(BrickHolder& bricks, const std::string& path, int offsetX, int 
 				return loaded;
 			}
 
+			uint16_t specialType = 0;
 			if (section == 2)
 			{
-				skippedSpecial++;
-				continue;
+				specialType = typeID < typeIDs.size() ? typeIDs[typeID] : 0;
+				const SpecialBrickType* type = types ? types->getSpecial(specialType - 1) : nullptr;
+				if (!type)
+				{
+					skippedSpecial++;
+					continue;
+				}
+
+				width = type->width;
+				height = type->height;
+				length = type->length;
 			}
 
 			if (width == 0 || height == 0 || length == 0 || angleID > 3)
@@ -221,6 +291,7 @@ int loadLodBuild(BrickHolder& bricks, const std::string& path, int offsetX, int 
 			}
 
 			Brick desc;
+			desc.typeID = specialType;
 			desc.width = width;
 			desc.height = height;
 			desc.length = length;
@@ -243,7 +314,12 @@ int loadLodBuild(BrickHolder& bricks, const std::string& path, int offsetX, int 
 	if (rejected > 0)
 		info(std::to_string(rejected) + " bricks overlapped existing bricks or were out of bounds");
 	if (skippedSpecial > 0)
-		info(std::to_string(skippedSpecial) + " special bricks skipped, special bricks aren't supported yet");
+	{
+		std::string list = "";
+		for (const auto& entry : missingTypes)
+			list += (list.empty() ? "" : ", ") + entry.first;
+		info(std::to_string(skippedSpecial) + " special bricks of types we don't have were skipped: " + list);
+	}
 	if (invalid > 0)
 		error(std::to_string(invalid) + " bricks had invalid sizes or rotations");
 
@@ -332,7 +408,7 @@ int loadBlocklandBuild(BrickHolder& bricks, const BrickTypes& types, const std::
 
 		lastBrick = nullptr;
 
-		std::string name = line.substr(0, quote);
+		std::string name = blocklandTextToUtf8(line.substr(0, quote));
 		std::vector<std::string> fields = splitFields(line.substr(quote + 2));
 
 		//x y z angle isBaseplate colorIndex print colorFx shapeFx raycasting collision rendering
@@ -340,16 +416,30 @@ int loadBlocklandBuild(BrickHolder& bricks, const BrickTypes& types, const std::
 			continue;
 
 		int width, height, length;
+		uint16_t typeID = 0;
 		if (!types.getBasicSize(name, width, height, length))
 		{
-			skippedNames[name]++;
-			continue;
+			int special = types.findSpecial(name);
+			const SpecialBrickType* type = types.getSpecial(special);
+			if (!type)
+			{
+				skippedNames[name]++;
+				continue;
+			}
+
+			typeID = (uint16_t)(special + 1);
+			width = type->width;
+			height = type->height;
+			length = type->length;
 		}
 
 		Brick desc;
+		desc.typeID = typeID;
 		desc.width = width;
 		desc.height = height;
 		desc.length = length;
+
+		//Used as is, like the old game: in the Golden Gate save 45° ramps turned this way have the bricks they lead up to past their high edge
 		desc.angleID = atoi(fields[3].c_str()) % 4;
 		desc.color = palette[std::clamp(atoi(fields[5].c_str()), 0, 63)];
 		desc.collides = fields[10] != "0";
@@ -383,7 +473,7 @@ int loadBlocklandBuild(BrickHolder& bricks, const BrickTypes& types, const std::
 			skipped += entry.second;
 			list += (list.empty() ? "" : ", ") + entry.first + " (" + std::to_string(entry.second) + ")";
 		}
-		info(std::to_string(skipped) + " special or unknown bricks skipped: " + list);
+		info(std::to_string(skipped) + " bricks of unknown types skipped: " + list);
 	}
 
 	return loaded;

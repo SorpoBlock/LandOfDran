@@ -137,6 +137,7 @@ enum FromServerPacketType : unsigned char
 	ParticleEmitterType = 26,	//A particle or emitter type, for every one as a client joins and whenever Lua adds one, see ParticleEmitterTypeKind
 	PlayerAbilities = 27,	//Whether Lua lets this client use jets and a flashlight, see PlayerAbility flags
 	MeshDecal = 28,			//Put a face from Assets/faces on one mesh of a dynamic, or take it off, see Dynamic::setMeshDecal
+	SpecialBrickTypes = 29,	//The server's special brick type IDs and names as a client joins, so it can match them to its own, see SpecialBrickTypesPacket
 };
 
 //Flags byte of a PlayerAbilities packet

@@ -43,8 +43,8 @@ class GhostBrick
 
 	public:
 
-	//Keeps the ghost where it is if it's already out
-	void select(int width, int height, int length);
+	//Keeps the ghost where it is if it's already out, special bricks (typeID above 0) pass their type's size and can't be resized
+	void select(int width, int height, int length, uint16_t typeID = 0);
 
 	void setColor(const glm::u8vec4& color) { brick.color = color; }
 

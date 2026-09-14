@@ -16,12 +16,17 @@ class BrickDebris
 	{
 		Brick brick;
 		btRigidBody* body = nullptr;
-		btBoxShape* shape = nullptr;
+		btCollisionShape* shape = nullptr;
+		//Special bricks borrow their type's shape
+		bool ownsShape = true;
 		float ageMS = 0;
 	};
 
 	std::vector<Piece> pieces;
 	std::shared_ptr<PhysicsWorld> world = nullptr;
+
+	//Non-owning
+	const BrickTypes* types = nullptr;
 	std::mt19937 random;
 
 	//See setLifetime
@@ -42,6 +47,6 @@ class BrickDebris
 	//Expects shaders->brickShader to be in use
 	void render(std::shared_ptr<ShaderManager> shaders, const InstancedBrickRenderer* renderer) const;
 
-	explicit BrickDebris(std::shared_ptr<PhysicsWorld> _world);
+	BrickDebris(std::shared_ptr<PhysicsWorld> _world, const BrickTypes* _types);
 	~BrickDebris();
 };
