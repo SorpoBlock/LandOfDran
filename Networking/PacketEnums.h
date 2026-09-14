@@ -34,7 +34,8 @@ enum PacketChannel
 	OtherReliable = 2,		//Reliable: Used for anything else that needs a relaible packet
 	ObjectUpdates = 3,		//Unreliable sequenced: Used for SimObject updates, mainly snapshot interpolation
 	Unreliable = 4,			//Unreliable unsequenced: Used for some minor effects like playing sounds
-	EndOfChannels = 5		//Not a channel, used in enet_host_create and enet_host_connect
+	VoiceData = 5,			//Unreliable sequenced: Voice chat frames, on their own so they're never held up behind anything else
+	EndOfChannels = 6		//Not a channel, used in enet_host_create and enet_host_connect
 };
 
 //Each PacketChannel has an ideal type of packet
@@ -47,6 +48,7 @@ inline enet_uint32 getFlagsFromChannel(PacketChannel channel)
 		case OtherReliable:
 			return ENET_PACKET_FLAG_RELIABLE;
 		case ObjectUpdates:
+		case VoiceData:
 			return 0;
 		case Unreliable:
 			return ENET_PACKET_FLAG_UNSEQUENCED;
@@ -71,7 +73,14 @@ enum FromClientPacketType : unsigned char
 	ClickDetails = 8,		//The client clicked in-game, includes world position, direction, and which mouse button it was
 	PlantBrickRequest = 9,	//Place the client's ghost brick
 	UndoBrickRequest = 10,	//Remove the last brick this client planted
+	VoiceFrame = 11,		//One 20 ms Opus frame of voice chat while push to talk is held, see Audio/VoiceChat.h
 };
+
+//Flags byte of VoiceFrame and VoiceFrameFromServer packets
+#define VoiceFlag_End 1			//Push to talk was let go, no Opus frame follows
+
+//Biggest Opus frame a voice packet can carry, a 20 ms frame at the bitrate VoiceChat uses is closer to 70 bytes
+constexpr unsigned int maxVoiceFrameBytes = 400;
 
 //Used with ConsoleLine packet
 #define LogFlag_Error 1
@@ -111,6 +120,15 @@ enum FromServerPacketType : unsigned char
 	OneShotSound = 20,		//Play a sound once, with no position, at a position, or following a dynamic
 	SoundLoop = 21,			//Start or stop a looping sound, see SoundLoopOperation
 	AudioEffect = 22,		//Reverb preset for every sound, see Audio/ReverbPresets.h
+	VoiceFrameFromServer = 23,	//Someone else's voice chat frame, with who's talking and where they are
+	VoiceStatus = 24,		//Whether you're muted, or a talker's name, see VoiceStatusKind
+};
+
+//Second byte of a VoiceStatus packet
+enum VoiceStatusKind : unsigned char
+{
+	VoiceStatusMuted = 0,		//1 byte, whether the server muted you
+	VoiceStatusTalkerName = 1	//Net ID of a client and their name, so the client can show who's talking
 };
 
 //Where an OneShotSound or SoundLoop packet's sound plays, and what follows this byte

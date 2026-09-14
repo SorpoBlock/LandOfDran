@@ -457,6 +457,30 @@ int LUA_clientSetAudioEffect(lua_State* L)
 	return 0;
 }
 
+static int LUA_setVoiceRange(lua_State* L)
+{
+	scope("(LUA) setVoiceRange");
+
+	if (lua_gettop(L) != 1 || !lua_isnumber(L, 1))
+	{
+		error("Expected setVoiceRange(studs)");
+		lua_settop(L, 0);
+		return 0;
+	}
+
+	LUA_pd->voiceRange = std::max((float)lua_tonumber(L, 1), 0.0f);
+	lua_settop(L, 0);
+
+	return 0;
+}
+
+static int LUA_getVoiceRange(lua_State* L)
+{
+	lua_settop(L, 0);
+	lua_pushnumber(L, LUA_pd->voiceRange);
+	return 1;
+}
+
 void registerSoundFunctions(lua_State* L)
 {
 	lua_register(L, "newSoundType", LUA_newSoundType);
@@ -464,4 +488,6 @@ void registerSoundFunctions(lua_State* L)
 	lua_register(L, "startSoundLoop", LUA_startSoundLoop);
 	lua_register(L, "stopSoundLoop", LUA_stopSoundLoop);
 	lua_register(L, "setAudioEffect", LUA_setAudioEffect);
+	lua_register(L, "setVoiceRange", LUA_setVoiceRange);
+	lua_register(L, "getVoiceRange", LUA_getVoiceRange);
 }

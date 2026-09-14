@@ -186,6 +186,14 @@ KickReason Client::handleEvent(ENetEvent& event)
 					packets.push_back(new AudioEffectPacket(packetHoldTime, event.packet));
 					return NotKicked;
 
+				case VoiceFrameFromServer:
+					packets.push_back(new VoiceFrameFromServerPacket(packetHoldTime, event.packet));
+					return NotKicked;
+
+				case VoiceStatus:
+					packets.push_back(new VoiceStatusPacket(packetHoldTime, event.packet));
+					return NotKicked;
+
 				//Can't process packet
 				case InvalidServer:
 				default:

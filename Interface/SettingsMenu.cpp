@@ -1,5 +1,11 @@
 #include "SettingsMenu.h"
 
+void SettingsMenu::setStringChoices(const std::string& path, std::function<std::vector<std::string>()> choices)
+{
+	//Setting names are case insensitive
+	stringChoiceSources[lowercase(path)] = choices;
+}
+
 void SettingsMenu::init()
 {
 	initalized = true;
@@ -189,27 +195,64 @@ void SettingsMenu::render(ImGuiIO* io)
 			continue;
 		}
 
+		//More detail when hovering over the setting, if it has any
+		auto tooltip = [ptr]()
+		{
+			if (!ptr->tooltip.empty())
+				ImGui::SetItemTooltip("%s", ptr->tooltip.c_str());
+		};
+
 		//What kind of input component should we make for the given preference
 		switch (ptr->type)
 		{
 		case PreferenceBoolean:
 		{
 			ImGui::Checkbox(ptr->description.c_str(), &ptr->valueBool);
+			tooltip();
 
 			break;
 		}
 		case PreferenceFloat:
 		{
 			ImGui::SliderFloat(ptr->description.c_str(), &ptr->valueFloat, ptr->minValue, ptr->maxValue);
+			tooltip();
 
 			break;
 		}
 		case PreferenceString:
 		{
+			auto source = stringChoiceSources.find(lowercase(path + "/" + ptr->name));
+			if (source != stringChoiceSources.end())
+			{
+				if (!ImGui::BeginCombo(ptr->description.c_str(), ptr->value.c_str()))
+				{
+					tooltip();
+					break;
+				}
+
+				//The choices can change while the game runs, so they're asked for again each time it opens
+				std::vector<std::string>& choices = stringChoices[source->first];
+				if (ImGui::IsWindowAppearing())
+					choices = source->second();
+
+				for (const std::string& choice : choices)
+				{
+					bool selected = lowercase(choice) == lowercase(ptr->value);
+					if (ImGui::Selectable(choice.c_str(), selected))
+						ptr->value = choice;
+					if (selected)
+						ImGui::SetItemDefaultFocus();
+				}
+
+				ImGui::EndCombo();
+				break;
+			}
+
 			//std::cout << ptr->name << " is string value\n";
 			memcpy(textInput, ptr->value.c_str(), ptr->value.length());
 			textInput[ptr->value.length()] = 0;
 			ImGui::InputText(ptr->description.c_str(), textInput, 255);
+			tooltip();
 			ptr->value = std::string(textInput);
 
 			break;
@@ -224,6 +267,7 @@ void SettingsMenu::render(ImGuiIO* io)
 			}
 			else
 				ImGui::SliderInt(ptr->description.c_str(), &ptr->valueInt, (int)ptr->minValue, (int)ptr->maxValue);
+			tooltip();
 
 			break;
 		}

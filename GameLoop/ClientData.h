@@ -4,6 +4,8 @@
 #include "../SimObjects/Dynamic.h"
 #include "PlayerController.h"
 
+#include <set>
+
 //Basically JoinedClient is lower level and used by the server for networking, ClientData is used in server-side packet functions
 //ClientData contains references to a JoinedClient but also anything else that client 'owns' like a player, a camera, bricks, etc.
 struct ClientData
@@ -23,4 +25,14 @@ struct ClientData
 
 	//IDs of bricks this client planted, newest last, for undo
 	std::vector<netIDType> plantedBricks;
+
+	//Voice chat, see Networking/PacketsFromClient/VoiceFrame.cpp
+	//Lua's client:setVoiceMuted, their voice is dropped while it's set
+	bool voiceMuted = false;
+	//Between the ClientStartTalking and ClientStopTalking events
+	bool talking = false;
+	//SDL_GetTicks of their last voice packet, see LoopServer::endQuietTalkers
+	unsigned int lastVoiceMS = 0;
+	//Net IDs of clients whose names this client has been sent, so it can show who's talking
+	std::set<netIDType> knownTalkers;
 };

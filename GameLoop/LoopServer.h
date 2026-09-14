@@ -49,6 +49,9 @@ class LoopServer
 	//Splash and ExitWater sounds for dynamics that just went into or came out of the water fast, after the physics step
 	void playWaterSounds();
 
+	//Ends talking for clients whose voice stopped arriving without them saying they let go of push to talk, like a lost last packet or being muted mid-sentence
+	void endQuietTalkers();
+
 public:
 
 	//Constructor have any issues?

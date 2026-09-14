@@ -27,6 +27,8 @@ static constexpr float fullVolumeDistance = 5.0f;
 static constexpr float distanceRolloff = 1.66f;
 //How much high end distant sounds lose on top of that, OpenAL's air absorption treating a stud as a meter
 static constexpr float airAbsorption = 1.5f;
+//Voices fall off the same way, but from farther out so people standing near each other can talk comfortably
+static constexpr float voiceFullVolumeDistance = 10.0f;
 
 //Doppler effect, with sound traveling speedOfSound studs a second. Sounds on a Dynamic use its physics velocity. A listener that
 //isn't given a velocity gets one from how it moves, measured over at least velocitySampleMS and smoothed over roughly velocitySmoothingMS,
@@ -249,11 +251,15 @@ void AudioSystem::connectReverb(bool on)
 		alSource3i(generalSources[a], AL_AUXILIARY_SEND_FILTER, slot, 0, AL_FILTER_NULL);
 	for (int a = 0; a < loopSourceCount; a++)
 		alSource3i(loopSources[a], AL_AUXILIARY_SEND_FILTER, slot, 0, AL_FILTER_NULL);
+	for (int a = 0; a < voiceSourceCount; a++)
+		alSource3i(voiceSources[a], AL_AUXILIARY_SEND_FILTER, slot, 0, AL_FILTER_NULL);
 
 	//The muffling filters go back on the new sends the next time each source's filter is applied
 	for (Occlusion& occlusion : generalOcclusion)
 		occlusion.appliedGain = -1;
 	for (Occlusion& occlusion : loopOcclusion)
+		occlusion.appliedGain = -1;
+	for (Occlusion& occlusion : voiceOcclusion)
 		occlusion.appliedGain = -1;
 }
 
@@ -640,6 +646,130 @@ void AudioSystem::setVolumes(float master, float music)
 			alSourcef(loopSources[loop.source], AL_GAIN, loop.volume * musicVolume);
 }
 
+void AudioSystem::recycleVoiceBuffers(ALuint source)
+{
+	ALint processed = 0;
+	alGetSourcei(source, AL_BUFFERS_PROCESSED, &processed);
+	if (processed <= 0)
+		return;
+
+	size_t at = spareVoiceBuffers.size();
+	spareVoiceBuffers.resize(at + processed);
+	alSourceUnqueueBuffers(source, processed, spareVoiceBuffers.data() + at);
+}
+
+int AudioSystem::openVoice(const SoundLocation& where)
+{
+	if (!valid)
+		return -1;
+
+	for (int a = 0; a < voiceSourceCount; a++)
+	{
+		if (voiceSourceUsed[a])
+			continue;
+
+		voiceSourceUsed[a] = true;
+
+		ALuint source = voiceSources[a];
+		alSourceStop(source);
+		recycleVoiceBuffers(source);
+		alSourcei(source, AL_BUFFER, 0);
+		alSourcef(source, AL_GAIN, voiceVolume);
+
+		voiceLocations[a] = where;
+		voiceLocations[a].follow();
+		placeSource(source, voiceLocations[a]);
+		startOcclusion(source, voiceOcclusion[a], voiceLocations[a]);
+
+		return a;
+	}
+
+	return -1;
+}
+
+void AudioSystem::moveVoice(int voice, const SoundLocation& where)
+{
+	if (!valid || voice < 0 || voice >= voiceSourceCount || !voiceSourceUsed[voice])
+		return;
+
+	voiceLocations[voice] = where;
+	voiceLocations[voice].follow();
+	placeSource(voiceSources[voice], voiceLocations[voice]);
+}
+
+void AudioSystem::queueVoice(int voice, const int16_t* samples, int sampleCount, int sampleRate)
+{
+	if (!valid || voice < 0 || voice >= voiceSourceCount || !voiceSourceUsed[voice] || sampleCount <= 0)
+		return;
+
+	ALuint source = voiceSources[voice];
+
+	//Every buffer of a source that ran out counts as processed, taking them off also keeps it from replaying them when it starts again
+	recycleVoiceBuffers(source);
+
+	ALuint buffer = 0;
+	if (spareVoiceBuffers.empty())
+	{
+		alGenBuffers(1, &buffer);
+		if (!buffer)
+		{
+			error("OpenAL couldn't make a buffer for voice chat");
+			return;
+		}
+		allVoiceBuffers.push_back(buffer);
+	}
+	else
+	{
+		buffer = spareVoiceBuffers.back();
+		spareVoiceBuffers.pop_back();
+	}
+
+	alBufferData(buffer, AL_FORMAT_MONO16, samples, (ALsizei)(sampleCount * sizeof(int16_t)), sampleRate);
+	alSourceQueueBuffers(source, 1, &buffer);
+
+	ALint state;
+	alGetSourcei(source, AL_SOURCE_STATE, &state);
+	if (state != AL_PLAYING)
+		alSourcePlay(source);
+}
+
+int AudioSystem::queuedVoiceBuffers(int voice) const
+{
+	if (!valid || voice < 0 || voice >= voiceSourceCount || !voiceSourceUsed[voice])
+		return 0;
+
+	ALint queued = 0, processed = 0;
+	alGetSourcei(voiceSources[voice], AL_BUFFERS_QUEUED, &queued);
+	alGetSourcei(voiceSources[voice], AL_BUFFERS_PROCESSED, &processed);
+	return queued - processed;
+}
+
+void AudioSystem::closeVoice(int voice)
+{
+	if (!valid || voice < 0 || voice >= voiceSourceCount || !voiceSourceUsed[voice])
+		return;
+
+	ALuint source = voiceSources[voice];
+	alSourceStop(source);
+	recycleVoiceBuffers(source);
+	alSourcei(source, AL_BUFFER, 0);
+
+	voiceSourceUsed[voice] = false;
+	voiceLocations[voice] = SoundLocation::flat();
+}
+
+void AudioSystem::setVoiceVolume(float volume)
+{
+	voiceVolume = std::clamp(volume, 0.0f, 1.0f);
+
+	if (!valid)
+		return;
+
+	for (int a = 0; a < voiceSourceCount; a++)
+		if (voiceSourceUsed[a])
+			alSourcef(voiceSources[a], AL_GAIN, voiceVolume);
+}
+
 void AudioSystem::update(const glm::vec3& position, const glm::vec3& listenerDirection, std::optional<glm::vec3> listenerVelocity, float deltaT)
 {
 	if (!valid)
@@ -767,6 +897,21 @@ void AudioSystem::update(const glm::vec3& position, const glm::vec3& listenerDir
 		}
 	}
 
+	//Voices follow the talker's player, staying where it was last if it's deleted
+	for (int a = 0; a < voiceSourceCount; a++)
+	{
+		if (!voiceSourceUsed[a])
+			continue;
+
+		if (voiceLocations[a].kind == SoundLocation::Attached && voiceLocations[a].follow())
+			alSource3f(voiceSources[a], AL_POSITION, voiceLocations[a].position.x, voiceLocations[a].position.y, voiceLocations[a].position.z);
+
+		glm::vec3 sourceVelocity = soundVelocity(voiceLocations[a]);
+		alSource3f(voiceSources[a], AL_VELOCITY, sourceVelocity.x, sourceVelocity.y, sourceVelocity.z);
+
+		updateOcclusion(voiceSources[a], voiceOcclusion[a], voiceLocations[a], deltaT);
+	}
+
 	ALenum alError = alGetError();
 	if (alError != AL_NO_ERROR)
 		error("OpenAL error " + std::to_string(alError) + " updating audio");
@@ -790,6 +935,9 @@ void AudioSystem::clear()
 			alSourcei(generalSources[a], AL_BUFFER, 0);
 			generalLocations[a] = SoundLocation::flat();
 		}
+
+		for (int a = 0; a < voiceSourceCount; a++)
+			closeVoice(a);
 
 		updateReverbConnection();
 
@@ -828,6 +976,7 @@ AudioSystem::AudioSystem()
 
 	alGenSources(generalSourceCount, generalSources);
 	alGenSources(loopSourceCount, loopSources);
+	alGenSources(voiceSourceCount, voiceSources);
 
 	ALenum alError = alGetError();
 	if (alError != AL_NO_ERROR)
@@ -855,6 +1004,12 @@ AudioSystem::AudioSystem()
 	{
 		alSourcef(source, AL_REFERENCE_DISTANCE, fullVolumeDistance);
 		alSourcef(source, AL_ROLLOFF_FACTOR, distanceRolloff);
+	}
+	for (ALuint source : voiceSources)
+	{
+		alSourcef(source, AL_REFERENCE_DISTANCE, voiceFullVolumeDistance);
+		alSourcef(source, AL_ROLLOFF_FACTOR, distanceRolloff);
+		alSourcei(source, AL_LOOPING, AL_FALSE);
 	}
 
 	alDopplerFactor(dopplerStrength);
@@ -889,6 +1044,8 @@ AudioSystem::AudioSystem()
 			alSourcef(source, AL_AIR_ABSORPTION_FACTOR, airAbsorption);
 		for (ALuint source : loopSources)
 			alSourcef(source, AL_AIR_ABSORPTION_FACTOR, airAbsorption);
+		for (ALuint source : voiceSources)
+			alSourcef(source, AL_AIR_ABSORPTION_FACTOR, airAbsorption);
 	}
 	else
 		info("OpenAL implementation has no EFX, reverb and muffling won't do anything");
@@ -913,9 +1070,14 @@ AudioSystem::~AudioSystem()
 		alSourcei(generalSources[a], AL_DIRECT_FILTER, AL_FILTER_NULL);
 	for (int a = 0; a < loopSourceCount; a++)
 		alSourcei(loopSources[a], AL_DIRECT_FILTER, AL_FILTER_NULL);
+	for (int a = 0; a < voiceSourceCount; a++)
+		alSourcei(voiceSources[a], AL_DIRECT_FILTER, AL_FILTER_NULL);
 
 	alDeleteSources(generalSourceCount, generalSources);
 	alDeleteSources(loopSourceCount, loopSources);
+	alDeleteSources(voiceSourceCount, voiceSources);
+	if (!allVoiceBuffers.empty())
+		alDeleteBuffers((ALsizei)allVoiceBuffers.size(), allVoiceBuffers.data());
 
 	if (directFilter)
 		alDeleteFilters(1, &directFilter);

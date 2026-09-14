@@ -24,6 +24,8 @@
 #include "PacketsFromServer/OneShotSound.h"
 #include "PacketsFromServer/SoundLoop.h"
 #include "PacketsFromServer/AudioEffect.h"
+#include "PacketsFromServer/VoiceFrameFromServer.h"
+#include "PacketsFromServer/VoiceStatus.h"
 #include "../GameLoop/ClientProgramData.h"
 #include "../GameLoop/Simulation.h"
 

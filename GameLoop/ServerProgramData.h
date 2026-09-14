@@ -84,6 +84,11 @@ struct ServerProgramData
 	//See Audio/ReverbPresets.h, sent to clients as they finish loading
 	std::string reverbPreset = "auto";
 
+	//Lua's setVoiceRange: how many studs from a talker a client's camera can be and still hear them, 0 for nobody
+	float voiceRange = 128.0f;
+	//Someone who hasn't sent any voice for this long has stopped talking, see LoopServer::endQuietTalkers
+	static constexpr unsigned int voiceTimeoutMS = 500;
+
 	//ObjHolders created and destroyed with ServerLoop class
 	//All dynamic objects:
 	ObjHolder<Dynamic>* dynamics = nullptr;

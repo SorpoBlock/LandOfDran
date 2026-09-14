@@ -18,6 +18,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         libsdl2-dev \
         libglew-dev \
         libopenal-dev \
+        libopus-dev \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /src

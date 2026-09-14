@@ -51,6 +51,7 @@ public:
 
 	static constexpr int generalSourceCount = 64;
 	static constexpr int loopSourceCount = 16;
+	static constexpr int voiceSourceCount = 8;
 
 	/*
 		0 when nothing is between the listener and a sound, up to 1 when it's completely blocked, see AcousticProbe::occlusion
@@ -123,6 +124,16 @@ private:
 	bool loopSourceUsed[loopSourceCount] = {};
 	Occlusion loopOcclusion[loopSourceCount];
 
+	//Voice chat, see VoiceChat: each plays buffers queued onto it as they're decoded
+	ALuint voiceSources[voiceSourceCount] = {};
+	bool voiceSourceUsed[voiceSourceCount] = {};
+	SoundLocation voiceLocations[voiceSourceCount];
+	Occlusion voiceOcclusion[voiceSourceCount];
+	//Buffers voice sources finished playing, filled again instead of making new ones. allVoiceBuffers is every one made, to delete at the end
+	std::vector<ALuint> spareVoiceBuffers;
+	std::vector<ALuint> allVoiceBuffers;
+	float voiceVolume = 1.0f;
+
 	//Stop requests for loops we haven't started yet (a start waiting on its Dynamic to arrive), so the start is dropped instead
 	std::set<unsigned int> stoppedBeforeStarting;
 
@@ -188,6 +199,9 @@ private:
 
 	void applyDirectFilter(ALuint source, Occlusion& occlusion);
 
+	//Takes buffers a voice source finished playing off it, into spareVoiceBuffers
+	void recycleVoiceBuffers(ALuint source);
+
 public:
 
 	bool isValid() const { return valid; }
@@ -230,6 +244,21 @@ public:
 	//Call every frame: moves the listener, follows moving sounds, updates reverb and muffling, and hands loop sources to the closest loops
 	//listenerVelocity is for the Doppler effect, like that of the player the camera follows. Without one, it comes from how the listener moves
 	void update(const glm::vec3& listenerPosition, const glm::vec3& listenerDirection, std::optional<glm::vec3> listenerVelocity, float deltaT);
+
+	/*
+		Voice chat: a source that plays samples as they're queued onto it, positioned, muffled, and echoing like any other sound
+		Returns which voice source it got, -1 if they're all taken
+	*/
+	int openVoice(const SoundLocation& where);
+	void moveVoice(int voice, const SoundLocation& where);
+	//Adds mono samples after what the voice source has left to play, starting it again if it ran out
+	void queueVoice(int voice, const int16_t* samples, int sampleCount, int sampleRate);
+	//How many queueVoice calls' worth haven't finished playing yet, 0 once it's run out
+	int queuedVoiceBuffers(int voice) const;
+	void closeVoice(int voice);
+
+	//audio/voicevolume, 0-1, on top of the master volume
+	void setVoiceVolume(float volume);
 
 	//Stops everything and forgets the server's sounds, loops, and reverb preset, for leaving a server
 	void clear();

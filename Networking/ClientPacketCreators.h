@@ -95,6 +95,26 @@ inline ENetPacket* makeUndoBrickPacket()
 	return enet_packet_create(&data, 1, getFlagsFromChannel(OtherReliable));
 }
 
+/*
+	1 byte   - packet type
+	1 byte   - flags, see VoiceFlag_End
+	2 bytes  - sequence number, one more for each 20 ms frame
+	The rest - one Opus frame, up to maxVoiceFrameBytes, nothing with VoiceFlag_End
+*/
+inline ENetPacket* makeVoiceFramePacket(unsigned char flags, uint16_t sequence, const unsigned char* frame, unsigned int length)
+{
+	length = std::min(length, maxVoiceFrameBytes);
+
+	ENetPacket* ret = enet_packet_create(NULL, 2 + sizeof(uint16_t) + length, getFlagsFromChannel(VoiceData));
+	ret->data[0] = (unsigned char)VoiceFrame;
+	ret->data[1] = flags;
+	memcpy(ret->data + 2, &sequence, sizeof(uint16_t));
+	if (length > 0)
+		memcpy(ret->data + 2 + sizeof(uint16_t), frame, length);
+
+	return ret;
+}
+
 //One byte lets the server know we finished phase one loading
 inline ENetPacket* makeLoadingFinished()
 {

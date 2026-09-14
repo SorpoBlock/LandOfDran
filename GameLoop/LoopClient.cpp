@@ -53,6 +53,7 @@ void LoopClient::leaveServer(ExecutableArguments& cmdArgs)
 	pd.ghostBrick.hide();
 	pd.brickHotbar->putAway();
 	pd.brickHotbar->takeChange();
+	pd.voice->clear();
 	pd.audio->clear();
 
 	//Destroy server specific physics
@@ -267,6 +268,8 @@ void LoopClient::handleInput(float deltaT, ExecutableArguments& cmdArgs, std::sh
 		pd.audio->setVolumes(settings->getFloat("audio/mastervolume"), settings->getFloat("audio/musicvolume"));
 		pd.audio->setEnvironmentOptions(settings->getInt("audio/reverbquality"), settings->getInt("audio/occlusionquality"));
 		pd.acousticProbe.setQuality(settings->getInt("audio/reverbquality"), settings->getInt("audio/occlusionquality"));
+		pd.audio->setVoiceVolume(settings->getFloat("audio/voicevolume"));
+		pd.voice->setMicrophone(settings->getString("audio/microphone"), settings->getFloat("audio/microphonevolume"));
 		if (simulation.brickDebris)
 			simulation.brickDebris->setLifetime(settings->getFloat("graphics/brickdebrisseconds"));
 	}
@@ -937,6 +940,10 @@ void LoopClient::renderEverything(float deltaT)
 	pd.escapeMenu->showLeaveServer = client != nullptr;
 	pd.gui->superShiftIndicator = pd.ghostBrick.isVisible() ? (pd.ghostBrick.isSuperShift() ? 1 : 0) : -1;
 	pd.gui->resizeIndicator = pd.ghostBrick.isVisible() ? (pd.ghostBrick.isResizeMode() ? 1 : 0) : -1;
+	pd.gui->voiceIndicator = !client ? -1 : (pd.voice->isTransmitting() ? 1 : (pd.voice->isMuted() ? 0 : -1));
+	pd.gui->voiceSpeakers = pd.voice->getSpeaking();
+	pd.gui->voiceLevel = pd.voice->getInputLevel();
+	pd.gui->voiceClipping = pd.voice->isClipping();
 	pd.gui->render(pd.context->getResolution().x, pd.context->getResolution().y,crossHair,hudLines);
 
 	//End frame
@@ -1151,6 +1158,14 @@ void LoopClient::run(float deltaT,ExecutableArguments& cmdArgs, std::shared_ptr<
 		listenerVelocity = glm::vec3(velocity.x(), velocity.y(), velocity.z());
 	}
 
+	//Push to talk is suppressed like every other game key while typing in chat or another window
+	bool pushToTalk = client && cmdArgs.gameState == InGame && pd.input->isCommandKeydown(PushToTalk);
+	pd.voice->update(pushToTalk, [this](unsigned char flags, uint16_t sequence, const unsigned char* data, unsigned int length)
+	{
+		if (client)
+			client->send(makeVoiceFramePacket(flags, sequence, data, length), VoiceData);
+	}, deltaT);
+
 	pd.audio->update(listener, simulation.camera->getDirection(), listenerVelocity, deltaT);
 }
 
@@ -1197,6 +1212,10 @@ LoopClient::LoopClient(ExecutableArguments& cmdArgs, std::shared_ptr<SettingMana
 	pd.audio->setVolumes(settings->getFloat("audio/mastervolume"), settings->getFloat("audio/musicvolume"));
 	pd.audio->setEnvironmentOptions(settings->getInt("audio/reverbquality"), settings->getInt("audio/occlusionquality"));
 	pd.acousticProbe.setQuality(settings->getInt("audio/reverbquality"), settings->getInt("audio/occlusionquality"));
+	pd.audio->setVoiceVolume(settings->getFloat("audio/voicevolume"));
+
+	pd.voice = std::make_shared<VoiceChat>(pd.audio);
+	pd.voice->setMicrophone(settings->getString("audio/microphone"), settings->getFloat("audio/microphonevolume"));
 
 	//A sound is muffled by anything between it and the camera, other than the player's own body and whatever the sound is on
 	pd.audio->setOcclusionTest([this](const glm::vec3& listener, const glm::vec3& source, const btRigidBody* sourceBody)
@@ -1213,6 +1232,7 @@ LoopClient::LoopClient(ExecutableArguments& cmdArgs, std::shared_ptr<SettingMana
 	pd.gui = std::make_shared<UserInterface>();
 	pd.gui->updateSettings(settings);
 	pd.settingsMenu = pd.gui->createWindow<SettingsMenu>(settings, pd.input);
+	pd.settingsMenu->setStringChoices("audio/microphone", &VoiceChat::listMicrophones);
 	pd.debugMenu = pd.gui->createWindow<DebugMenu>();
 	pd.escapeMenu = pd.gui->createWindow<EscapeMenu>();
 	pd.serverBrowser = pd.gui->createWindow<ServerBrowser>();
@@ -1347,6 +1367,7 @@ LoopClient::~LoopClient()
 	pd.gui.reset(); //Will handle indivdual windows
 	pd.shaders.reset();
 	pd.textures.reset();
+	pd.voice.reset();
 	pd.audio.reset();
 
 	//This one is actually useful because the server will learn we disconnected faster if we do it properly

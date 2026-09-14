@@ -50,6 +50,8 @@ struct PreferencePair
    		Not saved to text files, set in DefaultPreferences.cpp
      */
 	std::string description = "";
+	//Shown when hovering over the setting in the settings menu, not saved either, see SettingManager::setTooltip
+	std::string tooltip = "";
 	/*
  		Only used if created or changed with SettingManager::addEnum
    		An actual C++ enum should be created alongside each one of these
@@ -209,4 +211,7 @@ class SettingManager
    			Will not overwrite existing values
 		*/
 		void addEnum(std::string path, int value,std::string desc,std::vector<std::string> &&names);
+
+		//More detail for a setting's short description, shown when hovering over it in the settings menu. Does nothing if there's no setting at path
+		void setTooltip(std::string path, const std::string& tooltip);
 };

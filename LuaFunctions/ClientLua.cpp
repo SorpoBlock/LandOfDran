@@ -765,6 +765,70 @@ static int LUA_centerPrintAll(lua_State* L)
 	return 0;
 }
 
+//The ClientData of the client object at the bottom of the stack, emptying the stack. nullptr after logging an error if there isn't one
+static std::shared_ptr<ClientData> popClientData(lua_State* L, int expectedArgs, const std::string& usage)
+{
+	if (lua_gettop(L) != expectedArgs)
+	{
+		error("Expected " + usage);
+		lua_settop(L, 0);
+		return nullptr;
+	}
+
+	lua_settop(L, 1);
+	std::shared_ptr<JoinedClient> jc = popClientLua(L);
+	lua_settop(L, 0);
+
+	std::shared_ptr<ClientData> client = jc ? LUA_pd->getClient(jc) : nullptr;
+	if (!client)
+		error("Invalid client object passed to " + usage);
+
+	return client;
+}
+
+static int LUA_clientSetVoiceMuted(lua_State* L)
+{
+	scope("(LUA) client:setVoiceMuted");
+
+	bool muted = lua_toboolean(L, 2);
+	std::shared_ptr<ClientData> client = popClientData(L, 2, "client:setVoiceMuted(muted)");
+	if (!client)
+		return 0;
+
+	//The server drops their voice from now on. If they were talking, LoopServer::endQuietTalkers ends it once it stops arriving
+	client->voiceMuted = muted;
+
+	//So they stop sending and see that they're muted
+	char data[3] = { (char)VoiceStatus, (char)VoiceStatusMuted, (char)(muted ? 1 : 0) };
+	client->client->send(data, 3, OtherReliable);
+
+	return 0;
+}
+
+static int LUA_clientIsVoiceMuted(lua_State* L)
+{
+	scope("(LUA) client:isVoiceMuted");
+
+	std::shared_ptr<ClientData> client = popClientData(L, 1, "client:isVoiceMuted()");
+	if (!client)
+		return 0;
+
+	lua_pushboolean(L, client->voiceMuted);
+	return 1;
+}
+
+static int LUA_clientIsTalking(lua_State* L)
+{
+	scope("(LUA) client:isTalking");
+
+	std::shared_ptr<ClientData> client = popClientData(L, 1, "client:isTalking()");
+	if (!client)
+		return 0;
+
+	lua_pushboolean(L, client->talking);
+	return 1;
+}
+
 void registerClientFunctions(lua_State* L)
 {
 	//Register client global functions:
@@ -793,6 +857,9 @@ void registerClientFunctions(lua_State* L)
 		{ "centerPrint", LUA_clientCenterPrint },
 		{ "playSound", LUA_clientPlaySound },
 		{ "setAudioEffect", LUA_clientSetAudioEffect },
+		{ "setVoiceMuted", LUA_clientSetVoiceMuted },
+		{ "isVoiceMuted", LUA_clientIsVoiceMuted },
+		{ "isTalking", LUA_clientIsTalking },
 		{ NULL, NULL }
 	};
 

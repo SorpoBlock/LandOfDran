@@ -95,6 +95,11 @@ void Server::switchPacketType(JoinedClient * source, ENetPacket* packet, const v
 			undoBrick(source, this, packet, pd);
 			return;
 		}
+		case VoiceFrame:
+		{
+			voiceFrame(source, this, packet, pd);
+			return;
+		}
 
 		case InvalidClient:
 		default:
@@ -139,62 +144,64 @@ void Server::run(const void* pd, lua_State* L, EventManager * eventManager)
 	if (!valid)
 		return;
 
+	//Handle everything that arrived since last tick. One event a tick (40 a second) falls behind as soon as one person talks,
+	//voice chat alone is 50 packets a second per talker
 	ENetEvent netEvent;
-
-	int enetValue = enet_host_service(server, &netEvent, 0);
-
-	if (enetValue < -1)
-		error("enet_host_service error");
-	else if (enetValue == 0)
-		return;
-	
-	switch (netEvent.type)
+	int enetValue;
+	while ((enetValue = enet_host_service(server, &netEvent, 0)) > 0)
 	{
-		case ENET_EVENT_TYPE_CONNECT:
+		switch (netEvent.type)
 		{
-			clients.push_back(std::make_shared<JoinedClient>(netEvent,lastNetID));
-			clients.back()->me = clients.back();
-			lastNetID++;
-			break;
-		}
-		case ENET_EVENT_TYPE_RECEIVE:
-		{
-			JoinedClient* client = (JoinedClient*)netEvent.peer->data;
-			if (!client)
+			case ENET_EVENT_TYPE_CONNECT:
 			{
-				error("Got packet that had no JoinedClient pointer!");
+				clients.push_back(std::make_shared<JoinedClient>(netEvent,lastNetID));
+				clients.back()->me = clients.back();
+				lastNetID++;
 				break;
 			}
-
-			switchPacketType(client,netEvent.packet,pd);
-			enet_packet_destroy(netEvent.packet);
-
-			break;
-		}
-		case ENET_EVENT_TYPE_DISCONNECT:
-		{
-			//We could just jump directly to the joined client with the data pointer but we'd need to iterate the vector anyway to remove it
-			auto iter = clients.begin();
-			while (iter != clients.end())
+			case ENET_EVENT_TYPE_RECEIVE:
 			{
-				std::shared_ptr<JoinedClient> client = *iter;
-
-				if (client.get() == (JoinedClient*)netEvent.peer->data)
+				JoinedClient* client = (JoinedClient*)netEvent.peer->data;
+				if (!client)
 				{
-					handleDisconnect((JoinedClient*)netEvent.peer->data,this,pd,L,eventManager);
-
-					client->me.reset();
-					client.reset();
-					clients.erase(iter);
+					error("Got packet that had no JoinedClient pointer!");
+					enet_packet_destroy(netEvent.packet);
 					break;
 				}
-				++iter;
+
+				switchPacketType(client,netEvent.packet,pd);
+				enet_packet_destroy(netEvent.packet);
+
+				break;
 			}
-			break;
+			case ENET_EVENT_TYPE_DISCONNECT:
+			{
+				//We could just jump directly to the joined client with the data pointer but we'd need to iterate the vector anyway to remove it
+				auto iter = clients.begin();
+				while (iter != clients.end())
+				{
+					std::shared_ptr<JoinedClient> client = *iter;
+
+					if (client.get() == (JoinedClient*)netEvent.peer->data)
+					{
+						handleDisconnect((JoinedClient*)netEvent.peer->data,this,pd,L,eventManager);
+
+						client->me.reset();
+						client.reset();
+						clients.erase(iter);
+						break;
+					}
+					++iter;
+				}
+				break;
+			}
+			default:
+				break;
 		}
-		default:
-			break;
 	}
+
+	if (enetValue < 0)
+		error("enet_host_service error");
 }
 
 Server::Server(int port)

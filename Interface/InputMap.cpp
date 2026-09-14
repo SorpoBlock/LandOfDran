@@ -36,6 +36,7 @@ std::string GetInputCommandString(InputCommand command)
         case HideGhostBrick: return "Put Bricks Away";
         case UndoBrick: return "Undo Last Brick (with Ctrl)";
         case ResizeToggle: return "Toggle Brick Resize Mode";
+        case PushToTalk: return "Push to Talk (hold)";
         default: return "Other error";
     }
 }
@@ -101,6 +102,7 @@ InputMap::InputMap(std::shared_ptr<SettingManager> settings)
         bindKey(HideGhostBrick, SDL_SCANCODE_SLASH);
         bindKey(UndoBrick, SDL_SCANCODE_Z);
         bindKey(ResizeToggle, SDL_SCANCODE_LSHIFT);
+        bindKey(PushToTalk, SDL_SCANCODE_V);
 
         //Number keys 1 through 9 then 0, SDL's scancodes for them are in that order
         for (int a = 0; a < 10; a++)

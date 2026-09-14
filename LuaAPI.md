@@ -98,6 +98,8 @@ count or type. Negative colors and brightness are treated as 0.
 | `ClientPlantBrick` | `function(client, brick) ... return client, brick end` | Fires after a client plants its ghost brick and the server accepts it. The brick is already placed and sent to clients; call `brick:remove()` to take it back out. |
 | `ClientAdminLogin` | `function(client) ... return client end` | Fires when a client enters the right eval console password. Not fired for the single player host, who is made admin automatically. `serverstart.lua` plays the `Admin` sound to them here. |
 | `ClientClick` | `function(client, posX, posY, posZ, dirX, dirY, dirZ, mask) ... return client, posX, posY, posZ, dirX, dirY, dirZ, mask end` | Fires on every mouse click. `posX/Y/Z` and `dirX/Y/Z` are the camera's position and look direction *at the moment of the click*; `mask` is the SDL mouse button mask (see Conventions). |
+| `ClientStartTalking` | `function(client) ... return client end` | Fires when a client starts sending voice chat. Calling `client:setVoiceMuted(true)` here cuts them off before anyone hears them. |
+| `ClientStopTalking` | `function(client) ... return client end` | Fires when a client lets go of push to talk, or half a second after their voice stops arriving (a lost last packet, or muted while talking). Not fired for a client who leaves while talking. |
 
 ---
 
@@ -280,6 +282,25 @@ See also `dynamic:playSound`, `dynamic:startSoundLoop`, `client:playSound`, and 
 
 ---
 
+## Voice chat
+
+Players hold push to talk (V by default) to talk. Their voice comes from their player (the dynamic
+their movement keys control, otherwise the first dynamic they control), or from their camera if they
+have neither, and is only sent to clients whose camera is within the voice range. For the people
+listening it works like a positioned sound: full volume within 10 studs, then about 10 dB quieter each
+time the distance doubles, muffled behind bricks and underwater, with the same reverb as every other
+sound. Each client plays up to 8 people talking at once. Players set their microphone, microphone
+volume, and voice chat volume in the audio settings.
+
+| Function | Arguments | Returns | Description |
+|---|---|---|---|
+| `setVoiceRange(studs)` | distance, at least 0; default 128 | none | How far a talker can be from a client's camera and still be heard. `0` turns voice chat off for everyone. |
+| `getVoiceRange()` | none | studs | The current voice range. |
+
+See also `client:setVoiceMuted`, `client:isVoiceMuted`, `client:isTalking`, and the `ClientStartTalking` and `ClientStopTalking` events.
+
+---
+
 ## Clients
 
 A "client" represents one connected player/connection.
@@ -317,3 +338,6 @@ A "client" represents one connected player/connection.
 | `client:centerPrint(text)` / `client:centerPrint(text, durationMS)` / `client:centerPrint(text, durationMS, red, green, blue)` | text (max 255 chars); duration in ms (default 3000, clamped to 60000); color 0-1 (default white) | none | Shows a temporary message in the center of just this client's screen. |
 | `client:playSound(name[, x, y, z][, pitch, volume])` | same as `playSound` | none | Plays a sound once for just this client. |
 | `client:setAudioEffect(preset)` | same as `setAudioEffect` | none | Sets the reverb effect for just this client, until something sets it again. Not remembered: `setAudioEffect`'s preset is what a client gets when they join. |
+| `client:setVoiceMuted(muted)` | bool | none | Mutes or unmutes the client's voice chat. The server drops their voice while they're muted, and their game shows "Voice Muted" and stops sending. If they were talking, `ClientStopTalking` fires half a second later. Not remembered if they reconnect. |
+| `client:isVoiceMuted()` | none | bool | Whether `setVoiceMuted` muted the client. |
+| `client:isTalking()` | none | bool | Whether the client is talking right now, between `ClientStartTalking` and `ClientStopTalking`. |

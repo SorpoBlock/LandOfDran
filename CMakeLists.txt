@@ -43,6 +43,12 @@ if(UNIX AND NOT APPLE)
 
 	FIND_PATH( ENET_INCLUDE_PATH /usr/include )
 	FIND_LIBRARY( ENET_LIBRARY /usr/lib/x86_64-linux-gnu )
+
+	FIND_PATH( OPUS_INCLUDE_PATH opus/opus.h )
+	FIND_LIBRARY( OPUS_LIBRARY NAMES opus )
+	if(NOT OPUS_INCLUDE_PATH OR NOT OPUS_LIBRARY)
+		message(FATAL_ERROR "Opus (voice chat) not found, install libopus-dev")
+	endif()
 else()
 	if(NOT DEFINED CMAKE_TOOLCHAIN_FILE)
 		message(FATAL_ERROR
@@ -53,6 +59,7 @@ else()
 	endif()
 	find_package(glew CONFIG REQUIRED)
 	find_package(unofficial-enet CONFIG REQUIRED)
+	find_package(Opus CONFIG REQUIRED)
 endif()
 
 find_package(ZLIB REQUIRED)
@@ -219,6 +226,10 @@ add_executable (LandOfDran
 "Networking/PacketsFromServer/SoundLoop.cpp"
 "Networking/PacketsFromServer/AudioEffect.h"
 "Networking/PacketsFromServer/AudioEffect.cpp"
+"Networking/PacketsFromServer/VoiceFrameFromServer.h"
+"Networking/PacketsFromServer/VoiceFrameFromServer.cpp"
+"Networking/PacketsFromServer/VoiceStatus.h"
+"Networking/PacketsFromServer/VoiceStatus.cpp"
 
 "Networking/PacketsFromClient/ConnectionRequest.cpp" 
 "Networking/PacketsFromClient/FinishedLoading.cpp" 
@@ -249,6 +260,8 @@ add_executable (LandOfDran
 "Audio/SoundFile.cpp"
 "Audio/StbVorbis.cpp"
 "Audio/ReverbPresets.h"
+"Audio/VoiceChat.h"
+"Audio/VoiceChat.cpp"
 "LuaFunctions/SoundLua.h"
 "LuaFunctions/SoundLua.cpp"
 
@@ -285,6 +298,7 @@ add_executable (LandOfDran
 "Interface/BrickSelector.h"
 "Interface/BrickSelector.cpp"
 "Networking/PacketsFromClient/PlantBrick.cpp"
+"Networking/PacketsFromClient/VoiceFrame.cpp"
 "LuaFunctions/BrickLua.h"
 "LuaFunctions/BrickLua.cpp"   )   
 
@@ -312,11 +326,14 @@ if(UNIX AND NOT APPLE)
 	target_link_libraries(LandOfDran PRIVATE GLEW)
 	target_link_libraries(LandOfDran PRIVATE BulletDynamics BulletCollision LinearMath)
 	target_link_libraries(LandOfDran PRIVATE enet)
+	target_include_directories(LandOfDran PRIVATE ${OPUS_INCLUDE_PATH})
+	target_link_libraries(LandOfDran PRIVATE ${OPUS_LIBRARY})
 else()
 	target_link_libraries(LandOfDran PRIVATE GLEW::glew)
 	target_link_libraries(LandOfDran PRIVATE ${BULLET_LIBRARIES})
 	target_link_libraries(LandOfDran PRIVATE wsock32 ws2_32 winmm)
 	target_link_libraries(LandOfDran PRIVATE unofficial::enet::enet)
+	target_link_libraries(LandOfDran PRIVATE Opus::opus)
 endif()
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)

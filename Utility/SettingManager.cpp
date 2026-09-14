@@ -40,6 +40,13 @@ void SettingManager::startPreferenceBindingSearch()
 	nodeSearchIndex = 0;
 }
 
+void SettingManager::setTooltip(std::string path, const std::string& tooltip)
+{
+	PreferencePair* pref = (PreferencePair*)getPreference(path);
+	if (pref)
+		pref->tooltip = tooltip;
+}
+
 void SettingManager::addEnum(std::string path, int value,std::string desc,std::vector<std::string> &&names)
 {
 	std::string pathBeforePref = path;

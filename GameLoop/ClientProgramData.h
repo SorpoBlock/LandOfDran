@@ -22,6 +22,7 @@
 #include "../Interface/BrickHotbar.h"
 #include "../Audio/AudioSystem.h"
 #include "../Audio/AcousticProbe.h"
+#include "../Audio/VoiceChat.h"
 
 /*
 	This exists so we can make all of this available to the various PacketsFromServer files since packets can do a wide range of activities
@@ -103,6 +104,9 @@ struct ClientProgramData
 
 	//Lives for the whole program, sound types come from whichever server we're on
 	std::shared_ptr<AudioSystem>	audio = nullptr;
+
+	//Lives for the whole program, recording is only done in a server and talkers are forgotten on leaving it
+	std::shared_ptr<VoiceChat>		voice = nullptr;
 
 	//Raycasts for reverb and muffling, see LoopClient::run and the occlusion test set up in LoopClient's constructor
 	AcousticProbe acousticProbe;

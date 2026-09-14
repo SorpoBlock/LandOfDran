@@ -43,6 +43,7 @@ void LoopServer::run(float deltaT, ExecutableArguments& cmdArgs, std::shared_ptr
 		broadcastWorldState();
 
 	server->run(&pd,pd.luaState,pd.eventManager); //   <---- networking
+	endQuietTalkers();
 	pd.dynamics->sendRecent();
 	pd.statics->sendRecent();
 	pd.bricks->sendRecent();
@@ -84,6 +85,24 @@ void LoopServer::run(float deltaT, ExecutableArguments& cmdArgs, std::shared_ptr
 	}
 
 	scheduler->run(pd.luaState);
+}
+
+void LoopServer::endQuietTalkers()
+{
+	unsigned int now = SDL_GetTicks();
+
+	for (unsigned int a = 0; a < pd.clients.size(); a++)
+	{
+		std::shared_ptr<ClientData> talker = pd.clients[a];
+		if (!talker->talking || now - talker->lastVoiceMS < ServerProgramData::voiceTimeoutMS)
+			continue;
+
+		talker->talking = false;
+
+		pushClientLua(pd.luaState, talker->client);
+		pd.eventManager->callEvent(pd.luaState, "ClientStopTalking", 1);
+		lua_settop(pd.luaState, 0);
+	}
 }
 
 void LoopServer::applyWaterForces(float deltaT)

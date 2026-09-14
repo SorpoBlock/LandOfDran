@@ -94,6 +94,13 @@ class UserInterface
 	int superShiftIndicator = -1;
 	int resizeIndicator = -1;
 
+	//Voice chat, in the same corner: -1 hidden, 0 muted by the server, 1 talking. And the names of who else can be heard talking
+	int voiceIndicator = -1;
+	std::vector<std::string> voiceSpeakers;
+	//While talking, the indicator fills up this much (0-1) with how loud your microphone is, red while it's clipping
+	float voiceLevel = 0;
+	bool voiceClipping = false;
+
 	void updateSettings(std::shared_ptr<SettingManager> settings);
 
 	bool wantsSuppression() const;

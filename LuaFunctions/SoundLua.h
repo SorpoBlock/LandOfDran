@@ -28,5 +28,5 @@ int LUA_dynamicStartSoundLoop(lua_State* L);
 int LUA_clientPlaySound(lua_State* L);
 int LUA_clientSetAudioEffect(lua_State* L);
 
-//newSoundType, playSound, startSoundLoop, stopSoundLoop, setAudioEffect
+//newSoundType, playSound, startSoundLoop, stopSoundLoop, setAudioEffect, setVoiceRange, getVoiceRange
 void registerSoundFunctions(lua_State* L);

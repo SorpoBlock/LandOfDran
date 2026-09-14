@@ -280,26 +280,53 @@ void UserInterface::render(int screenX,int screenY,bool drawCrossHair,const std:
 		auto draw = ImGui::GetBackgroundDrawList();
 		float right = screenX - 10.0f;
 
-		auto drawIndicator = [&](const char* label, int state)
+		//meter (0-1) fills the box from the left instead of the whole box lighting up when it's on, for the microphone level
+		auto drawIndicator = [&](const char* label, int state, float meter = -1.0f, bool meterWarning = false)
 		{
 			if (state < 0)
 				return;
 
 			bool on = state == 1;
+			bool showMeter = on && meter >= 0.0f;
 			ImVec2 padding(8.0f, 4.0f);
 			ImVec2 textSize = ImGui::CalcTextSize(label);
+			//A meter needs some room to move in
+			float width = textSize.x + padding.x * 2.0f;
+			if (showMeter)
+				width = std::max(width, ImGui::GetFontSize() * 7.0f);
 			ImVec2 max(right, screenY - 10.0f);
-			ImVec2 min(max.x - textSize.x - padding.x * 2.0f, max.y - textSize.y - padding.y * 2.0f);
+			ImVec2 min(max.x - width, max.y - textSize.y - padding.y * 2.0f);
 
-			draw->AddRectFilled(min, max, on ? IM_COL32(40, 150, 60, 220) : IM_COL32(30, 30, 30, 160), 4.0f);
+			if (showMeter)
+			{
+				draw->AddRectFilled(min, max, IM_COL32(30, 30, 30, 160), 4.0f);
+				float filled = std::clamp(meter, 0.0f, 1.0f) * width;
+				if (filled > 1.0f)
+					draw->AddRectFilled(min, ImVec2(min.x + filled, max.y), meterWarning ? IM_COL32(190, 50, 40, 220) : IM_COL32(40, 150, 60, 220), 4.0f);
+			}
+			else
+				draw->AddRectFilled(min, max, on ? IM_COL32(40, 150, 60, 220) : IM_COL32(30, 30, 30, 160), 4.0f);
 			draw->AddRect(min, max, on ? IM_COL32(130, 255, 150, 255) : IM_COL32(120, 120, 120, 200), 4.0f);
 			draw->AddText(ImVec2(min.x + padding.x, min.y + padding.y), on ? IM_COL32_WHITE : IM_COL32(160, 160, 160, 255), label);
 
 			right = min.x - 6.0f;
 		};
 
+		drawIndicator(voiceIndicator == 1 ? "Talking" : "Voice Muted", voiceIndicator, voiceLevel, voiceClipping);
 		drawIndicator("Super Shift", superShiftIndicator);
 		drawIndicator("Resize", resizeIndicator);
+
+		//Who can be heard talking, stacked upwards from above the indicators
+		float lineHeight = ImGui::GetFontSize() + 4.0f;
+		float y = screenY - 10.0f - (ImGui::GetFontSize() + 8.0f) - 6.0f - lineHeight;
+		for (const std::string& speaker : voiceSpeakers)
+		{
+			ImVec2 textSize = ImGui::CalcTextSize(speaker.c_str());
+			float x = screenX - 10.0f - textSize.x;
+			draw->AddCircleFilled(ImVec2(x - 10.0f, y + textSize.y * 0.5f), 4.0f, IM_COL32(90, 230, 110, 255));
+			draw->AddText(ImVec2(x, y), IM_COL32_WHITE, speaker.c_str());
+			y -= lineHeight;
+		}
 	}
 
 	if (!centerPrints.empty())
