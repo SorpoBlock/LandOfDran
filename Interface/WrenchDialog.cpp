@@ -171,7 +171,7 @@ void WrenchDialog::render(ImGuiIO* io)
 				tooltip("Full width of the beam");
 
 				bool turned = ImGui::SliderFloat("Yaw", &lightYaw, -180.0f, 180.0f, "%.0f degrees");
-				turned |= ImGui::SliderFloat("Pitch##Light", &lightPitch, -90.0f, 90.0f, "%.0f degrees");
+				turned |= ImGui::SliderFloat("Pitch##Light", &lightPitch, -80.0f, 80.0f, "%.0f degrees");
 				tooltip("-90 points straight down, 90 straight up");
 				if (turned)
 				{
