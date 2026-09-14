@@ -19,3 +19,5 @@ water	vert	water.vert.glsl
 water	frag	water.frag.glsl
 underwater	vert	underwater.vert.glsl
 underwater	frag	underwater.frag.glsl
+corona	vert	corona.vert.glsl
+corona	frag	corona.frag.glsl

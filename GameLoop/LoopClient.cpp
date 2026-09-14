@@ -33,6 +33,13 @@ void LoopClient::leaveServer(ExecutableArguments& cmdArgs)
 		simulation.statics = nullptr;
 	}
 
+	if (simulation.lights)
+	{
+		simulation.lights->destroyAll();
+		delete simulation.lights;
+		simulation.lights = nullptr;
+	}
+
 	//Removes brick and debris bodies, so it has to happen before the physics world is destroyed below
 	delete simulation.bricks;
 	simulation.bricks = nullptr;
@@ -369,6 +376,9 @@ void LoopClient::handleInput(float deltaT, ExecutableArguments& cmdArgs, std::sh
 	//Move camera around
 	simulation.camera->control(deltaT, pd.input);
 
+	//Narrows the view while held, like the old game
+	simulation.camera->zooming = pd.input->isCommandKeydown(Zoom);
+
 	if (pd.input->pollCommand(FirstThirdPerson))
 		simulation.camera->swapPerson();
 
@@ -597,6 +607,9 @@ void LoopClient::createShadowTarget(std::shared_ptr<SettingManager> settings)
 		pd.shadows = std::make_shared<RenderTarget>(shadowSettings, pd.textures);
 	}
 
+	//Each cube face is a quarter of a cascade, capped so 8 shadowed lights stay under 200 MB
+	pd.pointLights->setShadowSettings(settings->getInt("graphics/pointshadows"), std::min(resolution / 4, 1024), pd.textures);
+
 	//Half resolution to save memory, colored shadows just come out a little softer
 	pd.coloredShadows = settings->getBool("graphics/shadowcolor");
 	int tintResolution = pd.coloredShadows ? std::max(1, resolution / 2) : 1;
@@ -639,6 +652,7 @@ void LoopClient::renderScene(bool clipAtWater)
 	pd.shadows->bindDepthResult(ShadowArray);
 	pd.shadowTint->bindDepthResult(TintDepthArray);
 	pd.shadowTint->bindColorResult(TintColorArray);
+	pd.pointLights->bindShadowMaps();
 
 	//Models:
 	pd.shaders->basicUniforms.nonInstanced = 0;
@@ -687,6 +701,7 @@ void LoopClient::renderTransparent(bool clipAtWater)
 	pd.shadows->bindDepthResult(ShadowArray);
 	pd.shadowTint->bindDepthResult(TintDepthArray);
 	pd.shadowTint->bindColorResult(TintColorArray);
+	pd.pointLights->bindShadowMaps();
 	pd.brickRenderer->render(pd.shaders, true);
 
 	if (!clipAtWater && pd.ghostBrick.isVisible())
@@ -695,6 +710,9 @@ void LoopClient::renderTransparent(bool clipAtWater)
 		float pulse = 0.5f + 0.5f * std::sin(SDL_GetTicks() / 1000.0f * 6.2831853f * 0.8f);
 		pd.brickRenderer->renderGhost(pd.shaders, pd.ghostBrick.get(), pulse);
 	}
+
+	//Doesn't write depth, so it goes after everything that does
+	pd.pointLights->renderCoronae(pd.shaders);
 
 	if (clipAtWater)
 		glDisable(GL_CLIP_DISTANCE0);
@@ -803,8 +821,63 @@ void LoopClient::renderEverything(float deltaT)
 		glCullFace(GL_BACK);
 	}
 
-	glDisable(GL_POLYGON_OFFSET_FILL);
+	//Point light shadows use perspective views that already start right at the light
 	glDisable(GL_DEPTH_CLAMP);
+
+	std::vector<PointLightSource> lightSources;
+	if (simulation.lights)
+	{
+		Uint32 now = SDL_GetTicks();
+		lightSources.reserve(simulation.lights->size());
+		for (unsigned int a = 0; a < simulation.lights->size(); a++)
+		{
+			std::shared_ptr<Light> light = simulation.lights->get(a);
+			lightSources.push_back({ light->getID(), light->getRenderedPosition(now), light->getColor(), light->getBrightness(), light->getCoronaWidth(), light->getRange(),
+				light->getRenderedDirection(now), light->getConeCosine() });
+		}
+	}
+
+	const CameraUniforms& view = pd.shaders->cameraUniforms;
+	pd.pointLights->update(lightSources, pd.shaders, view.CameraPosition, view.CameraProjection * view.CameraView, pd.environment.fogDistanceMax);
+
+	//Dynamics can move or animate at any time, so a light with one in range redraws its shadows every frame
+	auto movingCastersNear = [this](const glm::vec3& position, float range) -> bool
+	{
+		if (!simulation.dynamics)
+			return false;
+
+		for (unsigned int a = 0; a < simulation.dynamics->size(); a++)
+		{
+			btVector3 aabbMin, aabbMax;
+			simulation.dynamics->get(a)->body->getAabb(aabbMin, aabbMax);
+			glm::vec3 closest = glm::clamp(position, b2g3(aabbMin), b2g3(aabbMax));
+			if (glm::dot(closest - position, closest - position) < range * range)
+				return true;
+		}
+		return false;
+	};
+
+	auto drawPointShadowCasters = [this](const glm::mat4& lightSpaceMatrix)
+	{
+		glDisable(GL_CULL_FACE);
+		pd.shaders->modelShadowCascadeShader->use();
+		glUniformMatrix4fv(pd.shadowCascadeMatrixUniformModel, 1, GL_FALSE, &lightSpaceMatrix[0][0]);
+		for (unsigned int a = 0; a < simulation.dynamicTypes.size(); a++)
+			simulation.dynamicTypes[a]->render(pd.shaders, false);
+		glEnable(GL_CULL_FACE);
+
+		//No colored point light shadows, transparent bricks at least half opaque block the light like any other
+		glCullFace(GL_FRONT);
+		pd.shaders->brickShadowCascadeShader->use();
+		glUniformMatrix4fv(pd.shadowCascadeMatrixUniformBrick, 1, GL_FALSE, &lightSpaceMatrix[0][0]);
+		glUniform1f(pd.shadowCascadeMinOpacityUniform, 0.5f);
+		pd.brickRenderer->renderShadowCascade(lightSpaceMatrix, true, true);
+		glCullFace(GL_BACK);
+	};
+
+	pd.pointLights->renderShadows(pd.brickRenderer->getGeneration() + simulation.staticsChanged, movingCastersNear, drawPointShadowCasters);
+
+	glDisable(GL_POLYGON_OFFSET_FILL);
 
 	bool cameraUnderwater = simulation.camera->getPosition().y < simulation.waterLevel;
 	bool renderWaterPasses = simulation.waterEnabled && pd.waterReflection && pd.waterRefraction;
@@ -851,6 +924,7 @@ void LoopClient::renderEverything(float deltaT)
 	if (simulation.waterEnabled)
 	{
 		pd.shaders->waterShader->use();
+		pd.pointLights->bindShadowMaps();
 		//Always reaches past the end of the fog, so its edge is never visible
 		float surfaceRadius = std::max(waterRadius, pd.environment.fogDistanceMax + 10.0f);
 		glUniform1f(pd.shaders->waterShader->getUniformLocation("waterRadius"), surfaceRadius);
@@ -922,14 +996,45 @@ void LoopClient::renderEverything(float deltaT)
 		glCullFace(GL_BACK);
 	}
 
-	//Blue tint, slow waves, and darker edges while the camera is under the water
+	//Blue tint, slow waves, darker edges, and the scene wobbling like light bending through moving water while the camera is under the water
 	if (simulation.waterEnabled && cameraUnderwater)
 	{
+		//The finished scene is copied out first so underwater.frag can draw it back warped
+		int screenWidth = std::max(1, (int)pd.context->getResolution().x);
+		int screenHeight = std::max(1, (int)pd.context->getResolution().y);
+		if (!pd.underwaterScene || pd.underwaterScene->settings.width != screenWidth || pd.underwaterScene->settings.height != screenHeight)
+		{
+			RenderTarget::RenderTargetSettings sceneSettings;
+			sceneSettings.width = screenWidth;
+			sceneSettings.height = screenHeight;
+			sceneSettings.channels = 4;
+			sceneSettings.useDepth = false;
+			sceneSettings.useDepthBuffer = false;
+			pd.underwaterScene.reset();
+			pd.underwaterScene = std::make_shared<RenderTarget>(sceneSettings, pd.textures);
+
+			//A driver might not resolve the screen into this format, so only the first copy is checked, glGetError can stall every frame
+			for (int a = 0; a < 16 && glGetError() != GL_NO_ERROR; a++);
+			pd.underwaterScene->copyFromScreen();
+			pd.underwaterSceneCopies = pd.underwaterScene->isValid() && glGetError() == GL_NO_ERROR;
+			if (!pd.underwaterSceneCopies)
+				error("Couldn't copy the screen for the underwater effect, it won't be distorted");
+		}
+		else if (pd.underwaterSceneCopies)
+			pd.underwaterScene->copyFromScreen();
+
 		pd.shaders->underwaterShader->use();
+		glUniform1i(pd.shaders->underwaterShader->getUniformLocation("distort"), pd.underwaterSceneCopies);
+		if (pd.underwaterSceneCopies)
+			pd.underwaterScene->bindColorResult(ScreenCopy);
 		glDisable(GL_DEPTH_TEST);
 		glDepthMask(GL_FALSE);
-		glEnable(GL_BLEND);
-		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		//Distorted, it redraws the whole picture itself, otherwise just the tint is blended on top
+		if (!pd.underwaterSceneCopies)
+		{
+			glEnable(GL_BLEND);
+			glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		}
 		glBindVertexArray(pd.skyVao);
 		glDrawArrays(GL_TRIANGLES, 0, 3);
 		glBindVertexArray(0);
@@ -1073,6 +1178,7 @@ void LoopClient::run(float deltaT,ExecutableArguments& cmdArgs, std::shared_ptr<
 	if (simulation.bricks)
 		pd.debugMenu->addExtraLine("Bricks: " + std::to_string(simulation.bricks->size()));
 	pd.debugMenu->addExtraLine("Environmental audio: " + pd.acousticProbe.getStats());
+	pd.debugMenu->addExtraLine("Point lights: " + pd.pointLights->getStats());
 	if (simulation.dynamics && simulation.dynamics->size() > 0)
 		pd.debugMenu->addExtraLine("First other snaps: " + std::to_string(simulation.dynamics->get(0)->interpolator.getNumSnapshots()));
 	if (simulation.controlledDynamics.size() > 0)
@@ -1111,6 +1217,7 @@ void LoopClient::run(float deltaT,ExecutableArguments& cmdArgs, std::shared_ptr<
 		//Create holders for objects now that we will start receiving data about them
 		simulation.dynamics = new ObjHolder<Dynamic>(DynamicTypeId);
 		simulation.statics = new ObjHolder<StaticObject>(StaticTypeId);
+		simulation.lights = new ObjHolder<Light>(LightTypeId);
 		simulation.bricks = new BrickHolder(pd.physicsWorld);
 		simulation.bricks->setRenderer(pd.brickRenderer);
 		simulation.brickDebris = new BrickDebris(pd.physicsWorld);
@@ -1132,15 +1239,15 @@ void LoopClient::run(float deltaT,ExecutableArguments& cmdArgs, std::shared_ptr<
 
 	// --- End packet requests ---
 
-	//Water holds up the dynamics this client simulates itself, the server does the rest
+	/*
+		Water holds up every dynamic, like on the server, not just the ones this client simulates itself
+		Otherwise the local bodies of floating objects fall between server updates and snap back up on each one,
+		which shows in the debug physics view and knocks into players swimming around them
+	*/
 	if (pd.physicsWorld && simulation.dynamics && simulation.waterEnabled)
 	{
 		for (unsigned int a = 0; a < simulation.dynamics->size(); a++)
-		{
-			std::shared_ptr<Dynamic> dynamic = simulation.dynamics->get(a);
-			if (dynamic->clientControlled || getTicksMS() < dynamic->predictLocallyUntil)
-				dynamic->applyWaterForces(simulation.waterLevel, deltaT);
-		}
+			simulation.dynamics->get(a)->applyWaterForces(simulation.waterLevel, deltaT);
 	}
 
 	if (pd.physicsWorld)
@@ -1307,6 +1414,7 @@ LoopClient::LoopClient(ExecutableArguments& cmdArgs, std::shared_ptr<SettingMana
 
 	pd.grassVao = createQuadVAO();
 
+	pd.pointLights = new PointLights();
 	createShadowTarget(settings);
 	pd.lightSpaceMatriciesUniformModel = pd.shaders->modelShader->getUniformLocation("lightSpaceMatricies");
 	pd.lightSpaceMatriciesUniformBrick = pd.shaders->brickShader->getUniformLocation("lightSpaceMatricies");
@@ -1368,6 +1476,7 @@ LoopClient::~LoopClient()
 	pd.shadowTint.reset();
 	pd.waterReflection.reset();
 	pd.waterRefraction.reset();
+	pd.underwaterScene.reset();
 
 	delete pd.grassMaterial;
 	glDeleteVertexArrays(1, &pd.grassVao);
@@ -1377,6 +1486,9 @@ LoopClient::~LoopClient()
 
 	delete pd.brickRenderer;
 	pd.brickRenderer = nullptr;
+
+	delete pd.pointLights;
+	pd.pointLights = nullptr;
 
 	//Not needed this is a destructor lol
 	//Also this should only be called when the programs shutting down anyway 

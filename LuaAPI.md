@@ -7,9 +7,9 @@ source - if you add or change a binding, update this file too.
 
 ## Conventions
 
-- Every `Dynamic`, `StaticObject`, client, and brick table has an `id` field (its net ID) and a
-  `type` field you can compare against: `1` = Dynamic, `2` = Static, `3` = Client, `4` = Brick
-  (`NetTypes/NetType.h`'s `SimObjectType`). `raycast()` and `client:getCursorItem()` can
+- Every `Dynamic`, `StaticObject`, client, brick, and light table has an `id` field (its net ID) and a
+  `type` field you can compare against: `1` = Dynamic, `2` = Static, `3` = Client, `4` = Brick,
+  `5` = Light (`NetTypes/NetType.h`'s `SimObjectType`). `raycast()` and `client:getCursorItem()` can
   return a Dynamic, a Static, or a Brick, so check `.type` before assuming which.
 - Functions documented as `Expected N arguments` in an error message are strict about
   argument count - passing the wrong number logs an error and does nothing (they don't
@@ -190,6 +190,58 @@ Statics are non-moving objects that still have a mesh and physics presence (wall
 | `static:clearHighlight()` | none | none | Removes the outline/highlight effect. |
 | `static:setColliding(bool)` | true/false | none | Enables or disables collision for the object without removing it. |
 | `static:setHidden(bool)` | true/false | none | Shows or hides the object client-side. |
+
+---
+
+## Lights
+
+Lights that shine from a spot in the world, either in every direction or, as spotlights, in a cone
+(see `light:setConeAngle`). They have no model or collision.
+Clients light everything around them (bricks, models, grass, and the water surface, which also shows
+glints of them on its waves) with inverse square falloff, draw a
+glowing corona where they are, and give the lights nearest the camera shadows. How many get shadows
+is each player's `graphics/pointshadows` setting (0 to 8, default 4). Up to 32 lights light the view
+at once, the nearest ones win.
+
+A light reaches until it's too dim to see: roughly `sqrt(brightness * 50)` studs for a light whose
+brightest color channel is 1, up to 500 (`light:getRange()` gives the exact value). As a guide,
+`brightness` 50 at 5 studs is about an eighth of noon sunlight, so a lamp is around 20-100 and a
+floodlight a few thousand.
+
+### Global functions
+
+| Function | Arguments | Returns | Description |
+|---|---|---|---|
+| `createLight(x, y, z, r, g, b, brightness, flicker, coronaWidth)` | position; color 0-1 per channel; `brightness` 0 or more (clamped to 100000); `flicker` in world units (0-16); `coronaWidth` in world units (0-256, 0 for no corona) | Light | Places a point light. `flicker` is how far the light jumps around its position: every 40-160 ms it snaps to a new random spot within that distance, which makes its lighting and shadows jitter like a flame. Each client picks its own spots. |
+| `getLightId(netId)` | net ID | Light | Looks up a light by its net ID. |
+| `getLightIdx(index)` | 0-based index | Light | Looks up a light by its position in the internal list. |
+| `getNumLights()` | none | count | How many lights currently exist. |
+
+### `light:` methods
+
+All of these use the strict argument count check, and setters log an error and do nothing if an
+argument isn't a finite number.
+
+| Method | Arguments | Returns | Description |
+|---|---|---|---|
+| `light:destroy()` | none | none | Removes the light. |
+| `light:getPosition()` | none | x, y, z | Position, without flicker. |
+| `light:setPosition(x, y, z)` | position | none | Moves the light. |
+| `light:getColor()` | none | r, g, b | Color. |
+| `light:setColor(r, g, b)` | 0-1, clamped | none | Sets the color. |
+| `light:getBrightness()` | none | number | Brightness. |
+| `light:setBrightness(brightness)` | 0-100000, clamped | none | Sets the brightness. `0` turns the light and its corona off. |
+| `light:getFlicker()` | none | number | Flicker distance. |
+| `light:setFlicker(distance)` | world units, 0-16, clamped | none | How far the light wanders around its position. |
+| `light:getCoronaWidth()` | none | number | Corona width. |
+| `light:setCoronaWidth(width)` | world units, 0-256, clamped | none | Width of the glow drawn at the light, `0` for none. |
+| `light:getRange()` | none | number | How far the light reaches, from its brightness and color. |
+| `light:getDirection()` | none | x, y, z | Which way a spotlight points, normalized, not counting spin. Defaults to straight down. |
+| `light:setDirection(x, y, z)` | any length but zero | none | Points the spotlight. Also resets how far it has spun. Does nothing for a light with a cone angle of 0. |
+| `light:getConeAngle()` | none | degrees | Full width of the beam, 0 for a light that shines every way. |
+| `light:setConeAngle(degrees)` | 0, or 1-179 (clamped) | none | Turns the light into a spotlight with a beam this many degrees wide, softening toward its edge. `0` (the default) makes it shine every way again. A spotlight's corona only shows from inside its beam, and its shadows only draw the directions the beam can reach, so they cost less. |
+| `light:getSpin()` | none | degrees per second | How fast the direction turns. |
+| `light:setSpin(degreesPerSecond)` | -3600 to 3600, clamped | none | Turns the spotlight's direction around the vertical axis, like a lighthouse. Negative spins the other way. Each client spins it on its own, so players can see it at slightly different angles. A spinning spotlight redraws its shadows every frame. |
 
 ---
 

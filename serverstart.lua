@@ -440,3 +440,15 @@ function spawnNewCubes(numCubes, spread)
 		createDynamic(getDynamicType("small"),x,50,z)
 	end
 end
+
+function lightTest()
+	nl = getNumLights()
+	for i=1, nl, 1 do
+		getLightIdx(0):destroy()
+	end
+	
+	for i=0, 20, 1 do
+		createLight(20, 25, i*5, math.random(), math.random(), math.random(), 300, 0.15, 1)
+	end
+end
+

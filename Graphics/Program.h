@@ -26,6 +26,8 @@ enum TextureLocations
 	TintColorArray = 4,
 	Refraction = 5,
 	Reflection = 6,
+	PointShadowArray = 7,
+	ScreenCopy = 8,
 	//Add as needed:
 	/*BRDF = 2,
 	HeightMap = 3,

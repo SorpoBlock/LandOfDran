@@ -30,7 +30,7 @@ void Camera::calculateLightSpaceMatricies(glm::vec3 lightDirection, float shadow
     glm::vec3 forward = -glm::normalize(glm::vec3(inverseView[2]));
 
     //Squared distance from the view axis to a corner of the screen, per unit forward
-    float tanHalfHeight = std::tan(glm::radians(fieldOfVision) * 0.5f);
+    float tanHalfHeight = std::tan(glm::radians(currentFieldOfVision) * 0.5f);
     float cornerSlopeSquared = tanHalfHeight * tanHalfHeight * (1.0f + aspectRatio * aspectRatio);
 
     //A little depth past each sphere, anything further toward the light is flattened onto the near plane by GL_DEPTH_CLAMP
@@ -95,6 +95,13 @@ void Camera::updateSettings(std::shared_ptr<SettingManager> settings)
 {
     mouseSensitivity = settings->getFloat("input/mousesensitivity");
     invertMouse = settings->getBool("input/invertmousey");
+
+    //While zooming the view keeps its zoom, and eases to the new field of view once the key is let go
+    float fov = (float)std::min(std::max(settings->getInt("graphics/fieldofview"), 60), 120);
+    if (zooming)
+        fieldOfVision = fov;
+    else
+        setFOV(fov);
 }
 
 void Camera::setPosition(const glm::vec3& pos)
@@ -130,23 +137,30 @@ glm::vec3 Camera::getDirection()
     return direction;
 }
 
+void Camera::updateProjection()
+{
+    projectionMatrix = glm::perspective(glm::radians(currentFieldOfVision), aspectRatio, nearPlane, farPlane);
+}
+
 void Camera::setFOV(float fov)
 {
     fieldOfVision = fov;
-    projectionMatrix = glm::perspective(glm::radians(fieldOfVision), aspectRatio, nearPlane, farPlane);
+    currentFieldOfVision = fov;
+    updateProjection();
 }
 
 //Call when screen size changed
 void Camera::setAspectRatio(float ratio)
 {
     aspectRatio = ratio;
-    projectionMatrix = glm::perspective(glm::radians(fieldOfVision), aspectRatio, nearPlane, farPlane);
+    updateProjection();
 }
 
 Camera::Camera(float _aspectRatio, float _fieldOfVision, float _nearPlane, float _farPlane)
     : aspectRatio(_aspectRatio), fieldOfVision(_fieldOfVision), nearPlane(_nearPlane), farPlane(_farPlane)
 {
-    projectionMatrix = glm::perspective(glm::radians(fieldOfVision), aspectRatio, nearPlane, farPlane);
+    currentFieldOfVision = fieldOfVision;
+    updateProjection();
 }
 
 //Positive amount forward, negative backward, only use for no-clip camera
@@ -172,8 +186,10 @@ void Camera::turn(float relMouseX, float relMouseY)
     if (!freeDirection)
         return;
 
-    relMouseX *= mouseSensitivity / 100.0f;
-    relMouseY *= mouseSensitivity / 100.0f;
+    //Turns slower while zoomed in, so things move across the screen about as fast as they do normally
+    float zoomScale = std::tan(glm::radians(currentFieldOfVision) * 0.5f) / std::tan(glm::radians(fieldOfVision) * 0.5f);
+    relMouseX *= mouseSensitivity / 100.0f * zoomScale;
+    relMouseY *= mouseSensitivity / 100.0f * zoomScale;
     if (invertMouse)
         relMouseY = -relMouseY;
 
@@ -198,6 +214,16 @@ void Camera::turn(float relMouseX, float relMouseY)
 //Call once per frame
 void Camera::render(std::shared_ptr<ShaderManager> graphics,float deltaT,const std::shared_ptr<PhysicsWorld> world)
 {
+    //Eases toward the zoomed or normal field of view, 95% of the way there in about 180 ms however fast frames come
+    float desiredFieldOfVision = zooming ? zoomedFieldOfVision : fieldOfVision;
+    if (currentFieldOfVision != desiredFieldOfVision)
+    {
+        currentFieldOfVision = glm::mix(desiredFieldOfVision, currentFieldOfVision, std::exp(-deltaT / 60.0f));
+        if (std::abs(currentFieldOfVision - desiredFieldOfVision) < 0.01f)
+            currentFieldOfVision = desiredFieldOfVision;
+        updateProjection();
+    }
+
     if(!target.expired())
 	{
         std::shared_ptr<Dynamic> targetLock = target.lock();
@@ -264,8 +290,9 @@ void Camera::render(std::shared_ptr<ShaderManager> graphics,float deltaT,const s
 
         position -= direction * glm::vec3(thirdPersonDistance);
 
+        //Still casts a shadow while hidden, so you can see your own shadow in first person
         if((thirdPersonDistance < 5.0) != targetLock->getHidden())
-            targetLock->setHidden(thirdPersonDistance < 5.0);
+            targetLock->setHidden(thirdPersonDistance < 5.0, true);
 	}
 
     viewMatrix = glm::lookAt(position, position + direction, nominalUp);

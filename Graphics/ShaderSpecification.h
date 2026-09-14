@@ -68,6 +68,27 @@ struct EnvironmentUniforms
 };
 
 /*
+	Lights placed by server Lua for a uniform buffer object, filled by PointLights::update
+	Size: 4624 bytes, every member is float aligned so the struct matches std140 as is
+*/
+struct PointLightUniforms
+{
+	//Most lights lighting the scene at once, and most of those with shadows, model.frag's array sizes have to match
+	static constexpr int maxLit = 32;
+	static constexpr int maxShadowed = 8;
+	static constexpr int byteSize = 16 + 16 * 3 * maxLit + 64 * 6 * maxShadowed;
+
+	GLint PointLightCount = 0;							//4				0
+	float PointShadowTexelScale = 0;					//4				4
+	float padding1 = 0;									//4				8
+	float padding2 = 0;									//4				12
+	glm::vec4 PointLightPositionRange[maxLit];			//16*32			16
+	glm::vec4 PointLightColorShadow[maxLit];			//16*32			528
+	glm::vec4 PointLightSpotDirection[maxLit];			//16*32			1040
+	glm::mat4 PointShadowMatrices[6 * maxShadowed];		//64*48			1552
+};
+
+/*
 	Handles a uniform buffer object and a few other uniform related things for programs
 */
 class ShaderManager
@@ -75,7 +96,7 @@ class ShaderManager
 	private:
 
 	//A handle to the actual OpenGL uniform buffer object
-	GLuint basicUBO, cameraUBO, environmentUBO;
+	GLuint basicUBO, cameraUBO, environmentUBO, pointLightUBO;
 
 	public:
 
@@ -87,6 +108,12 @@ class ShaderManager
 
 	//See note on struct definition, this is passed to a uniform buffer object
 	EnvironmentUniforms environmentUniforms;
+
+	//See note on struct definition, this is passed to a uniform buffer object
+	PointLightUniforms pointLightUniforms;
+
+	//Program for drawing the glow around point lights
+	Program* coronaShader = new Program();
 
 	//Program for drawing normal meshes to screen will full PBR based lighting
 	Program* modelShader = new Program();
@@ -127,6 +154,9 @@ class ShaderManager
 
 	//Sends changes to environmentUniforms to the GPU
 	void updateEnvironmentUBO() const;
+
+	//Sends changes to pointLightUniforms to the GPU
+	void updatePointLightUBO() const;
 
 	/*
 		Associates contained UBOs with their definitions in the OpenGL shaders

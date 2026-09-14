@@ -11,6 +11,14 @@ void RenderTarget::useLayer(int layer)
 	glClear(GL_DEPTH_BUFFER_BIT | (colorResult ? GL_COLOR_BUFFER_BIT : 0));
 }
 
+void RenderTarget::copyFromScreen() const
+{
+	glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, frameBuffer);
+	glBlitFramebuffer(0, 0, settings.width, settings.height, 0, 0, settings.width, settings.height, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
 void RenderTarget::use()
 {
 	glBindFramebuffer(GL_FRAMEBUFFER, frameBuffer);
@@ -67,7 +75,7 @@ RenderTarget::RenderTarget(const RenderTargetSettings& _settings,std::shared_ptr
 		}
 		depthResult->addToFramebuffer(GL_DEPTH_ATTACHMENT);
 	}
-	else
+	else if (settings.useDepthBuffer)
 	{
 		//Render buffers allow quicker write access to depth buffer if we don't need to read to it
 		//We still want a depth buffer since we will do depth testing when rendering to this frame buffer

@@ -37,6 +37,7 @@ std::string GetInputCommandString(InputCommand command)
         case UndoBrick: return "Undo Last Brick (with Ctrl)";
         case ResizeToggle: return "Toggle Brick Resize Mode";
         case PushToTalk: return "Push to Talk (hold)";
+        case Zoom: return "Zoom (hold)";
         default: return "Other error";
     }
 }
@@ -59,20 +60,11 @@ void InputMap::setPreferences(std::shared_ptr<SettingManager> settings)
 
 InputMap::InputMap(std::shared_ptr<SettingManager> settings)
 {
-    if (settings)
+    keyForCommand[NoCommand] = SDL_SCANCODE_UNKNOWN;
+
+    //Default key bindings here, anything saved in the settings file replaces them below
+    //Forget a key and it'll crash!
     {
-        //Load key binds from file
-        for (unsigned int a = 1; a < InputCommand::EndOfCommands; a++)
-        {
-            const PreferencePair* pref = settings->getPreference("keybinds/" + std::to_string(a));
-            if (!pref)
-                continue;
-
-            keyForCommand[a] = (SDL_Scancode)settings->getInt("keybinds/" + std::to_string(a));
-        }
-
-        //Default key bindings here:
-        //Forget a key and it'll crash!
         bindKey(WalkForward, SDL_SCANCODE_W);
         bindKey(WalkBackward, SDL_SCANCODE_S);
         bindKey(WalkRight, SDL_SCANCODE_D);
@@ -103,10 +95,24 @@ InputMap::InputMap(std::shared_ptr<SettingManager> settings)
         bindKey(UndoBrick, SDL_SCANCODE_Z);
         bindKey(ResizeToggle, SDL_SCANCODE_LSHIFT);
         bindKey(PushToTalk, SDL_SCANCODE_V);
+        bindKey(Zoom, SDL_SCANCODE_F);
 
         //Number keys 1 through 9 then 0, SDL's scancodes for them are in that order
         for (int a = 0; a < 10; a++)
             bindKey((InputCommand)(UseBrick1 + a), (SDL_Scancode)(SDL_SCANCODE_1 + a));
+    }
+
+    if (settings)
+    {
+        //Load key binds from file, these used to be loaded before the defaults above, which then overwrote them
+        for (unsigned int a = 1; a < InputCommand::EndOfCommands; a++)
+        {
+            const PreferencePair* pref = settings->getPreference("keybinds/" + std::to_string(a));
+            if (!pref)
+                continue;
+
+            keyForCommand[a] = (SDL_Scancode)settings->getInt("keybinds/" + std::to_string(a));
+        }
 
         for (unsigned int a = 1; a < InputCommand::EndOfCommands; a++)
             settings->addInt("keybinds/" + std::to_string(a), keyForCommand[a]);

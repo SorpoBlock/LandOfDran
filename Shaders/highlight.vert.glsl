@@ -1,6 +1,7 @@
 #version 330 core
 
 layout(location = 0) in vec3 ModelSpace;
+layout(location = 6) in int  InstanceFlags;
 layout(location = 7) in mat4 ModelTransform;
 layout(location = 11) in vec4 HighlightColor;
 layout(location = 12) in float HighlightThickness;
@@ -48,8 +49,9 @@ void main()
 {
 	highlightColor = HighlightColor;
 
-	//No highlight applied to this instance, collapse to a degenerate triangle so nothing gets rasterized
-	if(HighlightColor.a <= 0.0)
+	//No highlight applied to this instance, or it's hidden but casting a shadow (see model.vert)
+	//Collapse to a degenerate triangle so nothing gets rasterized
+	if(HighlightColor.a <= 0.0 || (InstanceFlags & 262144) != 0)
 	{
 		gl_Position = vec4(0,0,0,0);
 		return;

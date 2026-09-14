@@ -29,6 +29,8 @@ class RenderTarget
 		GLenum magFilter = GL_LINEAR;
 		//Depth result is read with a sampler2DShadow / sampler2DArrayShadow, which filters comparisons instead of depths
 		bool depthCompare = false;
+		//Without a depth result there's still a depth render buffer to depth test against, unless this is off
+		bool useDepthBuffer = true;
 	} settings;
 
 	void bindDepthResult(TextureLocations loc) const { if (!depthResult) return; depthResult->bind(loc); }
@@ -41,5 +43,9 @@ class RenderTarget
 
 	//Renders into just one layer of a layered depth result, clearing only that layer
 	void useLayer(int layer);
+
+	//Copies what's on the screen so far into the color result, resolving any multisampling, the target has to be the size of the screen
+	//Leaves the screen selected afterward
+	void copyFromScreen() const;
 };
 

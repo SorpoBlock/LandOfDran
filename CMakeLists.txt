@@ -141,6 +141,8 @@ add_executable (LandOfDran
 "Graphics/DayCycle.h"
 "Graphics/InstancedBrickRenderer.h"
 "Graphics/InstancedBrickRenderer.cpp"
+"Graphics/PointLights.h"
+"Graphics/PointLights.cpp"
 
 "Interface/InputMap.h"  
 "Interface/InputMap.cpp" 
@@ -166,7 +168,9 @@ add_executable (LandOfDran
 "SimObjects/Dynamic.h" 
 "SimObjects/Dynamic.cpp" 
 "SimObjects/StaticObject.h" 
-"SimObjects/StaticObject.cpp" 
+"SimObjects/StaticObject.cpp"
+"SimObjects/Light.h"
+"SimObjects/Light.cpp"
  
 "Networking/Server.h" 
 "Networking/Server.cpp" 
@@ -278,7 +282,9 @@ add_executable (LandOfDran
 "LuaFunctions/Dynamic.cpp" 
 "LuaFunctions/Dynamic.h" 
 "LuaFunctions/Static.h" 
-"LuaFunctions/Static.cpp" 
+"LuaFunctions/Static.cpp"
+"LuaFunctions/LightLua.h"
+"LuaFunctions/LightLua.cpp"
 
 "Physics/PhysicsWorld.h" 
 "Physics/PhysicsWorld.cpp" 

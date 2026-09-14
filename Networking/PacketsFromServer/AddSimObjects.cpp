@@ -135,6 +135,33 @@ bool AddSimObjectsPacket::applyPacket(const ClientProgramData& pd, Simulation& s
 					break;
 			}
 
+			//Point light shadows get redrawn, see LoopClient::renderEverything
+			simulation.staticsChanged++;
+			break;
+		}
+		case LightTypeId:
+		{
+			unsigned int numObjects = packet->data[2];
+			unsigned int byteIterator = 3;
+			for (unsigned int a = 0; a < numObjects; a++)
+			{
+				if (byteIterator + sizeof(netIDType) + Light::packetBytes > packet->dataLength)
+					break;
+
+				netIDType id;
+				memcpy(&id, packet->data + byteIterator, sizeof(netIDType));
+				byteIterator += sizeof(netIDType);
+
+				//Can be sent twice, see the note on statics above
+				if (!simulation.lights->find(id))
+				{
+					simulation.lights->clientSetNextId(id);
+					std::shared_ptr<Light> newLight = simulation.lights->create(glm::vec3(0), glm::vec3(1), 0.0f, 0.0f, 0.0f);
+					newLight->readFromPacket(packet->data + byteIterator);
+				}
+
+				byteIterator += Light::packetBytes;
+			}
 			break;
 		}
 		case DynamicTypeId:

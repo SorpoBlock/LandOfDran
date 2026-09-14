@@ -247,6 +247,103 @@ vec3 cascadeLight(int cascade, vec3 surfaceNormal, float grazing, out float edge
 	return lit * mix(vec3(1.0), tint, behindTransparent);
 }
 
+//Lights placed by Lua, nearest the camera first, see PointLights::update and PointLightUniforms in ShaderSpecification.h
+layout (std140) uniform PointLightUniforms
+{
+	int PointLightCount;
+	//World size of one shadow map texel per unit of distance along a cube face's axis
+	float PointShadowTexelScale;
+	//xyz position, w how far the light reaches
+	vec4 PointLightPositionRange[32];
+	//rgb color times brightness, a the light's shadow slot, -1 for none
+	vec4 PointLightColorShadow[32];
+	//xyz which way a spotlight points, w cosine of half its cone angle, below -1 for lights that shine every way
+	vec4 PointLightSpotDirection[32];
+	//Six cube faces per shadow slot: +x, -x, +y, -y, +z, -z
+	mat4 PointShadowMatrices[48];
+};
+
+//Six layers per shadow slot, in the same order as PointShadowMatrices
+uniform sampler2DArrayShadow PointShadowArray;
+
+//How much of a shadowed point light reaches this surface, 1 for fully lit
+float pointLightShadow(int slot, vec3 fromLight, vec3 surfaceNormal, float lightFacing)
+{
+	vec3 axisDistance = abs(fromLight);
+	int face;
+	if(axisDistance.x >= axisDistance.y && axisDistance.x >= axisDistance.z)
+		face = fromLight.x > 0.0 ? 0 : 1;
+	else if(axisDistance.y >= axisDistance.z)
+		face = fromLight.y > 0.0 ? 2 : 3;
+	else
+		face = fromLight.z > 0.0 ? 4 : 5;
+	int layer = slot * 6 + face;
+
+	//Texels get bigger farther from the light, so farther surfaces are lifted further off themselves
+	float texelWorldSize = PointShadowTexelScale * max(axisDistance.x, max(axisDistance.y, axisDistance.z));
+	int level = min(shadowSoftness, 1);
+	float grazing = sqrt(1.0 - lightFacing * lightFacing);
+	vec3 offsetPos = worldPos + surfaceNormal * texelWorldSize * (0.5 + float(level + 1) * grazing);
+
+	vec4 lightClip = PointShadowMatrices[layer] * vec4(offsetPos, 1.0);
+	vec3 coords = lightClip.xyz / lightClip.w * 0.5 + 0.5;
+	coords.z = clamp(coords.z, 0.0, 1.0);
+	return filterShadow(PointShadowArray, coords, layer, level);
+}
+
+//Light from every point light that reaches this surface: inverse square falloff, eased to exactly nothing at each light's range
+vec3 pointLighting(vec3 N, vec3 V, float NdotV, vec3 albedo, vec3 mor, vec3 F0, vec3 surfaceNormal)
+{
+	vec3 total = vec3(0.0);
+	for(int i = 0; i < PointLightCount; i++)
+	{
+		vec3 toLight = PointLightPositionRange[i].xyz - worldPos;
+		float distanceSquared = dot(toLight, toLight);
+		float range = PointLightPositionRange[i].w;
+		if(distanceSquared >= range * range)
+			continue;
+
+		float lightDistance = sqrt(distanceSquared);
+		vec3 L = toLight / max(lightDistance, 0.0001);
+		float NdotL = max(dot(N, L), 0.0);
+		float lightFacing = dot(surfaceNormal, L);
+		if(NdotL <= 0.0 || lightFacing <= 0.0)
+			continue;
+
+		float edge = distanceSquared / (range * range);
+		float window = clamp(1.0 - edge * edge, 0.0, 1.0);
+		float attenuation = window * window / (distanceSquared + 1.0);
+
+		//Spotlights fade out over the outer part of their cone, see spotFactor in PointLights.cpp
+		float spotCosine = PointLightSpotDirection[i].w;
+		if(spotCosine > -1.5)
+		{
+			attenuation *= smoothstep(spotCosine, spotCosine + (1.0 - spotCosine) * 0.25, dot(-L, PointLightSpotDirection[i].xyz));
+			if(attenuation <= 0.0)
+				continue;
+		}
+
+		float lit = 1.0;
+		int slot = int(floor(PointLightColorShadow[i].a + 0.5));
+		if(slot >= 0)
+		{
+			lit = pointLightShadow(slot, -toLight, surfaceNormal, lightFacing);
+			if(lit <= 0.0)
+				continue;
+		}
+
+		vec3 H = normalize(V + L);
+		float NDF = DistributionGGX(N, H, mor.b);
+		float G = GeometrySmith(NdotV, NdotL, mor.b);
+		vec3 F = fresnelSchlick(max(dot(H, V), 0.0), F0);
+		vec3 specular = NDF * G * F / (4.0 * NdotV * NdotL + 0.001);
+		vec3 kD = (vec3(1.0) - F) * (1.0 - mor.r);
+
+		total += (kD * albedo / PI + specular) * PointLightColorShadow[i].rgb * attenuation * NdotL * lit;
+	}
+	return total;
+}
+
 void main()
 {			
 	vec2 dxuv = dFdx(uvs);
@@ -352,6 +449,7 @@ void main()
 	//shadow maps are about to switch between the sun and moon
 	vec3 ambientShadow = mix(vec3(1.0), shadowLight, ShadowStrength);
 	color.rgb += mor.g * albedo * AmbientColor * ambientShadow;
+	color.rgb += pointLighting(newNormal, viewVector, NdotV, albedo, mor, F0, surfaceNormal);
 	color.a = opacity;
 
 	//Tone maping

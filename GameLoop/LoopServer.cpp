@@ -2,6 +2,7 @@
 
 #include "../LuaFunctions/Dynamic.h"
 #include "../LuaFunctions/Static.h"
+#include "../LuaFunctions/LightLua.h"
 #include "../LuaFunctions/SoundLua.h"
 
 #include <random>
@@ -46,6 +47,7 @@ void LoopServer::run(float deltaT, ExecutableArguments& cmdArgs, std::shared_ptr
 	endQuietTalkers();
 	pd.dynamics->sendRecent();
 	pd.statics->sendRecent();
+	pd.lights->sendRecent();
 	pd.bricks->sendRecent();
 	applyWaterForces(deltaT);
 	pd.physicsWorld->step(deltaT); 
@@ -262,6 +264,8 @@ LoopServer::LoopServer(ExecutableArguments& cmdArgs, std::shared_ptr<SettingMana
 	pd.dynamics->makeLuaMetatable(pd.luaState, "metatable_dynamic", getDynamicFunctions(pd.luaState));
 	pd.statics = new ObjHolder<StaticObject>(SimObjectType::StaticTypeId, server);
 	pd.statics->makeLuaMetatable(pd.luaState, "metatable_static", getStaticFunctions(pd.luaState));
+	pd.lights = new ObjHolder<Light>(SimObjectType::LightTypeId, server);
+	pd.lights->makeLuaMetatable(pd.luaState, "metatable_light", getLightFunctions(pd.luaState));
 	pd.bricks = new BrickHolder(pd.physicsWorld, server);
 	pd.brickTypes.load("Assets/brick/types");
 	pd.bricks->makeLuaMetatable(pd.luaState, "metatable_brick", getBrickFunctions(pd.luaState));
@@ -310,6 +314,7 @@ LoopServer::~LoopServer()
 
 	delete pd.dynamics;
 	delete pd.statics;
+	delete pd.lights;
 
 	pd.dynamicTypes.clear();
 	pd.allNetTypes.clear();

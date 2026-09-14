@@ -30,6 +30,12 @@ void Program::registerSamplerUniforms()
     if (glGetUniformLocation(handle, "Reflection") != -1)
         glUniform1i(glGetUniformLocation(handle, "Reflection"), Reflection);
 
+    if (glGetUniformLocation(handle, "PointShadowArray") != -1)
+        glUniform1i(glGetUniformLocation(handle, "PointShadowArray"), PointShadowArray);
+
+    if (glGetUniformLocation(handle, "ScreenCopy") != -1)
+        glUniform1i(glGetUniformLocation(handle, "ScreenCopy"), ScreenCopy);
+
     //Enable others as they are actually added
     /*glUniform1i(glGetUniformLocation(handle, "BRDF"), BRDF);
     glUniform1i(glGetUniformLocation(handle, "HeightMap"),          HeightMap);

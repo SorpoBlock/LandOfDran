@@ -121,8 +121,8 @@ void SettingsMenu::renderKeybindsMenu(ImGuiIO* io)
 				//What command are we setting
 				ImGui::Text(GetInputCommandString((InputCommand)a).c_str());
 				ImGui::TableNextColumn();
-				//Button you click to bind a key to that
-				if (ImGui::Button(SDL_GetScancodeName(inputMap->getKeyBind((InputCommand)a)), ImVec2(width * 0.95f * 0.5f, 20.f)))
+				//Button you click to bind a key to that, filling the column however it's resized, and tall enough for the key's name at any UI scale
+				if (ImGui::Button(SDL_GetScancodeName(inputMap->getKeyBind((InputCommand)a)), ImVec2(-FLT_MIN, 0.0f)))
 					currentlyBindingFor = (InputCommand)a;
 			}
 

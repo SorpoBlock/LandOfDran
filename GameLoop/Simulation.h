@@ -3,6 +3,7 @@
 #include "../NetTypes/DynamicType.h"
 #include "../SimObjects/Dynamic.h"
 #include "../SimObjects/StaticObject.h"
+#include "../SimObjects/Light.h"
 #include "../Networking/ObjHolder.h"
 #include "../Graphics/PlayerCamera.h"
 #include "../GameLoop/PlayerController.h"
@@ -50,6 +51,10 @@ struct Simulation
 	//Objects (object holders):
 	ObjHolder<Dynamic>* dynamics = nullptr;
 	ObjHolder<StaticObject>* statics = nullptr;
+	ObjHolder<Light>* lights = nullptr;
+
+	//Goes up whenever statics are added, removed, or changed, so point light shadows know to redraw
+	unsigned int staticsChanged = 0;
 	BrickHolder* bricks = nullptr;
 	BrickDebris* brickDebris = nullptr;
 };

@@ -38,6 +38,9 @@ class InstancedBrickRenderer
 	std::unordered_map<int64_t, Chunk*> chunks;
 	std::vector<Chunk*> dirtyChunks;
 
+	//See getGeneration
+	unsigned int generation = 0;
+
 	GLuint cubeBuffer = 0;
 
 	//One instance, for the ghost brick and loose bricks
@@ -102,6 +105,9 @@ class InstancedBrickRenderer
 	void renderShadowCascade(const glm::mat4& lightSpaceMatrix, bool opaque, bool transparent) const;
 
 	bool hasTransparentBricks() const;
+
+	//Goes up every time a chunk is rebuilt, so anything drawn from the bricks earlier (like point light shadows) knows they've changed
+	unsigned int getGeneration() const { return generation; }
 
 	InstancedBrickRenderer(std::shared_ptr<ShaderManager> shaders, std::shared_ptr<TextureManager> textures);
 	~InstancedBrickRenderer();

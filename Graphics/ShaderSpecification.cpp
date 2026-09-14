@@ -84,6 +84,8 @@ bool ShaderManager::readShaderList(const std::string &filePath)
 				waterShader = lastProgram;
 			else if (programName == "underwater")
 				underwaterShader = lastProgram;
+			else if (programName == "corona")
+				coronaShader = lastProgram;
 			else
 				error("Invalid program name " + programName);
 		}
@@ -163,6 +165,16 @@ ShaderManager::ShaderManager()
 	glBindBuffer(GL_UNIFORM_BUFFER, environmentUBO);
 	glBufferData(GL_UNIFORM_BUFFER, 112, &environmentUniforms, GL_DYNAMIC_DRAW);
 	glBindBuffer(GL_UNIFORM_BUFFER, 0);
+
+	//Point lights:
+
+	glGenBuffers(1, &pointLightUBO);
+	if (!pointLightUBO)
+		error("Could not allocate uniform buffer object!");
+
+	glBindBuffer(GL_UNIFORM_BUFFER, pointLightUBO);
+	glBufferData(GL_UNIFORM_BUFFER, PointLightUniforms::byteSize, &pointLightUniforms, GL_DYNAMIC_DRAW);
+	glBindBuffer(GL_UNIFORM_BUFFER, 0);
 }
 
 ShaderManager::~ShaderManager()
@@ -170,6 +182,7 @@ ShaderManager::~ShaderManager()
 	glDeleteBuffers(1, &basicUBO);
 	glDeleteBuffers(1, &cameraUBO);
 	glDeleteBuffers(1, &environmentUBO);
+	glDeleteBuffers(1, &pointLightUBO);
 }
 
 /*
@@ -181,6 +194,7 @@ void ShaderManager::bind(Program* target) const
 	target->bindUniformBlock("BasicUniforms" , basicUBO , 0);
 	target->bindUniformBlock("CameraUniforms", cameraUBO, 1);
 	target->bindUniformBlock("EnvironmentUniforms", environmentUBO, 2);
+	target->bindUniformBlock("PointLightUniforms", pointLightUBO, 3);
 }
 
 //Push camera changes to GPU/OpenGL
@@ -205,4 +219,10 @@ void ShaderManager::updateEnvironmentUBO() const
 	glBufferData(GL_UNIFORM_BUFFER, 112, &environmentUniforms, GL_DYNAMIC_DRAW);
 	glBindBuffer(GL_UNIFORM_BUFFER, 0);
 }
- 
+
+void ShaderManager::updatePointLightUBO() const
+{
+	glBindBuffer(GL_UNIFORM_BUFFER, pointLightUBO);
+	glBufferData(GL_UNIFORM_BUFFER, PointLightUniforms::byteSize, &pointLightUniforms, GL_DYNAMIC_DRAW);
+	glBindBuffer(GL_UNIFORM_BUFFER, 0);
+}

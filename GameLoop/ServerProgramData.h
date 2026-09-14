@@ -6,6 +6,7 @@
 #include "../NetTypes/DynamicType.h"
 #include "../SimObjects/Dynamic.h"
 #include "../SimObjects/StaticObject.h"
+#include "../SimObjects/Light.h"
 #include "../LuaFunctions/EventManager.h"
 #include "../Physics/PhysicsWorld.h"
 #include "../Bricks/BrickHolder.h"
@@ -93,6 +94,7 @@ struct ServerProgramData
 	//All dynamic objects:
 	ObjHolder<Dynamic>* dynamics = nullptr;
 	ObjHolder<StaticObject> * statics = nullptr;
+	ObjHolder<Light> * lights = nullptr;
 
 	//Created and destroyed with ServerLoop class, like the ObjHolders above
 	BrickHolder* bricks = nullptr;

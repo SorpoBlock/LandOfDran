@@ -25,6 +25,9 @@ class Camera
 	glm::vec3 nominalUp = glm::vec3(0, 1, 0);
 
 	float fieldOfVision = 90.0;
+	//Field of view while zooming, like the old game, and what the projection uses right now as it eases between the two
+	float zoomedFieldOfVision = 15.0;
+	float currentFieldOfVision = 90.0;
 	float nearPlane = 0.5;
 	float farPlane = 1000.0;
 	float aspectRatio = 1.0;
@@ -36,7 +39,13 @@ class Camera
 
 	float thirdPersonDistance = 30.0;
 
+	//Rebuilds projectionMatrix from currentFieldOfVision and aspectRatio
+	void updateProjection();
+
 	public:
+
+	//Set each frame while the zoom key is held, render() narrows the view toward zoomedFieldOfVision
+	bool zooming = false;
 
 	bool getFirstPerson() const { return firstPerson; }
 

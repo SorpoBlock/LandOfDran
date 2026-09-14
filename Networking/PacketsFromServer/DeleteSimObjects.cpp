@@ -42,6 +42,19 @@ bool DeleteSimObjectsPacket::applyPacket(const ClientProgramData& pd, Simulation
 
 				simulation.statics->destroyByID(id);
 			}
+			simulation.staticsChanged++;
+			break;
+		}
+		case LightTypeId:
+		{
+			unsigned int numObjects = packet->data[2];
+			for (unsigned int a = 0; a < numObjects; a++)
+			{
+				netIDType id;
+				memcpy(&id, packet->data + 3 + a * sizeof(netIDType), sizeof(netIDType));
+
+				simulation.lights->destroyByID(id);
+			}
 			break;
 		}
 	}

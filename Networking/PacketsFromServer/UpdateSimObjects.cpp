@@ -50,6 +50,30 @@ bool UpdateSimObjectsPacket::applyPacket(const ClientProgramData& pd, Simulation
 			}
 		}
 
+		//Hiding a static changes shadows, see LoopClient::renderEverything
+		simulation.staticsChanged++;
+		break;
+	}
+	case LightTypeId:
+	{
+		unsigned int numObjects = packet->data[2];
+		unsigned int byteIterator = 3;
+		netIDType lastId = NO_ID;
+
+		for (unsigned int a = 0; a < numObjects; a++)
+		{
+			lastId = simulation.lights->getIdFromDelta(packet->data + byteIterator, lastId, byteIterator);
+
+			if (byteIterator + Light::packetBytes > packet->dataLength)
+				break;
+
+			std::shared_ptr<Light> toUpdate = simulation.lights->find(lastId);
+			if (toUpdate)
+				toUpdate->readFromPacket(packet->data + byteIterator);
+
+			byteIterator += Light::packetBytes;
+		}
+
 		break;
 	}
 	case DynamicTypeId:

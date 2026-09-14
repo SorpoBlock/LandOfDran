@@ -16,6 +16,7 @@
 #include "../Graphics/RenderTarget.h"
 #include "../Graphics/Environment.h"
 #include "../Graphics/InstancedBrickRenderer.h"
+#include "../Graphics/PointLights.h"
 #include "../Bricks/GhostBrick.h"
 #include "../Bricks/BrickTypes.h"
 #include "../Interface/BrickSelector.h"
@@ -47,6 +48,9 @@ struct ClientProgramData
 
 	//Lives for the whole program, bricks of whichever server we're on are passed to it by Simulation's BrickHolder
 	InstancedBrickRenderer* brickRenderer = nullptr;
+
+	//Lives for the whole program, lights of whichever server we're on are passed to it each frame, see LoopClient::renderEverything
+	PointLights* pointLights = nullptr;
 
 	//Named brick sizes with icons, for the brick selector
 	BrickTypes brickTypes;
@@ -90,6 +94,11 @@ struct ClientProgramData
 	//The scene above and below the water surface, both nullptr when graphics/waterquality is off
 	std::shared_ptr<RenderTarget> waterReflection = nullptr;
 	std::shared_ptr<RenderTarget> waterRefraction = nullptr;
+
+	//Copy of the finished scene that underwater.frag draws back warped, made the first time the camera goes under the water
+	std::shared_ptr<RenderTarget> underwaterScene = nullptr;
+	//False if the screen couldn't be copied into underwaterScene, then the tint is just blended over the scene
+	bool underwaterSceneCopies = false;
 
 	std::shared_ptr<RenderContext>	context = nullptr;
 	std::shared_ptr<UserInterface>	gui = nullptr;

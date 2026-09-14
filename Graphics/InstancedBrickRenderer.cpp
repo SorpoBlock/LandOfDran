@@ -198,6 +198,8 @@ void InstancedBrickRenderer::updateBrick(Brick* brick)
 
 void InstancedBrickRenderer::rebuild(Chunk* chunk)
 {
+	generation++;
+
 	if (chunk->bricks.empty())
 	{
 		chunks.erase(chunk->key);

@@ -48,7 +48,8 @@ enum InputCommand
     UseBrick9 = 36,
     UseBrick10 = 37,
     PushToTalk = 38,
-    EndOfCommands = 39
+    Zoom = 39,
+    EndOfCommands = 40
 };
 
 //For user interface

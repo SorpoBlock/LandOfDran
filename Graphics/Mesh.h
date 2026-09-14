@@ -137,6 +137,9 @@ class ModelInstance
 	//Used to hide this entire instance, i.e. we don't want to see our own player model most of the time
 	bool hidden = false;
 
+	//A hidden instance with this set still casts shadows, see setHidden
+	bool hiddenCastsShadow = false;
+
 	/*
 		These are calculated in calculateMeshTransforms per Mesh based on:
   		The node hierarchy as imported from Assimp with any baked in hierarchical transformations
@@ -199,7 +202,14 @@ class ModelInstance
 
 	bool getHidden() const { return hidden; }
 
-	void setHidden(bool _hidden);
+	//InstanceFlags bit model.vert and highlight.vert skip drawing for, while the shadow shaders still draw it
+	static constexpr unsigned int hiddenCastingShadowFlag = 262144;
+
+	/*
+		Hidden instances aren't drawn at all, unless castShadow is true, then they still cast shadows
+		i.e. your own player in first person
+	*/
+	void setHidden(bool _hidden, bool castShadow = false);
 
 	//Change the position/scale/rotation for the whole model instance
 	void setModelTransform(glm::mat4 &&transform);

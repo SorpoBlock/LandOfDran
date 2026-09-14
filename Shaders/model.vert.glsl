@@ -68,6 +68,15 @@ flat out int  useDecal;
 
 void main()
 {
+	//Hidden but still casting a shadow, like your own player in first person, see ModelInstance::setHidden
+	//The shadow shaders don't read the flag, here every vertex goes outside the view so nothing is drawn
+	if((InstanceFlags & 262144) != 0)
+	{
+		gl_ClipDistance[0] = -1.0;
+		gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+		return;
+	}
+
 	preColor = PreColor;
 	opacity = 1.0;
 	useDecal = (InstanceFlags & 131072) == 131072 ? ((InstanceFlags & 130560) >> 9) : -1;

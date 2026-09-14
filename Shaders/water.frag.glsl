@@ -68,6 +68,86 @@ vec3 skyColorFor(vec3 ray)
 	return mix(FogColor, SkyColor, smoothstep(0.0, 0.4, ray.y));
 }
 
+//Same as in model.frag, see PointLightUniforms in ShaderSpecification.h
+layout (std140) uniform PointLightUniforms
+{
+	int PointLightCount;
+	float PointShadowTexelScale;
+	vec4 PointLightPositionRange[32];
+	vec4 PointLightColorShadow[32];
+	vec4 PointLightSpotDirection[32];
+	mat4 PointShadowMatrices[48];
+};
+
+uniform sampler2DArrayShadow PointShadowArray;
+
+//How much of a shadowed point light reaches the water, one hardware filtered sample since the waves hide hard edges anyway
+float pointLightShadow(int slot, vec3 fromLight, vec3 surfaceNormal)
+{
+	vec3 axisDistance = abs(fromLight);
+	int face;
+	if(axisDistance.x >= axisDistance.y && axisDistance.x >= axisDistance.z)
+		face = fromLight.x > 0.0 ? 0 : 1;
+	else if(axisDistance.y >= axisDistance.z)
+		face = fromLight.y > 0.0 ? 2 : 3;
+	else
+		face = fromLight.z > 0.0 ? 4 : 5;
+	int layer = slot * 6 + face;
+
+	float texelWorldSize = PointShadowTexelScale * max(axisDistance.x, max(axisDistance.y, axisDistance.z));
+	vec4 lightClip = PointShadowMatrices[layer] * vec4(worldPos + surfaceNormal * texelWorldSize * 1.5, 1.0);
+	vec3 coords = lightClip.xyz / lightClip.w * 0.5 + 0.5;
+	return texture(PointShadowArray, vec4(coords.xy, float(layer), clamp(coords.z, 0.0, 1.0)));
+}
+
+//Point lights on the water: a faint glow scattered back from the water itself and glints off the waves, tone mapped like model.frag
+vec3 pointLightsOnWater(vec3 normal, vec3 facingNormal, vec3 toCamera)
+{
+	const vec3 waterAlbedo = vec3(0.05, 0.12, 0.14);
+
+	//Only lights on the camera's side of the surface reach what the camera sees of it
+	vec3 flatNormal = cameraUnderwater ? vec3(0.0, -1.0, 0.0) : vec3(0.0, 1.0, 0.0);
+
+	vec3 total = vec3(0.0);
+	for(int i = 0; i < PointLightCount; i++)
+	{
+		vec3 toLight = PointLightPositionRange[i].xyz - worldPos;
+		float distanceSquared = dot(toLight, toLight);
+		float range = PointLightPositionRange[i].w;
+		if(distanceSquared >= range * range)
+			continue;
+
+		vec3 L = toLight / max(sqrt(distanceSquared), 0.0001);
+		if(dot(flatNormal, L) <= 0.0)
+			continue;
+
+		float edge = distanceSquared / (range * range);
+		float window = clamp(1.0 - edge * edge, 0.0, 1.0);
+		float attenuation = window * window / (distanceSquared + 1.0);
+
+		float spotCosine = PointLightSpotDirection[i].w;
+		if(spotCosine > -1.5)
+			attenuation *= smoothstep(spotCosine, spotCosine + (1.0 - spotCosine) * 0.25, dot(-L, PointLightSpotDirection[i].xyz));
+
+		int slot = int(floor(PointLightColorShadow[i].a + 0.5));
+		if(slot >= 0 && attenuation > 0.0)
+			attenuation *= pointLightShadow(slot, -toLight, flatNormal);
+
+		if(attenuation <= 0.0)
+			continue;
+
+		//Normalized Blinn-Phong glint with Schlick's Fresnel for water, which reflects about 2% head on
+		float NdotL = max(dot(facingNormal, L), 0.0);
+		vec3 H = normalize(L + toCamera);
+		float glint = cameraUnderwater ? 0.0 : pow(max(dot(normal, H), 0.0), 200.0) * 8.0;
+		float reflectance = 0.02 + 0.98 * pow(1.0 - max(dot(H, toCamera), 0.0), 5.0);
+
+		total += PointLightColorShadow[i].rgb * attenuation * NdotL * (waterAlbedo * 2.0 / TAU + glint * reflectance);
+	}
+
+	return pow(total / (total + vec3(1.0)), vec3(1.0 / 2.2));
+}
+
 void main()
 {
 	vec3 toCamera = CameraPosition - worldPos;

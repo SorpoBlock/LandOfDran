@@ -112,10 +112,17 @@ void Model::printHierarchy(Node * node,int layer) const
 		printHierarchy(node->children[a], layer + 1);
 }
 
-void ModelInstance::setHidden(bool _hidden)
+void ModelInstance::setHidden(bool _hidden, bool castShadow)
 {
 	hidden = _hidden;
+	hiddenCastsShadow = castShadow;
 	wholeModelTransformUpdated = true;
+
+	//Casting shadows keeps the real transform and uses a flag instead, so both need uploading again
+	transformUpdated = true;
+	anythingUpdated = true;
+	for (unsigned int a = 0; a < flagsUpdated.size(); a++)
+		flagsUpdated[a] = true;
 }
 
 void ModelInstance::setModelTransform(glm::mat4 &&transform)
@@ -536,7 +543,7 @@ void ModelInstance::performMeshBufferUpdates()
 			glBufferSubData(GL_ARRAY_BUFFER, sizeof(float) * bufferOffset, sizeof(float), &highlightThickness);
 		}
 
-		if (hidden)
+		if (hidden && !hiddenCastsShadow)
 		{
 			//Setting all points of GL_POSITION in a prim to the same value is defined behavior in opengl shaders and will discard the prim
 			glm::mat4 meshTransform = glm::mat4(0.0);
@@ -555,8 +562,9 @@ void ModelInstance::performMeshBufferUpdates()
 
 		if (flagsUpdated[a])
 		{
+			unsigned int flags = MeshFlags[a] | (hidden ? hiddenCastingShadowFlag : 0);
 			glBindBuffer(GL_ARRAY_BUFFER, type->allMeshes[a]->buffers[InstanceFlags]);
-			glBufferSubData(GL_ARRAY_BUFFER, sizeof(int) * bufferOffset, sizeof(int), &MeshFlags[a]);
+			glBufferSubData(GL_ARRAY_BUFFER, sizeof(int) * bufferOffset, sizeof(int), &flags);
 
 			flagsUpdated[a] = false;
 		}
@@ -1501,11 +1509,11 @@ void Mesh::recompileInstances()
 
 	for (unsigned int a = 0; a < instances.size(); a++)
 	{
-		if (instances[a]->hidden)
+		if (instances[a]->hidden && !instances[a]->hiddenCastsShadow)
 			transforms.push_back(glm::mat4(0.0));
 		else
 			transforms.push_back(instances[a]->wholeModelTransform * instances[a]->MeshTransforms[meshIndex]);
-		flags.push_back(instances[a]->MeshFlags[meshIndex]);
+		flags.push_back(instances[a]->MeshFlags[meshIndex] | (instances[a]->hidden ? ModelInstance::hiddenCastingShadowFlag : 0));
 		colors.push_back(instances[a]->MeshColors[meshIndex]);
 		highlightColors.push_back(instances[a]->highlightColor);
 		highlightThicknesses.push_back(instances[a]->highlightThickness);
