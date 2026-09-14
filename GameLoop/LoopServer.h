@@ -52,6 +52,9 @@ class LoopServer
 	//Removes emitters whose type's lifetime is up, or whose dynamic or brick is gone
 	void updateEmitters();
 
+	//Jet flames on players who are jetting and off everyone else, and flashlights turned to where their players look, after controllers run
+	void updatePlayerAbilities();
+
 	//Ends talking for clients whose voice stopped arriving without them saying they let go of push to talk, like a lost last packet or being muted mid-sentence
 	void endQuietTalkers();
 

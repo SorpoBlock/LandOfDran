@@ -22,6 +22,9 @@ void sendSoundState(const ServerProgramData* pd, JoinedClient* client);
 //For sounds the server plays on its own, like splashes: plays a registered sound once for everyone, silent if there's none by that name
 void playSoundAt(const std::string& name, const glm::vec3& position, float pitch, float volume);
 
+//Same, following a dynamic around while it plays
+void playSoundOn(const std::string& name, const std::shared_ptr<Dynamic>& dynamic, float pitch, float volume);
+
 //dynamic: and client: methods, registered in getDynamicFunctions and registerClientFunctions
 int LUA_dynamicPlaySound(lua_State* L);
 int LUA_dynamicStartSoundLoop(lua_State* L);

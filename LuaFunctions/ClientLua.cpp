@@ -601,6 +601,7 @@ static int LUA_clientSetDefaultController(lua_State* L)
 
 	client->controllers.emplace_back();
 	client->controllers.back().target = player;
+	client->controllers.back().jetsAllowed = client->jetsEnabled;
 
 	ENetPacket* ret = enet_packet_create(NULL, 1 + sizeof(netIDType), getFlagsFromChannel(OtherReliable));
 	ret->data[0] = (unsigned char)MovementSettings;
@@ -829,6 +830,65 @@ static int LUA_clientIsTalking(lua_State* L)
 	return 1;
 }
 
+static int LUA_clientSetJetsEnabled(lua_State* L)
+{
+	scope("(LUA) client:setJetsEnabled");
+
+	bool enabled = lua_toboolean(L, 2);
+	std::shared_ptr<ClientData> client = popClientData(L, 2, "client:setJetsEnabled(enabled)");
+	if (!client)
+		return 0;
+
+	client->jetsEnabled = enabled;
+	//Stops anyone jetting right away, LoopServer::updatePlayerAbilities takes their flames away
+	for (PlayerController& controller : client->controllers)
+		controller.jetsAllowed = enabled;
+	client->sendAbilities();
+
+	return 0;
+}
+
+static int LUA_clientGetJetsEnabled(lua_State* L)
+{
+	scope("(LUA) client:getJetsEnabled");
+
+	std::shared_ptr<ClientData> client = popClientData(L, 1, "client:getJetsEnabled()");
+	if (!client)
+		return 0;
+
+	lua_pushboolean(L, client->jetsEnabled);
+	return 1;
+}
+
+static int LUA_clientSetFlashlightEnabled(lua_State* L)
+{
+	scope("(LUA) client:setFlashlightEnabled");
+
+	bool enabled = lua_toboolean(L, 2);
+	std::shared_ptr<ClientData> client = popClientData(L, 2, "client:setFlashlightEnabled(enabled)");
+	if (!client)
+		return 0;
+
+	client->flashlightEnabled = enabled;
+	if (!enabled)
+		client->setFlashlight(LUA_pd, false, glm::vec3(1));
+	client->sendAbilities();
+
+	return 0;
+}
+
+static int LUA_clientGetFlashlightEnabled(lua_State* L)
+{
+	scope("(LUA) client:getFlashlightEnabled");
+
+	std::shared_ptr<ClientData> client = popClientData(L, 1, "client:getFlashlightEnabled()");
+	if (!client)
+		return 0;
+
+	lua_pushboolean(L, client->flashlightEnabled);
+	return 1;
+}
+
 void registerClientFunctions(lua_State* L)
 {
 	//Register client global functions:
@@ -860,6 +920,10 @@ void registerClientFunctions(lua_State* L)
 		{ "setVoiceMuted", LUA_clientSetVoiceMuted },
 		{ "isVoiceMuted", LUA_clientIsVoiceMuted },
 		{ "isTalking", LUA_clientIsTalking },
+		{ "setJetsEnabled", LUA_clientSetJetsEnabled },
+		{ "getJetsEnabled", LUA_clientGetJetsEnabled },
+		{ "setFlashlightEnabled", LUA_clientSetFlashlightEnabled },
+		{ "getFlashlightEnabled", LUA_clientGetFlashlightEnabled },
 		{ NULL, NULL }
 	};
 

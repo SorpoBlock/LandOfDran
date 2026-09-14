@@ -74,7 +74,17 @@ enum FromClientPacketType : unsigned char
 	PlantBrickRequest = 9,	//Place the client's ghost brick
 	UndoBrickRequest = 10,	//Remove the last brick this client planted
 	VoiceFrame = 11,		//One 20 ms Opus frame of voice chat while push to talk is held, see Audio/VoiceChat.h
+	FlashlightRequest = 12,	//Turn the client's flashlight on or off, and what color it is
 };
+
+//Movement flags byte of MovementInputs packets
+#define MovementFlag_Jump 1			//Jump was just pressed
+#define MovementFlag_Forward 2
+#define MovementFlag_Backward 4
+#define MovementFlag_Left 8
+#define MovementFlag_Right 16
+#define MovementFlag_JumpHeld 32	//Jump is down at all, swims up
+#define MovementFlag_Jet 64			//Right mouse is held, see PlayerController::control
 
 //Flags byte of VoiceFrame and VoiceFrameFromServer packets
 #define VoiceFlag_End 1			//Push to talk was let go, no Opus frame follows
@@ -124,7 +134,12 @@ enum FromServerPacketType : unsigned char
 	VoiceStatus = 24,		//Whether you're muted, or a talker's name, see VoiceStatusKind
 	DynamicBuoyancy = 25,	//A dynamic's buoyancy, so clients simulating it in water match the server
 	ParticleEmitterType = 26,	//A particle or emitter type, for every one as a client joins and whenever Lua adds one, see ParticleEmitterTypeKind
+	PlayerAbilities = 27,	//Whether Lua lets this client use jets and a flashlight, see PlayerAbility flags
 };
+
+//Flags byte of a PlayerAbilities packet
+#define PlayerAbility_Jets 1
+#define PlayerAbility_Flashlight 2
 
 //Second byte of a VoiceStatus packet
 enum VoiceStatusKind : unsigned char

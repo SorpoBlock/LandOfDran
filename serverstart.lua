@@ -26,6 +26,9 @@ newSoundType("BrickClear","Assets/sound/brickClear.wav")
 --The server plays these itself where dynamics fall into or jump out of the water
 newSoundType("Splash","Assets/sound/splash1.wav")
 newSoundType("ExitWater","Assets/sound/exitWater.wav")
+--And these from a player whose flashlight turns on or off
+newSoundType("LightOn","Assets/sound/lightOn.wav")
+newSoundType("LightOff","Assets/sound/lightOff.wav")
 
 --Particle and emitter types, including the splash the server makes where dynamics fall into the water
 dofile("EmitterDefaults.lua")

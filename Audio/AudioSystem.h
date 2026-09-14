@@ -174,6 +174,11 @@ private:
 
 	glm::vec3 listenerPosition = glm::vec3(0);
 	Motion listenerMotion;
+	//The listener's velocity this update, given or tracked
+	glm::vec3 listenerMoving = glm::vec3(0);
+
+	//Velocity to give a source for the Doppler effect: how fast it and the listener close in on each other, less a little so slow movement doesn't shift pitch
+	glm::vec3 dopplerVelocity(const SoundLocation& where) const;
 
 	//Sets the source up to play from where, including whether it's positioned at all
 	void placeSource(ALuint source, const SoundLocation& where);

@@ -69,6 +69,11 @@ void LoopClient::leaveServer(ExecutableArguments& cmdArgs)
 	pd.ghostBrick.hide();
 	pd.brickHotbar->putAway();
 	pd.brickHotbar->takeChange();
+	simulation.jetsEnabled = true;
+	simulation.flashlightEnabled = true;
+	flashlightOn = false;
+	flashlightHeldMS = 0;
+	flashlightCycling = false;
 	pd.voice->clear();
 	pd.audio->clear();
 
@@ -167,6 +172,111 @@ static void spawnGhostFromCamera(ClientProgramData& pd, Simulation& simulation)
 	btVector3 hitPosition, hitNormal;
 	if (pd.physicsWorld->doRaycast(g2b3(start), g2b3(start + direction * 250.0f), ignore, hitPosition, hitNormal))
 		pd.ghostBrick.spawnAt(b2g3(hitPosition), b2g3(hitNormal));
+}
+
+//0 to 1 around the flashlight's colors: fades from white into red, goes around every hue, and fades back into white
+static glm::vec3 flashlightColor(float cycle)
+{
+	static constexpr float fadeFromWhite = 0.1f;
+
+	float saturation = std::clamp(std::min(cycle, 1.0f - cycle) / fadeFromWhite, 0.0f, 1.0f);
+	glm::vec3 hue = glm::clamp(glm::abs(glm::mod(cycle * 6.0f + glm::vec3(0, 4, 2), 6.0f) - 3.0f) - 1.0f, 0.0f, 1.0f);
+	return glm::mix(glm::vec3(1), hue, saturation);
+}
+
+void LoopClient::updateFlashlight(float deltaT)
+{
+	//Held longer than this, the key cycles the color instead of switching the flashlight on or off
+	static constexpr float holdForColorMS = 350.0f;
+	//Once around every color and back to white
+	static constexpr float colorCycleMS = 8000.0f;
+	//How often the color goes to the server while cycling
+	static constexpr float colorSendMS = 100.0f;
+
+	//Polled every frame so a press while it's disabled doesn't go off later, and so a tap too quick to be down on any frame still counts
+	bool pressed = pd.input->pollCommand(Flashlight);
+
+	//The server turned it off when it disabled it
+	if (!simulation.flashlightEnabled || !client)
+	{
+		flashlightOn = false;
+		flashlightHeldMS = 0;
+		flashlightCycling = false;
+		return;
+	}
+
+	bool switched = false;
+	if (pd.input->isCommandKeydown(Flashlight))
+	{
+		flashlightHeldMS += deltaT;
+		if (flashlightHeldMS >= holdForColorMS)
+		{
+			//Comes on to show the colors going by
+			if (!flashlightOn)
+			{
+				flashlightOn = true;
+				switched = true;
+			}
+
+			flashlightCycling = true;
+			flashlightCycle = std::fmod(flashlightCycle + deltaT / colorCycleMS, 1.0f);
+			flashlightColorUnsent = true;
+		}
+	}
+	else
+	{
+		if ((flashlightHeldMS > 0 || pressed) && !flashlightCycling)
+		{
+			flashlightOn = !flashlightOn;
+			switched = true;
+		}
+
+		flashlightHeldMS = 0;
+		flashlightCycling = false;
+	}
+
+	flashlightSinceSentMS += deltaT;
+	if (switched || (flashlightColorUnsent && (!flashlightCycling || flashlightSinceSentMS >= colorSendMS)))
+	{
+		client->send(makeFlashlightPacket(flashlightOn, flashlightColor(flashlightCycle)), OtherReliable);
+		flashlightSinceSentMS = 0;
+		flashlightColorUnsent = false;
+	}
+}
+
+bool LoopClient::placeHeldLight(Light& light, glm::vec3& position, glm::vec3& direction)
+{
+	//Past the side of the collision box, so the holder's head doesn't shadow the whole beam
+	static constexpr float clearance = 0.3f;
+
+	std::shared_ptr<Dynamic> holder = light.holder.lock();
+	if (!holder || holder->getID() != light.getHolderID())
+	{
+		holder = simulation.dynamics ? simulation.dynamics->find(light.getHolderID()) : nullptr;
+		light.holder = holder;
+	}
+
+	if (!holder)
+		return false;
+
+	std::shared_ptr<Model> model = holder->getType()->getModel();
+	glm::vec3 eyes;
+	if (holder->clientControlled)
+	{
+		//Where the camera puts the eyes of a dynamic we move ourselves, so our own flashlight never trails behind the view
+		eyes = b2g3(holder->body->getWorldTransform().getOrigin()) + holder->interpolator.getRotation() * model->getEyePosition();
+		if (simulation.camera->target.lock() == holder)
+			direction = simulation.camera->getDirection();
+	}
+	else
+	{
+		glm::vec3 drawnAt = holder->renderedTransformInitialized ? holder->renderedPosition : b2g3(holder->getPosition());
+		eyes = drawnAt + holder->renderedRotation * model->getEyePosition();
+	}
+
+	glm::vec3 halfExtents = model->getColHalfExtents();
+	position = eyes + direction * (std::max(halfExtents.x, halfExtents.z) + clearance);
+	return true;
 }
 
 void LoopClient::handleInput(float deltaT, ExecutableArguments& cmdArgs, std::shared_ptr<SettingManager> settings)
@@ -388,6 +498,9 @@ void LoopClient::handleInput(float deltaT, ExecutableArguments& cmdArgs, std::sh
 
 	//Narrows the view while held, like the old game
 	simulation.camera->zooming = pd.input->isCommandKeydown(Zoom);
+
+	if (cmdArgs.gameState == InGame)
+		updateFlashlight(deltaT);
 
 	if (pd.input->pollCommand(FirstThirdPerson))
 		simulation.camera->swapPerson();
@@ -974,8 +1087,15 @@ void LoopClient::renderEverything(float deltaT)
 		for (unsigned int a = 0; a < simulation.lights->size(); a++)
 		{
 			std::shared_ptr<Light> light = simulation.lights->get(a);
-			lightSources.push_back({ light->getID(), light->getRenderedPosition(now), light->getColor(), light->getBrightness(), light->getCoronaWidth(), light->getRange(),
-				light->getRenderedDirection(now), light->getConeCosine() });
+			glm::vec3 position = light->getRenderedPosition(now);
+			glm::vec3 direction = light->getRenderedDirection(now);
+
+			//Flashlights, skipped until the player holding one arrives
+			if (light->getHolderID() != NO_ID && !placeHeldLight(*light, position, direction))
+				continue;
+
+			lightSources.push_back({ light->getID(), position, light->getColor(), light->getBrightness(), light->getCoronaWidth(), light->getRange(),
+				direction, light->getConeCosine() });
 		}
 	}
 
@@ -1241,13 +1361,16 @@ void LoopClient::sendControlledObjects()
 
 void LoopClient::updateControllers(float deltaT)
 {
-	//Go through player controllers, remove any that are bound to now deleted dynamics 
+	//Jets while right mouse is held, only while the mouse is captured for playing rather than clicking around a window
+	bool jet = simulation.jetsEnabled && pd.context->getMouseLocked() && !pd.input->supressed && (SDL_GetMouseState(nullptr, nullptr) & SDL_BUTTON_RMASK);
+
+	//Go through player controllers, remove any that are bound to now deleted dynamics
 	auto ctrlIter = simulation.controllers.begin();
 	while (ctrlIter != simulation.controllers.end())
 	{
 		//Apply movement inputs client side 
 		float waterLevel = simulation.waterEnabled ? simulation.waterLevel : PlayerController::noWater;
-		if ((*ctrlIter)->control(pd.input, simulation.camera, deltaT, pd.physicsWorld, waterLevel))
+		if ((*ctrlIter)->control(pd.input, simulation.camera, deltaT, pd.physicsWorld, jet, waterLevel))
 		{
 			ctrlIter = simulation.controllers.erase(ctrlIter);
 			continue;
@@ -1434,6 +1557,10 @@ void LoopClient::run(float deltaT,ExecutableArguments& cmdArgs, std::shared_ptr<
 		if (client)
 			client->send(makeVoiceFramePacket(flags, sequence, data, length), VoiceData);
 	}, deltaT);
+
+	std::string microphoneProblem;
+	if (pd.voice->takeMicrophoneProblem(microphoneProblem))
+		pd.gui->addCenterPrint(microphoneProblem, 4000, 1.0f, 0.45f, 0.45f);
 
 	pd.audio->update(listener, simulation.camera->getDirection(), listenerVelocity, deltaT);
 }

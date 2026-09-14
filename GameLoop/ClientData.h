@@ -2,9 +2,12 @@
 
 #include "../Networking/JoinedClient.h"
 #include "../SimObjects/Dynamic.h"
+#include "../SimObjects/Light.h"
 #include "PlayerController.h"
 
 #include <set>
+
+struct ServerProgramData;
 
 //Basically JoinedClient is lower level and used by the server for networking, ClientData is used in server-side packet functions
 //ClientData contains references to a JoinedClient but also anything else that client 'owns' like a player, a camera, bricks, etc.
@@ -35,4 +38,21 @@ struct ClientData
 	unsigned int lastVoiceMS = 0;
 	//Net IDs of clients whose names this client has been sent, so it can show who's talking
 	std::set<netIDType> knownTalkers;
+
+	//Lua's client:setJetsEnabled and client:setFlashlightEnabled, both allowed unless Lua says otherwise
+	bool jetsEnabled = true;
+	bool flashlightEnabled = true;
+
+	//Their flashlight while it's on, held by the target of their first controller, see setFlashlight
+	std::weak_ptr<Light> flashlight;
+
+	//Turns their flashlight on in color (or just recolors it), or off, playing LightOn or LightOff from their player for anyone nearby
+	//Won't turn it on while flashlightEnabled is off, or without a player from setDefaultController to hold it
+	void setFlashlight(const ServerProgramData* pd, bool on, const glm::vec3& color);
+
+	//Tells their game whether jets and the flashlight are enabled, so it doesn't jet on its own when the server won't
+	void sendAbilities() const;
+
+	//Removes their flashlight and jet flames, for when they leave
+	void removeEffects(const ServerProgramData* pd);
 };

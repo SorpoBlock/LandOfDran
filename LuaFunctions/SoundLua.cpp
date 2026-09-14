@@ -137,6 +137,20 @@ void playSoundAt(const std::string& name, const glm::vec3& position, float pitch
 	LUA_server->broadcast(makeOneShotPacket(soundID, pitch, volume, SoundLocationFixed, position, nullptr), Unreliable);
 }
 
+void playSoundOn(const std::string& name, const std::shared_ptr<Dynamic>& dynamic, float pitch, float volume)
+{
+	if (!LUA_pd || !LUA_server || !dynamic)
+		return;
+
+	int soundID = findSoundType(name);
+	if (soundID == -1)
+		return;
+
+	pitch = std::clamp(pitch, 0.05f, 10.0f);
+	volume = std::clamp(volume, 0.0f, 1.0f);
+	LUA_server->broadcast(makeOneShotPacket(soundID, pitch, volume, SoundLocationDynamic, glm::vec3(0), dynamic), Unreliable);
+}
+
 //Loops on a Dynamic end when it's destroyed, clients stop them on their own
 static void forgetEndedSoundLoops()
 {

@@ -2,6 +2,8 @@
 
 #include "SimObject.h"
 
+class Dynamic;
+
 /*
 	A point light or spotlight with no model or physics body, placed by server Lua with createLight
 	Clients light the world with it, give the ones nearest the camera shadows (graphics/pointshadows), and draw its corona, see Graphics/PointLights.h
@@ -29,12 +31,16 @@ class Light : public SimObject
 	float coneAngle = 0;
 	//Degrees per second the direction turns around the vertical axis
 	float spin = 0;
+	//Net ID of the dynamic holding it like a flashlight, NO_ID for none, see setHolder
+	netIDType holderID = NO_ID;
 
 	//Client only, see getRenderedPosition and getRenderedDirection
 	mutable glm::vec3 flickerOffset = glm::vec3(0);
 	mutable uint32_t nextFlickerMS = 0;
 	mutable float spinAngle = 0;
 	mutable uint32_t lastSpinMS = 0;
+	mutable glm::vec3 heldDirection = glm::vec3(0, -1, 0);
+	mutable bool heldDirectionSet = false;
 
 	void writeState(enet_uint8* dest) const;
 
@@ -56,9 +62,14 @@ class Light : public SimObject
 	static constexpr float maxSpin = 3600.0f;
 
 	//State written by both creation and update packets, after the net ID
-	static constexpr unsigned int packetBytes = sizeof(float) * 14;
+	static constexpr unsigned int packetBytes = sizeof(float) * 14 + sizeof(netIDType);
 
-	const glm::vec3& getPosition() const { return position; }
+	//Server: the dynamic holding it. Client: the dynamic with getHolderID, found again whenever that isn't it
+	std::weak_ptr<Dynamic> holder;
+
+	//Server: where its holder is if it has one
+	glm::vec3 getPosition() const;
+	netIDType getHolderID() const { return holderID; }
 	const glm::vec3& getColor() const { return color; }
 	float getBrightness() const { return brightness; }
 	float getFlicker() const { return flicker; }
@@ -68,6 +79,7 @@ class Light : public SimObject
 	float getSpin() const { return spin; }
 
 	//Each of these clamps to a valid range and has clients sent the change
+	//setPosition also takes it away from its holder
 	void setPosition(const glm::vec3& _position);
 	void setColor(const glm::vec3& _color);
 	void setBrightness(float _brightness);
@@ -80,6 +92,9 @@ class Light : public SimObject
 	//Returns false and changes nothing for a zero length direction
 	bool setDirection(const glm::vec3& _direction);
 
+	//Has a dynamic hold it like a flashlight: clients shine it from just in front of that dynamic's eyes toward its direction, see LoopClient::placeHeldLight
+	void setHolder(const std::shared_ptr<Dynamic>& dynamic);
+
 	//Distance past which the light adds too little to see, model.frag fades it to exactly nothing there
 	float getRange() const;
 
@@ -89,7 +104,7 @@ class Light : public SimObject
 	//Client: where the light is drawn, jumping to a new random spot within flicker of its position every so often
 	glm::vec3 getRenderedPosition(uint32_t nowMS) const;
 
-	//Client: direction turned by however far it has spun, call once a frame
+	//Client: direction turned by however far it has spun, call once a frame. A held light glides toward a new direction instead of jumping
 	glm::vec3 getRenderedDirection(uint32_t nowMS) const;
 
 	//Client: applies packetBytes of state written by the server

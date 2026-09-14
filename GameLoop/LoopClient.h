@@ -42,6 +42,20 @@ class LoopClient
 	float undoHeldMS = 0;
 	float undoSinceRepeatMS = 0;
 
+	//Flashlight key, see updateFlashlight: whether we asked for it on, how long the key's been down, and where it is in the color cycle (0 is white)
+	bool flashlightOn = false;
+	float flashlightHeldMS = 0;
+	bool flashlightCycling = false;
+	float flashlightCycle = 0;
+	float flashlightSinceSentMS = 0;
+	bool flashlightColorUnsent = false;
+
+	//A tap of the flashlight key turns it on or off, holding it turns it on and cycles its color, sending the server each change
+	void updateFlashlight(float deltaT);
+
+	//Puts a light held by a dynamic just in front of that dynamic's eyes, pointing where our camera does if it's our player. False if the dynamic isn't here
+	bool placeHeldLight(Light& light, glm::vec3& position, glm::vec3& direction);
+
 	//Send simulation.controlledObjects physics/transform data to server
 	void sendControlledObjects();
 

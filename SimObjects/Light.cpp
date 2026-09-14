@@ -1,4 +1,5 @@
 #include "Light.h"
+#include "Dynamic.h"
 
 #include <random>
 #include <glm/gtc/constants.hpp>
@@ -12,6 +13,9 @@ static constexpr float maxRange = 500.0f;
 //How long a flickering light stays in one spot before jumping to the next
 static constexpr uint32_t minFlickerHoldMS = 40;
 static constexpr uint32_t maxFlickerHoldMS = 160;
+
+//A held light's direction only arrives about ten times a second (the holder's movement inputs), so it glides over roughly this long
+static constexpr float heldTurnSmoothingMS = 60.0f;
 
 Light::Light(const glm::vec3& _position, const glm::vec3& _color, float _brightness, float _flicker, float _coronaWidth)
 {
@@ -28,7 +32,27 @@ Light::Light(const glm::vec3& _position, const glm::vec3& _color, float _brightn
 void Light::setPosition(const glm::vec3& _position)
 {
 	position = _position;
+	holderID = NO_ID;
+	holder.reset();
 	updatesLeft = resendCount;
+}
+
+void Light::setHolder(const std::shared_ptr<Dynamic>& dynamic)
+{
+	holder = dynamic;
+	holderID = dynamic ? dynamic->getID() : NO_ID;
+	updatesLeft = resendCount;
+}
+
+glm::vec3 Light::getPosition() const
+{
+	if (holderID != NO_ID)
+	{
+		if (std::shared_ptr<Dynamic> held = holder.lock())
+			return b2g3(held->getPosition());
+	}
+
+	return position;
 }
 
 void Light::setColor(const glm::vec3& _color)
@@ -117,30 +141,55 @@ glm::vec3 Light::getRenderedPosition(uint32_t nowMS) const
 
 glm::vec3 Light::getRenderedDirection(uint32_t nowMS) const
 {
-	if (lastSpinMS != 0 && spin != 0.0f)
-		spinAngle = std::fmod(spinAngle + glm::radians(spin) * (float)(nowMS - lastSpinMS) / 1000.0f, glm::two_pi<float>());
+	float elapsedMS = lastSpinMS != 0 ? (float)(nowMS - lastSpinMS) : 0.0f;
+	if (spin != 0.0f)
+		spinAngle = std::fmod(spinAngle + glm::radians(spin) * elapsedMS / 1000.0f, glm::two_pi<float>());
 	lastSpinMS = nowMS;
 
+	glm::vec3 pointing = direction;
+	if (holderID != NO_ID)
+	{
+		if (!heldDirectionSet)
+			heldDirection = direction;
+		else
+		{
+			glm::vec3 glided = glm::mix(heldDirection, direction, 1.0f - std::exp(-elapsedMS / heldTurnSmoothingMS));
+			heldDirection = glm::length(glided) > 0.0001f ? glm::normalize(glided) : direction;
+		}
+		heldDirectionSet = true;
+		pointing = heldDirection;
+	}
+
 	if (spinAngle == 0.0f)
-		return direction;
+		return pointing;
 
 	//Around the vertical axis, like the old game's yaw velocity
 	float c = std::cos(spinAngle);
 	float s = std::sin(spinAngle);
-	return glm::vec3(direction.x * c + direction.z * s, direction.y, direction.z * c - direction.x * s);
+	return glm::vec3(pointing.x * c + pointing.z * s, pointing.y, pointing.z * c - pointing.x * s);
 }
 
 void Light::writeState(enet_uint8* dest) const
 {
 	const float state[14] = { position.x, position.y, position.z, color.r, color.g, color.b, brightness, flicker, coronaWidth,
 		direction.x, direction.y, direction.z, coneAngle, spin };
-	memcpy(dest, state, packetBytes);
+	memcpy(dest, state, sizeof(state));
+	memcpy(dest + sizeof(state), &holderID, sizeof(netIDType));
 }
 
 void Light::readFromPacket(const enet_uint8* src)
 {
 	float state[14];
-	memcpy(state, src, packetBytes);
+	memcpy(state, src, sizeof(state));
+
+	netIDType newHolderID;
+	memcpy(&newHolderID, src + sizeof(state), sizeof(netIDType));
+	if (newHolderID != holderID)
+	{
+		holder.reset();
+		heldDirectionSet = false;
+	}
+	holderID = newHolderID;
 
 	position = glm::vec3(state[0], state[1], state[2]);
 	color = glm::vec3(state[3], state[4], state[5]);

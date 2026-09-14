@@ -202,6 +202,10 @@ KickReason Client::handleEvent(ENetEvent& event)
 					packets.push_back(new VoiceStatusPacket(packetHoldTime, event.packet));
 					return NotKicked;
 
+				case PlayerAbilities:
+					packets.push_back(new PlayerAbilitiesPacket(packetHoldTime, event.packet));
+					return NotKicked;
+
 				//Can't process packet
 				case InvalidServer:
 				default:

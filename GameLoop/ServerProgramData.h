@@ -152,6 +152,9 @@ struct ServerProgramData
 				//But we need to clarify all of these objects are *only* owned by Lua now
 				c->at(a)->controlledObjects.clear();
 
+				//Their flashlight and jet flames go with them though, even if their player stays
+				c->at(a)->removeEffects(this);
+
 				//Get rid of ClientData and JoinedClient structures themselves
 				src->userData = nullptr;
 				c->at(a)->me.reset();

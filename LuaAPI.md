@@ -208,6 +208,13 @@ brightest color channel is 1, up to 500 (`light:getRange()` gives the exact valu
 `brightness` 50 at 5 studs is about an eighth of noon sunlight, so a lamp is around 20-100 and a
 floodlight a few thousand.
 
+Players' flashlights (see `client:setFlashlightEnabled`) are lights too: an 80 degree spotlight with
+brightness 150 and no corona, which shows up in `getNumLights` and `getLightIdx` while it's on.
+Each client shines it from just in front of the holding player's eyes toward where that player
+looks, so `light:getPosition()` gives the player's position, and the server keeps pointing it with
+`setDirection`. `light:setPosition` takes it out of the player's hand, and `light:destroy()`
+switches it off without the `LightOff` sound.
+
 ### Global functions
 
 | Function | Arguments | Returns | Description |
@@ -256,7 +263,8 @@ client ejects, moves, and draws the particles on its own, so two players never s
 Types are made by name, and adding one with a name that's taken replaces it: clients already in the
 game get the change right away and existing emitters of that type carry on with it. `EmitterDefaults.lua`,
 run from `serverstart.lua`, adds the old game's types (converted to the units below) and a
-`fountainEmitter` for testing. The server makes a `playerBubbleEmitter` wherever a dynamic splashes
+`fountainEmitter` for testing. The server puts a `playerJetEmitter` under each foot of a jetting player
+(see `client:setJetsEnabled`), and makes a `playerBubbleEmitter` wherever a dynamic splashes
 into the water, if a type by that name exists. `emitterTest()` in `serverstart.lua` places one of every
 default type.
 
@@ -390,7 +398,9 @@ Sounds with no position play at the same volume wherever the listener is. Sounds
 pan left and right, are at full volume within 5 studs, and past that lose about 10 dB every time
 the distance doubles, getting duller as well, so they're close to silent a couple hundred studs
 away. Sounds moving toward or away from the listener, or a listener moving toward or away from
-them, shift in pitch (the Doppler effect, with sound traveling 343 studs a second). The listener
+them, shift in pitch (the Doppler effect, with sound traveling 343 studs a second). Closing in or
+pulling apart slower than 12 studs a second doesn't shift pitch at all, and the shift eases in
+up to its full amount at 30 studs a second, so walking around doesn't bend music. The listener
 is the client's camera, but its movement for the Doppler effect is that of whatever the camera
 follows, so swinging the camera around doesn't change pitch.
 
@@ -409,7 +419,8 @@ and `ClickRotate` when the ghost brick moves or turns, `Jump` when their player 
 console), and `BrickClear` (played to everyone when someone types `/clearbricks` in chat to remove
 all of their own bricks). It also registers `Splash` and `ExitWater`, which the server plays by
 name where dynamics hit or leave the water, louder the faster they're moving and lower pitched
-the bigger they are.
+the bigger they are, and `LightOn` and `LightOff`, which the server plays from a player whose
+flashlight turns on or off.
 
 In the functions below, `pitch` is a playback speed multiplier (default `1`, clamped to 0.05-10)
 and `volume` is 0-1 (default `1`). They can only be given together.
@@ -485,3 +496,7 @@ A "client" represents one connected player/connection.
 | `client:setVoiceMuted(muted)` | bool | none | Mutes or unmutes the client's voice chat. The server drops their voice while they're muted, and their game shows "Voice Muted" and stops sending. If they were talking, `ClientStopTalking` fires half a second later. Not remembered if they reconnect. |
 | `client:isVoiceMuted()` | none | bool | Whether `setVoiceMuted` muted the client. |
 | `client:isTalking()` | none | bool | Whether the client is talking right now, between `ClientStartTalking` and `ClientStopTalking`. |
+| `client:setJetsEnabled(enabled)` | bool | none | Whether the client can jet, on by default. Holding right mouse cancels gravity and lifts the player from `setDefaultController` up to 30 studs a second, moving at twice walking speed while they walk, not while swimming. Each foot (`Left_Foot` and `Right_Foot` meshes, or the middle of a model without them) gets a `playerJetEmitter` while they jet, if Lua added that emitter type. Turning it off mid-jet drops them and removes the flames. Not remembered if they reconnect. |
+| `client:getJetsEnabled()` | none | bool | Whether `setJetsEnabled` lets the client jet. |
+| `client:setFlashlightEnabled(enabled)` | bool | none | Whether the client can use their flashlight, on by default. Players tap their flashlight key (`]` by default) to switch it on or off, and hold it to cycle through colors starting from white. The `LightOn` and `LightOff` sounds play from their player. Turning it off switches off a flashlight that's on. Needs a player from `setDefaultController` to hold it (see Lights). Not remembered if they reconnect. |
+| `client:getFlashlightEnabled()` | none | bool | Whether `setFlashlightEnabled` lets the client use a flashlight. |

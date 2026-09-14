@@ -100,6 +100,11 @@ void Server::switchPacketType(JoinedClient * source, ENetPacket* packet, const v
 			voiceFrame(source, this, packet, pd);
 			return;
 		}
+		case FlashlightRequest:
+		{
+			flashlightRequest(source, this, packet, pd);
+			return;
+		}
 
 		case InvalidClient:
 		default:

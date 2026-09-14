@@ -65,7 +65,8 @@ void main()
 	mat3 rotation = mat3(brickTransform);
 	normal = rotation * CubeNormal;
 	tangent = rotation * CubeTangent;
-	bitangent = rotation * CubeBitangent;
+	//Brick normal maps point green toward the top of the image, which is v = 0 since textures load unflipped, so it runs against the face's v
+	bitangent = -(rotation * CubeBitangent);
 
 	//Tiled faces are the top and bottom, whose texture axes run along x and z
 	uvs = tileByStuds ? CubeUV * BrickSize.xz : CubeUV;

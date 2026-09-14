@@ -1,6 +1,7 @@
 #include "VoiceChat.h"
 
 #include <opus/opus.h>
+#include <AL/alext.h>
 #include <cstring>
 
 //Carries a 16 bit sequence number on from the full sequence number it's closest to, so it keeps counting past 65535
@@ -47,6 +48,7 @@ bool VoiceChat::openMicrophone()
 			error("Could not create an Opus encoder, voice chat can't send: " + std::string(opus_strerror(opusError)));
 			encoder = nullptr;
 			microphoneFailed = true;
+			microphoneProblem = "Voice chat can't send, see the error log";
 			return false;
 		}
 
@@ -69,11 +71,22 @@ bool VoiceChat::openMicrophone()
 	{
 		std::vector<std::string> microphones = listMicrophones();
 		std::string names = "";
+		bool listed = false;
 		for (size_t a = 1; a < microphones.size(); a++)
+		{
 			names += (a > 1 ? ", " : "") + microphones[a];
+			listed = listed || lowercase(microphones[a]) == lowercase(microphoneName);
+		}
 
 		error("Could not open microphone \"" + microphoneName + "\", voice chat can't send. Microphones: " + (names.empty() ? "none" : names));
 		microphoneFailed = true;
+
+		if (microphones.size() < 2)
+			microphoneProblem = "No microphone found, voice chat can't send";
+		else if (!isSystemDefault(microphoneName) && !listed)
+			microphoneProblem = "Microphone \"" + microphoneName + "\" isn't connected, pick another in Settings";
+		else
+			microphoneProblem = "Couldn't open microphone \"" + microphoneName + "\"";
 		return false;
 	}
 
@@ -102,6 +115,26 @@ void VoiceChat::record(bool sending, const SendFrame& send, float deltaT)
 	//A changed audio/microphone setting takes effect between transmissions
 	if (microphone && !recording && openedMicrophoneName != microphoneName)
 		closeMicrophone();
+
+	//Unplugged since it was opened
+	if (microphone && alcIsExtensionPresent(microphone, "ALC_EXT_disconnect"))
+	{
+		ALCint connected = ALC_TRUE;
+		alcGetIntegerv(microphone, ALC_CONNECTED, 1, &connected);
+		if (!connected)
+		{
+			error("Microphone \"" + openedMicrophoneName + "\" was disconnected");
+			microphoneProblem = "Microphone \"" + openedMicrophoneName + "\" was disconnected, pick another in Settings";
+			closeMicrophone();
+			microphoneFailed = true;
+
+			if (transmitting)
+			{
+				send(VoiceFlag_End, nextSequence, nullptr, 0);
+				transmitting = false;
+			}
+		}
+	}
 
 	if (sending && !recording && openMicrophone())
 	{
@@ -294,6 +327,16 @@ void VoiceChat::forget(Talker& talker)
 	talker.decoder = nullptr;
 }
 
+bool VoiceChat::takeMicrophoneProblem(std::string& problem)
+{
+	if (microphoneProblem.empty())
+		return false;
+
+	problem = microphoneProblem;
+	microphoneProblem.clear();
+	return true;
+}
+
 void VoiceChat::setMicrophone(const std::string& name, float volume)
 {
 	if (name != microphoneName)
@@ -307,6 +350,11 @@ void VoiceChat::update(bool pushToTalk, const SendFrame& send, float deltaT)
 {
 	bool held = pushToTalk && !muted;
 	sinceReleasedMS = held ? 0 : sinceReleasedMS + deltaT;
+
+	//It might have been plugged back in, or the problem reported again
+	if (held && !wasHeld)
+		microphoneFailed = false;
+	wasHeld = held;
 
 	record(held || (transmitting && !muted && sinceReleasedMS < releaseTailMS), send, deltaT);
 

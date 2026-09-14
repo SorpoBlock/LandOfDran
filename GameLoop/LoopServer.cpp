@@ -69,6 +69,8 @@ void LoopServer::run(float deltaT, ExecutableArguments& cmdArgs, std::shared_ptr
 		}
 	}
 
+	updatePlayerAbilities();
+
 	//Drive any dynamics currently snapped to a client's cursor (see dynamic:snapToCursor)
 	for (unsigned int a = 0; a < pd.dynamics->size(); a++)
 	{
@@ -201,6 +203,66 @@ void LoopServer::updateEmitters()
 
 		if (expired || dynamicGone || brickGone)
 			pd.emitters->destroy(emitter);
+	}
+}
+
+void LoopServer::updatePlayerAbilities()
+{
+	//How far where a client looks has to turn before their flashlight turns with it, so holding still doesn't keep sending updates
+	static const float flashlightTurnCosine = std::cos(glm::radians(1.0f));
+	static const char* feet[2] = { "Left_Foot", "Right_Foot" };
+
+	for (std::shared_ptr<ClientData>& client : pd.clients)
+	{
+		for (PlayerController& controller : client->controllers)
+		{
+			std::shared_ptr<Dynamic> target = controller.target.lock();
+			bool jetting = target && controller.lastJet && controller.jetsAllowed;
+			bool flaming = !controller.jetEmitters[0].expired() || !controller.jetEmitters[1].expired();
+
+			if (jetting && !flaming)
+			{
+				//The old game's flames under each foot, if Lua defined them
+				for (int a = 0; a < 2; a++)
+				{
+					int mesh = target->getType()->getModel()->getMeshIdx(feet[a]);
+					//A model without feet gets one from its middle
+					if (mesh == -1 && a == 1)
+						break;
+
+					std::shared_ptr<Emitter> flame = spawnEmitterAt("playerJetEmitter", b2g3(target->getPosition()));
+					if (!flame)
+						break;
+
+					flame->attachToDynamic(target, mesh);
+					controller.jetEmitters[a] = flame;
+				}
+			}
+			else if (!jetting && flaming)
+			{
+				for (std::weak_ptr<Emitter>& jet : controller.jetEmitters)
+				{
+					if (std::shared_ptr<Emitter> flame = jet.lock())
+						pd.emitters->destroy(flame);
+					jet.reset();
+				}
+			}
+		}
+
+		std::shared_ptr<Light> light = client->flashlight.lock();
+		if (!light)
+			continue;
+
+		std::shared_ptr<Dynamic> holder = client->controllers.empty() ? nullptr : client->controllers[0].target.lock();
+		if (!holder)
+		{
+			client->setFlashlight(&pd, false, light->getColor());
+			continue;
+		}
+
+		glm::vec3 look = client->controllers[0].lastCameraDirection;
+		if (glm::length(look) > 0.0001f && glm::dot(glm::normalize(look), light->getDirection()) < flashlightTurnCosine)
+			light->setDirection(look);
 	}
 }
 

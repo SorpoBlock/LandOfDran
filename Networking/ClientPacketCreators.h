@@ -53,7 +53,7 @@ inline ENetPacket* makeConnectionRequest(std::string name)
 	4 bytes		-		camera y position
 	4 bytes		-		camera z position
 */
-inline ENetPacket* makeMovementInputs(netIDType controlledDynamicID, bool jump, bool jumpHeld, bool forward,bool backward,bool left,bool right, glm::vec3 cameraDirection, glm::vec3 cameraPosition)
+inline ENetPacket* makeMovementInputs(netIDType controlledDynamicID, bool jump, bool jumpHeld, bool forward,bool backward,bool left,bool right, bool jet, glm::vec3 cameraDirection, glm::vec3 cameraPosition)
 {
 	//Unreliable and resent every interval regardless of whether the state changed (see PlayerController::makeMovementInputsPacket) -
 	//losing any single one just means the server acts on a stale input state for one more interval before the next resend corrects it,
@@ -61,12 +61,13 @@ inline ENetPacket* makeMovementInputs(netIDType controlledDynamicID, bool jump, 
 	ENetPacket* ret = enet_packet_create(NULL, 30, getFlagsFromChannel(Unreliable));
 
 	unsigned char movementFlags = 0;
-	movementFlags |= (jump ? 1 : 0);
-	movementFlags |= (forward ? 2 : 0);
-	movementFlags |= (backward ? 4 : 0);
-	movementFlags |= (left ? 8 : 0);
-	movementFlags |= (right ? 16 : 0);
-	movementFlags |= (jumpHeld ? 32 : 0);
+	movementFlags |= (jump ? MovementFlag_Jump : 0);
+	movementFlags |= (forward ? MovementFlag_Forward : 0);
+	movementFlags |= (backward ? MovementFlag_Backward : 0);
+	movementFlags |= (left ? MovementFlag_Left : 0);
+	movementFlags |= (right ? MovementFlag_Right : 0);
+	movementFlags |= (jumpHeld ? MovementFlag_JumpHeld : 0);
+	movementFlags |= (jet ? MovementFlag_Jet : 0);
 
 	ret->data[0] = (unsigned char)MovementInputs;
 	memcpy(ret->data + 1, &controlledDynamicID, sizeof(netIDType));
@@ -160,6 +161,22 @@ inline ENetPacket *evalCommand(const std::string& password, const std::string &c
 	ret->data[command.length() + 3] = (unsigned char)password.length();
 	memcpy(ret->data + command.length() + 4, password.c_str(), password.length());
 	//TODO: Hash password
+
+	return ret;
+}
+
+/*
+	1 byte		-	packet type
+	1 byte		-	1 to turn the flashlight on, 0 for off
+	12 bytes	-	red, green, blue floats, 0-1
+*/
+inline ENetPacket* makeFlashlightPacket(bool on, glm::vec3 color)
+{
+	ENetPacket* ret = enet_packet_create(NULL, 2 + sizeof(float) * 3, getFlagsFromChannel(OtherReliable));
+
+	ret->data[0] = (unsigned char)FlashlightRequest;
+	ret->data[1] = on ? 1 : 0;
+	memcpy(ret->data + 2, &color[0], sizeof(float) * 3);
 
 	return ret;
 }

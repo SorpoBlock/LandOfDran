@@ -3,6 +3,7 @@
 #include <limits>
 
 #include "../SimObjects/Dynamic.h"
+#include "../SimObjects/Emitter.h"
 #include "../Graphics/PlayerCamera.h"
 #include "../Networking/ClientPacketCreators.h"
 
@@ -27,6 +28,14 @@ struct PlayerController
 	//Client uses these to send last inputs to server
 	//Server cachces these and applies them each frame until a new packet comes in
 	bool lastJump, lastJumpHeld, lastForward, lastBackward, lastLeft, lastRight;
+	//Right mouse held, jetting if jetsAllowed
+	bool lastJet = false;
+
+	//Lua's client:setJetsEnabled on the server, the PlayerAbilities packet on the client
+	bool jetsAllowed = true;
+
+	//Server only: the jet flames under each foot while jetting, see LoopServer::updatePlayerAbilities
+	std::weak_ptr<Emitter> jetEmitters[2];
 	glm::vec3 lastCameraDirection = glm::vec3(0.01,1.0,0.01);
 	//Server: taken from the client's periodic movement input packets. Client: taken from the local Camera each frame.
 	//Used for cursor-based features (dynamic:snapToCursor, client:getCursorItem) - only meaningful once at least one
@@ -35,6 +44,8 @@ struct PlayerController
 
 	//Client only, last time we sent a packet to the server
 	unsigned int lastSentControls = 0;
+	//Client only, the jet state in the last packet we sent
+	bool lastSentJet = false;
 
 	//Whether the last control call made the target jump
 	bool jumped = false;
@@ -52,13 +63,14 @@ struct PlayerController
 	/*
 		Server and client side, called per frame, server caches last inputs from clients
 		jump is a new press of the jump key, jumpHeld is whether it's down at all (it swims up)
+		jet is whether right mouse is held, which lifts the player and speeds them along while jetsAllowed
 		waterLevel is noWater if there's no water
 	*/
-	bool control(std::shared_ptr<PhysicsWorld> world, float deltaT, glm::vec3 cameraDirection, glm::vec3 cameraPosition, bool jump, bool jumpHeld, bool forward, bool backward, bool left, bool right, float waterLevel);
+	bool control(std::shared_ptr<PhysicsWorld> world, float deltaT, glm::vec3 cameraDirection, glm::vec3 cameraPosition, bool jump, bool jumpHeld, bool forward, bool backward, bool left, bool right, bool jet, float waterLevel);
 
 	/*
 	    Client side wrapper
 		Call for each controller each frame, returns true if weak_ptr lock expired
 	*/
-	bool control(const std::shared_ptr<InputMap> input, const std::shared_ptr<Camera> camera, float deltaT, std::shared_ptr<PhysicsWorld> world, float waterLevel);
+	bool control(const std::shared_ptr<InputMap> input, const std::shared_ptr<Camera> camera, float deltaT, std::shared_ptr<PhysicsWorld> world, bool jet, float waterLevel);
 };

@@ -246,6 +246,8 @@ add_executable (LandOfDran
 "Networking/PacketsFromServer/DynamicBuoyancy.cpp"
 "Networking/PacketsFromServer/ParticleEmitterType.h"
 "Networking/PacketsFromServer/ParticleEmitterType.cpp"
+"Networking/PacketsFromServer/PlayerAbilities.h"
+"Networking/PacketsFromServer/PlayerAbilities.cpp"
 
 "Networking/PacketsFromClient/ConnectionRequest.cpp" 
 "Networking/PacketsFromClient/FinishedLoading.cpp" 
@@ -319,6 +321,7 @@ add_executable (LandOfDran
 "Interface/BrickSelector.cpp"
 "Networking/PacketsFromClient/PlantBrick.cpp"
 "Networking/PacketsFromClient/VoiceFrame.cpp"
+"Networking/PacketsFromClient/FlashlightRequest.cpp"
 "LuaFunctions/BrickLua.h"
 "LuaFunctions/BrickLua.cpp"   )   
 

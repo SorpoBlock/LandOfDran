@@ -38,6 +38,7 @@ std::string GetInputCommandString(InputCommand command)
         case ResizeToggle: return "Toggle Brick Resize Mode";
         case PushToTalk: return "Push to Talk (hold)";
         case Zoom: return "Zoom (hold)";
+        case Flashlight: return "Flashlight (hold for color)";
         default: return "Other error";
     }
 }
@@ -96,6 +97,7 @@ InputMap::InputMap(std::shared_ptr<SettingManager> settings)
         bindKey(ResizeToggle, SDL_SCANCODE_LSHIFT);
         bindKey(PushToTalk, SDL_SCANCODE_V);
         bindKey(Zoom, SDL_SCANCODE_F);
+        bindKey(Flashlight, SDL_SCANCODE_RIGHTBRACKET);
 
         //Number keys 1 through 9 then 0, SDL's scancodes for them are in that order
         for (int a = 0; a < 10; a++)

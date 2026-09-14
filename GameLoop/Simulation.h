@@ -30,6 +30,10 @@ struct Simulation
 	float waterLevel = 0.0;
 	DayCycle dayCycle;
 
+	//Whether the server lets us use jets and a flashlight, see PlayerAbilitiesPacket
+	bool jetsEnabled = true;
+	bool flashlightEnabled = true;
+
 	//Only stored if we succesfully managed to log in to the server we're currently playing on
 	std::string evalPassword = "";
 

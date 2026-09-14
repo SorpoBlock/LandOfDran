@@ -28,6 +28,7 @@
 #include "PacketsFromServer/VoiceStatus.h"
 #include "PacketsFromServer/DynamicBuoyancy.h"
 #include "PacketsFromServer/ParticleEmitterType.h"
+#include "PacketsFromServer/PlayerAbilities.h"
 #include "../GameLoop/ClientProgramData.h"
 #include "../GameLoop/Simulation.h"
 

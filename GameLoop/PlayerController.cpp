@@ -20,6 +20,14 @@ static constexpr float swimBlendTime = 150.0f;
 //MS after jumping out of the water before swimming takes over again
 static constexpr unsigned int waterJumpMS = 400;
 
+//Jets cancel gravity and push up this much more, like the old game's upward gravity of 20
+static constexpr float jetLift = 20.0f;
+//Climbing faster than this, jets only hold the speed instead of adding to it
+static constexpr float jetMaxRiseSpeed = 30.0f;
+//Moving while jetting heads toward twice walking speed, taking longer to change direction, like the old game in the air
+static constexpr float jetSpeedMultiplier = 2.0f;
+static constexpr float jetBlendTime = 150.0f;
+
 /*
 	If the player is walking into a wall no taller than maxStepHeight with room above it, lifts them on top of it
 	Works on anything solid except other dynamics, so walking into a loose object still pushes it
@@ -127,10 +135,12 @@ static void swim(const std::shared_ptr<Dynamic>& player, float deltaT, glm::vec3
 //potentially forever if the player holds a key with no further state changes to trigger a resend
 ENetPacket* PlayerController::makeMovementInputsPacket()
 {
-	if (getTicksMS() - lastSentControls < 100)
+	//Jets starting or stopping go out right away, so the flames under the player don't lag behind
+	if (getTicksMS() - lastSentControls < 100 && lastJet == lastSentJet)
 		return nullptr;
 
 	lastSentControls = getTicksMS();
+	lastSentJet = lastJet;
 
 	std::shared_ptr<Dynamic> targetLock = target.lock();
 	if (!targetLock)
@@ -144,6 +154,7 @@ ENetPacket* PlayerController::makeMovementInputsPacket()
 		lastBackward,
 		lastLeft,
 		lastRight,
+		lastJet,
 		lastCameraDirection,
 		lastCameraPosition
 	);
@@ -153,11 +164,11 @@ ENetPacket* PlayerController::makeMovementInputsPacket()
 bool PlayerController::controlWithLastInput(std::shared_ptr<PhysicsWorld> world, float deltaT, float waterLevel)
 {
 	serverSide = true;
-	return control(world, deltaT, lastCameraDirection, lastCameraPosition, lastJump, lastJumpHeld, lastForward, lastBackward, lastLeft, lastRight, waterLevel);
+	return control(world, deltaT, lastCameraDirection, lastCameraPosition, lastJump, lastJumpHeld, lastForward, lastBackward, lastLeft, lastRight, lastJet, waterLevel);
 }
 
 //Server and client side, called per frame, server caches last inputs from clients
-bool PlayerController::control(std::shared_ptr<PhysicsWorld> world, float deltaT, glm::vec3 cameraDirection, glm::vec3 cameraPosition, bool jump, bool jumpHeld, bool forward, bool backward, bool left, bool right, float waterLevel)
+bool PlayerController::control(std::shared_ptr<PhysicsWorld> world, float deltaT, glm::vec3 cameraDirection, glm::vec3 cameraPosition, bool jump, bool jumpHeld, bool forward, bool backward, bool left, bool right, bool jet, float waterLevel)
 {
 	lastCameraDirection = cameraDirection;
 	lastCameraPosition = cameraPosition;
@@ -167,6 +178,7 @@ bool PlayerController::control(std::shared_ptr<PhysicsWorld> world, float deltaT
 	lastBackward = backward;
 	lastLeft = left;
 	lastRight = right;
+	lastJet = jet;
 	jumped = false;
 
 	//Prevent huge deltaTs from causing huge jumps (like when debugging and pausing the game for a while)
@@ -207,6 +219,16 @@ bool PlayerController::control(std::shared_ptr<PhysicsWorld> world, float deltaT
 
 	//Past Dynamic::swimDepth they go wherever the camera points
 	bool swimming = submerged >= Dynamic::swimDepth &&getTicksMS() - lastWaterJump >= waterJumpMS;
+
+	//Not while swimming, which already decides how the player moves
+	bool jetting = jet && jetsAllowed && !swimming;
+	if (jetting && deltaT > 0 && targetLock->body->getInvMass() > 0)
+	{
+		btRigidBody* body = targetLock->body;
+		btScalar mass = 1.0f / body->getInvMass();
+		btScalar lift = targetLock->getVelocity().getY() < jetMaxRiseSpeed ? jetLift : 0.0f;
+		body->applyCentralForce((btVector3(0, lift, 0) - body->getGravity()) * mass);
+	}
 
 	//TODO: Move this to a constructor or something
 	targetLock->body->setAngularFactor(btVector3(0, 0, 0));
@@ -300,8 +322,10 @@ bool PlayerController::control(std::shared_ptr<PhysicsWorld> world, float deltaT
 	stepUp(world, targetLock, walkDir);
 
 	btVector3 oldVel = targetLock->getVelocity();
+	float moveSpeed = jetting ? speed * jetSpeedMultiplier : speed;
+	float moveBlendTime = jetting ? jetBlendTime : blendTime;
 	//TODO: This LERP isn't right
-	btVector3 newVel = oldVel.lerp(walkDir * speed, deltaT / blendTime);
+	btVector3 newVel = oldVel.lerp(walkDir * moveSpeed, deltaT / moveBlendTime);
 	newVel.setY(oldVel.getY());
 	targetLock->setVelocity(newVel);
 
@@ -312,8 +336,8 @@ bool PlayerController::control(std::shared_ptr<PhysicsWorld> world, float deltaT
 	Client side wrapper
 	Call for each controller each frame, returns true if weak_ptr lock expired
 */
-bool PlayerController::control(const std::shared_ptr<InputMap> input, const std::shared_ptr<Camera> camera, float deltaT, std::shared_ptr<PhysicsWorld> world, float waterLevel)
+bool PlayerController::control(const std::shared_ptr<InputMap> input, const std::shared_ptr<Camera> camera, float deltaT, std::shared_ptr<PhysicsWorld> world, bool jet, float waterLevel)
 {
 	serverSide = false;
-	return control(world, deltaT, camera->getDirection(), camera->getPosition(), input->pollCommand(Jump), input->isCommandKeydown(Jump), input->isCommandKeydown(WalkForward), input->isCommandKeydown(WalkBackward), input->isCommandKeydown(WalkLeft), input->isCommandKeydown(WalkRight), waterLevel);
+	return control(world, deltaT, camera->getDirection(), camera->getPosition(), input->pollCommand(Jump), input->isCommandKeydown(Jump), input->isCommandKeydown(WalkForward), input->isCommandKeydown(WalkBackward), input->isCommandKeydown(WalkLeft), input->isCommandKeydown(WalkRight), jet, waterLevel);
 }

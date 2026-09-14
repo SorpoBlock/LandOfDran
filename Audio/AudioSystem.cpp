@@ -33,6 +33,10 @@ static constexpr float voiceFullVolumeDistance = 10.0f;
 //Doppler effect, with sound traveling speedOfSound studs a second. Sounds on a Dynamic use its physics velocity. A listener that
 //isn't given a velocity gets one from how it moves, measured over at least velocitySampleMS and smoothed over roughly velocitySmoothingMS,
 //where moving faster than maxDopplerSpeed is a teleport or camera snap rather than real movement
+//A sound and the listener closing in on or pulling apart slower than dopplerFloorSpeed don't shift at all, so walking toward music
+//leaves it alone. The shift eases in from there and is the real amount from dopplerFullSpeed up
+static constexpr float dopplerFloorSpeed = 12.0f;
+static constexpr float dopplerFullSpeed = 30.0f;
 static constexpr float dopplerStrength = 1.0f;
 static constexpr float maxDopplerSpeed = 150.0f;
 static constexpr float velocitySampleMS = 50.0f;
@@ -206,6 +210,25 @@ static glm::vec3 soundVelocity(const SoundLocation& where)
 
 	const btVector3& velocity = body->getLinearVelocity();
 	return glm::vec3(velocity.x(), velocity.y(), velocity.z());
+}
+
+glm::vec3 AudioSystem::dopplerVelocity(const SoundLocation& where) const
+{
+	//Played relative to the listener, where OpenAL ignores the listener's velocity anyway
+	if (where.kind == SoundLocation::Flat)
+		return glm::vec3(0);
+
+	glm::vec3 toListener = listenerPosition - where.position;
+	float distance = glm::length(toListener);
+	if (distance < 0.001f)
+		return glm::vec3(0);
+
+	//Only how fast they close in on each other bends pitch, so the source gets just that, along the line between them, and the listener stays still
+	glm::vec3 axis = toListener / distance;
+	float closing = glm::dot(soundVelocity(where) - listenerMoving, axis);
+	float speed = std::abs(closing);
+	float kept = speed * glm::smoothstep(dopplerFloorSpeed, dopplerFullSpeed, speed);
+	return axis * std::copysign(kept, closing);
 }
 
 glm::vec3 AudioSystem::trackVelocity(Motion& motion, const glm::vec3& position, float deltaT)
@@ -775,8 +798,9 @@ void AudioSystem::update(const glm::vec3& position, const glm::vec3& listenerDir
 
 	//Tracked even while given a velocity, so going without one later doesn't start from a stale position
 	glm::vec3 moved = trackVelocity(listenerMotion, position, deltaT);
-	glm::vec3 listenerMoving = listenerVelocity.value_or(moved);
-	alListener3f(AL_VELOCITY, listenerMoving.x, listenerMoving.y, listenerMoving.z);
+	listenerMoving = listenerVelocity.value_or(moved);
+	//Each positioned source gets its speed relative to the listener instead, see dopplerVelocity
+	alListener3f(AL_VELOCITY, 0, 0, 0);
 
 	//Up is world up tilted to be perpendicular to where the camera looks
 	glm::vec3 forward = glm::length(listenerDirection) > 0.0001f ? glm::normalize(listenerDirection) : glm::vec3(0, 0, -1);
@@ -816,7 +840,7 @@ void AudioSystem::update(const glm::vec3& position, const glm::vec3& listenerDir
 		if (generalLocations[a].kind == SoundLocation::Attached && generalLocations[a].follow())
 			alSource3f(generalSources[a], AL_POSITION, generalLocations[a].position.x, generalLocations[a].position.y, generalLocations[a].position.z);
 
-		glm::vec3 sourceVelocity = soundVelocity(generalLocations[a]);
+		glm::vec3 sourceVelocity = dopplerVelocity(generalLocations[a]);
 		alSource3f(generalSources[a], AL_VELOCITY, sourceVelocity.x, sourceVelocity.y, sourceVelocity.z);
 
 		updateOcclusion(generalSources[a], generalOcclusion[a], generalLocations[a], deltaT);
@@ -860,7 +884,7 @@ void AudioSystem::update(const glm::vec3& position, const glm::vec3& listenerDir
 			if (loop.where.kind != SoundLocation::Flat)
 			{
 				alSource3f(loopSources[loop.source], AL_POSITION, loop.where.position.x, loop.where.position.y, loop.where.position.z);
-				glm::vec3 sourceVelocity = soundVelocity(loop.where);
+				glm::vec3 sourceVelocity = dopplerVelocity(loop.where);
 				alSource3f(loopSources[loop.source], AL_VELOCITY, sourceVelocity.x, sourceVelocity.y, sourceVelocity.z);
 			}
 			updateOcclusion(loopSources[loop.source], loopOcclusion[loop.source], loop.where, deltaT);
@@ -901,7 +925,7 @@ void AudioSystem::update(const glm::vec3& position, const glm::vec3& listenerDir
 		if (voiceLocations[a].kind == SoundLocation::Attached && voiceLocations[a].follow())
 			alSource3f(voiceSources[a], AL_POSITION, voiceLocations[a].position.x, voiceLocations[a].position.y, voiceLocations[a].position.z);
 
-		glm::vec3 sourceVelocity = soundVelocity(voiceLocations[a]);
+		glm::vec3 sourceVelocity = dopplerVelocity(voiceLocations[a]);
 		alSource3f(voiceSources[a], AL_VELOCITY, sourceVelocity.x, sourceVelocity.y, sourceVelocity.z);
 
 		updateOcclusion(voiceSources[a], voiceOcclusion[a], voiceLocations[a], deltaT);

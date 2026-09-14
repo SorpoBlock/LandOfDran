@@ -59,6 +59,10 @@ private:
 	std::string openedMicrophoneName = "";
 	//Don't try to open it again every frame after it failed, until the setting changes or we leave the server
 	bool microphoneFailed = false;
+	//Push to talk was held last update, each new press gives a microphone that failed another try
+	bool wasHeld = false;
+	//Why the microphone couldn't record, waiting for takeMicrophoneProblem
+	std::string microphoneProblem = "";
 	float microphoneVolume = 1.0f;
 	float sinceRecordedMS = 0;
 
@@ -136,6 +140,9 @@ public:
 
 	//Whether the microphone just hit the loudest 16 bit audio can hold while transmitting, so the voice going out is distorted
 	bool isClipping() const { return transmitting && clippedAny && SDL_GetTicks() - lastClipMS < clipHoldMS; }
+
+	//True once, filling in why, after push to talk couldn't record because the microphone is missing, was unplugged, or wouldn't open
+	bool takeMicrophoneProblem(std::string& problem);
 
 	//Call every frame: records and sends while pushToTalk is held (and a moment after), and plays what's arrived from others
 	void update(bool pushToTalk, const SendFrame& send, float deltaT);
