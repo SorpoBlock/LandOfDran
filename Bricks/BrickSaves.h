@@ -24,8 +24,21 @@ bool saveLodBuild(const BrickHolder& bricks, const std::string& path, bool omitO
 int loadLodBuild(BrickHolder& bricks, const std::string& path, int offsetX, int offsetY, int offsetZ);
 
 /*
+	How a Blockland import finds our versions of what a .bls save put on its bricks, by the uiName the save uses
+	findEmitterType and findMusic return the name of our type, or "" if we don't have one
+	setLight gives attachments our light for a Blockland light type on a brick that many plates tall, false if we don't have one
+*/
+struct BlocklandAttachmentLookup
+{
+	std::function<bool(const std::string&, unsigned char, BrickAttachments&)> setLight = nullptr;
+	std::function<std::string(const std::string&)> findEmitterType = nullptr;
+	std::function<std::string(const std::string&)> findMusic = nullptr;
+};
+
+/*
 	Imports a Blockland .bls save, using the file's own color palette
 	Bricks are resolved by name through types, special and unknown bricks are skipped and logged by name
+	Brick lights, emitters, and music go through lookup, and any we don't have are skipped and logged by name
 	Returns how many bricks were added, or -1 if the file couldn't be read
 */
-int loadBlocklandBuild(BrickHolder& bricks, const BrickTypes& types, const std::string& path);
+int loadBlocklandBuild(BrickHolder& bricks, const BrickTypes& types, const std::string& path, const BlocklandAttachmentLookup& lookup);

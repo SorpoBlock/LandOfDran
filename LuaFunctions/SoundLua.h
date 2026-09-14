@@ -38,6 +38,9 @@ bool soundTypeExists(const std::string& name);
 //Whether there's a sound type by this name that was registered as music, which players can pick in the wrench dialog
 bool isMusicSoundType(const std::string& name);
 
+//For Blockland imports: the name of a music sound type matching a Blockland music name, ignoring case and treating underscores as spaces, "" if there's none
+std::string findMusicByName(const std::string& name);
+
 //dynamic: and client: methods, registered in getDynamicFunctions and registerClientFunctions
 int LUA_dynamicPlaySound(lua_State* L);
 int LUA_dynamicStartSoundLoop(lua_State* L);

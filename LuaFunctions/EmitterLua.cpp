@@ -86,6 +86,22 @@ bool emitterTypeExists(const std::string& typeName)
 	return LUA_pd && findEmitterType(typeName) != -1;
 }
 
+std::string findEmitterTypeByUiName(const std::string& uiName)
+{
+	if (!LUA_pd || uiName.empty())
+		return "";
+
+	//Later ones win, like datablocks with the same uiName in Blockland
+	std::string wanted = lowercase(uiName);
+	for (size_t a = LUA_pd->emitterTypes.size(); a-- > 0;)
+	{
+		if (lowercase(LUA_pd->emitterTypes[a].uiName) == wanted)
+			return LUA_pd->emitterTypes[a].name;
+	}
+
+	return "";
+}
+
 //Reads count numbers starting at stack index first into out, logging usage and returning false if any is missing or not a finite number
 static bool readNumbers(lua_State* L, int first, int count, float* out, const std::string& usage)
 {

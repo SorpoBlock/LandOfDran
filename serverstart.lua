@@ -34,6 +34,8 @@ newSoundType("After School Special","Assets/music/After_School_Special.wav",true
 
 --Particle and emitter types, including the splash the server makes where dynamics fall into the water
 dofile("EmitterDefaults.lua")
+--What lights and emitters on bricks in Blockland saves become, see addBlocklandLight and addBlocklandEmitter
+dofile("BlocklandImports.lua")
 
 --Different arrays of kinds of plates that can be made to dissapear with their own button
 larges = {}

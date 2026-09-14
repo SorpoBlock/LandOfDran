@@ -25,6 +25,9 @@ std::string getEmitterTypeName(const Emitter& emitter);
 
 bool emitterTypeExists(const std::string& typeName);
 
+//For Blockland imports: the name of the emitter type with this uiName, ignoring case, the last added if there's more than one, "" if there's none
+std::string findEmitterTypeByUiName(const std::string& uiName);
+
 /*
 	Registers addParticleType, addEmitterType, addEmitter, getParticleTable, getEmitterTable, getEmitterId, getEmitterIdx, and getNumEmitters
 	Returns a list to be passed to ObjHolder<Emitter>::makeLuaMetatable which then deletes the list

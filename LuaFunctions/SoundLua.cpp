@@ -162,6 +162,32 @@ bool isMusicSoundType(const std::string& name)
 	return soundID != -1 && LUA_pd->soundTypes[soundID].isMusic;
 }
 
+std::string findMusicByName(const std::string& name)
+{
+	if (!LUA_pd)
+		return "";
+
+	//Blockland's music names are its file names with spaces for underscores
+	auto simplify = [](const std::string& text)
+	{
+		std::string simple = lowercase(text);
+		std::replace(simple.begin(), simple.end(), '_', ' ');
+		return simple;
+	};
+
+	std::string wanted = simplify(name);
+	if (wanted.empty())
+		return "";
+
+	for (const ServerProgramData::RegisteredSound& sound : LUA_pd->soundTypes)
+	{
+		if (sound.isMusic && simplify(sound.name) == wanted)
+			return sound.name;
+	}
+
+	return "";
+}
+
 //Loops on a Dynamic end when it's destroyed, clients stop them on their own
 static void forgetEndedSoundLoops()
 {

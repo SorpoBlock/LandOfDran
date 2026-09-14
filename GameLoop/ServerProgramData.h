@@ -90,6 +90,17 @@ struct ServerProgramData
 	std::vector<ParticleTypeData> particleTypes;
 	std::vector<EmitterTypeData> emitterTypes;
 
+	//Lua's addBlocklandLight: the light a Blockland light type becomes on a brick loadBlocklandSave loads, by lowercase uiName
+	struct BlocklandLight
+	{
+		BrickAttachments settings;
+		//Otherwise it sits at BrickAttachments::defaultLightOffset for its brick
+		bool hasOffset = false;
+	};
+	std::unordered_map<std::string, BlocklandLight> blocklandLights;
+	//Lua's addBlocklandEmitter: emitter type names by lowercase Blockland uiName, before emitter types' own uiNames are tried
+	std::unordered_map<std::string, std::string> blocklandEmitters;
+
 	//Lua's setVoiceRange: how many studs from a talker a client's camera can be and still hear them, 0 for nobody
 	float voiceRange = 128.0f;
 	//Someone who hasn't sent any voice for this long has stopped talking, see LoopServer::endQuietTalkers

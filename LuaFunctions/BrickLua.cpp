@@ -408,6 +408,36 @@ static int LUA_loadLodSave(lua_State* L)
 	return 1;
 }
 
+//For loadBlocklandSave: the light from addBlocklandLight for a Blockland light type, placed for its brick, false if there's none
+static bool setBlocklandLight(const std::string& uiName, unsigned char brickHeight, BrickAttachments& attachments)
+{
+	auto found = LUA_pd->blocklandLights.find(lowercase(uiName));
+	if (found == LUA_pd->blocklandLights.end())
+		return false;
+
+	const BrickAttachments& light = found->second.settings;
+	attachments.hasLight = true;
+	attachments.lightColor = light.lightColor;
+	attachments.lightBrightness = light.lightBrightness;
+	attachments.lightFlicker = light.lightFlicker;
+	attachments.lightCoronaWidth = light.lightCoronaWidth;
+	attachments.lightConeAngle = light.lightConeAngle;
+	attachments.lightDirection = light.lightDirection;
+	attachments.lightSpin = light.lightSpin;
+	attachments.lightOffset = found->second.hasOffset ? light.lightOffset : BrickAttachments::defaultLightOffset(brickHeight);
+	return true;
+}
+
+//For loadBlocklandSave: the emitter type addBlocklandEmitter gave a Blockland emitter name, else the one with that uiName, "" if neither exists
+static std::string findBlocklandEmitter(const std::string& uiName)
+{
+	auto found = LUA_pd->blocklandEmitters.find(lowercase(uiName));
+	if (found != LUA_pd->blocklandEmitters.end())
+		return emitterTypeExists(found->second) ? found->second : "";
+
+	return findEmitterTypeByUiName(uiName);
+}
+
 static int LUA_loadBlocklandSave(lua_State* L)
 {
 	scope("(LUA) loadBlocklandSave");
@@ -422,7 +452,12 @@ static int LUA_loadBlocklandSave(lua_State* L)
 	std::string path = saveFileArgument(L, 1);
 	lua_settop(L, 0);
 
-	int loaded = path.empty() ? -1 : loadBlocklandBuild(*LUA_pd->bricks, LUA_pd->brickTypes, path);
+	BlocklandAttachmentLookup lookup;
+	lookup.setLight = setBlocklandLight;
+	lookup.findEmitterType = findBlocklandEmitter;
+	lookup.findMusic = findMusicByName;
+
+	int loaded = path.empty() ? -1 : loadBlocklandBuild(*LUA_pd->bricks, LUA_pd->brickTypes, path, lookup);
 	if (loaded < 0)
 		lua_pushnil(L);
 	else
@@ -792,6 +827,75 @@ static bool readVectorTable(lua_State* L, int index, glm::vec3& out)
 	return true;
 }
 
+/*
+	Reads the light fields in the table at index into settings, leaving the ones it doesn't have alone, and whether it had an offset
+	Logs an error and returns false for an unknown field, a value of the wrong kind, or a direction of 0, 0, 0
+*/
+static bool readLightTable(lua_State* L, int index, BrickAttachments& settings, bool& hasOffset)
+{
+	hasOffset = false;
+
+	const std::pair<const char*, glm::vec3*> vectorFields[] = {
+		{ "color", &settings.lightColor },
+		{ "direction", &settings.lightDirection },
+		{ "offset", &settings.lightOffset } };
+
+	const std::pair<const char*, float*> numberFields[] = {
+		{ "brightness", &settings.lightBrightness },
+		{ "flicker", &settings.lightFlicker },
+		{ "coronaWidth", &settings.lightCoronaWidth },
+		{ "coneAngle", &settings.lightConeAngle },
+		{ "spin", &settings.lightSpin } };
+
+	lua_pushnil(L);
+	while (lua_next(L, index))
+	{
+		std::string field = lua_type(L, -2) == LUA_TSTRING ? lua_tostring(L, -2) : "";
+		int value = lua_gettop(L);
+		bool known = false;
+		bool fits = false;
+
+		for (const auto& vectorField : vectorFields)
+		{
+			if (field == vectorField.first)
+			{
+				known = true;
+				fits = readVectorTable(L, value, *vectorField.second);
+			}
+		}
+
+		for (const auto& numberField : numberFields)
+		{
+			if (field == numberField.first)
+			{
+				known = true;
+				fits = lua_isnumber(L, value);
+				*numberField.second = fits ? (float)lua_tonumber(L, value) : 0.0f;
+			}
+		}
+
+		if (!known || !fits)
+		{
+			error(known ? "Light field " + field + " has the wrong kind of value, see LuaAPI.md" : "Lights have no field named " + field + ", see LuaAPI.md");
+			lua_pop(L, 2);
+			return false;
+		}
+
+		if (field == "offset")
+			hasOffset = true;
+
+		lua_pop(L, 1);
+	}
+
+	if (glm::length(settings.lightDirection) < 0.0001f)
+	{
+		error("A light's direction can't be 0, 0, 0");
+		return false;
+	}
+
+	return true;
+}
+
 static int LUA_brickSetLight(lua_State* L)
 {
 	scope("(LUA) brick:setLight");
@@ -822,62 +926,95 @@ static int LUA_brickSetLight(lua_State* L)
 		settings.resetLight(brick->height);
 	settings.hasLight = true;
 
-	const std::pair<const char*, glm::vec3*> vectorFields[] = {
-		{ "color", &settings.lightColor },
-		{ "direction", &settings.lightDirection },
-		{ "offset", &settings.lightOffset } };
-
-	const std::pair<const char*, float*> numberFields[] = {
-		{ "brightness", &settings.lightBrightness },
-		{ "flicker", &settings.lightFlicker },
-		{ "coronaWidth", &settings.lightCoronaWidth },
-		{ "coneAngle", &settings.lightConeAngle },
-		{ "spin", &settings.lightSpin } };
-
-	lua_pushnil(L);
-	while (lua_next(L, 2))
+	bool hasOffset;
+	if (!readLightTable(L, 2, settings, hasOffset))
 	{
-		std::string field = lua_type(L, -2) == LUA_TSTRING ? lua_tostring(L, -2) : "";
-		int value = lua_gettop(L);
-		bool known = false;
-		bool fits = false;
-
-		for (const auto& vectorField : vectorFields)
-		{
-			if (field == vectorField.first)
-			{
-				known = true;
-				fits = readVectorTable(L, value, *vectorField.second);
-			}
-		}
-
-		for (const auto& numberField : numberFields)
-		{
-			if (field == numberField.first)
-			{
-				known = true;
-				fits = lua_isnumber(L, value);
-				*numberField.second = fits ? (float)lua_tonumber(L, value) : 0.0f;
-			}
-		}
-
-		if (!known || !fits)
-		{
-			error(known ? "Light field " + field + " has the wrong kind of value, see LuaAPI.md" : "Lights have no field named " + field + ", see LuaAPI.md");
-			lua_settop(L, 0);
-			return 0;
-		}
-
-		lua_pop(L, 1);
-	}
-
-	if (glm::length(settings.lightDirection) < 0.0001f)
-	{
-		error("A light's direction can't be 0, 0, 0");
+		lua_settop(L, 0);
 		return 0;
 	}
 
 	setBrickAttachments(brick, settings);
+	return 0;
+}
+
+static int LUA_addBlocklandLight(lua_State* L)
+{
+	scope("(LUA) addBlocklandLight");
+
+	if (lua_gettop(L) != 2 || lua_type(L, 1) != LUA_TSTRING || !(lua_istable(L, 2) || lua_isnil(L, 2)))
+	{
+		error("Expected addBlocklandLight(uiName, table) or addBlocklandLight(uiName, nil)");
+		lua_settop(L, 0);
+		return 0;
+	}
+
+	std::string uiName = lowercase(lua_tostring(L, 1));
+	if (uiName.empty() || uiName.length() > BrickAttachments::maxNameLength)
+	{
+		error("A Blockland light type's name has to be 1-255 characters");
+		lua_settop(L, 0);
+		return 0;
+	}
+
+	if (lua_isnil(L, 2))
+	{
+		LUA_pd->blocklandLights.erase(uiName);
+		lua_settop(L, 0);
+		return 0;
+	}
+
+	//Fields left out get a new light's defaults
+	ServerProgramData::BlocklandLight light;
+	light.settings.hasLight = true;
+	light.settings.resetLight(1);
+
+	if (!readLightTable(L, 2, light.settings, light.hasOffset))
+	{
+		lua_settop(L, 0);
+		return 0;
+	}
+
+	light.settings.clampValues();
+	LUA_pd->blocklandLights[uiName] = light;
+
+	lua_settop(L, 0);
+	return 0;
+}
+
+static int LUA_addBlocklandEmitter(lua_State* L)
+{
+	scope("(LUA) addBlocklandEmitter");
+
+	if (lua_gettop(L) != 2 || lua_type(L, 1) != LUA_TSTRING || !(lua_type(L, 2) == LUA_TSTRING || lua_isnil(L, 2)))
+	{
+		error("Expected addBlocklandEmitter(uiName, emitterTypeName) or addBlocklandEmitter(uiName, nil)");
+		lua_settop(L, 0);
+		return 0;
+	}
+
+	std::string uiName = lowercase(lua_tostring(L, 1));
+	std::string typeName = lua_isnil(L, 2) ? "" : lua_tostring(L, 2);
+	lua_settop(L, 0);
+
+	if (uiName.empty() || uiName.length() > BrickAttachments::maxNameLength)
+	{
+		error("A Blockland emitter's name has to be 1-255 characters");
+		return 0;
+	}
+
+	if (typeName.empty())
+	{
+		LUA_pd->blocklandEmitters.erase(uiName);
+		return 0;
+	}
+
+	if (!emitterTypeExists(typeName))
+	{
+		error("There's no emitter type named " + typeName);
+		return 0;
+	}
+
+	LUA_pd->blocklandEmitters[uiName] = typeName;
 	return 0;
 }
 
@@ -960,6 +1097,8 @@ luaL_Reg* getBrickFunctions(lua_State* L)
 	lua_register(L, "saveBuild", LUA_saveBuild);
 	lua_register(L, "loadLodSave", LUA_loadLodSave);
 	lua_register(L, "loadBlocklandSave", LUA_loadBlocklandSave);
+	lua_register(L, "addBlocklandLight", LUA_addBlocklandLight);
+	lua_register(L, "addBlocklandEmitter", LUA_addBlocklandEmitter);
 
 	luaL_Reg* methods = new luaL_Reg[20];
 	methods[0] = { "getPosition", LUA_brickGetPosition };

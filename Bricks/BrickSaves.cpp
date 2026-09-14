@@ -369,7 +369,39 @@ static std::vector<std::string> splitFields(const std::string& line)
 	}
 }
 
-int loadBlocklandBuild(BrickHolder& bricks, const BrickTypes& types, const std::string& path)
+/*
+	Reads a line like +-LIGHT Red Light" 1, which follows the brick it's on
+	Returns false if the line isn't of that kind, otherwise the name between the kind and the quote and whatever's after the quote and a space
+*/
+static bool readAttachmentLine(const std::string& line, const std::string& kind, std::string& uiName, std::string& value)
+{
+	std::string prefix = "+-" + kind + " ";
+	if (line.compare(0, prefix.length(), prefix) != 0)
+		return false;
+
+	size_t quote = line.rfind('"');
+	if (quote == std::string::npos || quote < prefix.length())
+		return false;
+
+	uiName = blocklandTextToUtf8(line.substr(prefix.length(), quote - prefix.length()));
+	value = quote + 2 <= line.length() ? line.substr(quote + 2) : "";
+	return true;
+}
+
+//"name (count), name (count)" for a log line, adding up the counts in total
+static std::string listCounts(const std::map<std::string, int>& counts, int& total)
+{
+	total = 0;
+	std::string list = "";
+	for (const auto& entry : counts)
+	{
+		total += entry.second;
+		list += (list.empty() ? "" : ", ") + entry.first + " (" + std::to_string(entry.second) + ")";
+	}
+	return list;
+}
+
+int loadBlocklandBuild(BrickHolder& bricks, const BrickTypes& types, const std::string& path, const BlocklandAttachmentLookup& lookup)
 {
 	scope("loadBlocklandBuild");
 
@@ -418,15 +450,85 @@ int loadBlocklandBuild(BrickHolder& bricks, const BrickTypes& types, const std::
 
 	int loaded = 0;
 	int rejected = 0;
+	int lights = 0;
+	int emitters = 0;
+	int music = 0;
+	int turnedEmitters = 0;
 	std::map<std::string, int> skippedNames;
-	Brick* lastBrick = nullptr;
+	std::map<std::string, int> missingLights;
+	std::map<std::string, int> missingEmitters;
+	std::map<std::string, int> missingMusic;
+
+	//Each brick is added once the lines after it, which name it and put things on it, have been read, so its attachments spawn with it
+	Brick pending;
+	bool hasPending = false;
+
+	auto addPending = [&]()
+	{
+		if (!hasPending)
+			return;
+		hasPending = false;
+
+		if (!bricks.add(pending))
+		{
+			rejected++;
+			return;
+		}
+
+		loaded++;
+		if (const BrickAttachments* attachments = pending.attachments.get())
+		{
+			lights += attachments->hasLight ? 1 : 0;
+			emitters += attachments->emitterName.empty() ? 0 : 1;
+			music += attachments->musicName.empty() ? 0 : 1;
+		}
+	};
+
+	auto pendingAttachments = [&]() -> BrickAttachments&
+	{
+		if (!pending.attachments)
+			pending.attachments = std::make_shared<BrickAttachments>();
+		return *pending.attachments;
+	};
 
 	while (readLine(line))
 	{
 		if (line.compare(0, 2, "+-") == 0)
 		{
-			if (line.compare(0, 15, "+-NTOBJECTNAME ") == 0 && lastBrick)
-				lastBrick->name = line.substr(15);
+			//Lines after a brick we skipped
+			if (!hasPending)
+				continue;
+
+			std::string uiName, value;
+			if (line.compare(0, 15, "+-NTOBJECTNAME ") == 0)
+				pending.name = line.substr(15);
+			else if (readAttachmentLine(line, "LIGHT", uiName, value))
+			{
+				//Followed by 1, or nothing in older saves, for a light that's on
+				if (value != "0" && !(lookup.setLight && lookup.setLight(uiName, pending.height, pendingAttachments())))
+					missingLights[uiName]++;
+			}
+			else if (readAttachmentLine(line, "EMITTER", uiName, value))
+			{
+				std::string typeName = lookup.findEmitterType ? lookup.findEmitterType(uiName) : "";
+				if (typeName.empty())
+					missingEmitters[uiName]++;
+				else
+				{
+					pendingAttachments().emitterName = typeName;
+					//Followed by which way it points, 0 for up
+					if (atoi(value.c_str()) != 0)
+						turnedEmitters++;
+				}
+			}
+			else if (readAttachmentLine(line, "AUDIOEMITTER", uiName, value))
+			{
+				std::string soundName = lookup.findMusic ? lookup.findMusic(uiName) : "";
+				if (soundName.empty())
+					missingMusic[uiName]++;
+				else
+					pendingAttachments().musicName = soundName;
+			}
 			continue;
 		}
 
@@ -434,7 +536,7 @@ int loadBlocklandBuild(BrickHolder& bricks, const BrickTypes& types, const std::
 		if (quote == std::string::npos || quote + 2 > line.length())
 			continue;
 
-		lastBrick = nullptr;
+		addPending();
 
 		std::string name = blocklandTextToUtf8(line.substr(0, quote));
 		std::vector<std::string> fields = splitFields(line.substr(quote + 2));
@@ -461,48 +563,60 @@ int loadBlocklandBuild(BrickHolder& bricks, const BrickTypes& types, const std::
 			length = type->length;
 		}
 
-		Brick desc;
-		desc.typeID = typeID;
-		desc.width = width;
-		desc.height = height;
-		desc.length = length;
+		pending = Brick();
+		pending.typeID = typeID;
+		pending.width = width;
+		pending.height = height;
+		pending.length = length;
 
 		//Used as is, like the old game: in the Golden Gate save 45° ramps turned this way have the bricks they lead up to past their high edge
-		desc.angleID = atoi(fields[3].c_str()) % 4;
-		desc.color = palette[std::clamp(atoi(fields[5].c_str()), 0, 63)];
-		desc.collides = fields[10] != "0";
+		pending.angleID = atoi(fields[3].c_str()) % 4;
+		pending.color = palette[std::clamp(atoi(fields[5].c_str()), 0, 63)];
+		pending.collides = fields[10] != "0";
 
 		//Blockland is z-up with half-stud and fifth-of-a-world-unit units, the old game swapped y and z and doubled
 		double centerX = atof(fields[0].c_str()) * 2.0;
 		double centerZ = atof(fields[1].c_str()) * 2.0;
 		double centerY = atof(fields[2].c_str()) * 2.0;
 
-		desc.x = (int)lround(centerX - desc.footprintWidth() * 0.5);
-		desc.y = (int)lround(centerY / PLATE_SIZE - height * 0.5);
-		desc.z = (int)lround(centerZ - desc.footprintLength() * 0.5);
+		pending.x = (int)lround(centerX - pending.footprintWidth() * 0.5);
+		pending.y = (int)lround(centerY / PLATE_SIZE - height * 0.5);
+		pending.z = (int)lround(centerZ - pending.footprintLength() * 0.5);
 
-		lastBrick = bricks.add(desc);
-		if (lastBrick)
-			loaded++;
-		else
-			rejected++;
+		hasPending = true;
 	}
+
+	addPending();
 
 	info("Loaded " + std::to_string(loaded) + " bricks from " + path + " in " + std::to_string(SDL_GetTicks() - startMS) + "ms");
 	if (rejected > 0)
 		info(std::to_string(rejected) + " bricks overlapped existing bricks or were out of bounds");
+	if (lights + emitters + music > 0)
+		info("Its bricks have " + std::to_string(lights) + " lights, " + std::to_string(emitters) + " emitters, and " + std::to_string(music) + " music loops");
 
+	int count = 0;
 	if (!skippedNames.empty())
 	{
-		int skipped = 0;
-		std::string list = "";
-		for (const auto& entry : skippedNames)
-		{
-			skipped += entry.second;
-			list += (list.empty() ? "" : ", ") + entry.first + " (" + std::to_string(entry.second) + ")";
-		}
-		info(std::to_string(skipped) + " bricks of unknown types skipped: " + list);
+		std::string list = listCounts(skippedNames, count);
+		info(std::to_string(count) + " bricks of unknown types skipped: " + list);
 	}
+	if (!missingLights.empty())
+	{
+		std::string list = listCounts(missingLights, count);
+		info(std::to_string(count) + " lights skipped, addBlocklandLight wasn't given their names: " + list);
+	}
+	if (!missingEmitters.empty())
+	{
+		std::string list = listCounts(missingEmitters, count);
+		info(std::to_string(count) + " emitters skipped, no emitter type has their uiName: " + list);
+	}
+	if (!missingMusic.empty())
+	{
+		std::string list = listCounts(missingMusic, count);
+		info(std::to_string(count) + " music loops skipped, no music sound type has their name: " + list);
+	}
+	if (turnedEmitters > 0)
+		info(std::to_string(turnedEmitters) + " emitters pointed sideways or down in Blockland, emitters on bricks here always point up");
 
 	return loaded;
 }
