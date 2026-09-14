@@ -252,7 +252,8 @@ void LoopClient::updateFlashlight(float deltaT)
 bool LoopClient::placeHeldLight(Light& light, glm::vec3& position, glm::vec3& direction)
 {
 	//How far along the beam past where it leaves the holder's collision box the light sits
-	static constexpr float handClearance = 0.15f;
+	//The drawn arm and hand can reach past the collision box, so this has to clear them too
+	static constexpr float handClearance = 0.45f;
 	//Without a hand, how far past the side of the collision box, so the head doesn't shadow it
 	static constexpr float headClearance = 0.3f;
 
