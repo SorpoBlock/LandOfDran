@@ -151,7 +151,7 @@ void WrenchDialog::render(ImGuiIO* io)
 			ImGui::SliderFloat("Brightness", &settings.lightBrightness, 0.0f, 100000.0f, "%.0f", ImGuiSliderFlags_Logarithmic);
 			tooltip("A lamp is around 20 to 100, a floodlight a few thousand. How far it reaches follows from this");
 
-			ImGui::SliderFloat("Flicker", &settings.lightFlicker, 0.0f, 16.0f, "%.2f studs");
+			ImGui::SliderFloat("Flicker", &settings.lightFlicker, 0.0f, 2.0f, "%.2f studs", ImGuiSliderFlags_Logarithmic);
 			tooltip("How far the light jumps around, like a flame");
 
 			ImGui::SliderFloat("Corona", &settings.lightCoronaWidth, 0.0f, 30.0f, "%.2f studs", ImGuiSliderFlags_Logarithmic);

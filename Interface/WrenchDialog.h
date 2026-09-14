@@ -30,7 +30,7 @@ class WrenchDialog : public Window
 
 	//The spotlight's direction as sliders, in degrees, a pitch of -90 points straight down
 	float lightYaw = 0;
-	float lightPitch = -90;
+	float lightPitch = 0;
 
 	//What checking Spotlight again brings the cone angle back to
 	float lastConeAngle = 60;
