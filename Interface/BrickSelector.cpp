@@ -74,10 +74,11 @@ Texture* BrickSelector::findIcon(const std::string& brickName)
 	if (!iconsLoaded)
 		loadIcons();
 
+	//Ignoring case, since settings files from before values kept their case have hot bar names lower cased
 	const std::vector<BasicBrickType>& basicTypes = types->getBasicTypes();
 	for (size_t a = 0; a < basicTypes.size() && a < icons.size(); a++)
 	{
-		if (basicTypes[a].uiName == brickName)
+		if (lowercase(basicTypes[a].uiName) == lowercase(brickName))
 			return icons[a];
 	}
 

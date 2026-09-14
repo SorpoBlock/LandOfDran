@@ -57,8 +57,14 @@ bool VoiceChat::openMicrophone()
 		opus_encoder_ctl(encoder, OPUS_SET_PACKET_LOSS_PERC(10));
 	}
 
+	//OpenAL wants the name exactly, but settings files from before values kept their case have it lower cased
+	std::string deviceName = microphoneName;
+	for (const std::string& name : listMicrophones())
+		if (lowercase(name) == lowercase(microphoneName))
+			deviceName = name;
+
 	//Room for half a second, far more than piles up between two frames
-	microphone = alcCaptureOpenDevice(isSystemDefault(microphoneName) ? nullptr : microphoneName.c_str(), sampleRate, AL_FORMAT_MONO16, sampleRate / 2);
+	microphone = alcCaptureOpenDevice(isSystemDefault(microphoneName) ? nullptr : deviceName.c_str(), sampleRate, AL_FORMAT_MONO16, sampleRate / 2);
 	if (!microphone)
 	{
 		std::vector<std::string> microphones = listMicrophones();

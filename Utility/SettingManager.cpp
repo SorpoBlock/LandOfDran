@@ -516,10 +516,10 @@ void PreferenceNode::readFromLine(std::string &line,int lineNumber,PreferenceNod
 		return;
 	}
 
-	//Convert to lowercase
+	//Names and types are case insensitive, values keep their case since some need it, like passwords and microphone names
 	std::string name = lowercase(line.substr(0, tabAfterName));
 	std::string type = lowercase(line.substr(tabAfterName + 1, tabAfterType - (tabAfterName + 1)));
-	std::string value = lowercase(line.substr(tabAfterType + 1, tabAfterValue - (tabAfterType + 1)));
+	std::string value = line.substr(tabAfterType + 1, tabAfterValue - (tabAfterType + 1));
 	std::string meta = line.substr(tabAfterValue + 1, line.length() - (tabAfterValue + 1));
 
 	//Add the preference
@@ -597,7 +597,7 @@ void PreferenceNode::readFromLine(std::string &line,int lineNumber,PreferenceNod
 	//Handle values
 	pair->value = value;
 	if (pair->type == PreferenceBoolean)
-		pair->valueBool = value == "true";
+		pair->valueBool = lowercase(value) == "true";
 	else if (pair->type == PreferenceFloat)
 		pair->valueFloat = (float)atof(value.c_str());
 	else if (pair->type == PreferenceInteger)
