@@ -1,0 +1,110 @@
+//Bricks from Blockland's Brick_Arch add-on, only what the brick types loader reads, see BrickTypes::load
+//Bricks without a category, like opened doors, load from saves but aren't listed in the brick selector
+
+datablock fxDTSBrickData(brick1x3archdata)
+{
+	brickFile = "./1x3arch.blb";
+	uiName = "1x3 Arch";
+	iconName = "./1x3 Arch.png";
+	category = "Rounds";
+	subCategory = "Arches";
+};
+
+datablock fxDTSBrickData(brick1x4archdata)
+{
+	brickFile = "./1x4arch.blb";
+	uiName = "1x4 Arch";
+	iconName = "./1x4 Arch.png";
+	category = "Rounds";
+	subCategory = "Arches";
+};
+
+datablock fxDTSBrickData(brick1x5archdata)
+{
+	brickFile = "./1x5arch.blb";
+	uiName = "1x5 Arch";
+	iconName = "./1x5 Arch.png";
+	category = "Rounds";
+	subCategory = "Arches";
+};
+
+datablock fxDTSBrickData(brick1x6x1archdata)
+{
+	brickFile = "./1x6x1arch.blb";
+	uiName = "1x6x1 Arch";
+	iconName = "./1x6x1 Arch.png";
+	category = "Rounds";
+	subCategory = "Arches";
+};
+
+datablock fxDTSBrickData(brick1x6x2archdata)
+{
+	brickFile = "./1x6x2arch.blb";
+	uiName = "1x6x2 Arch";
+	iconName = "./1x6x2 Arch.png";
+	category = "Rounds";
+	subCategory = "Arches";
+};
+
+datablock fxDTSBrickData(brick1x8archdata)
+{
+	brickFile = "./1x8arch.blb";
+	uiName = "1x8 Arch";
+	iconName = "./1x8 Arch.png";
+	category = "Rounds";
+	subCategory = "Arches";
+};
+
+datablock fxDTSBrickData(brick1x3archupdata)
+{
+	brickFile = "./1x3archUp.blb";
+	uiName = "1x3 Arch Up";
+	iconName = "./1x3 Arch Up.png";
+	category = "Rounds";
+	subCategory = "Arches";
+};
+
+datablock fxDTSBrickData(brick1x4archupdata)
+{
+	brickFile = "./1x4archUp.blb";
+	uiName = "1x4 Arch Up";
+	iconName = "./1x4 Arch Up.png";
+	category = "Rounds";
+	subCategory = "Arches";
+};
+
+datablock fxDTSBrickData(brick1x5archupdata)
+{
+	brickFile = "./1x5archUp.blb";
+	uiName = "1x5 Arch Up";
+	iconName = "./1x5 Arch Up.png";
+	category = "Rounds";
+	subCategory = "Arches";
+};
+
+datablock fxDTSBrickData(brick1x6x1archupdata)
+{
+	brickFile = "./1x6x1archUp.blb";
+	uiName = "1x6x1 Arch Up";
+	iconName = "./1x6x1 Arch Up.png";
+	category = "Rounds";
+	subCategory = "Arches";
+};
+
+datablock fxDTSBrickData(brick1x6x2archupdata)
+{
+	brickFile = "./1x6x2archUp.blb";
+	uiName = "1x6x2 Arch Up";
+	iconName = "./1x6x2 Arch Up.png";
+	category = "Rounds";
+	subCategory = "Arches";
+};
+
+datablock fxDTSBrickData(brick1x8archupdata)
+{
+	brickFile = "./1x8archUp.blb";
+	uiName = "1x8 Arch Up";
+	iconName = "./1x8 Arch Up.png";
+	category = "Rounds";
+	subCategory = "Arches";
+};

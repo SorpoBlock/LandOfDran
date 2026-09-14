@@ -1,0 +1,11 @@
+//Bricks from Blockland's Brick_Treasure_Chest add-on, only what the brick types loader reads, see BrickTypes::load
+//Bricks without a category, like opened doors, load from saves but aren't listed in the brick selector
+
+datablock fxDTSBrickData(bricktreasurechestdata)
+{
+	brickFile = "./chest.blb";
+	uiName = "Treasure Chest";
+	iconName = "./Treasure Chest.png";
+	category = "Special";
+	subCategory = "Interactive";
+};

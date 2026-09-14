@@ -1,0 +1,47 @@
+//Bricks from Blockland's Brick_Doors add-on, only what the brick types loader reads, see BrickTypes::load
+//Bricks without a category, like opened doors, load from saves but aren't listed in the brick selector
+
+datablock fxDTSBrickData(brickdoorglasscwdata)
+{
+	brickFile = "./bricks/door_glass_closedCW.blb";
+	uiName = "Glassiest Door";
+	iconName = "./bricks/Glass Door.png";
+	category = "special";
+	subCategory = "Doors";
+};
+
+datablock fxDTSBrickData(brickdoorhousecwdata)
+{
+	brickFile = "./bricks/door_house_closed.blb";
+	uiName = "House Door";
+	iconName = "./bricks/House Door.png";
+	category = "special";
+	subCategory = "Doors";
+};
+
+datablock fxDTSBrickData(brickdoorhousewindowcwdata)
+{
+	brickFile = "./bricks/door_houseWindow_closed.blb";
+	uiName = "Window Door";
+	iconName = "./bricks/Window Door.png";
+	category = "special";
+	subCategory = "Doors";
+};
+
+datablock fxDTSBrickData(brickdoorjailcwdata)
+{
+	brickFile = "./bricks/door_jail_closed.blb";
+	uiName = "Jail Door";
+	iconName = "./bricks/Jail Door.png";
+	category = "special";
+	subCategory = "Doors";
+};
+
+datablock fxDTSBrickData(brickdoorplaincwdata)
+{
+	brickFile = "./bricks/door_plain_closed.blb";
+	uiName = "Plain Door";
+	iconName = "./bricks/Plain Door.png";
+	category = "special";
+	subCategory = "Doors";
+};

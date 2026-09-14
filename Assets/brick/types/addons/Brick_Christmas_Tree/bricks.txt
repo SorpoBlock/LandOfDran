@@ -1,0 +1,11 @@
+//Bricks from Blockland's Brick_Christmas_Tree add-on, only what the brick types loader reads, see BrickTypes::load
+//Bricks without a category, like opened doors, load from saves but aren't listed in the brick selector
+
+datablock fxDTSBrickData(brickchristmastreedata)
+{
+	brickFile = "./christmasTree.blb";
+	uiName = "Christmas Tree";
+	iconName = "./Christmas Tree.png";
+	category = "Special";
+	subCategory = "Misc";
+};

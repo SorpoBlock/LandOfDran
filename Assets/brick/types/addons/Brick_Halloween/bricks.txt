@@ -1,0 +1,119 @@
+//Bricks from Blockland's Brick_Halloween add-on, only what the brick types loader reads, see BrickTypes::load
+//Bricks without a category, like opened doors, load from saves but aren't listed in the brick selector
+
+datablock fxDTSBrickData(brickskullopendata)
+{
+	brickFile = "./2012/skull_open.blb";
+	uiName = "Skull Open";
+};
+
+datablock fxDTSBrickData(brickskulldata)
+{
+	brickFile = "./2012/skull.blb";
+	uiName = "Skull";
+	iconName = "./2012/Icon_Skull.png";
+	category = "special";
+	subCategory = "misc";
+};
+
+datablock fxDTSBrickData(brickskullangryopendata)
+{
+	brickFile = "./2012/skull_angry_open.blb";
+	uiName = "Skull Angry Open";
+};
+
+datablock fxDTSBrickData(brickskullangrydata)
+{
+	brickFile = "./2012/skull_angry.blb";
+	uiName = "Skull Angry";
+};
+
+datablock fxDTSBrickData(brickskullsadopendata)
+{
+	brickFile = "./2012/skull_sad_open.blb";
+	uiName = "Skull Sad Open";
+};
+
+datablock fxDTSBrickData(brickskullsaddata)
+{
+	brickFile = "./2012/skull_sad.blb";
+	uiName = "Skull Sad";
+};
+
+datablock fxDTSBrickData(brickskullmurrayopendata)
+{
+	brickFile = "./2012/skull_murray_open.blb";
+	uiName = "Skull Murray Open";
+};
+
+datablock fxDTSBrickData(brickskullmurraydata)
+{
+	brickFile = "./2012/skull_murray.blb";
+	uiName = "Skull Murray";
+};
+
+datablock fxDTSBrickData(brickskullcoolopendata)
+{
+	brickFile = "./2012/skull_cool_open.blb";
+	uiName = "Skull Cool Open";
+};
+
+datablock fxDTSBrickData(brickskullcooldata)
+{
+	brickFile = "./2012/skull_cool.blb";
+	uiName = "Skull Cool";
+};
+
+datablock fxDTSBrickData(brickcoffindata)
+{
+	brickFile = "./2012/coffin.blb";
+	uiName = "Coffin Standing";
+	iconName = "./2012/Icon_Coffin_Standing.png";
+	category = "special";
+	subCategory = "misc";
+};
+
+datablock fxDTSBrickData(brickcoffindowndata)
+{
+	brickFile = "./2012/coffin_down.blb";
+	uiName = "Coffin";
+	iconName = "./2012/Icon_Coffin.png";
+	category = "special";
+	subCategory = "misc";
+};
+
+datablock fxDTSBrickData(brickpumpkinbasedata)
+{
+	brickFile = "./pumpkin_base.blb";
+	uiName = "Pumpkin";
+	iconName = "./Pumpkin.png";
+	category = "special";
+	subCategory = "misc";
+};
+
+datablock fxDTSBrickData(brickpumpkinfacedata)
+{
+	brickFile = "./pumpkin_face.blb";
+	uiName = "Pumpkin_Face";
+};
+
+datablock fxDTSBrickData(brickpumpkinscareddata)
+{
+	brickFile = "./pumpkin_scared.blb";
+	uiName = "Pumpkin_Scared";
+};
+
+datablock fxDTSBrickData(brickpumpkinasciidata)
+{
+	brickFile = "./pumpkin_ascii.blb";
+	uiName = "Pumpkin_Ascii";
+};
+
+datablock fxDTSBrickData(brickgravestonedata)
+{
+	brickFile = "./gravestone.blb";
+	uiName = "Gravestone";
+	iconName = "./Gravestone.png";
+	category = "special";
+	subCategory = "misc";
+};

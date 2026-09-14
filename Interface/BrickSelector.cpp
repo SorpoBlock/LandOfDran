@@ -180,6 +180,8 @@ void BrickSelector::renderSpecial()
 		for (size_t a = start; a < end; a++)
 		{
 			const SpecialBrickType* type = types->getSpecial((int)a);
+			if (!type->listed)
+				continue;
 			if (filter.empty() || lowercase(type->uiName).find(filter) != std::string::npos ||
 				lowercase(type->category + " " + type->subCategory).find(filter) != std::string::npos)
 				shown.push_back(a);

@@ -357,8 +357,8 @@ methods log an error and do nothing.
 
 Besides basic boxes of any size there are special bricks, like ramps, with their own shapes from
 Blockland `.blb` files. Their types come from `Assets/brick/types`: `fxDTSBrickData` datablocks in
-any `.cs` file there (Blockland add-on style, `uiName`/`brickFile`/`iconName`/`category`) and any
-`.blb` not named elsewhere, by its file name. A special brick fills its type's size on the grid like
+`bricks.txt` files there (Blockland add-on syntax, with `brickFile`, `uiName`, `iconName`,
+`category`, and `subCategory`) and any `.blb` not named elsewhere, by its file name. A special brick fills its type's size on the grid like
 a basic brick and turns around its middle. It collides using the collision boxes listed in its
 `.blb`, or a convex hull of its shape if it lists none. Clients match the server's types by name
 as they join, and draw bricks of types they don't have as plain boxes.

@@ -1,0 +1,83 @@
+//Bricks from Blockland's Brick_Large_Cubes add-on, only what the brick types loader reads, see BrickTypes::load
+//Bricks without a category, like opened doors, load from saves but aren't listed in the brick selector
+
+datablock fxDTSBrickData(brick64xcubedata)
+{
+	brickFile = "./64x Cube.blb";
+	uiName = "64x Cube";
+	iconName = "./64x Cube.png";
+	category = "Baseplates";
+	subCategory = "Cube";
+};
+
+datablock fxDTSBrickData(brick32xcubedata)
+{
+	brickFile = "./32x Cube.blb";
+	uiName = "32x Cube";
+	iconName = "./32x Cube.png";
+	category = "Baseplates";
+	subCategory = "Cube";
+};
+
+datablock fxDTSBrickData(brick16xcubedata)
+{
+	brickFile = "./16x Cube.blb";
+	uiName = "16x Cube";
+	iconName = "./16x Cube.png";
+	category = "Baseplates";
+	subCategory = "Cube";
+};
+
+datablock fxDTSBrickData(brick8xcubedata)
+{
+	brickFile = "./8x Cube.blb";
+	uiName = "8x Cube";
+	iconName = "./8x Cube.png";
+	category = "Baseplates";
+	subCategory = "Cube";
+};
+
+datablock fxDTSBrickData(brick4xcubedata)
+{
+	brickFile = "./4x Cube.blb";
+	uiName = "4x Cube";
+	iconName = "./4x Cube.png";
+	category = "Baseplates";
+	subCategory = "Cube";
+};
+
+datablock fxDTSBrickData(brick8xwaterdata)
+{
+	brickFile = "./8x Water.blb";
+	uiName = "8x Water";
+	iconName = "./8x Water.png";
+	category = "Baseplates";
+	subCategory = "Water";
+};
+
+datablock fxDTSBrickData(brick8xwaterriverdata)
+{
+	brickFile = "./8x River.blb";
+	uiName = "8x River";
+	iconName = "./8x River.png";
+	category = "Baseplates";
+	subCategory = "Water";
+};
+
+datablock fxDTSBrickData(brick8xwaterrapidsdata)
+{
+	brickFile = "./8x Rapids.blb";
+	uiName = "8x Rapids";
+	iconName = "./8x Rapids.png";
+	category = "Baseplates";
+	subCategory = "Water";
+};
+
+datablock fxDTSBrickData(brick32xwaterdata)
+{
+	brickFile = "./32x Water.blb";
+	uiName = "32x Water";
+	iconName = "./32x Water.png";
+	category = "Baseplates";
+	subCategory = "Water";
+};

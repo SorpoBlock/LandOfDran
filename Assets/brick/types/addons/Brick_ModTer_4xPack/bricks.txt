@@ -1,0 +1,110 @@
+//Bricks from Blockland's Brick_ModTer_4xPack add-on, only what the brick types loader reads, see BrickTypes::load
+//Bricks without a category, like opened doors, load from saves but aren't listed in the brick selector
+
+datablock fxDTSBrickData(brick4cube1data)
+{
+	brickFile = "./Bricks/4c.blb";
+	uiName = " 4x Cube";
+	iconName = "./BrickIcons/4c.png";
+	category = "Baseplates";
+	subCategory = "ModTer 4x";
+};
+
+datablock fxDTSBrickData(brick4wedge1data)
+{
+	brickFile = "./Bricks/4cW.blb";
+	uiName = "4x Wedge";
+	iconName = "./BrickIcons/4cW.png";
+	category = "Baseplates";
+	subCategory = "ModTer 4x";
+};
+
+datablock fxDTSBrickData(brick4ramp1data)
+{
+	brickFile = "./Bricks/4cR.blb";
+	uiName = "4x Ramp";
+	iconName = "./BrickIcons/4cR.png";
+	category = "Baseplates";
+	subCategory = "ModTer 4x";
+};
+
+datablock fxDTSBrickData(brick4ramp1invdata)
+{
+	brickFile = "./Bricks/4cRinv.blb";
+	uiName = "4x Ramp Inv.";
+	iconName = "./BrickIcons/4cRinv.png";
+	category = "Baseplates";
+	subCategory = "ModTer 4x Inv";
+};
+
+datablock fxDTSBrickData(brick4cornera1data)
+{
+	brickFile = "./Bricks/4cCA.blb";
+	uiName = "4x CornerA";
+	iconName = "./BrickIcons/4cCA.png";
+	category = "Baseplates";
+	subCategory = "ModTer 4x";
+};
+
+datablock fxDTSBrickData(brick4cornera1invdata)
+{
+	brickFile = "./Bricks/4cCAinv.blb";
+	uiName = "4x CornerA Inv.";
+	iconName = "./BrickIcons/4cCAinv.png";
+	category = "Baseplates";
+	subCategory = "ModTer 4x Inv";
+};
+
+datablock fxDTSBrickData(brick4cornerb1data)
+{
+	brickFile = "./Bricks/4cCB.blb";
+	uiName = "4x CornerB";
+	iconName = "./BrickIcons/4cCB.png";
+	category = "Baseplates";
+	subCategory = "ModTer 4x";
+};
+
+datablock fxDTSBrickData(brick4cornerb1invdata)
+{
+	brickFile = "./Bricks/4cCBinv.blb";
+	uiName = "4x CornerB Inv.";
+	iconName = "./BrickIcons/4cCBinv.png";
+	category = "Baseplates";
+	subCategory = "ModTer 4x Inv";
+};
+
+datablock fxDTSBrickData(brick4cornerc1data)
+{
+	brickFile = "./Bricks/4cCC.blb";
+	uiName = "4x CornerC";
+	iconName = "./BrickIcons/4cCC.png";
+	category = "Baseplates";
+	subCategory = "ModTer 4x";
+};
+
+datablock fxDTSBrickData(brick4cornerc1invdata)
+{
+	brickFile = "./Bricks/4cCCinv.blb";
+	uiName = "4x CornerC Inv.";
+	iconName = "./BrickIcons/4cCCinv.png";
+	category = "Baseplates";
+	subCategory = "ModTer 4x Inv";
+};
+
+datablock fxDTSBrickData(brick4cornerd1data)
+{
+	brickFile = "./Bricks/4cCD.blb";
+	uiName = "4x CornerD";
+	iconName = "./BrickIcons/4cCD.png";
+	category = "Baseplates";
+	subCategory = "ModTer 4x";
+};
+
+datablock fxDTSBrickData(brick4cornerd1invdata)
+{
+	brickFile = "./Bricks/4cCDinv.blb";
+	uiName = "4x CornerD Inv.";
+	iconName = "./BrickIcons/4cCDinv.png";
+	category = "Baseplates";
+	subCategory = "ModTer 4x Inv";
+};

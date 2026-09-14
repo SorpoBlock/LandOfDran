@@ -1,0 +1,11 @@
+//Bricks from Blockland's Brick_Checkpoint add-on, only what the brick types loader reads, see BrickTypes::load
+//Bricks without a category, like opened doors, load from saves but aren't listed in the brick selector
+
+datablock fxDTSBrickData(brickcheckpointdata)
+{
+	brickFile = "./checkpoint.blb";
+	uiName = "Checkpoint";
+	iconName = "./Checkpoint.png";
+	category = "Special";
+	subCategory = "Interactive";
+};

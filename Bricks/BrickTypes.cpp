@@ -481,7 +481,8 @@ struct BrickDatablock
 	std::unordered_map<std::string, std::string> fields;
 };
 
-static std::vector<BrickDatablock> readDatablocks(const std::filesystem::path& csPath, const std::unordered_map<std::string, BrickDatablock>& earlier)
+//Also adds each datablock to known as it's read, so a later one can name it as its parent, even in the same file
+static std::vector<BrickDatablock> readDatablocks(const std::filesystem::path& csPath, std::unordered_map<std::string, BrickDatablock>& known)
 {
 	std::vector<BrickDatablock> found;
 
@@ -519,8 +520,8 @@ static std::vector<BrickDatablock> readDatablocks(const std::filesystem::path& c
 		datablock.name = lowercase(trim(names.substr(0, colon)));
 		if (colon != std::string::npos)
 		{
-			auto parent = earlier.find(lowercase(trim(names.substr(colon + 1))));
-			if (parent != earlier.end())
+			auto parent = known.find(lowercase(trim(names.substr(colon + 1))));
+			if (parent != known.end())
 				datablock.fields = parent->second.fields;
 		}
 
@@ -536,6 +537,7 @@ static std::vector<BrickDatablock> readDatablocks(const std::filesystem::path& c
 			datablock.fields[lowercase(trim(line.substr(0, equals)))] = line.substr(firstQuote + 1, lastQuote - firstQuote - 1);
 		}
 
+		known[datablock.name] = datablock;
 		found.push_back(datablock);
 		at = end;
 	}
@@ -580,7 +582,7 @@ void BrickTypes::load(const std::string& typesFolder)
 		filesByPath[relative] = entry.path();
 
 		std::string extension = lowercase(entry.path().extension().string());
-		if (extension == ".cs" && relative != "test.cs")
+		if (lowercase(entry.path().filename().string()) == "bricks.txt")
 			csFiles.push_back(entry.path());
 		else if (extension == ".blb")
 		{
@@ -625,6 +627,7 @@ void BrickTypes::load(const std::string& typesFolder)
 		std::string icon = "";
 		std::string category = "";
 		std::string subCategory = "";
+		bool listed = true;
 	};
 	std::vector<NamedFile> namedFiles;
 	std::unordered_set<std::string> claimedFiles;
@@ -658,8 +661,6 @@ void BrickTypes::load(const std::string& typesFolder)
 	{
 		for (const BrickDatablock& datablock : readDatablocks(csPath, datablocksByName))
 		{
-			datablocksByName[datablock.name] = datablock;
-
 			auto field = [&datablock](const std::string& key) -> std::string
 			{
 				auto value = datablock.fields.find(key);
@@ -680,7 +681,7 @@ void BrickTypes::load(const std::string& typesFolder)
 
 			if (!claimedFiles.insert(blb).second)
 				continue;
-			namedFiles.push_back({ uiName, blb, resolve(csPath, field("iconname"), ".png"), blocklandTextToUtf8(field("category")), blocklandTextToUtf8(field("subcategory")) });
+			namedFiles.push_back({ uiName, blb, resolve(csPath, field("iconname"), ".png"), blocklandTextToUtf8(field("category")), blocklandTextToUtf8(field("subcategory")), !field("category").empty() });
 		}
 	}
 
@@ -729,6 +730,7 @@ void BrickTypes::load(const std::string& typesFolder)
 			type->uiName = named.name;
 			type->category = named.category.empty() ? "Other" : named.category;
 			type->subCategory = named.subCategory;
+			type->listed = named.listed;
 			type->blbPath = named.blb.string();
 			type->iconPath = icon;
 			type->width = width;

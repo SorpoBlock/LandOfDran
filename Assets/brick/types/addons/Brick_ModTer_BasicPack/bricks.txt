@@ -1,0 +1,1199 @@
+//Bricks from Blockland's Brick_ModTer_BasicPack add-on, only what the brick types loader reads, see BrickTypes::load
+//Bricks without a category, like opened doors, load from saves but aren't listed in the brick selector
+
+datablock fxDTSBrickData(brick32cube5data)
+{
+	brickFile = "./Bricks/Steep/32cSteep.blb";
+	uiName = "32x Cube Steep";
+	iconName = "./BrickIcons/Steep/32cSteep.png";
+	category = "Baseplates";
+	subCategory = "ModTer 32x";
+};
+
+datablock fxDTSBrickData(brick32wedge5data)
+{
+	brickFile = "./Bricks/Steep/32cWSteep.blb";
+	uiName = "32x Wedge Steep";
+	iconName = "./BrickIcons/Steep/32cWSteep.png";
+	category = "Baseplates";
+	subCategory = "ModTer 32x";
+};
+
+datablock fxDTSBrickData(brick32ramp5data)
+{
+	brickFile = "./Bricks/Steep/32cRSteep.blb";
+	uiName = "32x Ramp Steep";
+	iconName = "./BrickIcons/Steep/32cRSteep.png";
+	category = "Baseplates";
+	subCategory = "ModTer 32x";
+};
+
+datablock fxDTSBrickData(brick32cornera5data)
+{
+	brickFile = "./Bricks/Steep/32cCASteep.blb";
+	uiName = "32x CornerA Steep";
+	iconName = "./BrickIcons/Steep/32cCASteep.png";
+	category = "Baseplates";
+	subCategory = "ModTer 32x";
+};
+
+datablock fxDTSBrickData(brick32cornerb5data)
+{
+	brickFile = "./Bricks/Steep/32cCBSteep.blb";
+	uiName = "32x CornerB Steep";
+	iconName = "./BrickIcons/Steep/32cCBSteep.png";
+	category = "Baseplates";
+	subCategory = "ModTer 32x";
+};
+
+datablock fxDTSBrickData(brick32cornerc5data)
+{
+	brickFile = "./Bricks/Steep/32cCCSteep.blb";
+	uiName = "32x CornerC Steep";
+	iconName = "./BrickIcons/Steep/32cCCSteep.png";
+	category = "Baseplates";
+	subCategory = "ModTer 32x";
+};
+
+datablock fxDTSBrickData(brick32cornerd5data)
+{
+	brickFile = "./Bricks/Steep/32cCDSteep.blb";
+	uiName = "32x CornerD Steep";
+	iconName = "./BrickIcons/Steep/32cCDSteep.png";
+	category = "Baseplates";
+	subCategory = "ModTer 32x";
+};
+
+datablock fxDTSBrickData(brick16cube5data)
+{
+	brickFile = "./Bricks/Steep/16cSteep.blb";
+	uiName = "16x Cube Steep";
+	iconName = "./BrickIcons/Steep/16cSteep.png";
+	category = "Baseplates";
+	subCategory = "ModTer 16x";
+};
+
+datablock fxDTSBrickData(brick16wedge5data)
+{
+	brickFile = "./Bricks/Steep/16cWSteep.blb";
+	uiName = "16x Wedge Steep";
+	iconName = "./BrickIcons/Steep/16cWSteep.png";
+	category = "Baseplates";
+	subCategory = "ModTer 16x";
+};
+
+datablock fxDTSBrickData(brick16ramp5data)
+{
+	brickFile = "./Bricks/Steep/16cRSteep.blb";
+	uiName = "16x Ramp Steep";
+	iconName = "./BrickIcons/Steep/16cRSteep.png";
+	category = "Baseplates";
+	subCategory = "ModTer 16x";
+};
+
+datablock fxDTSBrickData(brick16cornera5data)
+{
+	brickFile = "./Bricks/Steep/16cCASteep.blb";
+	uiName = "16x CornerA Steep";
+	iconName = "./BrickIcons/Steep/16cCASteep.png";
+	category = "Baseplates";
+	subCategory = "ModTer 16x";
+};
+
+datablock fxDTSBrickData(brick16cornerb5data)
+{
+	brickFile = "./Bricks/Steep/16cCBSteep.blb";
+	uiName = "16x CornerB Steep";
+	iconName = "./BrickIcons/Steep/16cCBSteep.png";
+	category = "Baseplates";
+	subCategory = "ModTer 16x";
+};
+
+datablock fxDTSBrickData(brick16cornerc5data)
+{
+	brickFile = "./Bricks/Steep/16cCCSteep.blb";
+	uiName = "16x CornerC Steep";
+	iconName = "./BrickIcons/Steep/16cCCSteep.png";
+	category = "Baseplates";
+	subCategory = "ModTer 16x";
+};
+
+datablock fxDTSBrickData(brick16cornerd5data)
+{
+	brickFile = "./Bricks/Steep/16cCDSteep.blb";
+	uiName = "16x CornerD Steep";
+	iconName = "./BrickIcons/Steep/16cCDSteep.png";
+	category = "Baseplates";
+	subCategory = "ModTer 16x";
+};
+
+datablock fxDTSBrickData(brick8cube5data)
+{
+	brickFile = "./Bricks/Steep/8cSteep.blb";
+	uiName = "8x Cube Steep";
+	iconName = "./BrickIcons/Steep/8cSteep.png";
+	category = "Baseplates";
+	subCategory = "ModTer 8x";
+};
+
+datablock fxDTSBrickData(brick8wedge5data)
+{
+	brickFile = "./Bricks/Steep/8cWSteep.blb";
+	uiName = "8x Wedge Steep";
+	iconName = "./BrickIcons/Steep/8cWSteep.png";
+	category = "Baseplates";
+	subCategory = "ModTer 8x";
+};
+
+datablock fxDTSBrickData(brick8ramp5data)
+{
+	brickFile = "./Bricks/Steep/8cRSteep.blb";
+	uiName = "8x Ramp Steep";
+	iconName = "./BrickIcons/Steep/8cRSteep.png";
+	category = "Baseplates";
+	subCategory = "ModTer 8x";
+};
+
+datablock fxDTSBrickData(brick8cornera5data)
+{
+	brickFile = "./Bricks/Steep/8cCASteep.blb";
+	uiName = "8x CornerA Steep";
+	iconName = "./BrickIcons/Steep/8cCASteep.png";
+	category = "Baseplates";
+	subCategory = "ModTer 8x";
+};
+
+datablock fxDTSBrickData(brick8cornerb5data)
+{
+	brickFile = "./Bricks/Steep/8cCBSteep.blb";
+	uiName = "8x CornerB Steep";
+	iconName = "./BrickIcons/Steep/8cCBSteep.png";
+	category = "Baseplates";
+	subCategory = "ModTer 8x";
+};
+
+datablock fxDTSBrickData(brick8cornerc5data)
+{
+	brickFile = "./Bricks/Steep/8cCCSteep.blb";
+	uiName = "8x CornerC Steep";
+	iconName = "./BrickIcons/Steep/8cCCSteep.png";
+	category = "Baseplates";
+	subCategory = "ModTer 8x";
+};
+
+datablock fxDTSBrickData(brick8cornerd5data)
+{
+	brickFile = "./Bricks/Steep/8cCDSteep.blb";
+	uiName = "8x CornerD Steep";
+	iconName = "./BrickIcons/Steep/8cCDSteep.png";
+	category = "Baseplates";
+	subCategory = "ModTer 8x";
+};
+
+datablock fxDTSBrickData(brick64cube1data)
+{
+	brickFile = "./Bricks/Full/64c.blb";
+	uiName = "64x Cube ";
+	iconName = "./BrickIcons/Full/64c.png";
+	category = "Baseplates";
+	subCategory = "ModTer 64x";
+};
+
+datablock fxDTSBrickData(brick64wedge1data)
+{
+	brickFile = "./Bricks/Full/64cW.blb";
+	uiName = "64x Wedge";
+	iconName = "./BrickIcons/Full/64cW.png";
+	category = "Baseplates";
+	subCategory = "ModTer 64x";
+};
+
+datablock fxDTSBrickData(brick64ramp1data)
+{
+	brickFile = "./Bricks/Full/64cR.blb";
+	uiName = "64x Ramp";
+	iconName = "./BrickIcons/Full/64cR.png";
+	category = "Baseplates";
+	subCategory = "ModTer 64x";
+};
+
+datablock fxDTSBrickData(brick64cornera1data)
+{
+	brickFile = "./Bricks/Full/64cCA.blb";
+	uiName = "64x CornerA";
+	iconName = "./BrickIcons/Full/64cCA.png";
+	category = "Baseplates";
+	subCategory = "ModTer 64x";
+};
+
+datablock fxDTSBrickData(brick64cornerb1data)
+{
+	brickFile = "./Bricks/Full/64cCB.blb";
+	uiName = "64x CornerB";
+	iconName = "./BrickIcons/Full/64cCB.png";
+	category = "Baseplates";
+	subCategory = "ModTer 64x";
+};
+
+datablock fxDTSBrickData(brick64cornerc1data)
+{
+	brickFile = "./Bricks/Full/64cCC.blb";
+	uiName = "64x CornerC";
+	iconName = "./BrickIcons/Full/64cCC.png";
+	category = "Baseplates";
+	subCategory = "ModTer 64x";
+};
+
+datablock fxDTSBrickData(brick64cornerd1data)
+{
+	brickFile = "./Bricks/Full/64cCD.blb";
+	uiName = "64x CornerD";
+	iconName = "./BrickIcons/Full/64cCD.png";
+	category = "Baseplates";
+	subCategory = "ModTer 64x";
+};
+
+datablock fxDTSBrickData(brick32cube1data)
+{
+	brickFile = "./Bricks/Full/32c.blb";
+	uiName = "32x Cube ";
+	iconName = "./BrickIcons/Full/32c.png";
+	category = "Baseplates";
+	subCategory = "ModTer 32x";
+};
+
+datablock fxDTSBrickData(brick32wedge1data)
+{
+	brickFile = "./Bricks/Full/32cW.blb";
+	uiName = "32x Wedge";
+	iconName = "./BrickIcons/Full/32cW.png";
+	category = "Baseplates";
+	subCategory = "ModTer 32x";
+};
+
+datablock fxDTSBrickData(brick32ramp1data)
+{
+	brickFile = "./Bricks/Full/32cR.blb";
+	uiName = "32x Ramp";
+	iconName = "./BrickIcons/Full/32cR.png";
+	category = "Baseplates";
+	subCategory = "ModTer 32x";
+};
+
+datablock fxDTSBrickData(brick32cornera1data)
+{
+	brickFile = "./Bricks/Full/32cCA.blb";
+	uiName = "32x CornerA";
+	iconName = "./BrickIcons/Full/32cCA.png";
+	category = "Baseplates";
+	subCategory = "ModTer 32x";
+};
+
+datablock fxDTSBrickData(brick32cornerb1data)
+{
+	brickFile = "./Bricks/Full/32cCB.blb";
+	uiName = "32x CornerB";
+	iconName = "./BrickIcons/Full/32cCB.png";
+	category = "Baseplates";
+	subCategory = "ModTer 32x";
+};
+
+datablock fxDTSBrickData(brick32cornerc1data)
+{
+	brickFile = "./Bricks/Full/32cCC.blb";
+	uiName = "32x CornerC";
+	iconName = "./BrickIcons/Full/32cCC.png";
+	category = "Baseplates";
+	subCategory = "ModTer 32x";
+};
+
+datablock fxDTSBrickData(brick32cornerd1data)
+{
+	brickFile = "./Bricks/Full/32cCD.blb";
+	uiName = "32x CornerD";
+	iconName = "./BrickIcons/Full/32cCD.png";
+	category = "Baseplates";
+	subCategory = "ModTer 32x";
+};
+
+datablock fxDTSBrickData(brick16cube1data)
+{
+	brickFile = "./Bricks/Full/16c.blb";
+	uiName = "16x Cube ";
+	iconName = "./BrickIcons/Full/16c.png";
+	category = "Baseplates";
+	subCategory = "ModTer 16x";
+};
+
+datablock fxDTSBrickData(brick16wedge1data)
+{
+	brickFile = "./Bricks/Full/16cW.blb";
+	uiName = "16x Wedge";
+	iconName = "./BrickIcons/Full/16cW.png";
+	category = "Baseplates";
+	subCategory = "ModTer 16x";
+};
+
+datablock fxDTSBrickData(brick16ramp1data)
+{
+	brickFile = "./Bricks/Full/16cR.blb";
+	uiName = "16x Ramp";
+	iconName = "./BrickIcons/Full/16cR.png";
+	category = "Baseplates";
+	subCategory = "ModTer 16x";
+};
+
+datablock fxDTSBrickData(brick16cornera1data)
+{
+	brickFile = "./Bricks/Full/16cCA.blb";
+	uiName = "16x CornerA";
+	iconName = "./BrickIcons/Full/16cCA.png";
+	category = "Baseplates";
+	subCategory = "ModTer 16x";
+};
+
+datablock fxDTSBrickData(brick16cornerb1data)
+{
+	brickFile = "./Bricks/Full/16cCB.blb";
+	uiName = "16x CornerB";
+	iconName = "./BrickIcons/Full/16cCB.png";
+	category = "Baseplates";
+	subCategory = "ModTer 16x";
+};
+
+datablock fxDTSBrickData(brick16cornerc1data)
+{
+	brickFile = "./Bricks/Full/16cCC.blb";
+	uiName = "16x CornerC";
+	iconName = "./BrickIcons/Full/16cCC.png";
+	category = "Baseplates";
+	subCategory = "ModTer 16x";
+};
+
+datablock fxDTSBrickData(brick16cornerd1data)
+{
+	brickFile = "./Bricks/Full/16cCD.blb";
+	uiName = "16x CornerD";
+	iconName = "./BrickIcons/Full/16cCD.png";
+	category = "Baseplates";
+	subCategory = "ModTer 16x";
+};
+
+datablock fxDTSBrickData(brick8cube1data)
+{
+	brickFile = "./Bricks/Full/8c.blb";
+	uiName = "8x Cube ";
+	iconName = "./BrickIcons/Full/8c.png";
+	category = "Baseplates";
+	subCategory = "ModTer 8x";
+};
+
+datablock fxDTSBrickData(brick8wedge1data)
+{
+	brickFile = "./Bricks/Full/8cW.blb";
+	uiName = "8x Wedge";
+	iconName = "./BrickIcons/Full/8cW.png";
+	category = "Baseplates";
+	subCategory = "ModTer 8x";
+};
+
+datablock fxDTSBrickData(brick8ramp1data)
+{
+	brickFile = "./Bricks/Full/8cR.blb";
+	uiName = "8x Ramp";
+	iconName = "./BrickIcons/Full/8cR.png";
+	category = "Baseplates";
+	subCategory = "ModTer 8x";
+};
+
+datablock fxDTSBrickData(brick8cornera1data)
+{
+	brickFile = "./Bricks/Full/8cCA.blb";
+	uiName = "8x CornerA";
+	iconName = "./BrickIcons/Full/8cCA.png";
+	category = "Baseplates";
+	subCategory = "ModTer 8x";
+};
+
+datablock fxDTSBrickData(brick8cornerb1data)
+{
+	brickFile = "./Bricks/Full/8cCB.blb";
+	uiName = "8x CornerB";
+	iconName = "./BrickIcons/Full/8cCB.png";
+	category = "Baseplates";
+	subCategory = "ModTer 8x";
+};
+
+datablock fxDTSBrickData(brick8cornerc1data)
+{
+	brickFile = "./Bricks/Full/8cCC.blb";
+	uiName = "8x CornerC";
+	iconName = "./BrickIcons/Full/8cCC.png";
+	category = "Baseplates";
+	subCategory = "ModTer 8x";
+};
+
+datablock fxDTSBrickData(brick8cornerd1data)
+{
+	brickFile = "./Bricks/Full/8cCD.blb";
+	uiName = "8x CornerD";
+	iconName = "./BrickIcons/Full/8cCD.png";
+	category = "Baseplates";
+	subCategory = "ModTer 8x";
+};
+
+datablock fxDTSBrickData(brick64cube2data)
+{
+	brickFile = "./Bricks/3-4/64c3-4.blb";
+	uiName = "64x Cube 3/4h";
+	iconName = "./BrickIcons/3-4/64c3-4.png";
+	category = "Baseplates";
+	subCategory = "ModTer 64x";
+};
+
+datablock fxDTSBrickData(brick64wedge2data)
+{
+	brickFile = "./Bricks/3-4/64cW3-4.blb";
+	uiName = "64x Wedge 3/4h";
+	iconName = "./BrickIcons/3-4/64cW3-4.png";
+	category = "Baseplates";
+	subCategory = "ModTer 64x";
+};
+
+datablock fxDTSBrickData(brick64ramp2data)
+{
+	brickFile = "./Bricks/3-4/64cR3-4.blb";
+	uiName = "64x Ramp 3/4h";
+	iconName = "./BrickIcons/3-4/64cR3-4.png";
+	category = "Baseplates";
+	subCategory = "ModTer 64x";
+};
+
+datablock fxDTSBrickData(brick64cornera2data)
+{
+	brickFile = "./Bricks/3-4/64cCA3-4.blb";
+	uiName = "64x CornerA 3/4h";
+	iconName = "./BrickIcons/3-4/64cCA3-4.png";
+	category = "Baseplates";
+	subCategory = "ModTer 64x";
+};
+
+datablock fxDTSBrickData(brick64cornerb2data)
+{
+	brickFile = "./Bricks/3-4/64cCB3-4.blb";
+	uiName = "64x CornerB 3/4h";
+	iconName = "./BrickIcons/3-4/64cCB3-4.png";
+	category = "Baseplates";
+	subCategory = "ModTer 64x";
+};
+
+datablock fxDTSBrickData(brick64cornerc2data)
+{
+	brickFile = "./Bricks/3-4/64cCC3-4.blb";
+	uiName = "64x CornerC 3/4h";
+	iconName = "./BrickIcons/3-4/64cCC3-4.png";
+	category = "Baseplates";
+	subCategory = "ModTer 64x";
+};
+
+datablock fxDTSBrickData(brick64cornerd2data)
+{
+	brickFile = "./Bricks/3-4/64cCD3-4.blb";
+	uiName = "64x CornerD 3/4h";
+	iconName = "./BrickIcons/3-4/64cCD3-4.png";
+	category = "Baseplates";
+	subCategory = "ModTer 64x";
+};
+
+datablock fxDTSBrickData(brick32cube2data)
+{
+	brickFile = "./Bricks/3-4/32c3-4.blb";
+	uiName = "32x Cube 3/4h";
+	iconName = "./BrickIcons/3-4/32c3-4.png";
+	category = "Baseplates";
+	subCategory = "ModTer 32x";
+};
+
+datablock fxDTSBrickData(brick32wedge2data)
+{
+	brickFile = "./Bricks/3-4/32cW3-4.blb";
+	uiName = "32x Wedge 3/4h";
+	iconName = "./BrickIcons/3-4/32cW3-4.png";
+	category = "Baseplates";
+	subCategory = "ModTer 32x";
+};
+
+datablock fxDTSBrickData(brick32ramp2data)
+{
+	brickFile = "./Bricks/3-4/32cR3-4.blb";
+	uiName = "32x Ramp 3/4h";
+	iconName = "./BrickIcons/3-4/32cR3-4.png";
+	category = "Baseplates";
+	subCategory = "ModTer 32x";
+};
+
+datablock fxDTSBrickData(brick32cornera2data)
+{
+	brickFile = "./Bricks/3-4/32cCA3-4.blb";
+	uiName = "32x CornerA 3/4h";
+	iconName = "./BrickIcons/3-4/32cCA3-4.png";
+	category = "Baseplates";
+	subCategory = "ModTer 32x";
+};
+
+datablock fxDTSBrickData(brick32cornerb2data)
+{
+	brickFile = "./Bricks/3-4/32cCB3-4.blb";
+	uiName = "32x CornerB 3/4h";
+	iconName = "./BrickIcons/3-4/32cCB3-4.png";
+	category = "Baseplates";
+	subCategory = "ModTer 32x";
+};
+
+datablock fxDTSBrickData(brick32cornerc2data)
+{
+	brickFile = "./Bricks/3-4/32cCC3-4.blb";
+	uiName = "32x CornerC 3/4h";
+	iconName = "./BrickIcons/3-4/32cCC3-4.png";
+	category = "Baseplates";
+	subCategory = "ModTer 32x";
+};
+
+datablock fxDTSBrickData(brick32cornerd2data)
+{
+	brickFile = "./Bricks/3-4/32cCD3-4.blb";
+	uiName = "32x CornerD 3/4h";
+	iconName = "./BrickIcons/3-4/32cCD3-4.png";
+	category = "Baseplates";
+	subCategory = "ModTer 32x";
+};
+
+datablock fxDTSBrickData(brick16cube2data)
+{
+	brickFile = "./Bricks/3-4/16c3-4.blb";
+	uiName = "16x Cube 3/4h";
+	iconName = "./BrickIcons/3-4/16c3-4.png";
+	category = "Baseplates";
+	subCategory = "ModTer 16x";
+};
+
+datablock fxDTSBrickData(brick16wedge2data)
+{
+	brickFile = "./Bricks/3-4/16cW3-4.blb";
+	uiName = "16x Wedge 3/4h";
+	iconName = "./BrickIcons/3-4/16cW3-4.png";
+	category = "Baseplates";
+	subCategory = "ModTer 16x";
+};
+
+datablock fxDTSBrickData(brick16ramp2data)
+{
+	brickFile = "./Bricks/3-4/16cR3-4.blb";
+	uiName = "16x Ramp 3/4h";
+	iconName = "./BrickIcons/3-4/16cR3-4.png";
+	category = "Baseplates";
+	subCategory = "ModTer 16x";
+};
+
+datablock fxDTSBrickData(brick16cornera2data)
+{
+	brickFile = "./Bricks/3-4/16cCA3-4.blb";
+	uiName = "16x CornerA 3/4h";
+	iconName = "./BrickIcons/3-4/16cCA3-4.png";
+	category = "Baseplates";
+	subCategory = "ModTer 16x";
+};
+
+datablock fxDTSBrickData(brick16cornerb2data)
+{
+	brickFile = "./Bricks/3-4/16cCB3-4.blb";
+	uiName = "16x CornerB 3/4h";
+	iconName = "./BrickIcons/3-4/16cCB3-4.png";
+	category = "Baseplates";
+	subCategory = "ModTer 16x";
+};
+
+datablock fxDTSBrickData(brick16cornerc2data)
+{
+	brickFile = "./Bricks/3-4/16cCC3-4.blb";
+	uiName = "16x CornerC 3/4h";
+	iconName = "./BrickIcons/3-4/16cCC3-4.png";
+	category = "Baseplates";
+	subCategory = "ModTer 16x";
+};
+
+datablock fxDTSBrickData(brick16cornerd2data)
+{
+	brickFile = "./Bricks/3-4/16cCD3-4.blb";
+	uiName = "16x CornerD 3/4h";
+	iconName = "./BrickIcons/3-4/16cCD3-4.png";
+	category = "Baseplates";
+	subCategory = "ModTer 16x";
+};
+
+datablock fxDTSBrickData(brick8cube2data)
+{
+	brickFile = "./Bricks/3-4/8c3-4.blb";
+	uiName = "8x Cube 3/4h";
+	iconName = "./BrickIcons/3-4/8c3-4.png";
+	category = "Baseplates";
+	subCategory = "ModTer 8x";
+};
+
+datablock fxDTSBrickData(brick8wedge2data)
+{
+	brickFile = "./Bricks/3-4/8cW3-4.blb";
+	uiName = "8x Wedge 3/4h";
+	iconName = "./BrickIcons/3-4/8cW3-4.png";
+	category = "Baseplates";
+	subCategory = "ModTer 8x";
+};
+
+datablock fxDTSBrickData(brick8ramp2data)
+{
+	brickFile = "./Bricks/3-4/8cR3-4.blb";
+	uiName = "8x Ramp 3/4h";
+	iconName = "./BrickIcons/3-4/8cR3-4.png";
+	category = "Baseplates";
+	subCategory = "ModTer 8x";
+};
+
+datablock fxDTSBrickData(brick8cornera2data)
+{
+	brickFile = "./Bricks/3-4/8cCA3-4.blb";
+	uiName = "8x CornerA 3/4h";
+	iconName = "./BrickIcons/3-4/8cCA3-4.png";
+	category = "Baseplates";
+	subCategory = "ModTer 8x";
+};
+
+datablock fxDTSBrickData(brick8cornerb2data)
+{
+	brickFile = "./Bricks/3-4/8cCB3-4.blb";
+	uiName = "8x CornerB 3/4h";
+	iconName = "./BrickIcons/3-4/8cCB3-4.png";
+	category = "Baseplates";
+	subCategory = "ModTer 8x";
+};
+
+datablock fxDTSBrickData(brick8cornerc2data)
+{
+	brickFile = "./Bricks/3-4/8cCC3-4.blb";
+	uiName = "8x CornerC 3/4h";
+	iconName = "./BrickIcons/3-4/8cCC3-4.png";
+	category = "Baseplates";
+	subCategory = "ModTer 8x";
+};
+
+datablock fxDTSBrickData(brick8cornerd2data)
+{
+	brickFile = "./Bricks/3-4/8cCD3-4.blb";
+	uiName = "8x CornerD 3/4h";
+	iconName = "./BrickIcons/3-4/8cCD3-4.png";
+	category = "Baseplates";
+	subCategory = "ModTer 8x";
+};
+
+datablock fxDTSBrickData(brick64cube3data)
+{
+	brickFile = "./Bricks/1-2/64c1-2.blb";
+	uiName = "64x Cube 1/2h";
+	iconName = "./BrickIcons/1-2/64c1-2.png";
+	category = "Baseplates";
+	subCategory = "ModTer 64x";
+};
+
+datablock fxDTSBrickData(brick64wedge3data)
+{
+	brickFile = "./Bricks/1-2/64cW1-2.blb";
+	uiName = "64x Wedge 1/2h";
+	iconName = "./BrickIcons/1-2/64cW1-2.png";
+	category = "Baseplates";
+	subCategory = "ModTer 64x";
+};
+
+datablock fxDTSBrickData(brick64ramp3data)
+{
+	brickFile = "./Bricks/1-2/64cR1-2.blb";
+	uiName = "64x Ramp 1/2h";
+	iconName = "./BrickIcons/1-2/64cR1-2.png";
+	category = "Baseplates";
+	subCategory = "ModTer 64x";
+};
+
+datablock fxDTSBrickData(brick64cornera3data)
+{
+	brickFile = "./Bricks/1-2/64cCA1-2.blb";
+	uiName = "64x CornerA 1/2h";
+	iconName = "./BrickIcons/1-2/64cCA1-2.png";
+	category = "Baseplates";
+	subCategory = "ModTer 64x";
+};
+
+datablock fxDTSBrickData(brick64cornerb3data)
+{
+	brickFile = "./Bricks/1-2/64cCB1-2.blb";
+	uiName = "64x CornerB 1/2h";
+	iconName = "./BrickIcons/1-2/64cCB1-2.png";
+	category = "Baseplates";
+	subCategory = "ModTer 64x";
+};
+
+datablock fxDTSBrickData(brick64cornerc3data)
+{
+	brickFile = "./Bricks/1-2/64cCC1-2.blb";
+	uiName = "64x CornerC 1/2h";
+	iconName = "./BrickIcons/1-2/64cCC1-2.png";
+	category = "Baseplates";
+	subCategory = "ModTer 64x";
+};
+
+datablock fxDTSBrickData(brick64cornerd3data)
+{
+	brickFile = "./Bricks/1-2/64cCD1-2.blb";
+	uiName = "64x CornerD 1/2h";
+	iconName = "./BrickIcons/1-2/64cCD1-2.png";
+	category = "Baseplates";
+	subCategory = "ModTer 64x";
+};
+
+datablock fxDTSBrickData(brick32cube3data)
+{
+	brickFile = "./Bricks/1-2/32c1-2.blb";
+	uiName = "32x Cube 1/2h";
+	iconName = "./BrickIcons/1-2/32c1-2.png";
+	category = "Baseplates";
+	subCategory = "ModTer 32x";
+};
+
+datablock fxDTSBrickData(brick32wedge3data)
+{
+	brickFile = "./Bricks/1-2/32cW1-2.blb";
+	uiName = "32x Wedge 1/2h";
+	iconName = "./BrickIcons/1-2/32cW1-2.png";
+	category = "Baseplates";
+	subCategory = "ModTer 32x";
+};
+
+datablock fxDTSBrickData(brick32ramp3data)
+{
+	brickFile = "./Bricks/1-2/32cR1-2.blb";
+	uiName = "32x Ramp 1/2h";
+	iconName = "./BrickIcons/1-2/32cR1-2.png";
+	category = "Baseplates";
+	subCategory = "ModTer 32x";
+};
+
+datablock fxDTSBrickData(brick32cornera3data)
+{
+	brickFile = "./Bricks/1-2/32cCA1-2.blb";
+	uiName = "32x CornerA 1/2h";
+	iconName = "./BrickIcons/1-2/32cCA1-2.png";
+	category = "Baseplates";
+	subCategory = "ModTer 32x";
+};
+
+datablock fxDTSBrickData(brick32cornerb3data)
+{
+	brickFile = "./Bricks/1-2/32cCB1-2.blb";
+	uiName = "32x CornerB 1/2h";
+	iconName = "./BrickIcons/1-2/32cCB1-2.png";
+	category = "Baseplates";
+	subCategory = "ModTer 32x";
+};
+
+datablock fxDTSBrickData(brick32cornerc3data)
+{
+	brickFile = "./Bricks/1-2/32cCC1-2.blb";
+	uiName = "32x CornerC 1/2h";
+	iconName = "./BrickIcons/1-2/32cCC1-2.png";
+	category = "Baseplates";
+	subCategory = "ModTer 32x";
+};
+
+datablock fxDTSBrickData(brick32cornerd3data)
+{
+	brickFile = "./Bricks/1-2/32cCD1-2.blb";
+	uiName = "32x CornerD 1/2h";
+	iconName = "./BrickIcons/1-2/32cCD1-2.png";
+	category = "Baseplates";
+	subCategory = "ModTer 32x";
+};
+
+datablock fxDTSBrickData(brick16cube3data)
+{
+	brickFile = "./Bricks/1-2/16c1-2.blb";
+	uiName = "16x Cube 1/2h";
+	iconName = "./BrickIcons/1-2/16c1-2.png";
+	category = "Baseplates";
+	subCategory = "ModTer 16x";
+};
+
+datablock fxDTSBrickData(brick16wedge3data)
+{
+	brickFile = "./Bricks/1-2/16cW1-2.blb";
+	uiName = "16x Wedge 1/2h";
+	iconName = "./BrickIcons/1-2/16cW1-2.png";
+	category = "Baseplates";
+	subCategory = "ModTer 16x";
+};
+
+datablock fxDTSBrickData(brick16ramp3data)
+{
+	brickFile = "./Bricks/1-2/16cR1-2.blb";
+	uiName = "16x Ramp 1/2h";
+	iconName = "./BrickIcons/1-2/16cR1-2.png";
+	category = "Baseplates";
+	subCategory = "ModTer 16x";
+};
+
+datablock fxDTSBrickData(brick16cornera3data)
+{
+	brickFile = "./Bricks/1-2/16cCA1-2.blb";
+	uiName = "16x CornerA 1/2h";
+	iconName = "./BrickIcons/1-2/16cCA1-2.png";
+	category = "Baseplates";
+	subCategory = "ModTer 16x";
+};
+
+datablock fxDTSBrickData(brick16cornerb3data)
+{
+	brickFile = "./Bricks/1-2/16cCB1-2.blb";
+	uiName = "16x CornerB 1/2h";
+	iconName = "./BrickIcons/1-2/16cCB1-2.png";
+	category = "Baseplates";
+	subCategory = "ModTer 16x";
+};
+
+datablock fxDTSBrickData(brick16cornerc3data)
+{
+	brickFile = "./Bricks/1-2/16cCC1-2.blb";
+	uiName = "16x CornerC 1/2h";
+	iconName = "./BrickIcons/1-2/16cCC1-2.png";
+	category = "Baseplates";
+	subCategory = "ModTer 16x";
+};
+
+datablock fxDTSBrickData(brick16cornerd3data)
+{
+	brickFile = "./Bricks/1-2/16cCD1-2.blb";
+	uiName = "16x CornerD 1/2h";
+	iconName = "./BrickIcons/1-2/16cCD1-2.png";
+	category = "Baseplates";
+	subCategory = "ModTer 16x";
+};
+
+datablock fxDTSBrickData(brick8cube3data)
+{
+	brickFile = "./Bricks/1-2/8c1-2.blb";
+	uiName = "8x Cube 1/2h";
+	iconName = "./BrickIcons/1-2/8c1-2.png";
+	category = "Baseplates";
+	subCategory = "ModTer 8x";
+};
+
+datablock fxDTSBrickData(brick8wedge3data)
+{
+	brickFile = "./Bricks/1-2/8cW1-2.blb";
+	uiName = "8x Wedge 1/2h";
+	iconName = "./BrickIcons/1-2/8cW1-2.png";
+	category = "Baseplates";
+	subCategory = "ModTer 8x";
+};
+
+datablock fxDTSBrickData(brick8ramp3data)
+{
+	brickFile = "./Bricks/1-2/8cR1-2.blb";
+	uiName = "8x Ramp 1/2h";
+	iconName = "./BrickIcons/1-2/8cR1-2.png";
+	category = "Baseplates";
+	subCategory = "ModTer 8x";
+};
+
+datablock fxDTSBrickData(brick8cornera3data)
+{
+	brickFile = "./Bricks/1-2/8cCA1-2.blb";
+	uiName = "8x CornerA 1/2h";
+	iconName = "./BrickIcons/1-2/8cCA1-2.png";
+	category = "Baseplates";
+	subCategory = "ModTer 8x";
+};
+
+datablock fxDTSBrickData(brick8cornerb3data)
+{
+	brickFile = "./Bricks/1-2/8cCB1-2.blb";
+	uiName = "8x CornerB 1/2h";
+	iconName = "./BrickIcons/1-2/8cCB1-2.png";
+	category = "Baseplates";
+	subCategory = "ModTer 8x";
+};
+
+datablock fxDTSBrickData(brick8cornerc3data)
+{
+	brickFile = "./Bricks/1-2/8cCC1-2.blb";
+	uiName = "8x CornerC 1/2h";
+	iconName = "./BrickIcons/1-2/8cCC1-2.png";
+	category = "Baseplates";
+	subCategory = "ModTer 8x";
+};
+
+datablock fxDTSBrickData(brick8cornerd3data)
+{
+	brickFile = "./Bricks/1-2/8cCD1-2.blb";
+	uiName = "8x CornerD 1/2h";
+	iconName = "./BrickIcons/1-2/8cCD1-2.png";
+	category = "Baseplates";
+	subCategory = "ModTer 8x";
+};
+
+datablock fxDTSBrickData(brick64cube4data)
+{
+	brickFile = "./Bricks/1-4/64c1-4.blb";
+	uiName = "64x Cube 1/4h";
+	iconName = "./BrickIcons/1-4/64c1-4.png";
+	category = "Baseplates";
+	subCategory = "ModTer 64x";
+};
+
+datablock fxDTSBrickData(brick64wedge4data)
+{
+	brickFile = "./Bricks/1-4/64cW1-4.blb";
+	uiName = "64x Wedge 1/4h";
+	iconName = "./BrickIcons/1-4/64cW1-4.png";
+	category = "Baseplates";
+	subCategory = "ModTer 64x";
+};
+
+datablock fxDTSBrickData(brick64ramp4data)
+{
+	brickFile = "./Bricks/1-4/64cR1-4.blb";
+	uiName = "64x Ramp 1/4h";
+	iconName = "./BrickIcons/1-4/64cR1-4.png";
+	category = "Baseplates";
+	subCategory = "ModTer 64x";
+};
+
+datablock fxDTSBrickData(brick64cornera4data)
+{
+	brickFile = "./Bricks/1-4/64cCA1-4.blb";
+	uiName = "64x CornerA 1/4h";
+	iconName = "./BrickIcons/1-4/64cCA1-4.png";
+	category = "Baseplates";
+	subCategory = "ModTer 64x";
+};
+
+datablock fxDTSBrickData(brick64cornerb4data)
+{
+	brickFile = "./Bricks/1-4/64cCB1-4.blb";
+	uiName = "64x CornerB 1/4h";
+	iconName = "./BrickIcons/1-4/64cCB1-4.png";
+	category = "Baseplates";
+	subCategory = "ModTer 64x";
+};
+
+datablock fxDTSBrickData(brick64cornerc4data)
+{
+	brickFile = "./Bricks/1-4/64cCC1-4.blb";
+	uiName = "64x CornerC 1/4h";
+	iconName = "./BrickIcons/1-4/64cCC1-4.png";
+	category = "Baseplates";
+	subCategory = "ModTer 64x";
+};
+
+datablock fxDTSBrickData(brick64cornerd4data)
+{
+	brickFile = "./Bricks/1-4/64cCD1-4.blb";
+	uiName = "64x CornerD 1/4h";
+	iconName = "./BrickIcons/1-4/64cCD1-4.png";
+	category = "Baseplates";
+	subCategory = "ModTer 64x";
+};
+
+datablock fxDTSBrickData(brick32cube4data)
+{
+	brickFile = "./Bricks/1-4/32c1-4.blb";
+	uiName = "32x Cube 1/4h";
+	iconName = "./BrickIcons/1-4/32c1-4.png";
+	category = "Baseplates";
+	subCategory = "ModTer 32x";
+};
+
+datablock fxDTSBrickData(brick32wedge4data)
+{
+	brickFile = "./Bricks/1-4/32cW1-4.blb";
+	uiName = "32x Wedge 1/4h";
+	iconName = "./BrickIcons/1-4/32cW1-4.png";
+	category = "Baseplates";
+	subCategory = "ModTer 32x";
+};
+
+datablock fxDTSBrickData(brick32ramp4data)
+{
+	brickFile = "./Bricks/1-4/32cR1-4.blb";
+	uiName = "32x Ramp 1/4h";
+	iconName = "./BrickIcons/1-4/32cR1-4.png";
+	category = "Baseplates";
+	subCategory = "ModTer 32x";
+};
+
+datablock fxDTSBrickData(brick32cornera4data)
+{
+	brickFile = "./Bricks/1-4/32cCA1-4.blb";
+	uiName = "32x CornerA 1/4h";
+	iconName = "./BrickIcons/1-4/32cCA1-4.png";
+	category = "Baseplates";
+	subCategory = "ModTer 32x";
+};
+
+datablock fxDTSBrickData(brick32cornerb4data)
+{
+	brickFile = "./Bricks/1-4/32cCB1-4.blb";
+	uiName = "32x CornerB 1/4h";
+	iconName = "./BrickIcons/1-4/32cCB1-4.png";
+	category = "Baseplates";
+	subCategory = "ModTer 32x";
+};
+
+datablock fxDTSBrickData(brick32cornerc4data)
+{
+	brickFile = "./Bricks/1-4/32cCC1-4.blb";
+	uiName = "32x CornerC 1/4h";
+	iconName = "./BrickIcons/1-4/32cCC1-4.png";
+	category = "Baseplates";
+	subCategory = "ModTer 32x";
+};
+
+datablock fxDTSBrickData(brick32cornerd4data)
+{
+	brickFile = "./Bricks/1-4/32cCD1-4.blb";
+	uiName = "32x CornerD 1/4h";
+	iconName = "./BrickIcons/1-4/32cCD1-4.png";
+	category = "Baseplates";
+	subCategory = "ModTer 32x";
+};
+
+datablock fxDTSBrickData(brick16cube4data)
+{
+	brickFile = "./Bricks/1-4/16c1-4.blb";
+	uiName = "16x Cube 1/4h";
+	iconName = "./BrickIcons/1-4/16c1-4.png";
+	category = "Baseplates";
+	subCategory = "ModTer 16x";
+};
+
+datablock fxDTSBrickData(brick16wedge4data)
+{
+	brickFile = "./Bricks/1-4/16cW1-4.blb";
+	uiName = "16x Wedge 1/4h";
+	iconName = "./BrickIcons/1-4/16cW1-4.png";
+	category = "Baseplates";
+	subCategory = "ModTer 16x";
+};
+
+datablock fxDTSBrickData(brick16ramp4data)
+{
+	brickFile = "./Bricks/1-4/16cR1-4.blb";
+	uiName = "16x Ramp 1/4h";
+	iconName = "./BrickIcons/1-4/16cR1-4.png";
+	category = "Baseplates";
+	subCategory = "ModTer 16x";
+};
+
+datablock fxDTSBrickData(brick16cornera4data)
+{
+	brickFile = "./Bricks/1-4/16cCA1-4.blb";
+	uiName = "16x CornerA 1/4h";
+	iconName = "./BrickIcons/1-4/16cCA1-4.png";
+	category = "Baseplates";
+	subCategory = "ModTer 16x";
+};
+
+datablock fxDTSBrickData(brick16cornerb4data)
+{
+	brickFile = "./Bricks/1-4/16cCB1-4.blb";
+	uiName = "16x CornerB 1/4h";
+	iconName = "./BrickIcons/1-4/16cCB1-4.png";
+	category = "Baseplates";
+	subCategory = "ModTer 16x";
+};
+
+datablock fxDTSBrickData(brick16cornerc4data)
+{
+	brickFile = "./Bricks/1-4/16cCC1-4.blb";
+	uiName = "16x CornerC 1/4h";
+	iconName = "./BrickIcons/1-4/16cCC1-4.png";
+	category = "Baseplates";
+	subCategory = "ModTer 16x";
+};
+
+datablock fxDTSBrickData(brick16cornerd4data)
+{
+	brickFile = "./Bricks/1-4/16cCD1-4.blb";
+	uiName = "16x CornerD 1/4h";
+	iconName = "./BrickIcons/1-4/16cCD1-4.png";
+	category = "Baseplates";
+	subCategory = "ModTer 16x";
+};
+
+datablock fxDTSBrickData(brick8cube4data)
+{
+	brickFile = "./Bricks/1-4/8c1-4.blb";
+	uiName = "8x Cube 1/4h";
+	iconName = "./BrickIcons/1-4/8c1-4.png";
+	category = "Baseplates";
+	subCategory = "ModTer 8x";
+};
+
+datablock fxDTSBrickData(brick8wedge4data)
+{
+	brickFile = "./Bricks/1-4/8cW1-4.blb";
+	uiName = "8x Wedge 1/4h";
+	iconName = "./BrickIcons/1-4/8cW1-4.png";
+	category = "Baseplates";
+	subCategory = "ModTer 8x";
+};
+
+datablock fxDTSBrickData(brick8ramp4data)
+{
+	brickFile = "./Bricks/1-4/8cR1-4.blb";
+	uiName = "8x Ramp 1/4h";
+	iconName = "./BrickIcons/1-4/8cR1-4.png";
+	category = "Baseplates";
+	subCategory = "ModTer 8x";
+};
+
+datablock fxDTSBrickData(brick8cornera4data)
+{
+	brickFile = "./Bricks/1-4/8cCA1-4.blb";
+	uiName = "8x CornerA 1/4h";
+	iconName = "./BrickIcons/1-4/8cCA1-4.png";
+	category = "Baseplates";
+	subCategory = "ModTer 8x";
+};
+
+datablock fxDTSBrickData(brick8cornerb4data)
+{
+	brickFile = "./Bricks/1-4/8cCB1-4.blb";
+	uiName = "8x CornerB 1/4h";
+	iconName = "./BrickIcons/1-4/8cCB1-4.png";
+	category = "Baseplates";
+	subCategory = "ModTer 8x";
+};
+
+datablock fxDTSBrickData(brick8cornerc4data)
+{
+	brickFile = "./Bricks/1-4/8cCC1-4.blb";
+	uiName = "8x CornerC 1/4h";
+	iconName = "./BrickIcons/1-4/8cCC1-4.png";
+	category = "Baseplates";
+	subCategory = "ModTer 8x";
+};
+
+datablock fxDTSBrickData(brick8cornerd4data)
+{
+	brickFile = "./Bricks/1-4/8cCD1-4.blb";
+	uiName = "8x CornerD 1/4h";
+	iconName = "./BrickIcons/1-4/8cCD1-4.png";
+	category = "Baseplates";
+	subCategory = "ModTer 8x";
+};

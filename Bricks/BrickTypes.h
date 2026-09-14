@@ -47,6 +47,9 @@ struct SpecialBrickType
 	std::string category = "";
 	std::string subCategory = "";
 
+	//Like Blockland, a datablock without a category (e.g. an opened door) can be loaded from saves but isn't in the brick selector
+	bool listed = true;
+
 	std::string blbPath = "";
 	//"" if there isn't one
 	std::string iconPath = "";
@@ -84,7 +87,8 @@ std::string blocklandTextToUtf8(const std::string& text);
 
 /*
 	Brick types from a folder like Assets/brick/types:
-	fxDTSBrickData datablocks in any .cs file name .blb files and their icons, like a Blockland add-on,
+	fxDTSBrickData datablocks in bricks.txt files (Blockland add-on syntax, just brickFile, uiName, iconName, category, subCategory)
+	name .blb files and their icons,
 	test.cs maps more names to basic .blb files, and any other .blb goes by its file name
 	Each .blb's first two lines give its size and whether it's a basic box or a special brick
 */

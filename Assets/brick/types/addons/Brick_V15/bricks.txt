@@ -1,0 +1,38 @@
+//Bricks from Blockland's Brick_V15 add-on, only what the brick types loader reads, see BrickTypes::load
+//Bricks without a category, like opened doors, load from saves but aren't listed in the brick selector
+
+datablock fxDTSBrickData(brick8x8grilldata)
+{
+	brickFile = "./8x8grill.blb";
+	uiName = "8x8 Grill";
+	iconName = "./8x8 Grill.png";
+	category = "Special";
+	subCategory = "Misc";
+};
+
+datablock fxDTSBrickData(brick1x4x2barsdata)
+{
+	brickFile = "./1x4x2bars.blb";
+	uiName = "1x4x2 Bars";
+	iconName = "./1x4x2 Bars.png";
+	category = "Special";
+	subCategory = "Walls";
+};
+
+datablock fxDTSBrickData(brick4x1x2picketdata)
+{
+	brickFile = "./4x1x2picket.blb";
+	uiName = "1x4x2 Picket";
+	iconName = "./1x4x2 Picket.png";
+	category = "Special";
+	subCategory = "Walls";
+};
+
+datablock fxDTSBrickData(brick2x2cornerdata)
+{
+	brickFile = "./2x2corner.blb";
+	uiName = "2x2 Corner";
+	iconName = "./2x2 Corner.png";
+	category = "Bricks";
+	subCategory = "2x";
+};
