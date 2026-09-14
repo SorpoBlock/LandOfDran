@@ -2,6 +2,7 @@
 
 #include "../LandOfDran.h"
 #include "../Bricks/BrickHolder.h"
+#include "../GameLoop/PlayerAppearance.h"
 
 /*
 	Global inline functions that help create miscellaneous packet types from passed parameters
@@ -177,6 +178,53 @@ inline ENetPacket* makeFlashlightPacket(bool on, glm::vec3 color)
 	ret->data[0] = (unsigned char)FlashlightRequest;
 	ret->data[1] = on ? 1 : 0;
 	memcpy(ret->data + 2, &color[0], sizeof(float) * 3);
+
+	return ret;
+}
+
+/*
+	1 byte		-	packet type
+	1 byte		-	face name length, 0 for no face
+	0-64 bytes	-	face name, a file in Assets/faces
+	1 byte		-	how many painted parts follow
+	Per part:
+	1 byte		-	mesh name length
+	1-64 bytes	-	mesh name
+	3 bytes		-	red, green, blue, 0-255
+*/
+inline ENetPacket* makeAppearanceChoicePacket(const PlayerAppearance& appearance)
+{
+	std::string face = appearance.face.substr(0, PlayerAppearance::maxNameLength);
+
+	std::vector<std::pair<std::string, glm::vec3>> colors;
+	for (const auto& [meshName, color] : appearance.colors)
+	{
+		if (colors.size() < PlayerAppearance::maxColors && !meshName.empty())
+			colors.emplace_back(meshName.substr(0, PlayerAppearance::maxNameLength), color);
+	}
+
+	size_t length = 3 + face.length();
+	for (const auto& [meshName, color] : colors)
+		length += 4 + meshName.length();
+
+	ENetPacket* ret = enet_packet_create(NULL, length, getFlagsFromChannel(JoinNegotiation));
+
+	ret->data[0] = (unsigned char)AppearanceChoice;
+	ret->data[1] = (unsigned char)face.length();
+	memcpy(ret->data + 2, face.data(), face.length());
+
+	size_t byteIterator = 2 + face.length();
+	ret->data[byteIterator++] = (unsigned char)colors.size();
+	for (const auto& [meshName, color] : colors)
+	{
+		ret->data[byteIterator++] = (unsigned char)meshName.length();
+		memcpy(ret->data + byteIterator, meshName.data(), meshName.length());
+		byteIterator += meshName.length();
+
+		glm::vec3 bytes = glm::clamp(color, 0.0f, 1.0f) * 255.0f + 0.5f;
+		for (int channel = 0; channel < 3; channel++)
+			ret->data[byteIterator++] = (unsigned char)bytes[channel];
+	}
 
 	return ret;
 }

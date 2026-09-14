@@ -57,6 +57,7 @@ out vec3 worldPos;
 out vec4 preColor;
 out float opacity;
 flat out int useDecal;
+flat out int decalCutout;
 
 void main()
 {
@@ -74,6 +75,7 @@ void main()
 	preColor = vec4(BrickColor.rgb, 1.0);
 	opacity = BrickColor.a;
 	useDecal = -1;
+	decalCutout = 0;
 
 	gl_ClipDistance[0] = dot(vec4(worldPos, 1.0), ClipPlane);
 	gl_Position = CameraProjection * CameraView * vec4(worldPos,1.0);

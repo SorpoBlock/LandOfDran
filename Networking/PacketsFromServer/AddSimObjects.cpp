@@ -271,6 +271,23 @@ bool AddSimObjectsPacket::applyPacket(const ClientProgramData& pd, Simulation& s
 				memcpy(&buoyancy, packet->data + byteIterator, sizeof(float));
 				byteIterator += sizeof(float);
 
+				//Faces by mesh index, from Dynamic::setMeshDecal
+				std::vector<std::pair<int, int>> meshDecals;
+				unsigned int numDecals = packet->data[byteIterator];
+				byteIterator++;
+				for (unsigned int i = 0; i < numDecals && byteIterator + 2 <= packet->dataLength; i++)
+				{
+					int meshIdx = packet->data[byteIterator];
+					unsigned int nameLength = packet->data[byteIterator + 1];
+					byteIterator += 2;
+					if (byteIterator + nameLength > packet->dataLength)
+						break;
+
+					//A face this game doesn't have is left off
+					meshDecals.emplace_back(meshIdx, pd.getFaceDecal(std::string((char*)packet->data + byteIterator, nameLength)));
+					byteIterator += nameLength;
+				}
+
 				//TODO: Actually return false if we can't find a type with the type ID given
 				if (!foundType)
 				{
@@ -296,6 +313,9 @@ bool AddSimObjectsPacket::applyPacket(const ClientProgramData& pd, Simulation& s
 					newDynamic->setHighlight(highlightColor, highlightThickness);
 
 				newDynamic->buoyancy = buoyancy;
+
+				for (const auto& [meshIdx, decalId] : meshDecals)
+					newDynamic->setMeshDecal(meshIdx, decalId);
 
 				if (byteIterator >= packet->dataLength)
 					break;

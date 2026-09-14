@@ -133,6 +133,9 @@ void LoopClient::connectToServer(std::string ip, unsigned int port, std::string 
 
 	client->send(makeConnectionRequest(userName), JoinNegotiation);
 
+	//How we look, which the server keeps until its Lua puts it on our player with client:applyAppearance
+	client->send(makeAppearanceChoicePacket(AppearanceEditor::loadAppearance(settings)), JoinNegotiation);
+
 	//From here, further initalization will actually take place in Networking/PacketsFromServer/AcceptConnection.cpp
 	//Assuming the server lets us join, of course
 }
@@ -366,7 +369,11 @@ void LoopClient::handleInput(float deltaT, ExecutableArguments& cmdArgs, std::sh
 			//By having one or more guis open, which defeats the purpose of a quick gui close key
 			if (e.key.keysym.sym == SDLK_ESCAPE)
 			{
-				if (pd.gui->getOpenWindowCount() == 0)
+				//The appearance editor's color window and painting close before the editor itself
+				if (pd.appearanceEditor->isOpen() && pd.appearanceEditor->handleEscape())
+				{
+				}
+				else if (pd.gui->getOpenWindowCount() == 0)
 				{
 					pd.escapeMenu->open();
 					pd.context->setMouseLock(false);
@@ -385,7 +392,7 @@ void LoopClient::handleInput(float deltaT, ExecutableArguments& cmdArgs, std::sh
 			int amount = e.wheel.direction == SDL_MOUSEWHEEL_FLIPPED ? -e.wheel.y : e.wheel.y;
 			pd.brickHotbar->scroll(amount);
 		}
-		else if (e.type == SDL_MOUSEBUTTONDOWN && simulation.camera && !pd.gui->shouldUnlockMouse() && cmdArgs.gameState == InGame)
+		else if (e.type == SDL_MOUSEBUTTONDOWN && simulation.camera && !pd.gui->shouldUnlockMouse() && cmdArgs.gameState == InGame && !pd.appearanceEditor->isOpen())
 		{
 			int mx, my;
 			int mask = SDL_GetMouseState(&mx, &my);
@@ -472,6 +479,22 @@ void LoopClient::handleInput(float deltaT, ExecutableArguments& cmdArgs, std::sh
 		pd.serverBrowser->clearSettingsReady();
 		pd.settingsMenu->open();
 	}
+
+	if (pd.serverBrowser->appearanceReady())
+	{
+		pd.serverBrowser->clearAppearanceReady();
+		pd.serverBrowser->close();
+		pd.appearanceEditor->open();
+	}
+
+	//Saved or not
+	if (appearanceEditorWasOpen && !pd.appearanceEditor->isOpen())
+		pd.serverBrowser->open();
+	appearanceEditorWasOpen = pd.appearanceEditor->isOpen();
+
+	//Saving while connected changes our player right away, if the server's Lua put our appearance on it
+	if (pd.appearanceEditor->takeSaved() && client)
+		client->send(makeAppearanceChoicePacket(AppearanceEditor::loadAppearance(settings)), OtherReliable);
 
 	EscapeButtonPressed escapeMenuButton = pd.escapeMenu->getLastButtonPress();
 	switch (escapeMenuButton)
@@ -1354,6 +1377,10 @@ void LoopClient::renderEverything(float deltaT)
 		glEnable(GL_DEPTH_TEST);
 	}
 
+	//Covers the scene while picking how our player looks
+	if (pd.appearanceEditor->isOpen())
+		pd.appearanceEditor->renderPreview(pd.shaders, (int)pd.context->getResolution().x, (int)pd.context->getResolution().y, deltaT);
+
 	//GUI
 	bool crossHair = false;
 	if (simulation.camera)
@@ -1683,6 +1710,7 @@ LoopClient::LoopClient(ExecutableArguments& cmdArgs, std::shared_ptr<SettingMana
 	pd.chatWindow = pd.gui->createWindow<ChatWindow>();
 	pd.brickSelector = pd.gui->createWindow<BrickSelector>(&pd.brickTypes, pd.textures);
 	pd.brickHotbar = pd.gui->createWindow<BrickHotbar>();
+	pd.appearanceEditor = pd.gui->createWindow<AppearanceEditor>(settings, pd.textures, &pd.faceNames);
 	//Builds from before the state file kept the hot bar in settings.txt
 	std::shared_ptr<SettingManager> hotbarSource = pd.state;
 	if (!pd.state->getPreference("hotbar/slot1/filled") && settings->getPreference("hotbar/slot1/filled"))
@@ -1721,8 +1749,29 @@ LoopClient::LoopClient(ExecutableArguments& cmdArgs, std::shared_ptr<SettingMana
 	simulation.camera = std::make_shared<Camera>(pd.context->getResolution().x / pd.context->getResolution().y);
 	simulation.camera->updateSettings(settings);
 
-	//A few test decals
-	pd.textures->allocateForDecals(128);
+	//Faces players pick in the appearance editor, each on its own decal array layer, servers send them by file name
+	std::vector<std::filesystem::path> facePaths;
+	if (std::filesystem::is_directory("Assets/faces"))
+	{
+		for (const std::filesystem::directory_entry& entry : std::filesystem::directory_iterator("Assets/faces"))
+		{
+			std::string extension = lowercase(entry.path().extension().string());
+			if (entry.is_regular_file() && (extension == ".png" || extension == ".jpg"))
+				facePaths.push_back(entry.path());
+		}
+	}
+	std::sort(facePaths.begin(), facePaths.end());
+
+	//Decal IDs get 8 bits of a mesh's instance flags
+	if (facePaths.size() > 256)
+		facePaths.resize(256);
+
+	pd.textures->allocateForDecals(256, std::max<unsigned int>(1, (unsigned int)facePaths.size()));
+	for (const std::filesystem::path& facePath : facePaths)
+	{
+		if (pd.textures->addDecal(facePath.generic_string(), (int)pd.faceNames.size()))
+			pd.faceNames.push_back(facePath.filename().string());
+	}
 	pd.textures->finalizeDecals();
 
 	pd.grassMaterial = new Material("Assets/ground/grass.txt", pd.textures);
@@ -1815,8 +1864,12 @@ LoopClient::~LoopClient()
 	delete pd.particles;
 	pd.particles = nullptr;
 
+	//Its model and picking target need the OpenGL context, which goes away with pd.context
+	if (pd.appearanceEditor)
+		pd.appearanceEditor->releaseGraphics();
+
 	//Not needed this is a destructor lol
-	//Also this should only be called when the programs shutting down anyway 
+	//Also this should only be called when the programs shutting down anyway
 	pd.context.reset();
 	pd.gui.reset(); //Will handle indivdual windows
 	pd.shaders.reset();

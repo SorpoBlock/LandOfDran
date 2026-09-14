@@ -65,6 +65,8 @@ out vec3 worldPos;
 out vec4 preColor;
 out float opacity;
 flat out int  useDecal;
+//See MeshFlag_DecalCutout in Mesh.h
+flat out int  decalCutout;
 
 void main()
 {
@@ -80,6 +82,7 @@ void main()
 	preColor = PreColor;
 	opacity = 1.0;
 	useDecal = (InstanceFlags & 131072) == 131072 ? ((InstanceFlags & 130560) >> 9) : -1;
+	decalCutout = (InstanceFlags & 524288) != 0 ? 1 : 0;
 	uvs = TextureCoords;
 	
 	mat4 transform;

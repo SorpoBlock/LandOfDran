@@ -11,6 +11,8 @@ in vec4 preColor;
 in float opacity;
 in vec3 normal;
 flat in int useDecal;
+//Only the decal is drawn, see MeshFlag_DecalCutout in Mesh.h
+flat in int decalCutout;
 
 layout (std140) uniform BasicUniforms
 {
@@ -80,6 +82,12 @@ uniform bool debug;
 
 //Unlit brightening on top of lighting, e.g. the ghost brick's pulse, 0 (the default) for none
 uniform float glow;
+
+//Above 0 draws nothing but this ID into the red channel, for the appearance editor's mouse picking
+uniform int pickingID;
+
+//rgb blended over the final color by a, the appearance editor's highlight on the part under the mouse, 0 (the default) for none
+uniform vec4 editorHighlight;
 
 //Start tutorial code
 //https://github.com/JoeyDeVries/LearnOpenGL/blob/master/src/6.pbr/1.2.lighting_textured/1.2.pbr.fs
@@ -359,6 +367,17 @@ void main()
 {			
 	vec2 dxuv = dFdx(uvs);
 	vec2 dyuv = dFdy(uvs);
+
+	//Before picking, so clicking the see-through part of a face plate picks whatever is behind it
+	if(decalCutout != 0 && (useDecal == -1 || textureGrad(DecalArray,vec3(uvs,useDecal),dxuv,dyuv).a < 0.5))
+		discard;
+
+	//See AppearanceEditor::renderPreview
+	if(pickingID > 0)
+	{
+		color = vec4(float(pickingID) / 255.0, 0.0, 0.0, 1.0);
+		return;
+	}
 	
 	vec3 viewVector = normalize(CameraPosition - worldPos);
 	
@@ -366,15 +385,17 @@ void main()
 	if(useAlbedo != -1)
 		albedo_ = textureGrad(PBRArray,vec3(uvs,useAlbedo),dxuv,dyuv);
 		
-	if(useDecal != -1)
-	{
-		vec4 decalAlbedo = textureGrad(DecalArray,vec3(uvs,useDecal),dxuv,dyuv);
-		albedo_ = mix(albedo_,decalAlbedo,decalAlbedo.a);
-	}
 
 	float nonLinearAlbedoF = 1.0;											
 	vec3 albedo = pow(albedo_.rgb,vec3(1.0 + 1.2 * nonLinearAlbedoF));
 	albedo = mix(albedo.rgb,preColor.rgb,preColor.a);
+
+	//On top of the mesh's color, so a painted head still shows its face
+	if(useDecal != -1)
+	{
+		vec4 decalAlbedo = textureGrad(DecalArray,vec3(uvs,useDecal),dxuv,dyuv);
+		albedo = mix(albedo, pow(decalAlbedo.rgb,vec3(1.0 + 1.2 * nonLinearAlbedoF)), decalAlbedo.a);
+	}
 	
 	vec3 newNormal = getNormalFromMapGrad(uvs,dxuv,dyuv);
 		
@@ -470,6 +491,7 @@ void main()
 
 	//After tone mapping, which would otherwise squash the glow to almost nothing on bright or sunlit surfaces
 	color.rgb = mix(color.rgb, vec3(1.0), glow);
+	color.rgb = mix(color.rgb, editorHighlight.rgb, editorHighlight.a);
 
 	float fogFactor = clamp((length(CameraPosition - worldPos) - FogDistanceMin) / (FogDistanceMax - FogDistanceMin), 0.0, 1.0);
 	color.rgb = mix(color.rgb, FogColor, fogFactor);

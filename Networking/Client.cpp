@@ -146,6 +146,10 @@ KickReason Client::handleEvent(ENetEvent& event)
 					packets.push_back(new MeshAppearancePacket(packetHoldTime, event.packet));
 					return NotKicked;
 
+				case MeshDecal:
+					packets.push_back(new MeshDecalPacket(packetHoldTime, event.packet));
+					return NotKicked;
+
 				case ServerPerformanceDetails:
 					packets.push_back(new ServerPerformanceDetailsPacket(packetHoldTime, event.packet));
 					return NotKicked;

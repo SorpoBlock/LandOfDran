@@ -889,6 +889,87 @@ static int LUA_clientGetFlashlightEnabled(lua_State* L)
 	return 1;
 }
 
+void applyAppearance(Server const* server, ClientData& client, std::shared_ptr<Dynamic> dynamic, const PlayerAppearance* previous)
+{
+	client.appearanceTarget = dynamic;
+
+	const Model* model = dynamic->getType()->getModel().get();
+	const PlayerAppearance& appearance = client.appearance;
+
+	auto paint = [&](const std::string& meshName, const glm::vec4& color)
+	{
+		int meshIdx = model->getMeshIdxIgnoringCase(meshName);
+		if (meshIdx == -1)
+			return;
+
+		ENetPacket* packet = dynamic->setMeshColor(model->getMeshName(meshIdx), color);
+		if (packet)
+			server->broadcast(packet, OtherReliable);
+	};
+
+	//A color with no alpha shows the model's own look
+	if (previous)
+	{
+		for (const auto& [meshName, color] : previous->colors)
+		{
+			bool stillPainted = std::any_of(appearance.colors.begin(), appearance.colors.end(),
+				[&](const std::pair<std::string, glm::vec3>& part) { return lowercase(part.first) == lowercase(meshName); });
+			if (!stillPainted)
+				paint(meshName, glm::vec4(0));
+		}
+	}
+
+	for (const auto& [meshName, color] : appearance.colors)
+		paint(meshName, glm::vec4(color, 1.0f));
+
+	int faceMesh = model->getFaceMeshIdx();
+	if (faceMesh == -1 || (appearance.face.empty() && !dynamic->meshDecals.count(faceMesh)))
+		return;
+
+	ENetPacket* packet = dynamic->setMeshDecal(model->getMeshName(faceMesh), appearance.face);
+	if (packet)
+		server->broadcast(packet, OtherReliable);
+}
+
+static int LUA_clientApplyAppearance(lua_State* L)
+{
+	scope("(LUA) client:applyAppearance");
+
+	if (lua_gettop(L) != 2)
+	{
+		error("Expected 2 arguments client:applyAppearance(dynamic)");
+		return 0;
+	}
+
+	std::shared_ptr<Dynamic> dynamic = LUA_pd->dynamics->popLua(L);
+
+	if (!dynamic)
+	{
+		error("Invalid dynamic passed to client:applyAppearance");
+		return 0;
+	}
+
+	std::shared_ptr<JoinedClient> jc = popClientLua(L);
+
+	if (!jc)
+	{
+		error("Invalid client object A passed to client:applyAppearance");
+		return 0;
+	}
+
+	std::shared_ptr<ClientData> client = LUA_pd->getClient(jc);
+
+	if (!client)
+	{
+		error("Invalid client object B passed to client:applyAppearance");
+		return 0;
+	}
+
+	applyAppearance(LUA_server, *client, dynamic);
+
+	return 0;
+}
+
 void registerClientFunctions(lua_State* L)
 {
 	//Register client global functions:
@@ -924,6 +1005,7 @@ void registerClientFunctions(lua_State* L)
 		{ "getJetsEnabled", LUA_clientGetJetsEnabled },
 		{ "setFlashlightEnabled", LUA_clientSetFlashlightEnabled },
 		{ "getFlashlightEnabled", LUA_clientGetFlashlightEnabled },
+		{ "applyAppearance", LUA_clientApplyAppearance },
 		{ NULL, NULL }
 	};
 

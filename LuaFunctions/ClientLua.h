@@ -18,4 +18,10 @@ extern ServerProgramData* LUA_pd;
 void pushClientLua(lua_State *L,std::shared_ptr<JoinedClient> client);
 std::shared_ptr<JoinedClient> popClientLua(lua_State *L);
 
+/*
+	Paints a client's chosen colors onto the matching meshes of a dynamic and puts their face on it, broadcasting each change
+	Parts previous painted that the client's current appearance doesn't go back to the model's own look
+*/
+void applyAppearance(Server const* server, ClientData& client, std::shared_ptr<Dynamic> dynamic, const PlayerAppearance* previous = nullptr);
+
 void registerClientFunctions(lua_State *L);

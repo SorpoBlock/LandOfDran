@@ -72,3 +72,4 @@ void plantBrick(JoinedClient* source, Server const* const server, ENetPacket con
 void undoBrick(JoinedClient* source, Server const* const server, ENetPacket const* const packet, const void* pdv);
 void voiceFrame(JoinedClient* source, Server const* const server, ENetPacket const* const packet, const void* pdv);
 void flashlightRequest(JoinedClient* source, Server const* const server, ENetPacket const* const packet, const void* pdv);
+void appearanceChoice(JoinedClient* source, Server const* const server, ENetPacket const* const packet, const void* pdv);

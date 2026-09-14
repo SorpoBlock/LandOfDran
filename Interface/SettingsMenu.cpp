@@ -166,6 +166,10 @@ void SettingsMenu::render(ImGuiIO* io)
 		if (path == "keybinds")
 			continue;
 
+		//Player colors and face, picked in the appearance editor instead
+		if (path == "appearance" || path.rfind("appearance/", 0) == 0)
+			continue;
+
 		//This whole block just figures out when we want a tab for a new category of controls
 		//I.e. 'graphics' or 'audio' if you rearrange the settings in the text file this might break?
 		if (lastPath != path)

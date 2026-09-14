@@ -248,6 +248,8 @@ add_executable (LandOfDran
 "Networking/PacketsFromServer/ParticleEmitterType.cpp"
 "Networking/PacketsFromServer/PlayerAbilities.h"
 "Networking/PacketsFromServer/PlayerAbilities.cpp"
+"Networking/PacketsFromServer/MeshDecal.h"
+"Networking/PacketsFromServer/MeshDecal.cpp"
 
 "Networking/PacketsFromClient/ConnectionRequest.cpp" 
 "Networking/PacketsFromClient/FinishedLoading.cpp" 
@@ -322,6 +324,10 @@ add_executable (LandOfDran
 "Networking/PacketsFromClient/PlantBrick.cpp"
 "Networking/PacketsFromClient/VoiceFrame.cpp"
 "Networking/PacketsFromClient/FlashlightRequest.cpp"
+"Networking/PacketsFromClient/AppearanceChoice.cpp"
+"GameLoop/PlayerAppearance.h"
+"Interface/AppearanceEditor.h"
+"Interface/AppearanceEditor.cpp"
 "LuaFunctions/BrickLua.h"
 "LuaFunctions/BrickLua.cpp"   )   
 

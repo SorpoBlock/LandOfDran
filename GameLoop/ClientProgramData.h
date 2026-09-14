@@ -23,6 +23,7 @@
 #include "../Bricks/BrickTypes.h"
 #include "../Interface/BrickSelector.h"
 #include "../Interface/BrickHotbar.h"
+#include "../Interface/AppearanceEditor.h"
 #include "../Audio/AudioSystem.h"
 #include "../Audio/AcousticProbe.h"
 #include "../Audio/VoiceChat.h"
@@ -118,6 +119,21 @@ struct ClientProgramData
 	std::shared_ptr<InputMap>		input = nullptr;
 	std::shared_ptr<EscapeMenu>		escapeMenu = nullptr;
 	std::shared_ptr<ChatWindow>		chatWindow = nullptr;
+	std::shared_ptr<AppearanceEditor> appearanceEditor = nullptr;
+
+	//File names of the images in Assets/faces, each one's index is its layer in the decal array, see LoopClient's constructor
+	std::vector<std::string> faceNames;
+
+	//The decal array layer of a face from Assets/faces, -1 for no face or one this game doesn't have
+	int getFaceDecal(const std::string& faceName) const
+	{
+		for (size_t a = 0; a < faceNames.size(); a++)
+		{
+			if (faceNames[a] == faceName)
+				return (int)a;
+		}
+		return -1;
+	}
 
 	//Lives for the whole program, sound types come from whichever server we're on
 	std::shared_ptr<AudioSystem>	audio = nullptr;

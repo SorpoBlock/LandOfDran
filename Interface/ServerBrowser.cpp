@@ -89,6 +89,11 @@ void ServerBrowser::render(ImGuiIO* io)
 	if (ImGui::Button("Settings"))
 		settingsPicked = true;
 
+	ImGui::SameLine();
+
+	if (ImGui::Button("Appearance"))
+		appearancePicked = true;
+
 	if (connectionNote.length() > 0)
 		ImGui::Text(connectionNote.c_str());
 	else

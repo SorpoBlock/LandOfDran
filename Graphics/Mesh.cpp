@@ -58,6 +58,28 @@ int Model::getMeshIdx(const std::string& name) const
 	return -1;
 }
 
+int Model::getMeshIdxIgnoringCase(const std::string& name) const
+{
+	std::string lowerName = lowercase(name);
+	for (unsigned int a = 0; a < allMeshes.size(); a++)
+	{
+		if (lowercase(allMeshes[a]->name) == lowerName)
+			return a;
+	}
+	return -1;
+}
+
+int Model::getFaceMeshIdx() const
+{
+	for (const char* name : { "Face1", "Face", "Head" })
+	{
+		int meshIdx = getMeshIdxIgnoringCase(name);
+		if (meshIdx != -1)
+			return meshIdx;
+	}
+	return -1;
+}
+
 
 void Model::addAnimation(Animation& animation,int id)
 {
@@ -939,6 +961,11 @@ ModelInstance::ModelInstance(Model* _type)
 		UseNodeRotationFix.push_back(false);
 	}
 
+	//A player's face plate, like Face1 in front of the default player's head, is see-through except for the face on it
+	int faceMesh = type->getFaceMeshIdx();
+	if (faceMesh != -1 && lowercase(type->allMeshes[faceMesh]->name) != "head")
+		MeshFlags[faceMesh] |= MeshFlag_DecalCutout;
+
 	//The offset should be the same for all meshes of a given model
 	bufferOffset = (unsigned int)type->allMeshes[0]->instances.size();
 	
@@ -1612,6 +1639,12 @@ void Model::render(std::shared_ptr<ShaderManager> graphics,bool useMaterials) co
 {
 	for (unsigned int a = 0; a < allMeshes.size(); a++)
 		allMeshes[a]->render(graphics, useMaterials);
+}
+
+void Model::renderMesh(std::shared_ptr<ShaderManager> graphics, int meshIdx) const
+{
+	if (meshIdx >= 0 && meshIdx < (int)allMeshes.size())
+		allMeshes[meshIdx]->render(graphics);
 }
 
 void Model::renderSingleInstance(unsigned int bufferOffset) const

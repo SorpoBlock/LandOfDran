@@ -49,9 +49,9 @@ void main()
 {
 	highlightColor = HighlightColor;
 
-	//No highlight applied to this instance, or it's hidden but casting a shadow (see model.vert)
+	//No highlight applied to this instance, it's hidden but casting a shadow (see model.vert), or it's a see-through face plate (MeshFlag_DecalCutout)
 	//Collapse to a degenerate triangle so nothing gets rasterized
-	if(HighlightColor.a <= 0.0 || (InstanceFlags & 262144) != 0)
+	if(HighlightColor.a <= 0.0 || (InstanceFlags & 262144) != 0 || (InstanceFlags & 524288) != 0)
 	{
 		gl_Position = vec4(0,0,0,0);
 		return;

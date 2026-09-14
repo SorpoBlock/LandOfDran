@@ -1,4 +1,5 @@
 #include "Dynamic.h"
+#include "../GameLoop/PlayerAppearance.h"
 #include <cmath>
 
 Dynamic::Dynamic(std::shared_ptr<DynamicType> _type, const btVector3& initialPos, const btQuaternion &initialRot)
@@ -406,6 +407,44 @@ ENetPacket* Dynamic::setMeshColor(const std::string &meshName,const glm::vec4& c
 	return ret;
 }
 
+void Dynamic::setMeshDecal(int meshIdx, int decalId)
+{
+	modelInstance->setDecal(meshIdx, decalId);
+}
+
+/*
+	1 byte		-	packet type
+	4 bytes		-	dynamic net ID
+	1 byte		-	mesh index
+	1 byte		-	name length, 0 to take the decal off
+	0-64 bytes	-	face file name
+*/
+ENetPacket* Dynamic::setMeshDecal(const std::string& meshName, const std::string& decalName)
+{
+	int meshIdx = getType()->getModel()->getMeshIdx(meshName);
+	if (meshIdx == -1 || meshIdx > 255)
+	{
+		error("Mesh " + meshName + " not found in model");
+		return nullptr;
+	}
+
+	std::string name = decalName.substr(0, PlayerAppearance::maxNameLength);
+	if (name.empty())
+		meshDecals.erase(meshIdx);
+	else
+		meshDecals[meshIdx] = name;
+
+	ENetPacket* ret = enet_packet_create(NULL, 3 + sizeof(netIDType) + name.length(), getFlagsFromChannel(OtherReliable));
+
+	ret->data[0] = (unsigned char)MeshDecal;
+	memcpy(ret->data + 1, &netID, sizeof(netIDType));
+	ret->data[1 + sizeof(netIDType)] = (unsigned char)meshIdx;
+	ret->data[2 + sizeof(netIDType)] = (unsigned char)name.length();
+	memcpy(ret->data + 3 + sizeof(netIDType), name.data(), name.length());
+
+	return ret;
+}
+
 void Dynamic::setHighlight(const glm::vec4& color, float thickness)
 {
 	modelInstance->setHighlight(color, thickness);
@@ -566,8 +605,13 @@ unsigned int Dynamic::getCreationPacketBytes() const
 	//1 flag byte for whether a highlight is present, plus its data if so
 	int highlightSize = 1 + (modelInstance->getHighlight(color, highlightThickness) ? sizeof(glm::vec4) + sizeof(float) : 0);
 
-	//Buoyancy goes last
-	return meshColorsSize + highlightSize + PositionBytes + QuaternionBytes + sizeof(netIDType) * 2 + sizeof(float);
+	//1 byte for how many meshes have decals, then each one's mesh index, name length, and name
+	int decalsSize = 1;
+	for (const auto& [meshIdx, decalName] : meshDecals)
+		decalsSize += 2 + (int)decalName.length();
+
+	//Buoyancy and then decals go last
+	return meshColorsSize + highlightSize + decalsSize + PositionBytes + QuaternionBytes + sizeof(netIDType) * 2 + sizeof(float);
 }
 
 void Dynamic::addToCreationPacket(enet_uint8* dest) const
@@ -637,6 +681,17 @@ void Dynamic::addToCreationPacket(enet_uint8* dest) const
 
 	memcpy(dest + byteIterator, &buoyancy, sizeof(float));
 	byteIterator += sizeof(float);
+
+	dest[byteIterator] = (unsigned char)meshDecals.size();
+	byteIterator++;
+
+	for (const auto& [meshIdx, decalName] : meshDecals)
+	{
+		dest[byteIterator] = (unsigned char)meshIdx;
+		dest[byteIterator + 1] = (unsigned char)decalName.length();
+		memcpy(dest + byteIterator + 2, decalName.data(), decalName.length());
+		byteIterator += 2 + decalName.length();
+	}
 }
 
 void Dynamic::requestDestruction()

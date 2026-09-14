@@ -933,6 +933,48 @@ static int LUA_dynamicSetMeshColor(lua_State* L)
 	return 0;
 }
 
+static int LUA_dynamicSetMeshDecal(lua_State* L)
+{
+	scope("(LUA) dynamic:setMeshDecal");
+
+	if (lua_gettop(L) != 3)
+	{
+		error("Expected 3 arguments dynamic:setMeshDecal(meshName,faceName)");
+		return 0;
+	}
+
+	if (!LUA_pd->dynamics)
+	{
+		error("dynamics ObjHolder is null");
+		return 0;
+	}
+
+	const char* face = lua_tostring(L, -1);
+	lua_pop(L, 1);
+	const char* mesh = lua_tostring(L, -1);
+	lua_pop(L, 1);
+
+	std::shared_ptr<Dynamic> dynamic = LUA_pd->dynamics->popLua(L);
+
+	if (!dynamic)
+	{
+		error("Invalid dynamic object passed, was it deleted already?");
+		return 0;
+	}
+
+	if (!mesh || !face)
+	{
+		error("Mesh and face names have to be strings");
+		return 0;
+	}
+
+	ENetPacket* packet = dynamic->setMeshDecal(std::string(mesh), std::string(face));
+	if (packet)
+		LUA_server->broadcast(packet, OtherReliable);
+
+	return 0;
+}
+
 static int LUA_dynamicSetHighlight(lua_State* L)
 {
 	scope("(LUA) dynamic:setHighlight");
@@ -1586,7 +1628,7 @@ luaL_Reg* getDynamicFunctions(lua_State *L)
 	lua_register(L, "raycast", LUA_raycast);
 
 	//Create table of dynamic metatable functions:
-	luaL_Reg* regs = new luaL_Reg[34];
+	luaL_Reg* regs = new luaL_Reg[35];
 
 	int iter = 0;
 	regs[iter++] = { "destroy",     LUA_dynamicDestroy };
@@ -1610,6 +1652,7 @@ luaL_Reg* getDynamicFunctions(lua_State *L)
 	regs[iter++] = { "getMass",    LUA_dynamicGetMass };
 	regs[iter++] = { "setMassProps",    LUA_dynamicSetMassProps };
 	regs[iter++] = { "setMeshColor",    LUA_dynamicSetMeshColor };
+	regs[iter++] = { "setMeshDecal",    LUA_dynamicSetMeshDecal };
 	regs[iter++] = { "setHighlight",    LUA_dynamicSetHighlight };
 	regs[iter++] = { "clearHighlight",    LUA_dynamicClearHighlight };
 	regs[iter++] = { "getNumControllers", LUA_dynamicGetNumControllers };

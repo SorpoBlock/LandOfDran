@@ -45,6 +45,7 @@ enum LayoutSlot
 #define MeshFlag_UseDecal		  131072  //Should we render a decal on top of our current material
 //Bits 9-16 would then be the decal ID
 #define MeshFlag_SkipCameraMatrix 262144  //Skip camera projection and view matricies in vertex shader
+#define MeshFlag_DecalCutout	  524288  //Only the opaque part of the mesh's decal is drawn, none of it without a decal, and it casts no shadow or outline
 
 class Mesh;
 class Model;
@@ -480,6 +481,19 @@ class Model
 	//Returns -1 on invalid name
 	int getMeshIdx(const std::string& name) const;
 
+	//Same, for names that might not have kept their case, like ones read back from settings
+	int getMeshIdxIgnoringCase(const std::string& name) const;
+
+	int getNumMeshes() const { return (int)allMeshes.size(); }
+
+	const std::string& getMeshName(int meshIdx) const { return allMeshes[meshIdx]->name; }
+
+	//False for meshes that are never drawn, like the collision box
+	bool isMeshDrawn(int meshIdx) const { return !allMeshes[meshIdx]->nonRenderingMesh; }
+
+	//Where a player's face goes: Face1 in the default player model, otherwise Face or Head, -1 without any of them
+	int getFaceMeshIdx() const;
+
 	glm::vec3 getEyePosition() const { return eyePosition * baseScale; }
 
 	bool isServerSide() const { return serverSide;  }
@@ -509,6 +523,9 @@ class Model
 
 	//Calls render on each mesh
 	void render(std::shared_ptr<ShaderManager> graphics,bool useMaterials = true) const;
+
+	//Calls render on just one of its meshes
+	void renderMesh(std::shared_ptr<ShaderManager> graphics, int meshIdx) const;
 
 	//Calls renderSingleInstance(bufferOffset) on each mesh, assumes the outline shader is already bound.
 	//Used for the highlight/outline X-ray effect - see ModelInstance::renderSelfOutline

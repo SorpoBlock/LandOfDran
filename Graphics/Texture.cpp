@@ -728,7 +728,7 @@ void TextureManager::allocateForDecals(unsigned int dimensions, unsigned int max
 
 	allocateTexture(decals);
 
-	std::fill(lowDynamicRangeTextureScratchpad, lowDynamicRangeTextureScratchpad + decals->width * decals->height, 0);
+	std::fill(lowDynamicRangeTextureScratchpad, lowDynamicRangeTextureScratchpad + decals->width * decals->height * 4, 0);
 
 	glTexSubImage3D(decals->textureType, 0, 0, 0, 0, decals->width, decals->height, 1,
 		getTextureFormatEnum(decals->channels, false),
@@ -738,107 +738,73 @@ void TextureManager::allocateForDecals(unsigned int dimensions, unsigned int max
 	currentDecalCount++;
 }
 
-void TextureManager::addDecal(const std::string &filePath,int id)
+bool TextureManager::addDecal(const std::string &filePath,int id)
 {
 	scope("TextureManager::addDecal");
 
-	if (id < 0 || (unsigned)id >= decals->layers)
+	if (!decals || id < 0 || (unsigned)id >= decals->layers)
 	{
-		error("Decal ID " + std::to_string(id) + " is beyond max decals " + std::to_string(decals->layers));
-		return;
+		error("Decal ID " + std::to_string(id) + " is beyond max decals " + std::to_string(decals ? decals->layers : 0));
+		return false;
 	}
-
-	//Check if file is valid and get dimensions
-	int readWidth, readHeight, readChannels;
-	stbi_info(filePath.c_str(), &readWidth, &readHeight, &readChannels);
-
-	if (readWidth == 0 || readHeight == 0)
-	{
-		error("Could not open image " + filePath);
-		return;
-	}
-
-	if (readWidth != 256 || readHeight != 256)
-	{
-		error("Decal file " + filePath + " did not have dimensions of 256x256");
-		return;
-	}
-
-	debug("Loading texture " + filePath + " Dimensions: " +
-		std::to_string(decals->width) + "/" +
-		std::to_string(decals->height) + "/4");
 
 	//Last parameter is 4 to force an alpha channel, if there wasn't one the image will be opaque
+	int readWidth, readHeight, readChannels;
 	stbi_uc* data = stbi_load(filePath.c_str(), &readWidth, &readHeight, &readChannels, 4);
 
 	if (!data)
 	{
 		error("Could not load image " + filePath);
-		return;
+		return false;
 	}
 
-	//User has 256x256 decals set in graphics settings, no downsizing needed!
-	if (decals->width == 256)
-	{
-		glTexSubImage3D(decals->textureType, 0, 0, 0, id, decals->width, decals->height, 1,
-			getTextureFormatEnum(decals->channels, false),
-			decals->isHDR ? GL_FLOAT : GL_UNSIGNED_BYTE,
-			data);
-	}
-	else
-	{
-		//Make sure scratch pad isn't in use
-		//There's no point in locking it here, since it'll be unlocked by the end of the function anyway
-		if (scratchPadUserID != -1)
-		{
-			error("Scratch pad was in use from adding component!");
-			return;
-		}
+	debug("Loading decal " + filePath + " Dimensions: " + std::to_string(readWidth) + "/" + std::to_string(readHeight));
 
-		if (decals->width == 128)
+	//Any size of image is averaged down (or stretched up) to the size of a decal
+	//Color is weighted by alpha, so the see-through pixels around a face don't darken its edges
+	int size = decals->width;
+	std::vector<unsigned char> pixels(size * size * 4);
+	for (int y = 0; y < size; y++)
+	{
+		int top = y * readHeight / size;
+		int bottom = std::max(top + 1, (y + 1) * readHeight / size);
+
+		for (int x = 0; x < size; x++)
 		{
-			for (unsigned int x = 0; x < 128; x++)
+			int left = x * readWidth / size;
+			int right = std::max(left + 1, (x + 1) * readWidth / size);
+
+			uint64_t color[3] = { 0, 0, 0 };
+			uint64_t alpha = 0;
+			for (int sourceY = top; sourceY < bottom; sourceY++)
 			{
-				for (unsigned int y = 0; y < 128; y++)
+				for (int sourceX = left; sourceX < right; sourceX++)
 				{
-					int sourceX = x * 2;
-					int sourceY = y * 2;
-
-					//Red, Green, Blue, Alpha
-					lowDynamicRangeTextureScratchpad[ (x + y * 128) * 4] =		data[ (sourceX + sourceY * 256) * 4];
-					lowDynamicRangeTextureScratchpad[((x + y * 128) * 4) + 1] = data[((sourceX + sourceY * 256) * 4) + 1];
-					lowDynamicRangeTextureScratchpad[((x + y * 128) * 4) + 2] = data[((sourceX + sourceY * 256) * 4) + 2];
-					lowDynamicRangeTextureScratchpad[((x + y * 128) * 4) + 3] = data[((sourceX + sourceY * 256) * 4) + 3];
+					const stbi_uc* source = data + (sourceX + sourceY * readWidth) * 4;
+					for (int channel = 0; channel < 3; channel++)
+						color[channel] += (uint64_t)source[channel] * source[3];
+					alpha += source[3];
 				}
 			}
-		}
-		else //64x64
-		{
-			for (unsigned int x = 0; x < 64; x++)
-			{
-				for (unsigned int y = 0; y < 64; y++)
-				{
-					int sourceX = x * 4;
-					int sourceY = y * 4;
 
-					//Red, Green, Blue, Alpha
-					lowDynamicRangeTextureScratchpad[ (x + y * 64) * 4] =	   data[ (sourceX + sourceY * 256) * 4];
-					lowDynamicRangeTextureScratchpad[((x + y * 64) * 4) + 1] = data[((sourceX + sourceY * 256) * 4) + 1];
-					lowDynamicRangeTextureScratchpad[((x + y * 64) * 4) + 2] = data[((sourceX + sourceY * 256) * 4) + 2];
-					lowDynamicRangeTextureScratchpad[((x + y * 64) * 4) + 3] = data[((sourceX + sourceY * 256) * 4) + 3];
-				}
-			}
+			unsigned char* dest = pixels.data() + (x + y * size) * 4;
+			uint64_t count = (uint64_t)(right - left) * (bottom - top);
+			for (int channel = 0; channel < 3; channel++)
+				dest[channel] = alpha > 0 ? (unsigned char)((color[channel] + alpha / 2) / alpha) : 0;
+			dest[3] = (unsigned char)((alpha + count / 2) / count);
 		}
-
-		glTexSubImage3D(decals->textureType, 0, 0, 0, id, decals->width, decals->height, 1,
-			getTextureFormatEnum(decals->channels, false),
-			decals->isHDR ? GL_FLOAT : GL_UNSIGNED_BYTE,
-			lowDynamicRangeTextureScratchpad);
 	}
 
 	stbi_image_free(data);
 
+	glBindTexture(decals->textureType, decals->handle);
+	glTexSubImage3D(decals->textureType, 0, 0, 0, id, size, size, 1,
+		getTextureFormatEnum(decals->channels, false),
+		GL_UNSIGNED_BYTE,
+		pixels.data());
+
 	currentDecalCount++;
+	return true;
 }
 
 void TextureManager::finalizeDecals()

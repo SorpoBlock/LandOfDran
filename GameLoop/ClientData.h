@@ -4,6 +4,7 @@
 #include "../SimObjects/Dynamic.h"
 #include "../SimObjects/Light.h"
 #include "PlayerController.h"
+#include "PlayerAppearance.h"
 
 #include <set>
 
@@ -45,6 +46,12 @@ struct ClientData
 
 	//Their flashlight while it's on, held by the target of their first controller, see setFlashlight
 	std::weak_ptr<Light> flashlight;
+
+	//How they want their player to look, from their game as they connect, see Networking/PacketsFromClient/AppearanceChoice.cpp
+	PlayerAppearance appearance;
+
+	//The last dynamic Lua's client:applyAppearance put it on, which gets their changes if they save new ones while playing
+	std::weak_ptr<Dynamic> appearanceTarget;
 
 	//Turns their flashlight on in color (or just recolors it), or off, playing LightOn or LightOff from their player for anyone nearby
 	//Won't turn it on while flashlightEnabled is off, or without a player from setDefaultController to hold it

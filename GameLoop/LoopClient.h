@@ -38,6 +38,9 @@ class LoopClient
 
 	unsigned int lastSentControlledObjects = 0;
 
+	//The server browser comes back the frame the appearance editor closes
+	bool appearanceEditorWasOpen = false;
+
 	//How long Ctrl+undo has been held, and since the last repeated undo, see handleInput
 	float undoHeldMS = 0;
 	float undoSinceRepeatMS = 0;

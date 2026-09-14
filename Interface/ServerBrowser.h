@@ -21,6 +21,9 @@ class ServerBrowser : public Window
 	//This is set when the user clicks the settings button and reset when you call clearSettingsReady
 	bool settingsPicked = false;
 
+	//This is set when the user clicks the appearance button and reset when you call clearAppearanceReady
+	bool appearancePicked = false;
+
 	//Set with passLoadProgress, from cmdArgs signals typesToLoad
 	int desiredTypes = 0;
 	//Set with passLoadProgress, from cmdArgs simulation dynamicTypes.size
@@ -66,6 +69,12 @@ public:
 
 	//Acknowledge the settings button press
 	void clearSettingsReady() { settingsPicked = false; }
+
+	//Has the user clicked the appearance button recently
+	bool appearanceReady() const { return appearancePicked; }
+
+	//Acknowledge the appearance button press
+	void clearAppearanceReady() { appearancePicked = false; }
 
 	~ServerBrowser();
 };

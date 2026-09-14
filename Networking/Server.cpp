@@ -105,6 +105,11 @@ void Server::switchPacketType(JoinedClient * source, ENetPacket* packet, const v
 			flashlightRequest(source, this, packet, pd);
 			return;
 		}
+		case AppearanceChoice:
+		{
+			appearanceChoice(source, this, packet, pd);
+			return;
+		}
 
 		case InvalidClient:
 		default:

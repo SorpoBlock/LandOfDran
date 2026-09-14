@@ -75,6 +75,7 @@ enum FromClientPacketType : unsigned char
 	UndoBrickRequest = 10,	//Remove the last brick this client planted
 	VoiceFrame = 11,		//One 20 ms Opus frame of voice chat while push to talk is held, see Audio/VoiceChat.h
 	FlashlightRequest = 12,	//Turn the client's flashlight on or off, and what color it is
+	AppearanceChoice = 13,	//How the client wants their player to look, sent as they connect and whenever they save a change, see PlayerAppearance
 };
 
 //Movement flags byte of MovementInputs packets
@@ -135,6 +136,7 @@ enum FromServerPacketType : unsigned char
 	DynamicBuoyancy = 25,	//A dynamic's buoyancy, so clients simulating it in water match the server
 	ParticleEmitterType = 26,	//A particle or emitter type, for every one as a client joins and whenever Lua adds one, see ParticleEmitterTypeKind
 	PlayerAbilities = 27,	//Whether Lua lets this client use jets and a flashlight, see PlayerAbility flags
+	MeshDecal = 28,			//Put a face from Assets/faces on one mesh of a dynamic, or take it off, see Dynamic::setMeshDecal
 };
 
 //Flags byte of a PlayerAbilities packet

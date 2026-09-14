@@ -1,0 +1,655 @@
+#include "AppearanceEditor.h"
+
+//The player model serverstart.lua gives players, and its scale there
+static constexpr const char* playerModelPath = "Assets/brickhead/brickhead.txt";
+static constexpr float playerModelScale = 0.02f;
+
+//Pixels the mouse can move while held and still count as a click instead of turning the model
+static constexpr float dragThreshold = 4.0f;
+
+//Radians the model turns per pixel dragged
+static constexpr float turnPerPixel = 0.01f;
+
+//Furthest the model tips toward or away from the camera
+static constexpr float maxPitch = 1.2f;
+
+//Vertical field of view of the editor's camera, in degrees
+static constexpr float fieldOfView = 35.0f;
+
+//How the model starts turned, so its face points at the camera
+static constexpr float startYaw = 3.14159265f;
+
+static const glm::vec3 backgroundColor = glm::vec3(0.16f, 0.18f, 0.22f);
+
+AppearanceEditor::AppearanceEditor(std::shared_ptr<SettingManager> _settings, std::shared_ptr<TextureManager> _textures, const std::vector<std::string>* _faceNames)
+	: settings(_settings), textures(_textures), faceNames(_faceNames)
+{
+	name = "Appearance Editor";
+}
+
+AppearanceEditor::~AppearanceEditor()
+{
+	for (Texture* icon : faceIcons)
+	{
+		if (icon)
+			icon->markForCleanup();
+	}
+
+	releaseGraphics();
+}
+
+void AppearanceEditor::releaseGraphics()
+{
+	pickingTarget.reset();
+
+	delete instance;
+	instance = nullptr;
+
+	delete model;
+	model = nullptr;
+}
+
+void AppearanceEditor::init()
+{
+	initalized = true;
+}
+
+PlayerAppearance AppearanceEditor::loadAppearance(std::shared_ptr<SettingManager> settings)
+{
+	PlayerAppearance appearance;
+	appearance.face = settings->getString("appearance/face");
+
+	//Every color under appearance/colors, which meshes a player model has isn't known without loading it
+	settings->startPreferenceBindingSearch();
+	std::string path;
+	while (PreferencePair* pref = settings->nextPreferenceBinding(path))
+	{
+		if (path == "appearance/colors" && pref->type == PreferenceColor)
+			appearance.colors.emplace_back(pref->name, glm::clamp(glm::vec3(pref->color[0], pref->color[1], pref->color[2]), 0.0f, 1.0f));
+	}
+
+	return appearance;
+}
+
+void AppearanceEditor::loadModel()
+{
+	scope("AppearanceEditor::loadModel");
+
+	modelLoadAttempted = true;
+
+	model = new Model(playerModelPath, textures, glm::vec3(playerModelScale));
+	if (!model->isValid() || model->getNumMeshes() < 1)
+	{
+		error("Couldn't load the player model " + std::string(playerModelPath) + " for the appearance editor");
+		delete model;
+		model = nullptr;
+		return;
+	}
+
+	instance = new ModelInstance(model);
+
+	for (int a = 0; a < model->getNumMeshes(); a++)
+	{
+		if (model->isMeshDrawn(a))
+			editableMeshes.push_back(a);
+	}
+
+	faceMesh = model->getFaceMeshIdx();
+	headMesh = model->getMeshIdxIgnoringCase("Head");
+	colors.assign(model->getNumMeshes(), glm::vec4(0));
+}
+
+void AppearanceEditor::loadSaved()
+{
+	PlayerAppearance appearance = loadAppearance(settings);
+	face = appearance.face;
+
+	std::fill(colors.begin(), colors.end(), glm::vec4(0));
+	if (model)
+	{
+		for (const auto& [meshName, color] : appearance.colors)
+		{
+			int meshIdx = model->getMeshIdxIgnoringCase(meshName);
+			if (meshIdx != -1)
+				colors[meshIdx] = glm::vec4(color, 1.0f);
+		}
+	}
+}
+
+void AppearanceEditor::prepare()
+{
+	if (wasOpen)
+		return;
+	wasOpen = true;
+
+	if (!modelLoadAttempted)
+		loadModel();
+
+	if (faceNames)
+	{
+		for (size_t a = faceIcons.size(); a < faceNames->size(); a++)
+		{
+			Texture* icon = textures->createTexture("Assets/faces/" + (*faceNames)[a]);
+			faceIcons.push_back(icon && icon->isValid() ? icon : nullptr);
+		}
+	}
+
+	loadSaved();
+
+	yaw = 0;
+	pitch = 0;
+	zoom = 1;
+	hoveredMesh = -1;
+	heldButton = 0;
+	pickingColorFor = -1;
+	painting = false;
+}
+
+void AppearanceEditor::save()
+{
+	settings->remove("appearance");
+	settings->addString("appearance/face", face);
+
+	if (model)
+	{
+		for (int meshIdx : editableMeshes)
+		{
+			if (colors[meshIdx].a > 0)
+				settings->addColor("appearance/colors/" + lowercase(model->getMeshName(meshIdx)), glm::vec4(glm::vec3(colors[meshIdx]), 1.0f));
+		}
+	}
+
+	settings->exportToFile("Config/settings.txt");
+	saved = true;
+}
+
+bool AppearanceEditor::takeSaved()
+{
+	bool result = saved;
+	saved = false;
+	return result;
+}
+
+bool AppearanceEditor::sameColor(int meshA, int meshB) const
+{
+	if (meshA == meshB)
+		return true;
+
+	if (faceMesh == -1 || headMesh == -1)
+		return false;
+
+	return (meshA == faceMesh && meshB == headMesh) || (meshA == headMesh && meshB == faceMesh);
+}
+
+void AppearanceEditor::setColor(int meshIdx, const glm::vec4& color)
+{
+	for (int other : editableMeshes)
+	{
+		if (sameColor(meshIdx, other))
+			colors[other] = color;
+	}
+}
+
+int AppearanceEditor::faceDecal() const
+{
+	if (!faceNames || face.empty())
+		return -1;
+
+	for (size_t a = 0; a < faceNames->size(); a++)
+	{
+		if ((*faceNames)[a] == face)
+			return (int)a;
+	}
+
+	return -1;
+}
+
+std::string AppearanceEditor::partName(int meshIdx) const
+{
+	if (meshIdx == faceMesh && faceMesh != headMesh)
+		return "Face";
+
+	const std::string& meshName = model->getMeshName(meshIdx);
+	std::string result;
+	for (size_t a = 0; a < meshName.length(); a++)
+	{
+		char c = meshName[a];
+		if (c == '_')
+		{
+			result += ' ';
+			continue;
+		}
+
+		if (a > 0 && std::isupper((unsigned char)c) && std::islower((unsigned char)meshName[a - 1]))
+			result += ' ';
+		result += c;
+	}
+
+	return result;
+}
+
+void AppearanceEditor::clickMesh(int button, int meshIdx)
+{
+	if (button == SDL_BUTTON_RIGHT)
+	{
+		//Right clicking nothing puts the color down
+		if (meshIdx == -1)
+		{
+			painting = false;
+			return;
+		}
+
+		painting = true;
+		paintColor = colors[meshIdx].a > 0 ? glm::vec3(colors[meshIdx]) : glm::vec3(1.0f);
+		pickingColorFor = -1;
+		return;
+	}
+
+	//Left clicking nothing closes the color window, keeping the color
+	if (meshIdx == -1)
+	{
+		pickingColorFor = -1;
+		return;
+	}
+
+	if (painting)
+	{
+		setColor(meshIdx, glm::vec4(paintColor, 1.0f));
+		return;
+	}
+
+	pickingColorFor = meshIdx;
+	colorBeforePicking = colors[meshIdx];
+	faceBeforePicking = face;
+	colorWindowAppearing = true;
+	colorWindowPosition = ImVec2(ImGui::GetIO().MousePos.x + 24.0f, ImGui::GetIO().MousePos.y - 40.0f);
+}
+
+bool AppearanceEditor::handleEscape()
+{
+	if (pickingColorFor != -1)
+	{
+		setColor(pickingColorFor, colorBeforePicking);
+		face = faceBeforePicking;
+		pickingColorFor = -1;
+		return true;
+	}
+
+	if (painting)
+	{
+		painting = false;
+		return true;
+	}
+
+	return false;
+}
+
+void AppearanceEditor::handleInput(SDL_Event& e, std::shared_ptr<InputMap> input)
+{
+	if (!opened)
+	{
+		heldButton = 0;
+		return;
+	}
+
+	ImGuiIO& io = ImGui::GetIO();
+
+	if (e.type == SDL_MOUSEBUTTONDOWN && (e.button.button == SDL_BUTTON_LEFT || e.button.button == SDL_BUTTON_RIGHT))
+	{
+		if (io.WantCaptureMouse || heldButton != 0)
+			return;
+
+		heldButton = e.button.button;
+		heldMoved = 0;
+	}
+	else if (e.type == SDL_MOUSEMOTION && heldButton != 0)
+	{
+		heldMoved += std::abs((float)e.motion.xrel) + std::abs((float)e.motion.yrel);
+		if (heldMoved > dragThreshold)
+		{
+			yaw += e.motion.xrel * turnPerPixel;
+			pitch = std::clamp(pitch + e.motion.yrel * turnPerPixel, -maxPitch, maxPitch);
+		}
+	}
+	else if (e.type == SDL_MOUSEBUTTONUP && e.button.button == heldButton)
+	{
+		if (heldMoved <= dragThreshold)
+			clickMesh(heldButton, hoveredMesh);
+		heldButton = 0;
+	}
+	else if (e.type == SDL_MOUSEWHEEL && !io.WantCaptureMouse)
+	{
+		float amount = (float)(e.wheel.direction == SDL_MOUSEWHEEL_FLIPPED ? -e.wheel.y : e.wheel.y);
+		zoom = std::clamp(zoom * std::pow(0.88f, amount), 0.35f, 2.0f);
+	}
+}
+
+void AppearanceEditor::renderColorWindow()
+{
+	if (pickingColorFor < 0 || !model)
+		return;
+
+	//Top right corner, out of the way of the model and never off the edge of the screen
+	if (colorWindowAppearing)
+	{
+		ImGuiViewport* viewport = ImGui::GetMainViewport();
+		ImGui::SetNextWindowPos(ImVec2(viewport->Pos.x + viewport->Size.x - 10.0f, viewport->Pos.y + 10.0f), ImGuiCond_Always, ImVec2(1.0f, 0.0f));
+		colorWindowAppearing = false;
+	}
+
+	bool windowOpen = true;
+	std::string title = partName(pickingColorFor) + "###AppearancePartColor";
+	if (ImGui::Begin(title.c_str(), &windowOpen, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings))
+	{
+		//Parts showing the model's own look start the picker at white
+		glm::vec4 current = colors[pickingColorFor];
+		float rgb[3] = { 1.0f, 1.0f, 1.0f };
+		if (current.a > 0)
+		{
+			rgb[0] = current.r;
+			rgb[1] = current.g;
+			rgb[2] = current.b;
+		}
+
+		ImGui::SetNextItemWidth(ImGui::GetFontSize() * 14.0f);
+		if (ImGui::ColorPicker3("##partColor", rgb, ImGuiColorEditFlags_DisplayRGB | ImGuiColorEditFlags_InputRGB | ImGuiColorEditFlags_PickerHueBar))
+			setColor(pickingColorFor, glm::vec4(rgb[0], rgb[1], rgb[2], 1.0f));
+
+		if (ImGui::Button("Done"))
+			windowOpen = false;
+		ImGui::SameLine();
+		if (ImGui::Button("Revert"))
+		{
+			setColor(pickingColorFor, colorBeforePicking);
+			face = faceBeforePicking;
+		}
+		ImGui::SameLine();
+		if (ImGui::Button("Default"))
+			setColor(pickingColorFor, glm::vec4(0));
+		ImGui::SetItemTooltip("%s", "Go back to how the player model looks without a color");
+
+		bool faceChoices = faceMesh != -1 && sameColor(pickingColorFor, faceMesh) && faceNames && !faceNames->empty();
+		if (faceChoices)
+		{
+			ImGui::Separator();
+			ImGui::TextUnformatted("Face");
+
+			float buttonSize = ImGui::GetFontSize() * 2.6f;
+			ImGuiStyle& style = ImGui::GetStyle();
+			float cellWidth = buttonSize + style.FramePadding.x * 2.0f + style.ItemSpacing.x;
+			int columns = std::max(1, (int)((ImGui::GetFontSize() * 14.0f) / cellWidth));
+
+			ImVec4 chosenColor = style.Colors[ImGuiCol_ButtonActive];
+
+			//Scrolls once there are more faces than fit in a third of the screen
+			int rows = (int)(faceNames->size() + 1 + columns - 1) / columns;
+			float rowHeight = buttonSize + style.FramePadding.y * 2.0f + style.ItemSpacing.y;
+			float gridHeight = std::min(rows * rowHeight, ImGui::GetMainViewport()->Size.y * 0.33f);
+			ImGui::BeginChild("##faces", ImVec2(columns * cellWidth + style.ScrollbarSize, gridHeight));
+
+			bool noFace = face.empty();
+			if (noFace)
+				ImGui::PushStyleColor(ImGuiCol_Button, chosenColor);
+			if (ImGui::Button("None", ImVec2(buttonSize + style.FramePadding.x * 2.0f, buttonSize + style.FramePadding.y * 2.0f)))
+				face = "";
+			if (noFace)
+				ImGui::PopStyleColor();
+
+			for (size_t a = 0; a < faceNames->size(); a++)
+			{
+				if ((a + 1) % columns != 0)
+					ImGui::SameLine();
+
+				ImGui::PushID((int)a);
+				bool chosen = (*faceNames)[a] == face;
+				if (chosen)
+					ImGui::PushStyleColor(ImGuiCol_Button, chosenColor);
+
+				bool clicked;
+				if (a < faceIcons.size() && faceIcons[a])
+					clicked = ImGui::ImageButton("##face", (ImTextureID)(intptr_t)faceIcons[a]->getHandle(), ImVec2(buttonSize, buttonSize));
+				else
+					clicked = ImGui::Button("?", ImVec2(buttonSize + style.FramePadding.x * 2.0f, buttonSize + style.FramePadding.y * 2.0f));
+				ImGui::SetItemTooltip("%s", (*faceNames)[a].c_str());
+
+				if (chosen)
+					ImGui::PopStyleColor();
+				ImGui::PopID();
+
+				if (clicked)
+					face = (*faceNames)[a];
+			}
+
+			ImGui::EndChild();
+		}
+	}
+	ImGui::End();
+
+	if (!windowOpen)
+		pickingColorFor = -1;
+}
+
+void AppearanceEditor::render(ImGuiIO* io)
+{
+	if (!opened)
+	{
+		wasOpen = false;
+		return;
+	}
+
+	prepare();
+
+	ImGuiViewport* viewport = ImGui::GetMainViewport();
+	ImGui::SetNextWindowPos(ImVec2(viewport->Pos.x + 10.0f, viewport->Pos.y + 10.0f), ImGuiCond_Always);
+	ImGui::SetNextWindowSize(ImVec2(ImGui::GetFontSize() * 22.0f, 0.0f), ImGuiCond_Always);
+	if (ImGui::Begin("Player Appearance", &opened, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse))
+	{
+		panelWidth = ImGui::GetWindowPos().x + ImGui::GetWindowWidth() - viewport->Pos.x;
+
+		if (!model)
+			ImGui::TextWrapped("%s", "Couldn't load the player model, see the error log.");
+
+		ImGui::TextWrapped("%s", "Drag to spin your player around, scroll to zoom.");
+		ImGui::TextWrapped("%s", "Left click a part to set its color.");
+		ImGui::TextWrapped("%s", "Right click a part to pick up its color, then left click other parts to paint it on.");
+		ImGui::TextWrapped("%s", "Click the face to pick a different one.");
+
+		if (painting)
+		{
+			ImGui::Separator();
+			ImGui::ColorButton("##paintColor", ImVec4(paintColor.r, paintColor.g, paintColor.b, 1.0f), ImGuiColorEditFlags_NoTooltip);
+			ImGui::SameLine();
+			ImGui::TextWrapped("%s", "Painting, right click empty space to stop");
+			if (ImGui::Button("Stop painting"))
+				painting = false;
+		}
+
+		ImGui::Separator();
+
+		int decal = faceDecal();
+		float iconSize = ImGui::GetFontSize() * 2.6f;
+		if (decal != -1 && decal < (int)faceIcons.size() && faceIcons[decal])
+		{
+			ImGui::Image((ImTextureID)(intptr_t)faceIcons[decal]->getHandle(), ImVec2(iconSize, iconSize));
+			ImGui::SameLine();
+		}
+		ImGui::Text("Face: %s", face.empty() ? "None" : face.c_str());
+
+		if (model && faceMesh != -1 && ImGui::Button("Change face"))
+		{
+			pickingColorFor = faceMesh;
+			colorBeforePicking = colors[faceMesh];
+			faceBeforePicking = face;
+			colorWindowAppearing = true;
+			colorWindowPosition = ImVec2(viewport->Pos.x + panelWidth + 10.0f, viewport->Pos.y + 10.0f);
+		}
+
+		ImGui::Separator();
+
+		if (ImGui::Button("Save"))
+		{
+			save();
+			opened = false;
+		}
+		ImGui::SameLine();
+		if (ImGui::Button("Cancel"))
+			opened = false;
+	}
+	ImGui::End();
+
+	renderColorWindow();
+
+	//The picked up color follows the mouse while painting
+	if (painting && !io->WantCaptureMouse)
+	{
+		ImDrawList* draw = ImGui::GetForegroundDrawList();
+		ImVec2 min(io->MousePos.x + 14.0f, io->MousePos.y + 14.0f);
+		ImVec2 max(min.x + 18.0f, min.y + 18.0f);
+		glm::ivec3 bytes = glm::ivec3(glm::clamp(paintColor, 0.0f, 1.0f) * 255.0f + 0.5f);
+		draw->AddRectFilled(min, max, IM_COL32(bytes.r, bytes.g, bytes.b, 255), 3.0f);
+		draw->AddRect(min, max, IM_COL32(255, 255, 255, 255), 3.0f);
+	}
+}
+
+void AppearanceEditor::renderPreview(std::shared_ptr<ShaderManager> shaders, int screenWidth, int screenHeight, float deltaT)
+{
+	prepare();
+
+	glClearColor(backgroundColor.r, backgroundColor.g, backgroundColor.b, 1.0f);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+	hoveredMesh = -1;
+	if (!model || !instance || screenWidth < 1 || screenHeight < 1)
+		return;
+
+	//The camera looks at the middle of the collision box from far enough away that the whole model fits
+	glm::vec3 center = model->getColOffset();
+	float halfHeight = std::max(model->getColHalfExtents().y, 0.1f);
+	float fov = glm::radians(fieldOfView);
+	float distance = halfHeight * 1.3f / std::tan(fov * 0.5f) * zoom;
+	glm::vec3 cameraPosition = center + glm::vec3(0.0f, 0.0f, distance);
+
+	glm::mat4 view = glm::lookAt(cameraPosition, center, glm::vec3(0.0f, 1.0f, 0.0f));
+
+	//Slid over to the middle of the part of the screen the panel doesn't cover
+	float shift = std::clamp(panelWidth / (float)screenWidth, 0.0f, 0.5f);
+	glm::mat4 projection = glm::translate(glm::vec3(shift, 0.0f, 0.0f)) * glm::perspective(fov, (float)screenWidth / (float)screenHeight, distance * 0.05f, distance * 4.0f);
+
+	instance->setModelTransform(glm::translate(center) * glm::rotate(pitch, glm::vec3(1, 0, 0)) * glm::rotate(yaw + startYaw, glm::vec3(0, 1, 0)) * glm::translate(-center));
+	for (int a = 0; a < model->getNumMeshes(); a++)
+		instance->setColor(a, colors[a]);
+	if (faceMesh != -1)
+		instance->setDecal(faceMesh, faceDecal());
+	model->updateAll(deltaT);
+
+	CameraUniforms& camera = shaders->cameraUniforms;
+	camera.CameraView = view;
+	camera.CameraAngle = glm::mat4(glm::mat3(view));
+	camera.CameraPosition = cameraPosition;
+	camera.CameraDirection = glm::normalize(center - cameraPosition);
+
+	//Lit from above and in front of the camera, with no fog, water, or point lights, all put back afterward
+	EnvironmentUniforms& environment = shaders->environmentUniforms;
+	EnvironmentUniforms previousEnvironment = environment;
+	environment.LightDirection = glm::normalize(glm::vec3(0.4f, 0.8f, 0.6f));
+	environment.SunDirection = environment.LightDirection;
+	environment.LightColor = glm::vec3(3.0f);
+	environment.AmbientColor = glm::vec3(0.5f);
+	environment.ShadowStrength = 0.0f;
+	environment.FogDistanceMin = distance * 100.0f;
+	environment.FogDistanceMax = distance * 200.0f;
+	environment.ClipPlane = glm::vec4(0.0f);
+	shaders->updateEnvironmentUBO();
+
+	int pointLightCount = shaders->pointLightUniforms.PointLightCount;
+	shaders->pointLightUniforms.PointLightCount = 0;
+	shaders->updatePointLightUBO();
+
+	Program* program = shaders->modelShader;
+	program->use();
+
+	//Nowhere near any shadow cascade, so nothing shadows the model
+	glm::mat4 noShadow = glm::translate(glm::vec3(10.0f, 10.0f, 0.0f));
+	glm::mat4 lightSpaceMatricies[3] = { noShadow, noShadow, noShadow };
+	glUniformMatrix4fv(program->getUniformLocation("lightSpaceMatricies"), 3, GL_FALSE, &lightSpaceMatricies[0][0][0]);
+	glUniform1i(program->getUniformLocation("coloredShadows"), 0);
+	GLint pickingUniform = program->getUniformLocation("pickingID");
+	GLint highlightUniform = program->getUniformLocation("editorHighlight");
+
+	shaders->basicUniforms.nonInstanced = 0;
+	shaders->basicUniforms.cameraSpacePosition = 0;
+	shaders->updateBasicUBO();
+
+	glDisable(GL_BLEND);
+
+	int mouseX, mouseY;
+	SDL_GetMouseState(&mouseX, &mouseY);
+	bool mouseOverView = !ImGui::GetIO().WantCaptureMouse && mouseX >= 0 && mouseY >= 0 && mouseX < screenWidth && mouseY < screenHeight;
+
+	if (mouseOverView)
+	{
+		if (!pickingTarget)
+		{
+			RenderTarget::RenderTargetSettings pickingSettings;
+			pickingSettings.width = 1;
+			pickingSettings.height = 1;
+			pickingSettings.channels = 3;
+			pickingSettings.useDepth = false;
+			pickingSettings.minFilter = GL_NEAREST;
+			pickingSettings.magFilter = GL_NEAREST;
+			pickingTarget = std::make_shared<RenderTarget>(pickingSettings, textures);
+		}
+
+		//Only the pixel under the mouse, stretched to fill the whole single pixel target, with each part drawn as its mesh index plus one
+		float pixelX = (mouseX + 0.5f) / (float)screenWidth * 2.0f - 1.0f;
+		float pixelY = 1.0f - (mouseY + 0.5f) / (float)screenHeight * 2.0f;
+		camera.CameraProjection = glm::scale(glm::vec3((float)screenWidth, (float)screenHeight, 1.0f)) * glm::translate(glm::vec3(-pixelX, -pixelY, 0.0f)) * projection;
+		shaders->updateCameraUBO();
+
+		pickingTarget->use();
+		for (int meshIdx : editableMeshes)
+		{
+			glUniform1i(pickingUniform, meshIdx + 1);
+			model->renderMesh(shaders, meshIdx);
+		}
+		glUniform1i(pickingUniform, 0);
+
+		//Render targets are made with their read buffer off
+		unsigned char pixel[3] = { 0, 0, 0 };
+		glReadBuffer(GL_COLOR_ATTACHMENT0);
+		glPixelStorei(GL_PACK_ALIGNMENT, 1);
+		glReadPixels(0, 0, 1, 1, GL_RGB, GL_UNSIGNED_BYTE, pixel);
+
+		hoveredMesh = (int)pixel[0] - 1;
+		if (std::find(editableMeshes.begin(), editableMeshes.end(), hoveredMesh) == editableMeshes.end())
+			hoveredMesh = -1;
+
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		glViewport(0, 0, screenWidth, screenHeight);
+	}
+
+	camera.CameraProjection = projection;
+	shaders->updateCameraUBO();
+
+	float pulse = 0.5f + 0.5f * std::sin(SDL_GetTicks() / 1000.0f * 6.2831853f);
+	for (int meshIdx : editableMeshes)
+	{
+		if (hoveredMesh != -1 && sameColor(meshIdx, hoveredMesh))
+		{
+			//A white highlight wouldn't show up on light parts, those get a blue one
+			glm::vec3 shown = colors[meshIdx].a > 0 ? glm::vec3(colors[meshIdx]) : glm::vec3(1.0f);
+			glm::vec3 highlight = glm::dot(shown, glm::vec3(0.299f, 0.587f, 0.114f)) > 0.7f ? glm::vec3(0.25f, 0.5f, 1.0f) : glm::vec3(1.0f);
+			glUniform4f(highlightUniform, highlight.r, highlight.g, highlight.b, 0.15f + 0.15f * pulse);
+		}
+		else
+			glUniform4f(highlightUniform, 0.0f, 0.0f, 0.0f, 0.0f);
+
+		model->renderMesh(shaders, meshIdx);
+	}
+	glUniform4f(highlightUniform, 0.0f, 0.0f, 0.0f, 0.0f);
+
+	environment = previousEnvironment;
+	shaders->updateEnvironmentUBO();
+	shaders->pointLightUniforms.PointLightCount = pointLightCount;
+	shaders->updatePointLightUBO();
+}

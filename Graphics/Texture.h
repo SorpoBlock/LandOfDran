@@ -203,10 +203,11 @@ class TextureManager
 	void finalizeDecals();
 
 	/*
-		Loads a decal from an image
-		id must be > 0 and < maxEntries, but does not need to be sequential
+		Loads a decal from an image of any size, resized to the decal size
+		id must be >= 0 and < maxEntries, but does not need to be sequential
+		Returns false if the image couldn't be loaded
 	*/
-	void addDecal(const std::string &filePath,int id);
+	bool addDecal(const std::string &filePath,int id);
 
 	/*
 		Creates a non-array texture from a single image file and returns it
