@@ -1,5 +1,0 @@
-id: 4218
-icon: world
-type: Bricks
-title: Modular Terrain-Basic Pack
-version: 4
