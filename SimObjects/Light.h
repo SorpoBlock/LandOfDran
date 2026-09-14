@@ -92,7 +92,7 @@ class Light : public SimObject
 	//Returns false and changes nothing for a zero length direction
 	bool setDirection(const glm::vec3& _direction);
 
-	//Has a dynamic hold it like a flashlight: clients shine it from just in front of that dynamic's eyes toward its direction, see LoopClient::placeHeldLight
+	//Has a dynamic hold it like a flashlight: clients shine it from just past that dynamic's right hand toward its direction, see LoopClient::placeHeldLight
 	void setHolder(const std::shared_ptr<Dynamic>& dynamic);
 
 	//Distance past which the light adds too little to see, model.frag fades it to exactly nothing there

@@ -29,6 +29,8 @@ enum TextureLocations
 	PointShadowArray = 7,
 	ScreenCopy = 8,
 	ParticleTexture = 9,
+	PointTintDepthArray = 10,
+	PointTintColorArray = 11,
 	//Add as needed:
 	/*BRDF = 2,
 	HeightMap = 3,

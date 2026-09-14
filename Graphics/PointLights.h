@@ -48,12 +48,18 @@ class PointLights
 		float renderedSpotCosine = -2;
 		unsigned int renderedSceneGeneration = 0;
 		bool movingCastersNear = false;
+		bool renderedTint = false;
 	};
 
 	ShadowSlot slots[PointLightUniforms::maxShadowed];
 	int shadowCount = 0;
 	int faceResolution = 0;
 	std::shared_ptr<RenderTarget> shadowMaps = nullptr;
+
+	//graphics/shadowcolor: per cube face, at half resolution, the depth of the transparent brick nearest the light and the color light picks up
+	//through transparent bricks. Single texels while it's off, so model.frag's samplers always have arrays bound
+	bool coloredShadows = false;
+	std::shared_ptr<RenderTarget> tintMaps = nullptr;
 
 	//Per corona: position, width, then color and strength
 	std::vector<float> coronaInstances;
@@ -65,11 +71,12 @@ class PointLights
 	int litCount = 0;
 	int shadowedCount = 0;
 	int facesDrawn = 0;
+	bool facesTinted = false;
 
 	public:
 
-	//graphics/pointshadows and the size of each cube face, recreates the shadow maps if either changed
-	void setShadowSettings(int count, int resolution, std::shared_ptr<TextureManager> textures);
+	//graphics/pointshadows, the size of each cube face, and graphics/shadowcolor, recreates the shadow maps if any changed
+	void setShadowSettings(int count, int resolution, bool colored, std::shared_ptr<TextureManager> textures);
 
 	/*
 		Picks the lights that can light or be seen from the view: the nearest maxLit are lit, and the nearest of those get the shadow slots
@@ -80,10 +87,13 @@ class PointLights
 	/*
 		Redraws the cube faces of shadowed lights whose shadows could have changed: new to their slot, moved or turned, sceneGeneration changed since,
 		or movingCastersNear says something that moves is within their range now or was the last time they were checked
-		drawCasters is called with the light's view of one face, while that face's layer is bound and cleared
+		drawCasters is called with the light's view of one face, while that face's layer is bound and cleared, and whether transparent bricks tint instead of blocking
+		With tint set (and colored shadows on), drawTint is then called with the face's tint layer bound and cleared to white
 	*/
-	void renderShadows(unsigned int sceneGeneration, const std::function<bool(const glm::vec3& position, float range)>& movingCastersNear, const std::function<void(const glm::mat4& lightSpaceMatrix)>& drawCasters);
+	void renderShadows(unsigned int sceneGeneration, bool tint, const std::function<bool(const glm::vec3& position, float range)>& movingCastersNear,
+		const std::function<void(const glm::mat4& lightSpaceMatrix, bool tinted)>& drawCasters, const std::function<void(const glm::mat4& lightSpaceMatrix)>& drawTint);
 
+	//Shadow maps and tint maps
 	void bindShadowMaps() const;
 
 	//Additive glow billboards, drawn after everything that writes depth, sets its own blending

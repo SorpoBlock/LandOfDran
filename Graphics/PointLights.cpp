@@ -30,15 +30,28 @@ static float spotFactor(float spotCosine, float cosine)
 	return glm::smoothstep(spotCosine, spotCosine + (1.0f - spotCosine) * 0.25f, cosine);
 }
 
-void PointLights::setShadowSettings(int count, int resolution, std::shared_ptr<TextureManager> textures)
+void PointLights::setShadowSettings(int count, int resolution, bool colored, std::shared_ptr<TextureManager> textures)
 {
 	count = std::clamp(count, 0, PointLightUniforms::maxShadowed);
 	resolution = std::max(resolution, 16);
-	if (shadowMaps && count == shadowCount && resolution == faceResolution)
+	if (shadowMaps && tintMaps && count == shadowCount && resolution == faceResolution && colored == coloredShadows)
 		return;
 
 	shadowCount = count;
 	faceResolution = resolution;
+	coloredShadows = colored;
+
+	//Half resolution to save memory like the sun's, but still one layer per face either way, since a single layer wouldn't be an array texture
+	RenderTarget::RenderTargetSettings tintSettings;
+	tintSettings.width = colored && count > 0 ? std::max(resolution / 2, 1) : 1;
+	tintSettings.height = tintSettings.width;
+	tintSettings.layers = std::max(count, 1) * 6;
+	tintSettings.channels = 3;
+	tintSettings.depthCompare = true;
+	//Untinted light, which each transparent brick then takes its color out of
+	tintSettings.clearColor = glm::vec4(1);
+	tintMaps.reset();
+	tintMaps = std::make_shared<RenderTarget>(tintSettings, textures);
 
 	RenderTarget::RenderTargetSettings settings;
 	//With no shadowed lights there's still a tiny array bound, so model.frag's sampler always has a texture of the right type
@@ -212,9 +225,12 @@ void PointLights::update(const std::vector<PointLightSource>& lights, std::share
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 
-void PointLights::renderShadows(unsigned int sceneGeneration, const std::function<bool(const glm::vec3& position, float range)>& movingCastersNear, const std::function<void(const glm::mat4& lightSpaceMatrix)>& drawCasters)
+void PointLights::renderShadows(unsigned int sceneGeneration, bool tint, const std::function<bool(const glm::vec3& position, float range)>& movingCastersNear,
+	const std::function<void(const glm::mat4& lightSpaceMatrix, bool tinted)>& drawCasters, const std::function<void(const glm::mat4& lightSpaceMatrix)>& drawTint)
 {
 	facesDrawn = 0;
+	tint = tint && coloredShadows;
+	facesTinted = tint;
 
 	for (int s = 0; s < shadowCount; s++)
 	{
@@ -229,7 +245,7 @@ void PointLights::renderShadows(unsigned int sceneGeneration, const std::functio
 		bool turned = slot.spotCosine != slot.renderedSpotCosine || (slot.spotCosine > -1.5f && slot.direction != slot.renderedDirection);
 
 		bool stale = !slot.rendered || slot.renderedPosition != slot.position || slot.renderedRange != slot.range || turned ||
-			slot.renderedSceneGeneration != sceneGeneration || movingNear || slot.movingCastersNear;
+			slot.renderedSceneGeneration != sceneGeneration || movingNear || slot.movingCastersNear || slot.renderedTint != tint;
 		slot.movingCastersNear = movingNear;
 
 		if (!stale)
@@ -241,6 +257,7 @@ void PointLights::renderShadows(unsigned int sceneGeneration, const std::functio
 		slot.renderedDirection = slot.direction;
 		slot.renderedSpotCosine = slot.spotCosine;
 		slot.renderedSceneGeneration = sceneGeneration;
+		slot.renderedTint = tint;
 
 		for (int face = 0; face < 6; face++)
 		{
@@ -248,8 +265,14 @@ void PointLights::renderShadows(unsigned int sceneGeneration, const std::functio
 				continue;
 
 			shadowMaps->useLayer(s * 6 + face);
-			drawCasters(slot.faces[face]);
+			drawCasters(slot.faces[face], tint);
 			facesDrawn++;
+
+			if (tint)
+			{
+				tintMaps->useLayer(s * 6 + face);
+				drawTint(slot.faces[face]);
+			}
 		}
 	}
 }
@@ -257,6 +280,8 @@ void PointLights::renderShadows(unsigned int sceneGeneration, const std::functio
 void PointLights::bindShadowMaps() const
 {
 	shadowMaps->bindDepthResult(PointShadowArray);
+	tintMaps->bindDepthResult(PointTintDepthArray);
+	tintMaps->bindColorResult(PointTintColorArray);
 }
 
 void PointLights::renderCoronae(std::shared_ptr<ShaderManager> shaders) const
@@ -283,7 +308,7 @@ void PointLights::renderCoronae(std::shared_ptr<ShaderManager> shaders) const
 
 std::string PointLights::getStats() const
 {
-	return std::to_string(litCount) + " lit, " + std::to_string(shadowedCount) + " shadowed, " + std::to_string(facesDrawn) + " shadow faces drawn";
+	return std::to_string(litCount) + " lit, " + std::to_string(shadowedCount) + " shadowed, " + std::to_string(facesDrawn) + (facesTinted ? " tinted" : "") + " shadow faces drawn";
 }
 
 PointLights::PointLights()

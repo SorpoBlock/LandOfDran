@@ -53,7 +53,7 @@ class LoopClient
 	//A tap of the flashlight key turns it on or off, holding it turns it on and cycles its color, sending the server each change
 	void updateFlashlight(float deltaT);
 
-	//Puts a light held by a dynamic just in front of that dynamic's eyes, pointing where our camera does if it's our player. False if the dynamic isn't here
+	//Puts a light held by a dynamic just past its right hand (or in front of its eyes without one), pointing where our camera does if it's our player. False if the dynamic isn't here
 	bool placeHeldLight(Light& light, glm::vec3& position, glm::vec3& direction);
 
 	//Send simulation.controlledObjects physics/transform data to server

@@ -6,6 +6,8 @@
 //A bright, wide spotlight
 static constexpr float flashlightBrightness = 150.0f;
 static constexpr float flashlightConeAngle = 80.0f;
+//A spotlight's corona only shows from inside its beam, so its owner doesn't see it, only people it's pointed at
+static constexpr float flashlightCoronaWidth = 0.8f;
 
 void ClientData::setFlashlight(const ServerProgramData* pd, bool on, const glm::vec3& color)
 {
@@ -24,7 +26,7 @@ void ClientData::setFlashlight(const ServerProgramData* pd, bool on, const glm::
 			return;
 		}
 
-		light = pd->lights->create(b2g3(holder->getPosition()), color, flashlightBrightness, 0.0f, 0.0f);
+		light = pd->lights->create(b2g3(holder->getPosition()), color, flashlightBrightness, 0.0f, flashlightCoronaWidth);
 		light->setConeAngle(flashlightConeAngle);
 		light->setDirection(controllers[0].lastCameraDirection);
 		light->setHolder(holder);

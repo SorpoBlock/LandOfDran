@@ -246,8 +246,10 @@ void LoopClient::updateFlashlight(float deltaT)
 
 bool LoopClient::placeHeldLight(Light& light, glm::vec3& position, glm::vec3& direction)
 {
-	//Past the side of the collision box, so the holder's head doesn't shadow the whole beam
-	static constexpr float clearance = 0.3f;
+	//How far along the beam past where it leaves the holder's collision box the light sits
+	static constexpr float handClearance = 0.15f;
+	//Without a hand, how far past the side of the collision box, so the head doesn't shadow it
+	static constexpr float headClearance = 0.3f;
 
 	std::shared_ptr<Dynamic> holder = light.holder.lock();
 	if (!holder || holder->getID() != light.getHolderID())
@@ -260,13 +262,47 @@ bool LoopClient::placeHeldLight(Light& light, glm::vec3& position, glm::vec3& di
 		return false;
 
 	std::shared_ptr<Model> model = holder->getType()->getModel();
+
+	//Our own flashlight points exactly where we look, rather than gliding after the direction the server was last sent
+	if (holder->clientControlled && simulation.camera->target.lock() == holder)
+		direction = simulation.camera->getDirection();
+
+	//From the right hand as it's drawn, swinging with it, which is kept up to date even while our own player is hidden in first person
+	int hand = model->getMeshIdx("Right_Hand");
+	if (hand != -1)
+	{
+		glm::vec3 handCenter = holder->getMeshCenter(hand);
+
+		//The collision box as it's drawn, which the hand is inside
+		btTransform bodyTransform = holder->body->getWorldTransform();
+		btQuaternion bodyRotation = bodyTransform.getRotation();
+		glm::vec3 origin = holder->renderedTransformInitialized ? holder->renderedPosition : b2g3(bodyTransform.getOrigin());
+		glm::quat rotation = holder->renderedTransformInitialized ? holder->renderedRotation : glm::quat(bodyRotation.w(), bodyRotation.x(), bodyRotation.y(), bodyRotation.z());
+		glm::quat toBox = glm::inverse(rotation);
+		glm::vec3 halfExtents = model->getColHalfExtents();
+		glm::vec3 start = toBox * (handCenter - (origin + rotation * model->getColOffset()));
+		glm::vec3 along = toBox * direction;
+
+		//Slid out of the box along the beam, so the holder's own body can't shadow it: just past the hand when it points away from them,
+		//around the far side of them when it points across or behind them, since the body only turns while walking
+		float exit = std::numeric_limits<float>::max();
+		for (int axis = 0; axis < 3; axis++)
+		{
+			if (std::abs(along[axis]) > 0.00001f)
+				exit = std::min(exit, ((along[axis] > 0 ? halfExtents[axis] : -halfExtents[axis]) - start[axis]) / along[axis]);
+		}
+		if (exit == std::numeric_limits<float>::max())
+			exit = 0;
+
+		position = handCenter + direction * (std::max(exit, 0.0f) + handClearance);
+		return true;
+	}
+
 	glm::vec3 eyes;
 	if (holder->clientControlled)
 	{
 		//Where the camera puts the eyes of a dynamic we move ourselves, so our own flashlight never trails behind the view
 		eyes = b2g3(holder->body->getWorldTransform().getOrigin()) + holder->interpolator.getRotation() * model->getEyePosition();
-		if (simulation.camera->target.lock() == holder)
-			direction = simulation.camera->getDirection();
 	}
 	else
 	{
@@ -275,7 +311,7 @@ bool LoopClient::placeHeldLight(Light& light, glm::vec3& position, glm::vec3& di
 	}
 
 	glm::vec3 halfExtents = model->getColHalfExtents();
-	position = eyes + direction * (std::max(halfExtents.x, halfExtents.z) + clearance);
+	position = eyes + direction * (std::max(halfExtents.x, halfExtents.z) + headClearance);
 	return true;
 }
 
@@ -730,11 +766,12 @@ void LoopClient::createShadowTarget(std::shared_ptr<SettingManager> settings)
 		pd.shadows = std::make_shared<RenderTarget>(shadowSettings, pd.textures);
 	}
 
-	//Each cube face is a quarter of a cascade, capped so 8 shadowed lights stay under 200 MB
-	pd.pointLights->setShadowSettings(settings->getInt("graphics/pointshadows"), std::min(resolution / 4, 1024), pd.textures);
+	pd.coloredShadows = settings->getBool("graphics/shadowcolor");
+
+	//Each cube face is a quarter of a cascade, capped so 8 shadowed lights stay under 200 MB, plus under 100 MB of tint maps with colored shadows
+	pd.pointLights->setShadowSettings(settings->getInt("graphics/pointshadows"), std::min(resolution / 4, 1024), pd.coloredShadows, pd.textures);
 
 	//Half resolution to save memory, colored shadows just come out a little softer
-	pd.coloredShadows = settings->getBool("graphics/shadowcolor");
 	int tintResolution = pd.coloredShadows ? std::max(1, resolution / 2) : 1;
 	if (pd.shadowTint && tintResolution == pd.shadowTintResolution)
 		return;
@@ -1026,6 +1063,38 @@ void LoopClient::renderEverything(float deltaT)
 	//With colored shadows on, transparent bricks tint the light passing through them instead of blocking it
 	pd.tintShadowsActive = pd.coloredShadows && pd.brickRenderer->hasTransparentBricks();
 
+	//Into the bound layer of a tint map, for the sun's cascades and point lights' cube faces alike
+	auto drawShadowTint = [this](const glm::mat4& lightSpaceMatrix)
+	{
+		glCullFace(GL_FRONT);
+
+		//Depth of the transparent brick nearest the light, so surfaces in front of it aren't tinted
+		//Every transparent brick tints however see-through it is, the tint just gets fainter
+		pd.shaders->brickShadowCascadeShader->use();
+		glUniformMatrix4fv(pd.shadowCascadeMatrixUniformBrick, 1, GL_FALSE, &lightSpaceMatrix[0][0]);
+		glUniform1f(pd.shadowCascadeMinOpacityUniform, 0.0f);
+		glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+		pd.brickRenderer->renderShadowCascade(lightSpaceMatrix, false, true);
+		glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+
+		//Each channel keeps the least light any transparent brick along the way lets through, so order doesn't matter and
+		//a wall of stacked transparent plates tints like one brick instead of compounding into a plain shadow
+		glDisable(GL_DEPTH_TEST);
+		glDepthMask(GL_FALSE);
+		glEnable(GL_BLEND);
+		glBlendEquation(GL_MIN);
+		pd.shaders->brickShadowTintShader->use();
+		glUniformMatrix4fv(pd.shadowTintMatrixUniform, 1, GL_FALSE, &lightSpaceMatrix[0][0]);
+		glUniform1f(pd.shadowTintMinOpacityUniform, 0.0f);
+		pd.brickRenderer->renderShadowCascade(lightSpaceMatrix, false, true);
+		glBlendEquation(GL_FUNC_ADD);
+		glDisable(GL_BLEND);
+		glDepthMask(GL_TRUE);
+		glEnable(GL_DEPTH_TEST);
+
+		glCullFace(GL_BACK);
+	};
+
 	for (int cascade = 0; cascade < 3; cascade++)
 	{
 		pd.shadows->useLayer(cascade);
@@ -1049,28 +1118,7 @@ void LoopClient::renderEverything(float deltaT)
 		if (pd.tintShadowsActive)
 		{
 			pd.shadowTint->useLayer(cascade);
-
-			//Depth of the transparent brick nearest the light, so surfaces in front of it aren't tinted
-			//Every transparent brick tints however see-through it is, the tint just gets fainter
-			glUniform1f(pd.shadowCascadeMinOpacityUniform, 0.0f);
-			glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
-			pd.brickRenderer->renderShadowCascade(pd.lightSpaceMatricies[cascade], false, true);
-			glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-
-			//Each channel keeps the least light any transparent brick along the way lets through, so order doesn't matter and
-			//a wall of stacked transparent plates tints like one brick instead of compounding into a plain shadow
-			glDisable(GL_DEPTH_TEST);
-			glDepthMask(GL_FALSE);
-			glEnable(GL_BLEND);
-			glBlendEquation(GL_MIN);
-			pd.shaders->brickShadowTintShader->use();
-			glUniformMatrix4fv(pd.shadowTintMatrixUniform, 1, GL_FALSE, &pd.lightSpaceMatricies[cascade][0][0]);
-			glUniform1f(pd.shadowTintMinOpacityUniform, 0.0f);
-			pd.brickRenderer->renderShadowCascade(pd.lightSpaceMatricies[cascade], false, true);
-			glBlendEquation(GL_FUNC_ADD);
-			glDisable(GL_BLEND);
-			glDepthMask(GL_TRUE);
-			glEnable(GL_DEPTH_TEST);
+			drawShadowTint(pd.lightSpaceMatricies[cascade]);
 		}
 
 		glCullFace(GL_BACK);
@@ -1119,7 +1167,7 @@ void LoopClient::renderEverything(float deltaT)
 		return false;
 	};
 
-	auto drawPointShadowCasters = [this](const glm::mat4& lightSpaceMatrix)
+	auto drawPointShadowCasters = [this](const glm::mat4& lightSpaceMatrix, bool tinted)
 	{
 		glDisable(GL_CULL_FACE);
 		pd.shaders->modelShadowCascadeShader->use();
@@ -1128,16 +1176,16 @@ void LoopClient::renderEverything(float deltaT)
 			simulation.dynamicTypes[a]->render(pd.shaders, false);
 		glEnable(GL_CULL_FACE);
 
-		//No colored point light shadows, transparent bricks at least half opaque block the light like any other
+		//Like the sun: transparent bricks tint the light instead of blocking it, or without colored shadows the ones at least half opaque block it
 		glCullFace(GL_FRONT);
 		pd.shaders->brickShadowCascadeShader->use();
 		glUniformMatrix4fv(pd.shadowCascadeMatrixUniformBrick, 1, GL_FALSE, &lightSpaceMatrix[0][0]);
 		glUniform1f(pd.shadowCascadeMinOpacityUniform, 0.5f);
-		pd.brickRenderer->renderShadowCascade(lightSpaceMatrix, true, true);
+		pd.brickRenderer->renderShadowCascade(lightSpaceMatrix, true, !tinted);
 		glCullFace(GL_BACK);
 	};
 
-	pd.pointLights->renderShadows(pd.brickRenderer->getGeneration() + simulation.staticsChanged, movingCastersNear, drawPointShadowCasters);
+	pd.pointLights->renderShadows(pd.brickRenderer->getGeneration() + simulation.staticsChanged, pd.tintShadowsActive, movingCastersNear, drawPointShadowCasters, drawShadowTint);
 
 	glDisable(GL_POLYGON_OFFSET_FILL);
 

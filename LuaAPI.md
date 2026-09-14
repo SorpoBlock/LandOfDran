@@ -209,9 +209,11 @@ brightest color channel is 1, up to 500 (`light:getRange()` gives the exact valu
 floodlight a few thousand.
 
 Players' flashlights (see `client:setFlashlightEnabled`) are lights too: an 80 degree spotlight with
-brightness 150 and no corona, which shows up in `getNumLights` and `getLightIdx` while it's on.
-Each client shines it from just in front of the holding player's eyes toward where that player
-looks, so `light:getPosition()` gives the player's position, and the server keeps pointing it with
+brightness 150 and a 0.8 stud corona, which shows up in `getNumLights` and `getLightIdx` while it's on.
+Each client shines it from just past the holding player's `Right_Hand` mesh as it's drawn (or in
+front of their eyes if their model has no such mesh) toward where that player looks. Like any
+spotlight's, its corona only shows to people inside the beam, so its owner doesn't see their own.
+`light:getPosition()` gives the player's position, and the server keeps pointing it with
 `setDirection`. `light:setPosition` takes it out of the player's hand, and `light:destroy()`
 switches it off without the `LightOff` sound.
 

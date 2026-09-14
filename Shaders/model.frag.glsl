@@ -266,8 +266,12 @@ layout (std140) uniform PointLightUniforms
 //Six layers per shadow slot, in the same order as PointShadowMatrices
 uniform sampler2DArrayShadow PointShadowArray;
 
-//How much of a shadowed point light reaches this surface, 1 for fully lit
-float pointLightShadow(int slot, vec3 fromLight, vec3 surfaceNormal, float lightFacing)
+//Same as TintDepthArray and TintColorArray, a layer per cube face like PointShadowArray, only used when coloredShadows is set
+uniform sampler2DArrayShadow PointTintDepthArray;
+uniform sampler2DArray PointTintColorArray;
+
+//How much of a shadowed point light, and of what color, reaches this surface, 1 for fully lit and untinted
+vec3 pointLightShadow(int slot, vec3 fromLight, vec3 surfaceNormal, float lightFacing)
 {
 	vec3 axisDistance = abs(fromLight);
 	int face;
@@ -288,7 +292,14 @@ float pointLightShadow(int slot, vec3 fromLight, vec3 surfaceNormal, float light
 	vec4 lightClip = PointShadowMatrices[layer] * vec4(offsetPos, 1.0);
 	vec3 coords = lightClip.xyz / lightClip.w * 0.5 + 0.5;
 	coords.z = clamp(coords.z, 0.0, 1.0);
-	return filterShadow(PointShadowArray, coords, layer, level);
+	float lit = filterShadow(PointShadowArray, coords, layer, level);
+	if(!coloredShadows || lit <= 0.0)
+		return vec3(lit);
+
+	//One hardware filtered sample, the tint map is half resolution and already soft
+	float behindTransparent = 1.0 - texture(PointTintDepthArray, vec4(coords.xy, layer, coords.z));
+	vec3 tint = texture(PointTintColorArray, vec3(coords.xy, layer)).rgb;
+	return lit * mix(vec3(1.0), tint, behindTransparent);
 }
 
 //Light from every point light that reaches this surface: inverse square falloff, eased to exactly nothing at each light's range
@@ -323,12 +334,12 @@ vec3 pointLighting(vec3 N, vec3 V, float NdotV, vec3 albedo, vec3 mor, vec3 F0, 
 				continue;
 		}
 
-		float lit = 1.0;
+		vec3 lit = vec3(1.0);
 		int slot = int(floor(PointLightColorShadow[i].a + 0.5));
 		if(slot >= 0)
 		{
 			lit = pointLightShadow(slot, -toLight, surfaceNormal, lightFacing);
-			if(lit <= 0.0)
+			if(max(lit.r, max(lit.g, lit.b)) <= 0.0)
 				continue;
 		}
 
