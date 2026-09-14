@@ -54,9 +54,43 @@ const vec3 waves[WAVES] = vec3[](
 	vec3(3.1, 2.9, 0.006));
 const float waveCycles[WAVES] = float[](11.0, 17.0, 31.0, 43.0, 59.0, 73.0);
 
-vec3 waveNormal(vec2 p)
+//Rings spreading out from things moving through the surface, see WaterRipples
+//Must match WaterRipples::maxDrawn
+const int MAX_RIPPLES = 16;
+uniform int RippleCount;
+//xy: center on the surface, z: radius of the leading ring, w: width of the band of rings trailing it
+uniform vec4 RippleRings[MAX_RIPPLES];
+//x: steepness, y: wave number
+uniform vec2 RippleWaves[MAX_RIPPLES];
+
+//footprint is how much of the surface one pixel covers, rings finer than that would just sparkle so they fade out
+vec2 rippleSlope(vec2 p, float footprint)
 {
 	vec2 slope = vec2(0.0);
+	for(int i = 0; i < RippleCount; i++)
+	{
+		vec2 fromCenter = p - RippleRings[i].xy;
+		float distanceToCenter = length(fromCenter);
+
+		//How far behind the leading ring this is, only the band of rings trailing it is disturbed
+		float behind = RippleRings[i].z - distanceToCenter;
+		float band = RippleRings[i].w;
+		if(behind <= 0.0 || behind >= band)
+			continue;
+
+		float waveNumber = RippleWaves[i].y;
+		float aliasFade = clamp(2.0 - 2.0 * footprint * waveNumber / 3.14159265, 0.0, 1.0);
+		float envelope = sin(3.14159265 * behind / band);
+
+		//Outward slope of rings shaped like sin(waveNumber * behind), which rise and fall across the band
+		slope -= fromCenter / distanceToCenter * RippleWaves[i].x * envelope * envelope * cos(waveNumber * behind) * aliasFade;
+	}
+	return slope;
+}
+
+vec3 waveNormal(vec2 p, vec2 rippleSlope)
+{
+	vec2 slope = rippleSlope;
 	for(int i = 0; i < WAVES; i++)
 		slope += waves[i].z * waves[i].xy * cos(dot(p, waves[i].xy) + WaveTime * TAU * waveCycles[i] / 100.0);
 	return normalize(vec3(-slope.x, 1.0, -slope.y));
@@ -155,7 +189,9 @@ void main()
 	toCamera /= distanceToCamera;
 
 	//Far away ripples are smaller than a pixel and just shimmer
-	vec3 normal = normalize(mix(waveNormal(worldPos.xz), vec3(0, 1, 0), clamp(distanceToCamera / 150.0, 0.0, 1.0)));
+	//Taken out here since derivatives aren't defined inside rippleSlope's loop
+	float footprint = length(fwidth(worldPos.xz));
+	vec3 normal = normalize(mix(waveNormal(worldPos.xz, rippleSlope(worldPos.xz, footprint)), vec3(0, 1, 0), clamp(distanceToCamera / 150.0, 0.0, 1.0)));
 	vec3 facingNormal = cameraUnderwater ? -normal : normal;
 
 	vec2 screenUV = (clipSpace.xy / clipSpace.w) * 0.5 + 0.5;

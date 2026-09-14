@@ -1,7 +1,7 @@
 <#
 .SYNOPSIS
 Packages a release Windows binary along with the files it needs at runtime
-(Assets, Shaders, serverstart.lua) into a single zip archive.
+(Assets, Shaders, serverstart.lua, and Saves if present) into a single zip archive.
 
 .DESCRIPTION
 Unlike the Linux release script, there's no glibc-style ABI baseline to
@@ -59,6 +59,11 @@ try {
     Copy-Item "Assets" $PkgDir -Recurse
     Copy-Item "Shaders" $PkgDir -Recurse
     Copy-Item "serverstart.lua" $PkgDir
+
+    # Saves is gitignored, so this packages whatever builds are in the local copy, if there is one
+    if (Test-Path "Saves") {
+        Copy-Item "Saves" $PkgDir -Recurse
+    }
 
     if (Test-Path $Output) { Remove-Item $Output }
     Compress-Archive -Path $PkgDir -DestinationPath $Output

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # Packages a release binary along with the files it needs at runtime
-# (Assets, Shaders, serverstart.lua) into a single tar.gz archive.
+# (Assets, Shaders, serverstart.lua, and Saves if present) into a single tar.gz archive.
 #
 # By default the binary is built inside a Docker container pinned to an
 # older Ubuntu baseline (see docker/release.Dockerfile), so its glibc and
@@ -70,6 +70,11 @@ fi
 cp -r Assets "$PKG_DIR/"
 cp -r Shaders "$PKG_DIR/"
 cp serverstart.lua "$PKG_DIR/"
+
+# Saves/ is gitignored, so this packages whatever builds are in the local copy, if there is one
+if [[ -d Saves ]]; then
+    cp -r Saves "$PKG_DIR/"
+fi
 
 cat > "$PKG_DIR/LandOfDran.sh" <<'EOF'
 #!/usr/bin/env bash

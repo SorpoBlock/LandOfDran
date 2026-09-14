@@ -17,6 +17,7 @@
 #include "../Graphics/Environment.h"
 #include "../Graphics/InstancedBrickRenderer.h"
 #include "../Graphics/PointLights.h"
+#include "../Graphics/WaterRipples.h"
 #include "../Bricks/GhostBrick.h"
 #include "../Bricks/BrickTypes.h"
 #include "../Interface/BrickSelector.h"
@@ -94,6 +95,9 @@ struct ClientProgramData
 	//The scene above and below the water surface, both nullptr when graphics/waterquality is off
 	std::shared_ptr<RenderTarget> waterReflection = nullptr;
 	std::shared_ptr<RenderTarget> waterRefraction = nullptr;
+
+	//Rings on the water from things moving through its surface, of whichever server we're on
+	WaterRipples waterRipples;
 
 	//Copy of the finished scene that underwater.frag draws back warped, made the first time the camera goes under the water
 	std::shared_ptr<RenderTarget> underwaterScene = nullptr;

@@ -143,6 +143,8 @@ add_executable (LandOfDran
 "Graphics/InstancedBrickRenderer.cpp"
 "Graphics/PointLights.h"
 "Graphics/PointLights.cpp"
+"Graphics/WaterRipples.h"
+"Graphics/WaterRipples.cpp"
 
 "Interface/InputMap.h"  
 "Interface/InputMap.cpp" 

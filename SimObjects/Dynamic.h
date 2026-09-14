@@ -209,6 +209,12 @@ class Dynamic : public SimObject
 	bool inWater = false;
 	unsigned int lastWaterSoundMS = 0;
 
+	//Client only, for water ripples, see LoopClient::makeWaterRipples
+	bool rippleInWater = false;
+	bool rippleStateKnown = false;
+	//How far it's moved along the surface since the last wake ripple
+	float rippleWakeDistance = 0;
+
 	~Dynamic();
 };
 

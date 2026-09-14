@@ -56,6 +56,7 @@ void LoopClient::leaveServer(ExecutableArguments& cmdArgs)
 	
 	simulation.evalPassword = "";
 	simulation.waterEnabled = false;
+	pd.waterRipples.clear();
 	simulation.dayCycle = DayCycle();
 	pd.ghostBrick.hide();
 	pd.brickHotbar->putAway();
@@ -718,6 +719,78 @@ void LoopClient::renderTransparent(bool clipAtWater)
 		glDisable(GL_CLIP_DISTANCE0);
 }
 
+void LoopClient::makeWaterRipples(float deltaT)
+{
+	//Vertical speed, world units per second, below which going in or out of the water doesn't ripple
+	static constexpr float crossingSpeed = 1.0f;
+	//Slower than this, something at the surface leaves no wake, so floating things bobbing in place stay quiet
+	static constexpr float wakeSpeed = 1.0f;
+
+	pd.waterRipples.update(deltaT / 1000.0f);
+
+	if (!simulation.dynamics)
+		return;
+
+	for (unsigned int a = 0; a < simulation.dynamics->size(); a++)
+	{
+		std::shared_ptr<Dynamic> d = simulation.dynamics->get(a);
+
+		if (!simulation.waterEnabled || !d->renderedTransformInitialized)
+		{
+			d->rippleStateKnown = false;
+			continue;
+		}
+
+		//Around where it's drawn, the body of someone else's dynamic can be off between server updates
+		btVector3 aabbMin, aabbMax;
+		d->body->getAabb(aabbMin, aabbMax);
+		glm::vec3 halfSize = b2g3(aabbMax - aabbMin) * 0.5f;
+		glm::vec3 center = d->renderedPosition + d->renderedRotation * d->getType()->getModel()->getColOffset();
+		float bottom = center.y - halfSize.y;
+		float top = center.y + halfSize.y;
+
+		//Same gap between going in and coming out as LoopServer::playWaterSounds
+		bool wasInWater = d->rippleInWater;
+		if (!wasInWater && bottom < simulation.waterLevel)
+			d->rippleInWater = true;
+		else if (wasInWater && bottom > simulation.waterLevel + 0.5f)
+			d->rippleInWater = false;
+
+		//Just showed up, or water just appeared under it
+		if (!d->rippleStateKnown)
+		{
+			d->rippleStateKnown = true;
+			d->rippleWakeDistance = 0;
+			continue;
+		}
+
+		glm::vec2 surface(center.x, center.z);
+		float size = std::max(halfSize.x, halfSize.z);
+		//How it's actually moving, see Dynamic::updateSnapshot
+		const glm::vec3& velocity = d->tiltVelocity;
+
+		if (d->rippleInWater != wasInWater)
+		{
+			if (std::abs(velocity.y) > crossingSpeed)
+				pd.waterRipples.add(surface, std::clamp(std::abs(velocity.y) / 15.0f, 0.2f, 1.0f) * (d->rippleInWater ? 1.0f : 0.5f), size);
+			d->rippleWakeDistance = 0;
+		}
+		else if (d->rippleInWater && top > simulation.waterLevel)
+		{
+			//Wading, swimming, or floating along: small short lived ripples every so often
+			float speed = glm::length(velocity);
+			if (speed > wakeSpeed)
+				d->rippleWakeDistance += speed * deltaT / 1000.0f;
+
+			if (d->rippleWakeDistance > std::max(2.0f, size * 1.5f))
+			{
+				pd.waterRipples.add(surface, std::clamp(speed / 30.0f, 0.1f, 0.35f), size, 1.2f);
+				d->rippleWakeDistance = 0;
+			}
+		}
+	}
+}
+
 void LoopClient::renderEverything(float deltaT)
 {
 	//TODO: Get rid of this
@@ -735,6 +808,8 @@ void LoopClient::renderEverything(float deltaT)
 			d->updateSnapshot(deltaT, pd.debugMenu->showDebugPhysicsView || predictingLocally, simulation.waterEnabled ? simulation.waterLevel : PlayerController::noWater);
 		}
 	}
+
+	makeWaterRipples(deltaT);
 
 	//Technically rendering related calculations based on previously inputted transform data
 	for (unsigned int a = 0; a < simulation.dynamicTypes.size(); a++)
@@ -932,6 +1007,7 @@ void LoopClient::renderEverything(float deltaT)
 		glUniform1i(pd.shaders->waterShader->getUniformLocation("useReflection"), renderWaterPasses && !cameraUnderwater);
 		glUniform1i(pd.shaders->waterShader->getUniformLocation("useRefraction"), renderWaterPasses);
 		glUniform1i(pd.shaders->waterShader->getUniformLocation("cameraUnderwater"), cameraUnderwater);
+		pd.waterRipples.upload(pd.shaders->waterShader, simulation.camera->getPosition());
 
 		if (renderWaterPasses)
 		{
