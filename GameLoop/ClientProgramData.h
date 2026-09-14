@@ -49,6 +49,11 @@ struct ClientProgramData
 	GLint shadowTintMatrixUniform = -1;
 	GLint shadowCascadeMinOpacityUniform = -1;
 	GLint shadowTintMinOpacityUniform = -1;
+	//skipContaining and skipPoint in brickShadowCascade.vert, for each program that uses it
+	GLint shadowCascadeSkipContainingUniform = -1;
+	GLint shadowCascadeSkipPointUniform = -1;
+	GLint shadowTintSkipContainingUniform = -1;
+	GLint shadowTintSkipPointUniform = -1;
 
 	//Lives for the whole program, bricks of whichever server we're on are passed to it by Simulation's BrickHolder
 	InstancedBrickRenderer* brickRenderer = nullptr;

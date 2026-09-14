@@ -1131,8 +1131,16 @@ void LoopClient::renderEverything(float deltaT)
 	//With colored shadows on, transparent bricks tint the light passing through them instead of blocking it
 	pd.tintShadowsActive = pd.coloredShadows && pd.brickRenderer->hasTransparentBricks();
 
-	//Into the bound layer of a tint map, for the sun's cascades and point lights' cube faces alike
-	auto drawShadowTint = [this](const glm::mat4& lightSpaceMatrix)
+	//A point light's shadows leave out the bricks it's inside, so a light in the middle of its brick shines out of it. The sun's leave out none
+	auto setSkippedPoint = [](GLint containingUniform, GLint pointUniform, const glm::vec3* lightPosition)
+	{
+		glUniform1i(containingUniform, lightPosition ? 1 : 0);
+		if (lightPosition)
+			glUniform3fv(pointUniform, 1, &(*lightPosition)[0]);
+	};
+
+	//Into the bound layer of a tint map, for the sun's cascades (no light position) and point lights' cube faces alike
+	auto drawShadowTint = [this, setSkippedPoint](const glm::mat4& lightSpaceMatrix, const glm::vec3* lightPosition)
 	{
 		glCullFace(GL_FRONT);
 
@@ -1141,6 +1149,7 @@ void LoopClient::renderEverything(float deltaT)
 		pd.shaders->brickShadowCascadeShader->use();
 		glUniformMatrix4fv(pd.shadowCascadeMatrixUniformBrick, 1, GL_FALSE, &lightSpaceMatrix[0][0]);
 		glUniform1f(pd.shadowCascadeMinOpacityUniform, 0.0f);
+		setSkippedPoint(pd.shadowCascadeSkipContainingUniform, pd.shadowCascadeSkipPointUniform, lightPosition);
 		glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
 		pd.brickRenderer->renderShadowCascade(lightSpaceMatrix, false, true);
 		glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
@@ -1154,6 +1163,7 @@ void LoopClient::renderEverything(float deltaT)
 		pd.shaders->brickShadowTintShader->use();
 		glUniformMatrix4fv(pd.shadowTintMatrixUniform, 1, GL_FALSE, &lightSpaceMatrix[0][0]);
 		glUniform1f(pd.shadowTintMinOpacityUniform, 0.0f);
+		setSkippedPoint(pd.shadowTintSkipContainingUniform, pd.shadowTintSkipPointUniform, lightPosition);
 		pd.brickRenderer->renderShadowCascade(lightSpaceMatrix, false, true, true);
 		glBlendEquation(GL_FUNC_ADD);
 		glDisable(GL_BLEND);
@@ -1181,12 +1191,13 @@ void LoopClient::renderEverything(float deltaT)
 		glUniformMatrix4fv(pd.shadowCascadeMatrixUniformBrick, 1, GL_FALSE, &pd.lightSpaceMatricies[cascade][0][0]);
 		//Without colored shadows, mostly see-through bricks don't block any light
 		glUniform1f(pd.shadowCascadeMinOpacityUniform, 0.5f);
+		setSkippedPoint(pd.shadowCascadeSkipContainingUniform, pd.shadowCascadeSkipPointUniform, nullptr);
 		pd.brickRenderer->renderShadowCascade(pd.lightSpaceMatricies[cascade], true, !pd.tintShadowsActive);
 
 		if (pd.tintShadowsActive)
 		{
 			pd.shadowTint->useLayer(cascade);
-			drawShadowTint(pd.lightSpaceMatricies[cascade]);
+			drawShadowTint(pd.lightSpaceMatricies[cascade], nullptr);
 		}
 
 		glCullFace(GL_BACK);
@@ -1235,7 +1246,7 @@ void LoopClient::renderEverything(float deltaT)
 		return false;
 	};
 
-	auto drawPointShadowCasters = [this](const glm::mat4& lightSpaceMatrix, bool tinted)
+	auto drawPointShadowCasters = [this, setSkippedPoint](const glm::mat4& lightSpaceMatrix, const glm::vec3& lightPosition, bool tinted)
 	{
 		glDisable(GL_CULL_FACE);
 		pd.shaders->modelShadowCascadeShader->use();
@@ -1249,11 +1260,17 @@ void LoopClient::renderEverything(float deltaT)
 		pd.shaders->brickShadowCascadeShader->use();
 		glUniformMatrix4fv(pd.shadowCascadeMatrixUniformBrick, 1, GL_FALSE, &lightSpaceMatrix[0][0]);
 		glUniform1f(pd.shadowCascadeMinOpacityUniform, 0.5f);
+		setSkippedPoint(pd.shadowCascadeSkipContainingUniform, pd.shadowCascadeSkipPointUniform, &lightPosition);
 		pd.brickRenderer->renderShadowCascade(lightSpaceMatrix, true, !tinted);
 		glCullFace(GL_BACK);
 	};
 
-	pd.pointLights->renderShadows(pd.brickRenderer->getGeneration() + simulation.staticsChanged, pd.tintShadowsActive, movingCastersNear, drawPointShadowCasters, drawShadowTint);
+	auto drawPointShadowTint = [drawShadowTint](const glm::mat4& lightSpaceMatrix, const glm::vec3& lightPosition)
+	{
+		drawShadowTint(lightSpaceMatrix, &lightPosition);
+	};
+
+	pd.pointLights->renderShadows(pd.brickRenderer->getGeneration() + simulation.staticsChanged, pd.tintShadowsActive, movingCastersNear, drawPointShadowCasters, drawPointShadowTint);
 
 	glDisable(GL_POLYGON_OFFSET_FILL);
 
@@ -1843,6 +1860,10 @@ LoopClient::LoopClient(ExecutableArguments& cmdArgs, std::shared_ptr<SettingMana
 	pd.shadowTintMatrixUniform = pd.shaders->brickShadowTintShader->getUniformLocation("lightSpaceMatrix");
 	pd.shadowCascadeMinOpacityUniform = pd.shaders->brickShadowCascadeShader->getUniformLocation("minOpacity");
 	pd.shadowTintMinOpacityUniform = pd.shaders->brickShadowTintShader->getUniformLocation("minOpacity");
+	pd.shadowCascadeSkipContainingUniform = pd.shaders->brickShadowCascadeShader->getUniformLocation("skipContaining");
+	pd.shadowCascadeSkipPointUniform = pd.shaders->brickShadowCascadeShader->getUniformLocation("skipPoint");
+	pd.shadowTintSkipContainingUniform = pd.shaders->brickShadowTintShader->getUniformLocation("skipContaining");
+	pd.shadowTintSkipPointUniform = pd.shaders->brickShadowTintShader->getUniformLocation("skipPoint");
 
 	pd.brickRenderer = new InstancedBrickRenderer(pd.shaders, pd.textures, &pd.brickTypes);
 

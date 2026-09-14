@@ -90,14 +90,8 @@ struct ServerProgramData
 	std::vector<ParticleTypeData> particleTypes;
 	std::vector<EmitterTypeData> emitterTypes;
 
-	//Lua's addBlocklandLight: the light a Blockland light type becomes on a brick loadBlocklandSave loads, by lowercase uiName
-	struct BlocklandLight
-	{
-		BrickAttachments settings;
-		//Otherwise it sits at BrickAttachments::defaultLightOffset for its brick
-		bool hasOffset = false;
-	};
-	std::unordered_map<std::string, BlocklandLight> blocklandLights;
+	//Lua's addBlocklandLight: the light settings a Blockland light type becomes on a brick loadBlocklandSave loads, by lowercase uiName
+	std::unordered_map<std::string, BrickAttachments> blocklandLights;
 	//Lua's addBlocklandEmitter: emitter type names by lowercase Blockland uiName, before emitter types' own uiNames are tried
 	std::unordered_map<std::string, std::string> blocklandEmitters;
 

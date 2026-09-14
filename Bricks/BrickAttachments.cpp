@@ -43,12 +43,7 @@ void BrickAttachments::clampValues()
 	lightDirection = length > 0.0001f ? lightDirection / length : glm::vec3(0, -1, 0);
 }
 
-glm::vec3 BrickAttachments::defaultLightOffset(unsigned char brickHeight)
-{
-	return glm::vec3(0, brickHeight * PLATE_SIZE * 0.5f + 0.25f, 0);
-}
-
-void BrickAttachments::resetLight(unsigned char brickHeight)
+void BrickAttachments::resetLight()
 {
 	const BrickAttachments defaults;
 	lightColor = defaults.lightColor;
@@ -58,7 +53,7 @@ void BrickAttachments::resetLight(unsigned char brickHeight)
 	lightConeAngle = defaults.lightConeAngle;
 	lightDirection = defaults.lightDirection;
 	lightSpin = defaults.lightSpin;
-	lightOffset = defaultLightOffset(brickHeight);
+	lightOffset = defaults.lightOffset;
 }
 
 void BrickAttachments::writeParts(const std::function<void(const void*, size_t)>& writeBytes) const

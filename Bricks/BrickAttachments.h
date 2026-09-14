@@ -32,7 +32,7 @@ struct BrickAttachments
 	float lightConeAngle = 0.0f;
 	glm::vec3 lightDirection = glm::vec3(0, -1, 0);
 	float lightSpin = 0.0f;
-	//From the middle of the brick, in world units
+	//From the middle of the brick, in world units. Point light shadows leave out bricks the light is inside, so it isn't buried by its own brick
 	glm::vec3 lightOffset = glm::vec3(0);
 
 	//An emitter type's name, "" for no emitter
@@ -50,11 +50,8 @@ struct BrickAttachments
 	//Keeps every value in the range the loop, light, and emitter take them in, and names to maxNameLength
 	void clampValues();
 
-	//Just above the middle of a brick's top, so a light isn't in its own brick's shadow
-	static glm::vec3 defaultLightOffset(unsigned char brickHeight);
-
-	//Every light setting back to what a newly added light starts with, placed at defaultLightOffset, leaving hasLight alone
-	void resetLight(unsigned char brickHeight);
+	//Every light setting back to what a newly added light starts with, in the middle of its brick, leaving hasLight alone
+	void resetLight();
 
 	/*
 		Only the parts in getFlags, passed to writeBytes as they go

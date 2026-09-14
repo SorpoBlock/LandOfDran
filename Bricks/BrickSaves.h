@@ -26,11 +26,11 @@ int loadLodBuild(BrickHolder& bricks, const std::string& path, int offsetX, int 
 /*
 	How a Blockland import finds our versions of what a .bls save put on its bricks, by the uiName the save uses
 	findEmitterType and findMusic return the name of our type, or "" if we don't have one
-	setLight gives attachments our light for a Blockland light type on a brick that many plates tall, false if we don't have one
+	setLight gives attachments our light for a Blockland light type, false if we don't have one
 */
 struct BlocklandAttachmentLookup
 {
-	std::function<bool(const std::string&, unsigned char, BrickAttachments&)> setLight = nullptr;
+	std::function<bool(const std::string&, BrickAttachments&)> setLight = nullptr;
 	std::function<std::string(const std::string&)> findEmitterType = nullptr;
 	std::function<std::string(const std::string&)> findMusic = nullptr;
 };

@@ -87,11 +87,12 @@ class PointLights
 	/*
 		Redraws the cube faces of shadowed lights whose shadows could have changed: new to their slot, moved or turned, sceneGeneration changed since,
 		or movingCastersNear says something that moves is within their range now or was the last time they were checked
-		drawCasters is called with the light's view of one face, while that face's layer is bound and cleared, and whether transparent bricks tint instead of blocking
-		With tint set (and colored shadows on), drawTint is then called with the face's tint layer bound and cleared to white
+		drawCasters is called with the light's view of one face and its position, while that face's layer is bound and cleared, and whether transparent bricks tint instead of blocking
+		With tint set (and colored shadows on), drawTint is then called with the same view and position and the face's tint layer bound and cleared to white
 	*/
 	void renderShadows(unsigned int sceneGeneration, bool tint, const std::function<bool(const glm::vec3& position, float range)>& movingCastersNear,
-		const std::function<void(const glm::mat4& lightSpaceMatrix, bool tinted)>& drawCasters, const std::function<void(const glm::mat4& lightSpaceMatrix)>& drawTint);
+		const std::function<void(const glm::mat4& lightSpaceMatrix, const glm::vec3& lightPosition, bool tinted)>& drawCasters,
+		const std::function<void(const glm::mat4& lightSpaceMatrix, const glm::vec3& lightPosition)>& drawTint);
 
 	//Shadow maps and tint maps
 	void bindShadowMaps() const;

@@ -505,7 +505,7 @@ int loadBlocklandBuild(BrickHolder& bricks, const BrickTypes& types, const std::
 			else if (readAttachmentLine(line, "LIGHT", uiName, value))
 			{
 				//Followed by 1, or nothing in older saves, for a light that's on
-				if (value != "0" && !(lookup.setLight && lookup.setLight(uiName, pending.height, pendingAttachments())))
+				if (value != "0" && !(lookup.setLight && lookup.setLight(uiName, pendingAttachments())))
 					missingLights[uiName]++;
 			}
 			else if (readAttachmentLine(line, "EMITTER", uiName, value))

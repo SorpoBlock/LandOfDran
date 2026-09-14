@@ -408,14 +408,14 @@ static int LUA_loadLodSave(lua_State* L)
 	return 1;
 }
 
-//For loadBlocklandSave: the light from addBlocklandLight for a Blockland light type, placed for its brick, false if there's none
-static bool setBlocklandLight(const std::string& uiName, unsigned char brickHeight, BrickAttachments& attachments)
+//For loadBlocklandSave: the light from addBlocklandLight for a Blockland light type, false if there's none
+static bool setBlocklandLight(const std::string& uiName, BrickAttachments& attachments)
 {
 	auto found = LUA_pd->blocklandLights.find(lowercase(uiName));
 	if (found == LUA_pd->blocklandLights.end())
 		return false;
 
-	const BrickAttachments& light = found->second.settings;
+	const BrickAttachments& light = found->second;
 	attachments.hasLight = true;
 	attachments.lightColor = light.lightColor;
 	attachments.lightBrightness = light.lightBrightness;
@@ -424,7 +424,7 @@ static bool setBlocklandLight(const std::string& uiName, unsigned char brickHeig
 	attachments.lightConeAngle = light.lightConeAngle;
 	attachments.lightDirection = light.lightDirection;
 	attachments.lightSpin = light.lightSpin;
-	attachments.lightOffset = found->second.hasOffset ? light.lightOffset : BrickAttachments::defaultLightOffset(brickHeight);
+	attachments.lightOffset = light.lightOffset;
 	return true;
 }
 
@@ -828,13 +828,11 @@ static bool readVectorTable(lua_State* L, int index, glm::vec3& out)
 }
 
 /*
-	Reads the light fields in the table at index into settings, leaving the ones it doesn't have alone, and whether it had an offset
+	Reads the light fields in the table at index into settings, leaving the ones it doesn't have alone
 	Logs an error and returns false for an unknown field, a value of the wrong kind, or a direction of 0, 0, 0
 */
-static bool readLightTable(lua_State* L, int index, BrickAttachments& settings, bool& hasOffset)
+static bool readLightTable(lua_State* L, int index, BrickAttachments& settings)
 {
-	hasOffset = false;
-
 	const std::pair<const char*, glm::vec3*> vectorFields[] = {
 		{ "color", &settings.lightColor },
 		{ "direction", &settings.lightDirection },
@@ -881,9 +879,6 @@ static bool readLightTable(lua_State* L, int index, BrickAttachments& settings, 
 			return false;
 		}
 
-		if (field == "offset")
-			hasOffset = true;
-
 		lua_pop(L, 1);
 	}
 
@@ -923,11 +918,10 @@ static int LUA_brickSetLight(lua_State* L)
 
 	//Fields left out keep the light's current values, or a new light's
 	if (!settings.hasLight)
-		settings.resetLight(brick->height);
+		settings.resetLight();
 	settings.hasLight = true;
 
-	bool hasOffset;
-	if (!readLightTable(L, 2, settings, hasOffset))
+	if (!readLightTable(L, 2, settings))
 	{
 		lua_settop(L, 0);
 		return 0;
@@ -964,17 +958,16 @@ static int LUA_addBlocklandLight(lua_State* L)
 	}
 
 	//Fields left out get a new light's defaults
-	ServerProgramData::BlocklandLight light;
-	light.settings.hasLight = true;
-	light.settings.resetLight(1);
+	BrickAttachments light;
+	light.hasLight = true;
 
-	if (!readLightTable(L, 2, light.settings, light.hasOffset))
+	if (!readLightTable(L, 2, light))
 	{
 		lua_settop(L, 0);
 		return 0;
 	}
 
-	light.settings.clampValues();
+	light.clampValues();
 	LUA_pd->blocklandLights[uiName] = light;
 
 	lua_settop(L, 0);

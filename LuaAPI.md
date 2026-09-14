@@ -203,7 +203,8 @@ Clients light everything around them (bricks, models, grass, and the water surfa
 glints of them on its waves) with inverse square falloff, draw a
 glowing corona where they are, and give the lights nearest the camera shadows. How many get shadows
 is each player's `graphics/pointshadows` setting (0 to 8, default 4). Up to 32 lights light the view
-at once, the nearest ones win.
+at once, the nearest ones win. A brick a light is inside doesn't cast that light's shadows, so lights
+in the middle of bricks (like the ones on bricks, see `brick:setLight`) shine out of them.
 
 A light reaches until it's too dim to see: roughly `sqrt(brightness * 50)` studs for a light whose
 brightest color channel is 1, up to 500 (`light:getRange()` gives the exact value). As a guide,
@@ -378,7 +379,7 @@ as they join, and draw bricks of types they don't have as plain boxes.
 | `saveBuild(fileName[, omitOwnership])` | file name inside the `Saves` folder; `omitOwnership` writes every owner as `-1` | bool | Saves every brick, with its name, collision, music, light, and emitter, in the Land of Dran binary format. Saves are written under a newer version number than the old game's, so the old game can't load them. |
 | `loadLodSave(fileName[, x, y, z])` | file name inside `Saves`; optional offset in studs/plates | count, or `nil` | Loads a Land of Dran binary save (either of the old game's versions, or ours) on top of the current bricks, returning how many were added. Special bricks of types in `Assets/brick/types` are loaded, and so are names, collision, and our saves' music, lights, and emitters. Other special types, and the old game's lights, music, and prints, are skipped. A brick's music or emitter of a type the server doesn't have is kept (and saved again) but doesn't play. |
 | `loadBlocklandSave(fileName)` | file name inside `Saves` | count, or `nil` | Imports a Blockland `.bls` save using its own color palette, returning how many bricks were added. Brick names are matched against `Assets/brick/types`, special bricks included; unrecognized names are skipped and listed in the log. Brick names, collision, lights, emitters, and music come along, the last three as the brick's own like the wrench dialog's (saved by `saveBuild`). Lights become the light `addBlocklandLight` gave their Blockland type. Emitters use the emitter type `addBlocklandEmitter` gave their name, or else the one whose `uiName` matches, ignoring case, and always point up. Music uses a music sound type (see `newSoundType`) with the same name, ignoring case and with underscores as spaces. Anything without a match is skipped and listed in the log. `BlocklandImports.lua` and `EmitterDefaults.lua`, run from `serverstart.lua`, cover every light and emitter type Blockland's default add-ons have. |
-| `addBlocklandLight(uiName, table)` / `addBlocklandLight(uiName, nil)` | a Blockland light type's name, like `"Red Light"`, 1-255 characters, case-insensitive; light fields as for `brick:setLight` | none | Sets the light `loadBlocklandSave` puts on bricks that had this Blockland light type, replacing any set before. Fields left out get a new light's defaults, and without an `offset` the light sits just above its brick like the wrench dialog's. An unknown field or a value of the wrong kind logs an error and changes nothing. `nil` forgets the type, so its lights are skipped. Bricks already loaded keep their lights. |
+| `addBlocklandLight(uiName, table)` / `addBlocklandLight(uiName, nil)` | a Blockland light type's name, like `"Red Light"`, 1-255 characters, case-insensitive; light fields as for `brick:setLight` | none | Sets the light `loadBlocklandSave` puts on bricks that had this Blockland light type, replacing any set before. Fields left out get a new light's defaults, so without an `offset` the light sits in the middle of its brick, like Blockland's. An unknown field or a value of the wrong kind logs an error and changes nothing. `nil` forgets the type, so its lights are skipped. Bricks already loaded keep their lights. |
 | `addBlocklandEmitter(uiName, typeName)` / `addBlocklandEmitter(uiName, nil)` | a Blockland emitter's name, like `"Fog A"`, 1-255 characters, case-insensitive; an emitter type's name | none | Makes `loadBlocklandSave` put an emitter of that type on bricks that had this Blockland emitter, instead of looking for a type with that `uiName`. Logs an error if there's no emitter type by that name. `nil` goes back to matching by `uiName`. |
 
 Save and load functions only accept a plain file name, with no folders, since saves always live
@@ -434,7 +435,7 @@ Light fields for `brick:setLight` and `brick:getLight` (see [Lights](#lights) fo
 | `coneAngle` | `0` | 0 shines every way, 1-179 makes a spotlight this many degrees wide. |
 | `direction` | `{0, -1, 0}` | Which way a spotlight points, any length but zero. |
 | `spin` | `0` | Degrees per second, -3600 to 3600. |
-| `offset` | just above the brick | Where the light is from the middle of the brick, in world units, -32 to 32 on each axis. The default is 0.25 above the middle of its top face, so the light isn't in its own brick's shadow. |
+| `offset` | `{0, 0, 0}` | Where the light is from the middle of the brick, in world units, -32 to 32 on each axis. Point light shadows leave out any brick a light is inside, so a light in the middle of its brick shines out through it, though bricks right next to it still cast shadows. |
 
 ---
 

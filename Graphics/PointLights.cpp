@@ -226,7 +226,8 @@ void PointLights::update(const std::vector<PointLightSource>& lights, std::share
 }
 
 void PointLights::renderShadows(unsigned int sceneGeneration, bool tint, const std::function<bool(const glm::vec3& position, float range)>& movingCastersNear,
-	const std::function<void(const glm::mat4& lightSpaceMatrix, bool tinted)>& drawCasters, const std::function<void(const glm::mat4& lightSpaceMatrix)>& drawTint)
+	const std::function<void(const glm::mat4& lightSpaceMatrix, const glm::vec3& lightPosition, bool tinted)>& drawCasters,
+	const std::function<void(const glm::mat4& lightSpaceMatrix, const glm::vec3& lightPosition)>& drawTint)
 {
 	facesDrawn = 0;
 	tint = tint && coloredShadows;
@@ -265,13 +266,13 @@ void PointLights::renderShadows(unsigned int sceneGeneration, bool tint, const s
 				continue;
 
 			shadowMaps->useLayer(s * 6 + face);
-			drawCasters(slot.faces[face], tint);
+			drawCasters(slot.faces[face], slot.position, tint);
 			facesDrawn++;
 
 			if (tint)
 			{
 				tintMaps->useLayer(s * 6 + face);
-				drawTint(slot.faces[face]);
+				drawTint(slot.faces[face], slot.position);
 			}
 		}
 	}

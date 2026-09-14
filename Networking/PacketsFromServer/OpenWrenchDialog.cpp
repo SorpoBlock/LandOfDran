@@ -36,11 +36,8 @@ bool OpenWrenchDialogPacket::applyPacket(const ClientProgramData& pd, Simulation
 	}
 
 	std::string label = "Brick";
-	unsigned char height = 1;
 	if (const Brick* brick = simulation.bricks ? simulation.bricks->find(editing.brickID) : nullptr)
 	{
-		height = brick->height;
-
 		const SpecialBrickType* type = brick->isSpecial() ? pd.brickTypes.getSpecial(brick->typeID - 1) : nullptr;
 		if (type)
 			label = type->uiName;
@@ -48,9 +45,9 @@ bool OpenWrenchDialogPacket::applyPacket(const ClientProgramData& pd, Simulation
 			label = std::to_string(brick->width) + "x" + std::to_string(brick->length) + " brick, " + std::to_string(brick->height) + (brick->height == 1 ? " plate" : " plates") + " tall";
 	}
 
-	//So turning the light on starts it off above the brick
+	//So turning the light on starts it off with a new light's settings
 	if (!editing.attachments.hasLight)
-		editing.attachments.resetLight(height);
+		editing.attachments.resetLight();
 
 	pd.wrenchDialog->openFor(editing, label, pd.audio->getMusicNames(), pd.particles->getEmitterTypeNames());
 	pd.context->setMouseLock(false);

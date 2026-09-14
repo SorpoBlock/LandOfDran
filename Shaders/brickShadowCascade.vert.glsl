@@ -16,6 +16,10 @@ uniform float minOpacity;
 //Drawing special bricks' shapes, see brick.vert
 uniform bool specialMesh;
 
+//Point light shadows: bricks whose grid box has skipPoint (the light) inside don't cast, so a light in the middle of its brick isn't buried by it
+uniform bool skipContaining;
+uniform vec3 skipPoint;
+
 //Only used by shadowTint.frag
 out vec4 casterColor;
 
@@ -30,6 +34,13 @@ void main()
 
 	//Collapsing every corner to one point leaves nothing to rasterize
 	if(casterColor.a < minOpacity)
+	{
+		gl_Position = vec4(2.0, 2.0, 0.0, 1.0);
+		return;
+	}
+
+	//BrickCorner and BrickSize are the turned box a brick fills on the grid, special or not
+	if(skipContaining && all(greaterThan(skipPoint, BrickCorner * gridScale)) && all(lessThan(skipPoint, (BrickCorner + BrickSize) * gridScale)))
 	{
 		gl_Position = vec4(2.0, 2.0, 0.0, 1.0);
 		return;
