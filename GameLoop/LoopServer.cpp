@@ -4,6 +4,7 @@
 #include "../LuaFunctions/Static.h"
 #include "../LuaFunctions/LightLua.h"
 #include "../LuaFunctions/SoundLua.h"
+#include "../LuaFunctions/EmitterLua.h"
 
 #include <random>
 
@@ -48,11 +49,13 @@ void LoopServer::run(float deltaT, ExecutableArguments& cmdArgs, std::shared_ptr
 	pd.dynamics->sendRecent();
 	pd.statics->sendRecent();
 	pd.lights->sendRecent();
+	pd.emitters->sendRecent();
 	pd.bricks->sendRecent();
 	applyWaterForces(deltaT);
-	pd.physicsWorld->step(deltaT); 
+	pd.physicsWorld->step(deltaT);
 
 	playWaterSounds();
+	updateEmitters();
 
 	for (unsigned int a = 0; a < Logger::getStorage()->size(); a++)
 		server->updateAdminConsoles(Logger::getStorage()->at(a));
@@ -170,6 +173,8 @@ void LoopServer::playWaterSounds()
 		if (dynamic->inWater && -verticalSpeed > splashSpeed)
 		{
 			playSoundAt("Splash", surface, pitch, std::clamp(0.3f + (-verticalSpeed - splashSpeed) / 40.0f, 0.3f, 1.0f));
+			//The old game's splash effect, if Lua defined it
+			spawnEmitterAt("playerBubbleEmitter", surface);
 			dynamic->lastWaterSoundMS = SDL_GetTicks();
 		}
 		else if (!dynamic->inWater && verticalSpeed > exitSpeed)
@@ -177,6 +182,25 @@ void LoopServer::playWaterSounds()
 			playSoundAt("ExitWater", surface, pitch, std::clamp(0.2f + (verticalSpeed - exitSpeed) / 60.0f, 0.2f, 0.7f));
 			dynamic->lastWaterSoundMS = SDL_GetTicks();
 		}
+	}
+}
+
+void LoopServer::updateEmitters()
+{
+	unsigned int now = SDL_GetTicks();
+
+	//Backwards, since destroying one moves the ones after it down
+	for (int a = (int)pd.emitters->size() - 1; a >= 0; a--)
+	{
+		std::shared_ptr<Emitter> emitter = pd.emitters->get(a);
+
+		uint16_t typeID = emitter->getTypeID();
+		bool expired = typeID < pd.emitterTypes.size() && pd.emitterTypes[typeID].lifetimeMS > 0 && now - emitter->getCreationTime() > pd.emitterTypes[typeID].lifetimeMS;
+		bool dynamicGone = emitter->getAttachKind() == EmitterAttachDynamic && emitter->dynamic.expired();
+		bool brickGone = emitter->brickID != NO_ID && !pd.bricks->find(emitter->brickID);
+
+		if (expired || dynamicGone || brickGone)
+			pd.emitters->destroy(emitter);
 	}
 }
 
@@ -266,6 +290,8 @@ LoopServer::LoopServer(ExecutableArguments& cmdArgs, std::shared_ptr<SettingMana
 	pd.statics->makeLuaMetatable(pd.luaState, "metatable_static", getStaticFunctions(pd.luaState));
 	pd.lights = new ObjHolder<Light>(SimObjectType::LightTypeId, server);
 	pd.lights->makeLuaMetatable(pd.luaState, "metatable_light", getLightFunctions(pd.luaState));
+	pd.emitters = new ObjHolder<Emitter>(SimObjectType::EmitterTypeId, server);
+	pd.emitters->makeLuaMetatable(pd.luaState, "metatable_emitter", getEmitterFunctions(pd.luaState));
 	pd.bricks = new BrickHolder(pd.physicsWorld, server);
 	pd.brickTypes.load("Assets/brick/types");
 	pd.bricks->makeLuaMetatable(pd.luaState, "metatable_brick", getBrickFunctions(pd.luaState));
@@ -315,6 +341,7 @@ LoopServer::~LoopServer()
 	delete pd.dynamics;
 	delete pd.statics;
 	delete pd.lights;
+	delete pd.emitters;
 
 	pd.dynamicTypes.clear();
 	pd.allNetTypes.clear();

@@ -1,5 +1,20 @@
 #include "FileFunctions.h"
 
+bool isPathInsideGameFolder(const std::string &path)
+{
+    std::filesystem::path parts(path);
+    if (parts.is_absolute() || parts.has_root_name() || parts.has_root_directory())
+        return false;
+
+    for (const std::filesystem::path& part : parts)
+    {
+        if (part == "..")
+            return false;
+    }
+
+    return true;
+}
+
 bool okayFilePath(const std::string &path)
 {
     //Greater than 2 characters

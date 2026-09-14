@@ -178,6 +178,10 @@ KickReason Client::handleEvent(ENetEvent& event)
 					packets.push_back(new AddSoundTypePacket(packetHoldTime, event.packet));
 					return NotKicked;
 
+				case ParticleEmitterType:
+					packets.push_back(new ParticleEmitterTypePacket(packetHoldTime, event.packet));
+					return NotKicked;
+
 				case OneShotSound:
 					packets.push_back(new OneShotSoundPacket(packetHoldTime, event.packet));
 					return NotKicked;

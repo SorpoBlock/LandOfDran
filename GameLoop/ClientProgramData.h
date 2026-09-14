@@ -18,6 +18,7 @@
 #include "../Graphics/InstancedBrickRenderer.h"
 #include "../Graphics/PointLights.h"
 #include "../Graphics/WaterRipples.h"
+#include "../Graphics/ParticleSystem.h"
 #include "../Bricks/GhostBrick.h"
 #include "../Bricks/BrickTypes.h"
 #include "../Interface/BrickSelector.h"
@@ -52,6 +53,9 @@ struct ClientProgramData
 
 	//Lives for the whole program, lights of whichever server we're on are passed to it each frame, see LoopClient::renderEverything
 	PointLights* pointLights = nullptr;
+
+	//Lives for the whole program, particle and emitter types come from whichever server we're on, see LoopClient::updateParticles
+	ParticleSystem* particles = nullptr;
 
 	//Named brick sizes with icons, for the brick selector
 	BrickTypes brickTypes;

@@ -27,6 +27,9 @@ newSoundType("BrickClear","Assets/sound/brickClear.wav")
 newSoundType("Splash","Assets/sound/splash1.wav")
 newSoundType("ExitWater","Assets/sound/exitWater.wav")
 
+--Particle and emitter types, including the splash the server makes where dynamics fall into the water
+dofile("EmitterDefaults.lua")
+
 --Different arrays of kinds of plates that can be made to dissapear with their own button
 larges = {}
 mediums = {}
@@ -450,5 +453,38 @@ function lightTest()
 	for i=0, 20, 1 do
 		createLight(20, 25, i*5, math.random(), math.random(), math.random(), 300, 0.15, 1)
 	end
+end
+
+--Every emitter type from EmitterDefaults.lua in two rows: ones that keep going, and one-off bursts every 1.5 seconds. Run it again to remove them
+emitterTestOn = false
+function emitterTest()
+	for i=getNumEmitters()-1, 0, -1 do
+		getEmitterIdx(i):destroy()
+	end
+
+	emitterTestOn = not emitterTestOn
+	if not emitterTestOn then
+		return
+	end
+
+	local continuous = {"fountainEmitter", "CameraEmitter", "playerJetEmitter", "shellTrailEmitter"}
+	for i, name in ipairs(continuous) do
+		addEmitter(name, 20 + i * 8, 5, -20)
+	end
+
+	emitterBursts()
+end
+
+function emitterBursts()
+	if not emitterTestOn then
+		return
+	end
+
+	local bursts = {"playerBubbleEmitter", "wrenchSparkEmitter", "hammerSparkEmitter", "hammerExplosionEmitter", "wrenchExplosionEmitter", "gunSmokeEmitter", "ouchEmitter"}
+	for i, name in ipairs(bursts) do
+		addEmitter(name, 20 + i * 8, 5, -35)
+	end
+
+	schedule(1500, "emitterBursts")
 end
 

@@ -115,6 +115,9 @@ class ShaderManager
 	//Program for drawing the glow around point lights
 	Program* coronaShader = new Program();
 
+	//Program for drawing emitters' particles
+	Program* particleShader = new Program();
+
 	//Program for drawing normal meshes to screen will full PBR based lighting
 	Program* modelShader = new Program();
 

@@ -76,6 +76,28 @@ bool UpdateSimObjectsPacket::applyPacket(const ClientProgramData& pd, Simulation
 
 		break;
 	}
+	case EmitterTypeId:
+	{
+		unsigned int numObjects = packet->data[2];
+		unsigned int byteIterator = 3;
+		netIDType lastId = NO_ID;
+
+		for (unsigned int a = 0; a < numObjects; a++)
+		{
+			lastId = simulation.emitters->getIdFromDelta(packet->data + byteIterator, lastId, byteIterator);
+
+			if (byteIterator + Emitter::packetBytes > packet->dataLength)
+				break;
+
+			std::shared_ptr<Emitter> toUpdate = simulation.emitters->find(lastId);
+			if (toUpdate)
+				toUpdate->readFromPacket(packet->data + byteIterator);
+
+			byteIterator += Emitter::packetBytes;
+		}
+
+		break;
+	}
 	case DynamicTypeId:
 	{
 		unsigned int numObjects = packet->data[2];

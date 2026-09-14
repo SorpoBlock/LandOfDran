@@ -145,6 +145,8 @@ add_executable (LandOfDran
 "Graphics/PointLights.cpp"
 "Graphics/WaterRipples.h"
 "Graphics/WaterRipples.cpp"
+"Graphics/ParticleSystem.h"
+"Graphics/ParticleSystem.cpp"
 
 "Interface/InputMap.h"  
 "Interface/InputMap.cpp" 
@@ -173,6 +175,10 @@ add_executable (LandOfDran
 "SimObjects/StaticObject.cpp"
 "SimObjects/Light.h"
 "SimObjects/Light.cpp"
+"SimObjects/ParticleTypes.h"
+"SimObjects/ParticleTypes.cpp"
+"SimObjects/Emitter.h"
+"SimObjects/Emitter.cpp"
  
 "Networking/Server.h" 
 "Networking/Server.cpp" 
@@ -238,6 +244,8 @@ add_executable (LandOfDran
 "Networking/PacketsFromServer/VoiceStatus.cpp"
 "Networking/PacketsFromServer/DynamicBuoyancy.h"
 "Networking/PacketsFromServer/DynamicBuoyancy.cpp"
+"Networking/PacketsFromServer/ParticleEmitterType.h"
+"Networking/PacketsFromServer/ParticleEmitterType.cpp"
 
 "Networking/PacketsFromClient/ConnectionRequest.cpp" 
 "Networking/PacketsFromClient/FinishedLoading.cpp" 
@@ -287,6 +295,8 @@ add_executable (LandOfDran
 "LuaFunctions/Static.cpp"
 "LuaFunctions/LightLua.h"
 "LuaFunctions/LightLua.cpp"
+"LuaFunctions/EmitterLua.h"
+"LuaFunctions/EmitterLua.cpp"
 
 "Physics/PhysicsWorld.h" 
 "Physics/PhysicsWorld.cpp" 

@@ -40,6 +40,14 @@ void LoopClient::leaveServer(ExecutableArguments& cmdArgs)
 		simulation.lights = nullptr;
 	}
 
+	if (simulation.emitters)
+	{
+		simulation.emitters->destroyAll();
+		delete simulation.emitters;
+		simulation.emitters = nullptr;
+	}
+	pd.particles->clear();
+
 	//Removes brick and debris bodies, so it has to happen before the physics world is destroyed below
 	delete simulation.bricks;
 	simulation.bricks = nullptr;
@@ -280,6 +288,7 @@ void LoopClient::handleInput(float deltaT, ExecutableArguments& cmdArgs, std::sh
 		pd.voice->setMicrophone(settings->getString("audio/microphone"), settings->getFloat("audio/microphonevolume"));
 		if (simulation.brickDebris)
 			simulation.brickDebris->setLifetime(settings->getFloat("graphics/brickdebrisseconds"));
+		pd.particles->setMaxParticles(settings->getInt("graphics/maxparticles"));
 	}
 
 	if (pd.debugMenu->passwordSubmitted())
@@ -712,7 +721,8 @@ void LoopClient::renderTransparent(bool clipAtWater)
 		pd.brickRenderer->renderGhost(pd.shaders, pd.ghostBrick.get(), pulse);
 	}
 
-	//Doesn't write depth, so it goes after everything that does
+	//Neither writes depth, so they go after everything that does
+	pd.particles->render(pd.shaders, pd.lightSpaceMatricies);
 	pd.pointLights->renderCoronae(pd.shaders);
 
 	if (clipAtWater)
@@ -791,6 +801,61 @@ void LoopClient::makeWaterRipples(float deltaT)
 	}
 }
 
+void LoopClient::updateParticles()
+{
+	//Particles don't get far from their emitters, so emitters well past the end of the fog don't eject any
+	static constexpr float ejectPastFog = 64.0f;
+
+	double nowMS = ParticleSystem::getNowMS();
+	glm::vec3 cameraPosition = simulation.camera->getPosition();
+	float ejectDistance = pd.environment.fogDistanceMax + ejectPastFog;
+
+	if (simulation.emitters)
+	{
+		int64_t ticks = SDL_GetTicks();
+
+		for (unsigned int a = 0; a < simulation.emitters->size(); a++)
+		{
+			std::shared_ptr<Emitter> emitter = simulation.emitters->get(a);
+			glm::vec3 position = emitter->getPosition();
+			glm::quat rotation = glm::quat(1, 0, 0, 0);
+			glm::vec3 velocity = glm::vec3(0);
+
+			if (emitter->getAttachKind() == EmitterAttachDynamic)
+			{
+				std::shared_ptr<Dynamic> target = emitter->dynamic.lock();
+				if (!target || target->getID() != emitter->getDynamicID())
+				{
+					target = simulation.dynamics ? simulation.dynamics->find(emitter->getDynamicID()) : nullptr;
+					emitter->dynamic = target;
+				}
+
+				//Hasn't arrived yet, or is gone and the emitter's removal is on its way
+				if (!target)
+				{
+					ParticleSystem::skipEmission(emitter->clock, position, rotation, nowMS);
+					continue;
+				}
+
+				position = target->getMeshCenter(emitter->getMeshIndex());
+				rotation = target->getMeshRotation(emitter->getMeshIndex());
+				velocity = b2g3(target->getVelocity());
+			}
+
+			//The server removes it too, this just keeps a short burst from running long while that's on its way
+			const EmitterTypeData* type = pd.particles->getEmitterType(emitter->getTypeID());
+			bool expired = type && type->lifetimeMS > 0 && ticks - emitter->startMS > (int64_t)type->lifetimeMS;
+
+			if (expired || glm::distance(position, cameraPosition) > ejectDistance)
+				ParticleSystem::skipEmission(emitter->clock, position, rotation, nowMS);
+			else
+				pd.particles->emit(emitter->clock, emitter->getTypeID(), position, rotation, velocity, nowMS);
+		}
+	}
+
+	pd.particles->update(nowMS, cameraPosition, pd.environment.fogDistanceMax);
+}
+
 void LoopClient::renderEverything(float deltaT)
 {
 	//TODO: Get rid of this
@@ -826,6 +891,8 @@ void LoopClient::renderEverything(float deltaT)
 	pd.shaders->environmentUniforms.HorizonHeight = simulation.waterEnabled ? std::max(0.0f, simulation.waterLevel) : 0.0f;
 	pd.shaders->environmentUniforms.ClipPlane = glm::vec4(0);
 	pd.shaders->updateEnvironmentUBO();
+
+	updateParticles();
 
 	//Fog fully hides anything past fogDistanceMax, so shadows don't need to reach further
 	simulation.camera->calculateLightSpaceMatricies(pd.environment.lightDirection, pd.environment.fogDistanceMax, pd.shadowResolution, pd.lightSpaceMatricies);
@@ -1255,6 +1322,7 @@ void LoopClient::run(float deltaT,ExecutableArguments& cmdArgs, std::shared_ptr<
 		pd.debugMenu->addExtraLine("Bricks: " + std::to_string(simulation.bricks->size()));
 	pd.debugMenu->addExtraLine("Environmental audio: " + pd.acousticProbe.getStats());
 	pd.debugMenu->addExtraLine("Point lights: " + pd.pointLights->getStats());
+	pd.debugMenu->addExtraLine("Particles: " + pd.particles->getStats());
 	if (simulation.dynamics && simulation.dynamics->size() > 0)
 		pd.debugMenu->addExtraLine("First other snaps: " + std::to_string(simulation.dynamics->get(0)->interpolator.getNumSnapshots()));
 	if (simulation.controlledDynamics.size() > 0)
@@ -1294,6 +1362,7 @@ void LoopClient::run(float deltaT,ExecutableArguments& cmdArgs, std::shared_ptr<
 		simulation.dynamics = new ObjHolder<Dynamic>(DynamicTypeId);
 		simulation.statics = new ObjHolder<StaticObject>(StaticTypeId);
 		simulation.lights = new ObjHolder<Light>(LightTypeId);
+		simulation.emitters = new ObjHolder<Emitter>(EmitterTypeId);
 		simulation.bricks = new BrickHolder(pd.physicsWorld);
 		simulation.bricks->setRenderer(pd.brickRenderer);
 		simulation.brickDebris = new BrickDebris(pd.physicsWorld);
@@ -1491,6 +1560,8 @@ LoopClient::LoopClient(ExecutableArguments& cmdArgs, std::shared_ptr<SettingMana
 	pd.grassVao = createQuadVAO();
 
 	pd.pointLights = new PointLights();
+	pd.particles = new ParticleSystem(pd.textures);
+	pd.particles->setMaxParticles(settings->getInt("graphics/maxparticles"));
 	createShadowTarget(settings);
 	pd.lightSpaceMatriciesUniformModel = pd.shaders->modelShader->getUniformLocation("lightSpaceMatricies");
 	pd.lightSpaceMatriciesUniformBrick = pd.shaders->brickShader->getUniformLocation("lightSpaceMatricies");
@@ -1565,6 +1636,9 @@ LoopClient::~LoopClient()
 
 	delete pd.pointLights;
 	pd.pointLights = nullptr;
+
+	delete pd.particles;
+	pd.particles = nullptr;
 
 	//Not needed this is a destructor lol
 	//Also this should only be called when the programs shutting down anyway 

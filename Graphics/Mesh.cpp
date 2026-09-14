@@ -133,6 +133,19 @@ void ModelInstance::setModelTransform(glm::mat4 &&transform)
 	wholeModelTransform = transform;
 }
 
+glm::vec3 ModelInstance::getMeshCenter(int meshIdx) const
+{
+	return glm::vec3(wholeModelTransform * MeshTransforms[meshIdx] * glm::vec4(type->allMeshes[meshIdx]->center, 1.0f));
+}
+
+glm::quat ModelInstance::getMeshRotation(int meshIdx) const
+{
+	glm::mat3 rotation(wholeModelTransform * MeshTransforms[meshIdx]);
+	for (int axis = 0; axis < 3; axis++)
+		rotation[axis] = glm::normalize(rotation[axis]);
+	return glm::quat_cast(rotation);
+}
+
 void ModelInstance::setNodeRotation(int nodeId,const glm::quat &rotation)
 {
 	if (nodeId < 0 || nodeId >= NodeRotationFixes.size())
@@ -750,6 +763,19 @@ Mesh::Mesh(aiMesh const* const src, Model const* const parent,bool serverSide)
 	{
 		error("Assimp Mesh had no position vertex data!");
 		return;
+	}
+
+	if (src->mNumVertices > 0)
+	{
+		glm::vec3 low(src->mVertices[0].x, src->mVertices[0].y, src->mVertices[0].z);
+		glm::vec3 high = low;
+		for (unsigned int v = 1; v < src->mNumVertices; v++)
+		{
+			glm::vec3 vertex(src->mVertices[v].x, src->mVertices[v].y, src->mVertices[v].z);
+			low = glm::min(low, vertex);
+			high = glm::max(high, vertex);
+		}
+		center = (low + high) * 0.5f;
 	}
 
 	fillBuffer(ModelSpace, src->mVertices, src->mNumVertices * sizeof(aiVector3D), 3);

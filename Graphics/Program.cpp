@@ -36,6 +36,9 @@ void Program::registerSamplerUniforms()
     if (glGetUniformLocation(handle, "ScreenCopy") != -1)
         glUniform1i(glGetUniformLocation(handle, "ScreenCopy"), ScreenCopy);
 
+    if (glGetUniformLocation(handle, "ParticleTexture") != -1)
+        glUniform1i(glGetUniformLocation(handle, "ParticleTexture"), ParticleTexture);
+
     //Enable others as they are actually added
     /*glUniform1i(glGetUniformLocation(handle, "BRDF"), BRDF);
     glUniform1i(glGetUniformLocation(handle, "HeightMap"),          HeightMap);

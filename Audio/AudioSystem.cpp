@@ -441,12 +441,7 @@ void AudioSystem::addSoundType(int id, const std::string& name, const std::strin
 		return;
 
 	//File paths come from the server, don't let one reach outside the game's folder
-	std::filesystem::path path(filePath);
-	bool outside = path.is_absolute() || path.has_root_name() || path.has_root_directory();
-	for (const std::filesystem::path& part : path)
-		outside = outside || part == "..";
-
-	if (outside)
+	if (!isPathInsideGameFolder(filePath))
 	{
 		error("Not loading sound " + name + ", its file isn't inside the game folder: " + filePath);
 		return;

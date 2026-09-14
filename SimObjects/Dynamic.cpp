@@ -107,6 +107,26 @@ void Dynamic::updateSnapshot(float deltaT, bool forceUsePhysicsTransform, float 
 	modelInstance->setModelTransform(glm::translate(pivot) * glm::toMat4(renderedTilt) * glm::translate(renderedPosition - pivot) * glm::toMat4(renderedRotation));
 }
 
+glm::vec3 Dynamic::getMeshCenter(int meshIndex) const
+{
+	if (!modelInstance || meshIndex < 0 || meshIndex >= modelInstance->getNumMeshes())
+		return renderedTransformInitialized ? renderedPosition : b2g3(getPosition());
+
+	return modelInstance->getMeshCenter(meshIndex);
+}
+
+glm::quat Dynamic::getMeshRotation(int meshIndex) const
+{
+	if (modelInstance && meshIndex >= 0 && meshIndex < modelInstance->getNumMeshes())
+		return modelInstance->getMeshRotation(meshIndex);
+
+	if (renderedTransformInitialized)
+		return renderedTilt * renderedRotation;
+
+	btQuaternion rotation = body->getWorldTransform().getRotation();
+	return glm::quat(rotation.w(), rotation.x(), rotation.y(), rotation.z());
+}
+
 void Dynamic::handOffFromPrediction(float idealBufferSize)
 {
 	const btTransform& t = body->getWorldTransform();

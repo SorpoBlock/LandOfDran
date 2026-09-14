@@ -86,6 +86,8 @@ bool ShaderManager::readShaderList(const std::string &filePath)
 				underwaterShader = lastProgram;
 			else if (programName == "corona")
 				coronaShader = lastProgram;
+			else if (programName == "particle")
+				particleShader = lastProgram;
 			else
 				error("Invalid program name " + programName);
 		}

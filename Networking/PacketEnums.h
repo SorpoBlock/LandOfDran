@@ -123,6 +123,7 @@ enum FromServerPacketType : unsigned char
 	VoiceFrameFromServer = 23,	//Someone else's voice chat frame, with who's talking and where they are
 	VoiceStatus = 24,		//Whether you're muted, or a talker's name, see VoiceStatusKind
 	DynamicBuoyancy = 25,	//A dynamic's buoyancy, so clients simulating it in water match the server
+	ParticleEmitterType = 26,	//A particle or emitter type, for every one as a client joins and whenever Lua adds one, see ParticleEmitterTypeKind
 };
 
 //Second byte of a VoiceStatus packet

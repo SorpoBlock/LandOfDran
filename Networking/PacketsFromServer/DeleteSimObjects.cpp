@@ -57,6 +57,18 @@ bool DeleteSimObjectsPacket::applyPacket(const ClientProgramData& pd, Simulation
 			}
 			break;
 		}
+		case EmitterTypeId:
+		{
+			unsigned int numObjects = packet->data[2];
+			for (unsigned int a = 0; a < numObjects; a++)
+			{
+				netIDType id;
+				memcpy(&id, packet->data + 3 + a * sizeof(netIDType), sizeof(netIDType));
+
+				simulation.emitters->destroyByID(id);
+			}
+			break;
+		}
 	}
 
 	return true;

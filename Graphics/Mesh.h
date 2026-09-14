@@ -197,6 +197,12 @@ class ModelInstance
 	//How many different meshes there are with colors transforms flags, etc
 	int getNumMeshes() const { return MeshTransforms.size(); }
 
+	//World space middle of one of its meshes as of the last calculateMeshTransforms and setModelTransform, see Mesh::center
+	glm::vec3 getMeshCenter(int meshIdx) const;
+
+	//World space rotation of one of its meshes, with any scale taken out, as of the same updates as getMeshCenter
+	glm::quat getMeshRotation(int meshIdx) const;
+
 	//Returns true if color has been specifically set, or false if it's default
 	bool getMeshColor(int meshIdx, glm::vec4& color) const;
 
@@ -316,6 +322,9 @@ class Mesh
 	size_t meshIndex = 0;
 
 	std::string name = "";
+
+	//Middle of its vertices' bounding box in model space, for emitters following one mesh of a dynamic, client only
+	glm::vec3 center = glm::vec3(0);
 
 	/*
 		Vertex array object that contains the mesh

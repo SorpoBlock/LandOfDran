@@ -164,6 +164,36 @@ bool AddSimObjectsPacket::applyPacket(const ClientProgramData& pd, Simulation& s
 			}
 			break;
 		}
+		case EmitterTypeId:
+		{
+			unsigned int numObjects = packet->data[2];
+			unsigned int byteIterator = 3;
+			for (unsigned int a = 0; a < numObjects; a++)
+			{
+				if (byteIterator + sizeof(netIDType) + sizeof(uint32_t) + Emitter::packetBytes > packet->dataLength)
+					break;
+
+				netIDType id;
+				memcpy(&id, packet->data + byteIterator, sizeof(netIDType));
+				byteIterator += sizeof(netIDType);
+
+				uint32_t ageMS;
+				memcpy(&ageMS, packet->data + byteIterator, sizeof(uint32_t));
+				byteIterator += sizeof(uint32_t);
+
+				//Can be sent twice, see the note on statics above
+				if (!simulation.emitters->find(id))
+				{
+					simulation.emitters->clientSetNextId(id);
+					std::shared_ptr<Emitter> newEmitter = simulation.emitters->create((uint16_t)0, glm::vec3(0));
+					newEmitter->readFromPacket(packet->data + byteIterator);
+					newEmitter->startMS = (int64_t)SDL_GetTicks() - ageMS;
+				}
+
+				byteIterator += Emitter::packetBytes;
+			}
+			break;
+		}
 		case DynamicTypeId:
 		{
 			unsigned int numObjects = packet->data[2];

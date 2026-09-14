@@ -59,6 +59,7 @@ try {
     Copy-Item "Assets" $PkgDir -Recurse
     Copy-Item "Shaders" $PkgDir -Recurse
     Copy-Item "serverstart.lua" $PkgDir
+    Copy-Item "EmitterDefaults.lua" $PkgDir
 
     # Saves is gitignored, so this packages whatever builds are in the local copy, if there is one
     if (Test-Path "Saves") {

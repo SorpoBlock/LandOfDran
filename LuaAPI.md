@@ -7,9 +7,9 @@ source - if you add or change a binding, update this file too.
 
 ## Conventions
 
-- Every `Dynamic`, `StaticObject`, client, brick, and light table has an `id` field (its net ID) and a
+- Every `Dynamic`, `StaticObject`, client, brick, light, and emitter table has an `id` field (its net ID) and a
   `type` field you can compare against: `1` = Dynamic, `2` = Static, `3` = Client, `4` = Brick,
-  `5` = Light (`NetTypes/NetType.h`'s `SimObjectType`). `raycast()` and `client:getCursorItem()` can
+  `5` = Light, `6` = Emitter (`NetTypes/NetType.h`'s `SimObjectType`). `raycast()` and `client:getCursorItem()` can
   return a Dynamic, a Static, or a Brick, so check `.type` before assuming which.
 - Functions documented as `Expected N arguments` in an error message are strict about
   argument count - passing the wrong number logs an error and does nothing (they don't
@@ -25,7 +25,7 @@ source - if you add or change a binding, update this file too.
 
 | Function | Arguments | Description |
 |---|---|---|
-| `info(...)` | any number of values | Logs a line to the server's info log. Values are stringified (tables holding a Dynamic/Static/Client/Brick print as `[Dynamic N]`/`[Static N]`/`[Client N]`/`[Brick N]`). |
+| `info(...)` | any number of values | Logs a line to the server's info log. Values are stringified (tables holding a Dynamic/Static/Client/Brick/Light/Emitter print as `[Dynamic N]`/`[Static N]`/`[Client N]`/`[Brick N]`/`[Light N]`/`[Emitter N]`). |
 | `error(...)` | any number of values | Same as `info`, but logged as an error and prefixed accordingly. |
 | `debug(...)` | any number of values | Same as `info`, but only logged when the `logger/verbose` setting is on. |
 | `shutdown()` | none | Stops the main program loop (shuts the whole process down, not just the server). |
@@ -242,6 +242,98 @@ argument isn't a finite number.
 | `light:setConeAngle(degrees)` | 0, or 1-179 (clamped) | none | Turns the light into a spotlight with a beam this many degrees wide, softening toward its edge. `0` (the default) makes it shine every way again. A spotlight's corona only shows from inside its beam, and its shadows only draw the directions the beam can reach, so they cost less. |
 | `light:getSpin()` | none | degrees per second | How fast the direction turns. |
 | `light:setSpin(degreesPerSecond)` | -3600 to 3600, clamped | none | Turns the spotlight's direction around the vertical axis, like a lighthouse. Negative spins the other way. Each client spins it on its own, so players can see it at slightly different angles. A spinning spotlight redraws its shadows every frame. |
+
+---
+
+## Emitters
+
+Emitters eject particles: small camera-facing images that move, spin, and change color and size over
+their short lives, like Blockland's. A **particle type** says what one particle looks like and how it
+moves, an **emitter type** says how particles are ejected, and an **emitter** is one of those placed in
+the world, at a spot or following a dynamic. Only the types and emitters are sent to clients, each
+client ejects, moves, and draws the particles on its own, so two players never see exactly the same ones.
+
+Types are made by name, and adding one with a name that's taken replaces it: clients already in the
+game get the change right away and existing emitters of that type carry on with it. `EmitterDefaults.lua`,
+run from `serverstart.lua`, adds the old game's types (converted to the units below) and a
+`fountainEmitter` for testing. The server makes a `playerBubbleEmitter` wherever a dynamic splashes
+into the water, if a type by that name exists. `emitterTest()` in `serverstart.lua` places one of every
+default type.
+
+Units are Blockland's: angles in degrees, speeds in studs per second, times in milliseconds. Ejection
+directions are relative to the emitter: world space for one at a spot or on a brick, and turning with the
+dynamic (or the mesh) for one that follows a dynamic. Gravity is always world space. Each client keeps at
+most `graphics/maxparticles` particles alive (0 to 100000, default 20000), and emitters much further from
+its camera than the end of the fog don't eject any. Particles fade into the fog and show in water
+reflections. Particle types with `lit` set are lit and shadowed like smoke or bubbles would be, the rest
+keep their colors day and night like fire and sparks.
+
+### Particle type fields
+
+The table passed to `addParticleType`. Anything left out keeps its default. Vectors can be tables like
+`{1, 0.5, 0, 1}` or, like the old game's scripts, strings like `"1 0.5 0 1"`. An unknown field name or
+a value of the wrong kind logs an error and the type isn't added. Numbers out of range are clamped.
+
+| Field | Default | Description |
+|---|---|---|
+| `texture` | required | Image path relative to the game folder, like `"Assets/particles/cloud.png"`. Clients load it from their own copy, so it has to exist there too. |
+| `color0` - `color3` | `{1, 1, 1, 1}` | RGBA, 0-1, multiplied by the texture. |
+| `size0` - `size3` | `1` | Width in studs, 0-256. |
+| `time0` - `time3` | `0`, `0.33`, `0.66`, `1` | When over a particle's life (0 to 1) each color and size key applies, blended in between. Kept in order. |
+| `drag` | `0` | Fraction of its velocity a particle loses per second, one number or `{x, y, z}`, 0-1000. |
+| `gravity` | `{0, 0, 0}` | Acceleration in studs per second squared. `{0, -20, 0}` falls, `{0, 15, 0}` rises like smoke. |
+| `inheritedVelFactor` | `0` | How much of the velocity of the dynamic the emitter follows particles start with. |
+| `lifetimeMS` | `1000` | How long each particle lives, 1-60000. |
+| `lifetimeVarianceMS` | `0` | Each particle lives up to this much longer or shorter, kept under `lifetimeMS`. |
+| `spinSpeed` | `0` | Degrees per second the image turns. |
+| `useInvAlpha` | `false` | `true` blends by alpha, for smoke and anything that should cover what's behind it. `false` adds its color on top, for glows, sparks, and fire. |
+| `needsSorting` | `false` | Draws this type's particles back to front each frame. Alpha blended particles that overlap need it to look right. |
+| `lit` | `false` | Lights the particle like a surface of its color would be: by the sun or moon, ambient light, and point lights, darker in sun and point light shadows. For smoke, dust, and bubbles. Leave it off for anything that glows, like fire, sparks, and jets. The whole particle gets the light at its middle, and shadows don't pick up colors from transparent bricks. |
+
+### Emitter type fields
+
+The table passed to `addEmitterType`.
+
+| Field | Default | Description |
+|---|---|---|
+| `particles` | required | Names of 1-16 particle types, separated by spaces (`"a b"`) or as a table (`{"a", "b"}`). Each particle is one of them picked at random. They have to be added first. |
+| `ejectionPeriodMS` | `100` | Milliseconds between particles, at least 1. Each frame an emitter ejects every particle it owes, spread along the way it moved. |
+| `periodVarianceMS` | `0` | Each gap is up to this much longer or shorter, kept under `ejectionPeriodMS`. |
+| `ejectionVelocity` | `2` | Studs per second away from the emitter. |
+| `velocityVariance` | `1` | Up to this much faster or slower, at most `ejectionVelocity`. |
+| `ejectionOffset` | `0` | How far out from the emitter, along the way they go, particles start. |
+| `thetaMin`, `thetaMax` | `0`, `90` | Degrees down from the emitter's up each particle goes out at, picked between these (0-180). `0, 0` shoots straight up, `90, 90` flat outward, `180, 180` straight down. |
+| `phiReferenceVel` | `0` | Degrees per second the direction particles go out in turns around the vertical, for spirals. |
+| `phiVariance` | `360` | Degrees around the vertical past that direction a particle can go, `360` for every way. |
+| `lifetimeMS` | `0` | Emitters of this type remove themselves this long after they're made, for one-off bursts. `0` lasts until removed. |
+| `uiName` | `""` | Name for menus, not used yet. |
+
+### Global functions
+
+| Function | Arguments | Returns | Description |
+|---|---|---|---|
+| `addParticleType(name, table)` | name of 1-255 characters; fields above | none | Adds a particle type, or replaces the one with that name. Does nothing if its texture doesn't exist on the server. |
+| `addEmitterType(name, table)` | name of 1-255 characters; fields above | none | Adds an emitter type, or replaces the one with that name. |
+| `getParticleTable(name)` | particle type name | table | A particle type's fields, with vectors as tables. |
+| `getEmitterTable(name)` | emitter type name | table | An emitter type's fields, with `particles` as a string of names. |
+| `addEmitter(typeName[, x, y, z])` | emitter type name; position, default `0, 0, 0` | Emitter | Places an emitter. |
+| `getEmitterId(netId)` | net ID | Emitter | Looks up an emitter by its net ID. |
+| `getEmitterIdx(index)` | 0-based index | Emitter | Looks up an emitter by its position in the internal list. |
+| `getNumEmitters()` | none | count | How many emitters currently exist. |
+
+### `emitter:` methods
+
+These use the strict argument count check.
+
+| Method | Arguments | Returns | Description |
+|---|---|---|---|
+| `emitter:destroy()` | none | none | Removes the emitter. Particles it already ejected live out their lifetimes. `emitter:remove()` does the same, it's the old game's name. |
+| `emitter:getPosition()` | none | x, y, z | Where it is, or where the dynamic it follows is. |
+| `emitter:setPosition(x, y, z)` | position | none | Moves it there, no longer following a dynamic or on a brick. |
+| `emitter:getTypeName()` | none | string | Its emitter type's name. |
+| `emitter:setType(typeName)` | emitter type name | none | Switches it to another emitter type. |
+| `emitter:attachToDynamic(dynamic[, meshName])` | dynamic; name of one of its model's meshes | none | Follows the dynamic, or the middle of that mesh as it animates, ejecting particles turned the way the dynamic (or mesh) is turned. Removed along with the dynamic. |
+| `emitter:attachToBrick(brick)` | brick, or `nil` | none | Moves it to the middle of the brick, and it's removed along with the brick. `nil` leaves it where it is, no longer on or following anything. |
 
 ---
 

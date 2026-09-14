@@ -10,6 +10,12 @@
 bool okayFilePath(const std::string &path);
 
 /*
+	False for absolute paths and ones with a .. in them, for file paths the server sends clients
+	Unlike okayFilePath, any file name is fine as long as it stays inside the game's folder
+*/
+bool isPathInsideGameFolder(const std::string &path);
+
+/*
 	CRC32 checksum of the file at path
 */
 unsigned int getFileChecksum(const char* filePath);

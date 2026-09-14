@@ -21,3 +21,5 @@ underwater	vert	underwater.vert.glsl
 underwater	frag	underwater.frag.glsl
 corona	vert	corona.vert.glsl
 corona	frag	corona.frag.glsl
+particle	vert	particle.vert.glsl
+particle	frag	particle.frag.glsl

@@ -77,6 +77,8 @@ void populateDefaults(std::shared_ptr<SettingManager> settings)
 	settings->addEnum("graphics/spritedensity",		1, 				"Sprite density",	{"Low","Medium","High","Very High"});
 	settings->addFloat("graphics/brickdebrisseconds",	3.6f, false,	"Brick Debris Seconds",0,15);
 	settings->setTooltip("graphics/brickdebrisseconds", "How long removed bricks stay as debris, 0 for none");
+	settings->addInt("graphics/maxparticles",		20000, false,	"Max Particles", 0, 100000);
+	settings->setTooltip("graphics/maxparticles",	"Emitters stop making particles while this many are alive, 0 for no particles");
 
 	//Hosting settings
 	settings->addBool("hosting/useevalpassword",	false, false,	"Enable Lua Password");

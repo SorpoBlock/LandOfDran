@@ -7,6 +7,7 @@
 #include "../SimObjects/Dynamic.h"
 #include "../SimObjects/StaticObject.h"
 #include "../SimObjects/Light.h"
+#include "../SimObjects/Emitter.h"
 #include "../LuaFunctions/EventManager.h"
 #include "../Physics/PhysicsWorld.h"
 #include "../Bricks/BrickHolder.h"
@@ -85,6 +86,10 @@ struct ServerProgramData
 	//See Audio/ReverbPresets.h, sent to clients as they finish loading
 	std::string reverbPreset = "auto";
 
+	//Added with Lua's addParticleType and addEmitterType, an index is the ID clients know it by
+	std::vector<ParticleTypeData> particleTypes;
+	std::vector<EmitterTypeData> emitterTypes;
+
 	//Lua's setVoiceRange: how many studs from a talker a client's camera can be and still hear them, 0 for nobody
 	float voiceRange = 128.0f;
 	//Someone who hasn't sent any voice for this long has stopped talking, see LoopServer::endQuietTalkers
@@ -95,6 +100,7 @@ struct ServerProgramData
 	ObjHolder<Dynamic>* dynamics = nullptr;
 	ObjHolder<StaticObject> * statics = nullptr;
 	ObjHolder<Light> * lights = nullptr;
+	ObjHolder<Emitter> * emitters = nullptr;
 
 	//Created and destroyed with ServerLoop class, like the ObjHolders above
 	BrickHolder* bricks = nullptr;

@@ -36,6 +36,7 @@ void clientFinishedLoading(JoinedClient* source, Server const* const server, ENe
 	pd->dynamics->sendAll(source);
 	pd->statics->sendAll(source);
 	pd->lights->sendAll(source);
+	pd->emitters->sendAll(source);
 	pd->bricks->sendAll(source);
 
 	//Loops already playing and the reverb preset

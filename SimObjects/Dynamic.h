@@ -67,6 +67,12 @@ class Dynamic : public SimObject
 	//See ModelInstance::setHidden
 	void setHidden(bool hidden, bool castShadow = false) { modelInstance->setHidden(hidden, castShadow); };
 
+	//Client: world space middle of one of its model's meshes as it's drawn, or where it's drawn for -1
+	glm::vec3 getMeshCenter(int meshIndex) const;
+
+	//Client: how one of its model's meshes is turned as it's drawn, or how the whole dynamic is for -1, swimming tilt included
+	glm::quat getMeshRotation(int meshIndex) const;
+
 	const std::shared_ptr<DynamicType>& getType() const { return type; }
 
 	//Physics object

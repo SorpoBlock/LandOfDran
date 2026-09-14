@@ -60,6 +60,9 @@ class LoopClient
 	//Starts ripples for dynamics going into, coming out of, or moving along the water and ages the old ones, after updateSnapshot
 	void makeWaterRipples(float deltaT);
 
+	//Has emitters eject their particles and moves every particle along, after the camera and fog distance are set for the frame
+	void updateParticles();
+
 	//(Re)creates the water reflection/refraction render targets for the window size and graphics/waterquality
 	void createWaterTargets(std::shared_ptr<SettingManager> settings);
 
