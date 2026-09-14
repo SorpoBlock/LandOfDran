@@ -17,3 +17,5 @@ sky	vert	sky.vert.glsl
 sky	frag	sky.frag.glsl
 water	vert	water.vert.glsl
 water	frag	water.frag.glsl
+underwater	vert	underwater.vert.glsl
+underwater	frag	underwater.frag.glsl

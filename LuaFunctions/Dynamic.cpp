@@ -1545,6 +1545,9 @@ static int LUA_dynamicSetBuoyancy(lua_State* L)
 	}
 
 	dynamic->buoyancy = buoyancy;
+
+	//Clients simulate their own player in water, so they need it too
+	LUA_server->broadcast(dynamic->makeBuoyancyPacket(), OtherReliable);
 	return 0;
 }
 

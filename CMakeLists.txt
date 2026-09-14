@@ -230,6 +230,8 @@ add_executable (LandOfDran
 "Networking/PacketsFromServer/VoiceFrameFromServer.cpp"
 "Networking/PacketsFromServer/VoiceStatus.h"
 "Networking/PacketsFromServer/VoiceStatus.cpp"
+"Networking/PacketsFromServer/DynamicBuoyancy.h"
+"Networking/PacketsFromServer/DynamicBuoyancy.cpp"
 
 "Networking/PacketsFromClient/ConnectionRequest.cpp" 
 "Networking/PacketsFromClient/FinishedLoading.cpp" 

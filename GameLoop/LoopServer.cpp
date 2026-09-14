@@ -60,7 +60,7 @@ void LoopServer::run(float deltaT, ExecutableArguments& cmdArgs, std::shared_ptr
 	{
 		for (unsigned int b = 0; b < pd.clients[a]->controllers.size(); b++)
 		{
-			pd.clients[a]->controllers[b].controlWithLastInput(pd.physicsWorld,deltaT);
+			pd.clients[a]->controllers[b].controlWithLastInput(pd.physicsWorld, deltaT, pd.waterEnabled ? pd.waterLevel : PlayerController::noWater);
 		}
 	}
 
@@ -110,16 +110,14 @@ void LoopServer::applyWaterForces(float deltaT)
 	if (!pd.waterEnabled)
 		return;
 
-	//Clients simulate the dynamics they control, water included
-	std::vector<Dynamic*> clientSimulated;
-	for (const std::shared_ptr<ClientData>& client : pd.clients)
-		for (const std::shared_ptr<Dynamic>& controlled : client->controlledObjects)
-			clientSimulated.push_back(controlled.get());
-
+	/*
+		Includes the dynamics clients simulate themselves: their physics packets only come every 100 ms or so, and without
+		water in between the server would drop them and snap them back up, which everyone else would see
+	*/
 	for (unsigned int a = 0; a < pd.dynamics->size(); a++)
 	{
 		std::shared_ptr<Dynamic> dynamic = pd.dynamics->get(a);
-		if (dynamic->isSnappedToCursor() || std::find(clientSimulated.begin(), clientSimulated.end(), dynamic.get()) != clientSimulated.end())
+		if (dynamic->isSnappedToCursor())
 			continue;
 
 		dynamic->applyWaterForces(pd.waterLevel, deltaT);

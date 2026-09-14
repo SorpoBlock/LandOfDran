@@ -1,5 +1,7 @@
 #pragma once
 
+#include <limits>
+
 #include "../SimObjects/Dynamic.h"
 #include "../Graphics/PlayerCamera.h"
 #include "../Networking/ClientPacketCreators.h"
@@ -10,6 +12,9 @@
 */
 struct PlayerController
 {
+	//Water level to pass to control when the world has no water
+	static constexpr float noWater = -std::numeric_limits<float>::infinity();
+
 	//Some parameters here:
 
 	//The thing this is controlling
@@ -21,7 +26,7 @@ struct PlayerController
 
 	//Client uses these to send last inputs to server
 	//Server cachces these and applies them each frame until a new packet comes in
-	bool lastJump, lastForward, lastBackward, lastLeft, lastRight;
+	bool lastJump, lastJumpHeld, lastForward, lastBackward, lastLeft, lastRight;
 	glm::vec3 lastCameraDirection = glm::vec3(0.01,1.0,0.01);
 	//Server: taken from the client's periodic movement input packets. Client: taken from the local Camera each frame.
 	//Used for cursor-based features (dynamic:snapToCursor, client:getCursorItem) - only meaningful once at least one
@@ -34,19 +39,26 @@ struct PlayerController
 	//Whether the last control call made the target jump
 	bool jumped = false;
 
+	//getTicksMS of the last jump out of the water, swimming waits a moment after it so it doesn't slow the jump down
+	unsigned int lastWaterJump = 0;
+
 	//Client only, send last inputs to server for caching and reflection
 	//Can return nullptr if object was deleted or packet was recently sent
 	ENetPacket* makeMovementInputsPacket();
 
 	//Server only wrapper
-	bool controlWithLastInput(std::shared_ptr<PhysicsWorld> world, float deltaT);
+	bool controlWithLastInput(std::shared_ptr<PhysicsWorld> world, float deltaT, float waterLevel);
 
-	//Server and client side, called per frame, server caches last inputs from clients
-	bool control(std::shared_ptr<PhysicsWorld> world, float deltaT, glm::vec3 cameraDirection, glm::vec3 cameraPosition, bool jump, bool forward, bool backward, bool left, bool right);
+	/*
+		Server and client side, called per frame, server caches last inputs from clients
+		jump is a new press of the jump key, jumpHeld is whether it's down at all (it swims up)
+		waterLevel is noWater if there's no water
+	*/
+	bool control(std::shared_ptr<PhysicsWorld> world, float deltaT, glm::vec3 cameraDirection, glm::vec3 cameraPosition, bool jump, bool jumpHeld, bool forward, bool backward, bool left, bool right, float waterLevel);
 
 	/*
 	    Client side wrapper
 		Call for each controller each frame, returns true if weak_ptr lock expired
 	*/
-	bool control(const std::shared_ptr<InputMap> input, const std::shared_ptr<Camera> camera, float deltaT, std::shared_ptr<PhysicsWorld> world);
+	bool control(const std::shared_ptr<InputMap> input, const std::shared_ptr<Camera> camera, float deltaT, std::shared_ptr<PhysicsWorld> world, float waterLevel);
 };

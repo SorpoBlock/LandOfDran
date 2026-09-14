@@ -35,8 +35,20 @@ void Dynamic::onCreation()
 	body->setUserPointer((void*)new std::shared_ptr<SimObject>(getMe()));
 }
 
-void Dynamic::updateSnapshot(float deltaT, bool forceUsePhysicsTransform)
+//Swimming slower than this, a player turns back upright
+static constexpr float swimTiltMinSpeed = 1.5f;
+
+//Per second, how quickly a swimming player's model turns toward the way they're going
+static constexpr float swimTiltRate = 6.0f;
+
+//Per second, how quickly the movement other players' tilt follows catches up, evens out uneven network updates
+static constexpr float tiltVelocitySmoothing = 8.0f;
+
+void Dynamic::updateSnapshot(float deltaT, bool forceUsePhysicsTransform, float waterLevel)
 {
+	glm::vec3 previousPosition = renderedPosition;
+	bool wasInitialized = renderedTransformInitialized;
+
 	glm::vec3 targetPos;
 	glm::quat targetRot;
 
@@ -73,7 +85,26 @@ void Dynamic::updateSnapshot(float deltaT, bool forceUsePhysicsTransform)
 		renderedRotation = glm::slerp(renderedRotation, targetRot, t);
 	}
 
-	modelInstance->setModelTransform(glm::translate(renderedPosition) * glm::toMat4(renderedRotation));
+	//A swimming player's head points the way they're going, and turns back upright when they stop
+	//Someone else's body here falls with no water forces between server updates, so its velocity always points down,
+	//go by how their model actually moves instead
+	if (clientControlled)
+		tiltVelocity = b2g3(body->getLinearVelocity());
+	else if (wasInitialized && deltaT > 0)
+	{
+		glm::vec3 moved = (renderedPosition - previousPosition) / (deltaT / 1000.0f);
+		tiltVelocity = glm::mix(tiltVelocity, moved, 1.0f - std::exp(-tiltVelocitySmoothing * (deltaT / 1000.0f)));
+	}
+
+	glm::quat targetTilt = glm::quat(1, 0, 0, 0);
+	if (playWalkingAnimation && getSubmergedFraction(waterLevel) >= swimDepth && glm::length(tiltVelocity) > swimTiltMinSpeed)
+		targetTilt = glm::rotation(glm::vec3(0, 1, 0), glm::normalize(tiltVelocity));
+
+	renderedTilt = glm::slerp(renderedTilt, targetTilt, 1.0f - std::exp(-swimTiltRate * (deltaT / 1000.0f)));
+
+	//Tilts around the middle of the collision box instead of the model's origin
+	glm::vec3 pivot = renderedPosition + renderedRotation * type->getModel()->getColOffset();
+	modelInstance->setModelTransform(glm::translate(pivot) * glm::toMat4(renderedTilt) * glm::translate(renderedPosition - pivot) * glm::toMat4(renderedRotation));
 }
 
 void Dynamic::handOffFromPrediction(float idealBufferSize)
@@ -125,18 +156,23 @@ btVector3 Dynamic::getPosition() const
 static constexpr float waterLinearDrag = 2.0f;
 static constexpr float waterAngularDrag = 3.0f;
 
+btScalar Dynamic::getSubmergedFraction(float waterLevel) const
+{
+	btVector3 aabbMin, aabbMax;
+	body->getAabb(aabbMin, aabbMax);
+	btScalar height = aabbMax.y() - aabbMin.y();
+	if (height <= 0)
+		return 0;
+
+	return std::clamp((waterLevel - aabbMin.y()) / height, (btScalar)0, (btScalar)1);
+}
+
 void Dynamic::applyWaterForces(float waterLevel, float deltaT)
 {
 	if (!body || body->getInvMass() <= 0)
 		return;
 
-	btVector3 aabbMin, aabbMax;
-	body->getAabb(aabbMin, aabbMax);
-	btScalar height = aabbMax.y() - aabbMin.y();
-	if (height <= 0)
-		return;
-
-	btScalar submerged = std::clamp((waterLevel - aabbMin.y()) / height, (btScalar)0, (btScalar)1);
+	btScalar submerged = getSubmergedFraction(waterLevel);
 	if (submerged <= 0)
 		return;
 
@@ -371,6 +407,17 @@ ENetPacket* Dynamic::makeHighlightPacket(const glm::vec4& color, float thickness
 	return ret;
 }
 
+ENetPacket* Dynamic::makeBuoyancyPacket() const
+{
+	ENetPacket* ret = enet_packet_create(NULL, 1 + sizeof(netIDType) + sizeof(float), getFlagsFromChannel(OtherReliable));
+
+	ret->data[0] = (unsigned char)DynamicBuoyancy;
+	memcpy(ret->data + 1, &netID, sizeof(netIDType));
+	memcpy(ret->data + 1 + sizeof(netIDType), &buoyancy, sizeof(float));
+
+	return ret;
+}
+
 void Dynamic::addToUpdatePacket(enet_uint8 * dest)
 {
 	requiresUpdate = false;
@@ -499,7 +546,8 @@ unsigned int Dynamic::getCreationPacketBytes() const
 	//1 flag byte for whether a highlight is present, plus its data if so
 	int highlightSize = 1 + (modelInstance->getHighlight(color, highlightThickness) ? sizeof(glm::vec4) + sizeof(float) : 0);
 
-	return meshColorsSize + highlightSize + PositionBytes + QuaternionBytes + sizeof(netIDType) * 2;
+	//Buoyancy goes last
+	return meshColorsSize + highlightSize + PositionBytes + QuaternionBytes + sizeof(netIDType) * 2 + sizeof(float);
 }
 
 void Dynamic::addToCreationPacket(enet_uint8* dest) const
@@ -566,6 +614,9 @@ void Dynamic::addToCreationPacket(enet_uint8* dest) const
 		memcpy(dest + byteIterator, &highlightThickness, sizeof(float));
 		byteIterator += sizeof(float);
 	}
+
+	memcpy(dest + byteIterator, &buoyancy, sizeof(float));
+	byteIterator += sizeof(float);
 }
 
 void Dynamic::requestDestruction()

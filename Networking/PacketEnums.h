@@ -122,6 +122,7 @@ enum FromServerPacketType : unsigned char
 	AudioEffect = 22,		//Reverb preset for every sound, see Audio/ReverbPresets.h
 	VoiceFrameFromServer = 23,	//Someone else's voice chat frame, with who's talking and where they are
 	VoiceStatus = 24,		//Whether you're muted, or a talker's name, see VoiceStatusKind
+	DynamicBuoyancy = 25,	//A dynamic's buoyancy, so clients simulating it in water match the server
 };
 
 //Second byte of a VoiceStatus packet

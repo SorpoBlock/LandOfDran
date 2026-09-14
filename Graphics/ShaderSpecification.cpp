@@ -82,6 +82,8 @@ bool ShaderManager::readShaderList(const std::string &filePath)
 				skyShader = lastProgram;
 			else if (programName == "water")
 				waterShader = lastProgram;
+			else if (programName == "underwater")
+				underwaterShader = lastProgram;
 			else
 				error("Invalid program name " + programName);
 		}

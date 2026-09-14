@@ -163,6 +163,8 @@ bool UpdateSimObjectsPacket::applyPacket(const ClientProgramData& pd, Simulation
 					if (needAngVel && !predictingLocally)
 						toUpdate->body->setAngularVelocity(btVector3(angVel.x, angVel.y, angVel.z));
 
+					//Also tilts a swimming player, see Dynamic::updateSnapshot
+					toUpdate->playWalkingAnimation = playWalkAnimation;
 					if (playWalkAnimation)
 						toUpdate->play(0, true);
 					else

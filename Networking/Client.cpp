@@ -158,6 +158,10 @@ KickReason Client::handleEvent(ENetEvent& event)
 					packets.push_back(new HighlightAppearancePacket(packetHoldTime, event.packet));
 					return NotKicked;
 
+				case DynamicBuoyancy:
+					packets.push_back(new DynamicBuoyancyPacket(packetHoldTime, event.packet));
+					return NotKicked;
+
 				case WorldStateUpdate:
 					packets.push_back(new WorldStateUpdatePacket(packetHoldTime, event.packet));
 					return NotKicked;

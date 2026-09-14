@@ -714,7 +714,7 @@ void LoopClient::renderEverything(float deltaT)
 				d->handOffFromPrediction(simulation.idealBufferSize);
 			d->wasPredictingLocally = predictingLocally;
 
-			d->updateSnapshot(deltaT, pd.debugMenu->showDebugPhysicsView || predictingLocally);
+			d->updateSnapshot(deltaT, pd.debugMenu->showDebugPhysicsView || predictingLocally, simulation.waterEnabled ? simulation.waterLevel : PlayerController::noWater);
 		}
 	}
 
@@ -922,6 +922,22 @@ void LoopClient::renderEverything(float deltaT)
 		glCullFace(GL_BACK);
 	}
 
+	//Blue tint, slow waves, and darker edges while the camera is under the water
+	if (simulation.waterEnabled && cameraUnderwater)
+	{
+		pd.shaders->underwaterShader->use();
+		glDisable(GL_DEPTH_TEST);
+		glDepthMask(GL_FALSE);
+		glEnable(GL_BLEND);
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		glBindVertexArray(pd.skyVao);
+		glDrawArrays(GL_TRIANGLES, 0, 3);
+		glBindVertexArray(0);
+		glDisable(GL_BLEND);
+		glDepthMask(GL_TRUE);
+		glEnable(GL_DEPTH_TEST);
+	}
+
 	//GUI
 	bool crossHair = false;
 	if (simulation.camera)
@@ -982,7 +998,8 @@ void LoopClient::updateControllers(float deltaT)
 	while (ctrlIter != simulation.controllers.end())
 	{
 		//Apply movement inputs client side 
-		if ((*ctrlIter)->control(pd.input, simulation.camera, deltaT, pd.physicsWorld))
+		float waterLevel = simulation.waterEnabled ? simulation.waterLevel : PlayerController::noWater;
+		if ((*ctrlIter)->control(pd.input, simulation.camera, deltaT, pd.physicsWorld, waterLevel))
 		{
 			ctrlIter = simulation.controllers.erase(ctrlIter);
 			continue;

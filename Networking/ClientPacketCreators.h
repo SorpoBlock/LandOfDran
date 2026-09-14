@@ -53,7 +53,7 @@ inline ENetPacket* makeConnectionRequest(std::string name)
 	4 bytes		-		camera y position
 	4 bytes		-		camera z position
 */
-inline ENetPacket* makeMovementInputs(netIDType controlledDynamicID, bool jump,bool forward,bool backward,bool left,bool right, glm::vec3 cameraDirection, glm::vec3 cameraPosition)
+inline ENetPacket* makeMovementInputs(netIDType controlledDynamicID, bool jump, bool jumpHeld, bool forward,bool backward,bool left,bool right, glm::vec3 cameraDirection, glm::vec3 cameraPosition)
 {
 	//Unreliable and resent every interval regardless of whether the state changed (see PlayerController::makeMovementInputsPacket) -
 	//losing any single one just means the server acts on a stale input state for one more interval before the next resend corrects it,
@@ -66,6 +66,7 @@ inline ENetPacket* makeMovementInputs(netIDType controlledDynamicID, bool jump,b
 	movementFlags |= (backward ? 4 : 0);
 	movementFlags |= (left ? 8 : 0);
 	movementFlags |= (right ? 16 : 0);
+	movementFlags |= (jumpHeld ? 32 : 0);
 
 	ret->data[0] = (unsigned char)MovementInputs;
 	memcpy(ret->data + 1, &controlledDynamicID, sizeof(netIDType));

@@ -43,7 +43,7 @@ class LoopServer
 	//Sends time of day and water level to every client
 	void broadcastWorldState();
 
-	//Buoyancy and drag for dynamics in the water that no client simulates, before the physics step
+	//Buoyancy and drag for dynamics in the water, before the physics step, including ones clients simulate themselves
 	void applyWaterForces(float deltaT);
 
 	//Splash and ExitWater sounds for dynamics that just went into or came out of the water fast, after the physics step

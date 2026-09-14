@@ -96,7 +96,8 @@ class Dynamic : public SimObject
 	//position the interpolator still had buffered from before the server noticed anything
 	void handOffFromPrediction(float idealBufferSize);
 
-	void updateSnapshot(float deltaT, bool forceUsePhysicsTransform = false);
+	//waterLevel is PlayerController::noWater if there's no water, it's for tilting swimming players
+	void updateSnapshot(float deltaT, bool forceUsePhysicsTransform, float waterLevel);
 
 	//Client only
 	Interpolator interpolator;
@@ -110,6 +111,13 @@ class Dynamic : public SimObject
 	glm::vec3 renderedPosition = glm::vec3(0, 0, 0);
 	glm::quat renderedRotation = glm::quat(1, 0, 0, 0);
 	bool renderedTransformInitialized = false;
+
+	//Client only: extra rotation on top of renderedRotation that lays a swimming player along the way they're swimming
+	//Only the model turns, the collision box stays upright
+	glm::quat renderedTilt = glm::quat(1, 0, 0, 0);
+
+	//Client only: which way the tilt points, the body's velocity for our own dynamics, smoothed rendered movement for everything else
+	glm::vec3 tiltVelocity = glm::vec3(0, 0, 0);
 
 	//Server only, used to set physics body position
 	void setPosition(const btVector3& pos);
@@ -180,9 +188,18 @@ class Dynamic : public SimObject
 
 	/*
 		How hard water pushes this up, as a multiple of its weight when it's all the way under: 0 sinks, 1 hangs in place,
-		more floats with less of it under. Only kept on the server, a client uses the default for the dynamics it simulates
+		more floats with less of it under. Sent to clients so the ones simulating it in water match the server
 	*/
 	float buoyancy = 1.3f;
+
+	//Once this much of a player's height is under water they swim, see PlayerController
+	static constexpr float swimDepth = 0.5f;
+
+	//Server side: returns a fully created packet ready to broadcast to relay the current buoyancy, see DynamicBuoyancyPacket
+	ENetPacket* makeBuoyancyPacket() const;
+
+	//How much of its height is below waterLevel, 0 to 1
+	btScalar getSubmergedFraction(float waterLevel) const;
 
 	//Buoyancy and water drag for the next physics step, does nothing if no part of it is below waterLevel
 	void applyWaterForces(float waterLevel, float deltaT);

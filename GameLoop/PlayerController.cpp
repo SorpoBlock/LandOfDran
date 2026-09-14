@@ -8,6 +8,18 @@ static constexpr float maxStepHeight = 4 * PLATE_SIZE;
 //Surfaces with a normal steeper than this are walls to step over, flatter ones are ground to step onto
 static constexpr float walkableNormalY = 0.7f;
 
+//With more than this much under water, but not all of it, the player can jump out of the water
+static constexpr float treadWaterDepth = 0.25f;
+
+//Top swimming speed, water drag keeps the real speed somewhat under it
+static constexpr float swimSpeed = 10.0f;
+
+//MS, about how long swimming takes to get up to speed or turn, slower than walking so it feels like water
+static constexpr float swimBlendTime = 150.0f;
+
+//MS after jumping out of the water before swimming takes over again
+static constexpr unsigned int waterJumpMS = 400;
+
 /*
 	If the player is walking into a wall no taller than maxStepHeight with room above it, lifts them on top of it
 	Works on anything solid except other dynamics, so walking into a loose object still pushes it
@@ -67,6 +79,46 @@ static void stepUp(std::shared_ptr<PhysicsWorld> world, const std::shared_ptr<Dy
 	player->setVelocity(velocity);
 }
 
+/*
+	Forward and backward follow the camera up and down as well, left and right stay level, jump held swims straight up
+	While swimming the player holds their depth instead of sinking or floating up, letting go hands them back to buoyancy
+*/
+static void swim(const std::shared_ptr<Dynamic>& player, float deltaT, glm::vec3 cameraDirection, bool jumpHeld, bool forward, bool backward, bool left, bool right, btScalar submerged)
+{
+	const btVector3 up = btVector3(0, 1, 0);
+
+	btVector3 look = g2b3(cameraDirection);
+	if (look.length2() < 0.0001f)
+		return;
+	look.normalize();
+
+	btVector3 side = look.cross(up);
+	//Looking straight up or down
+	if (side.length2() < 0.0001f)
+		side = btVector3(1, 0, 0);
+	else
+		side.normalize();
+
+	btVector3 swimDir = look * (float(forward) - float(backward)) + side * (float(right) - float(left));
+	if (jumpHeld)
+		swimDir += up;
+
+	if (swimDir.length2() > 0.0001f)
+		swimDir.normalize();
+	else
+		swimDir.setZero();
+
+	btRigidBody* body = player->body;
+	if (deltaT > 0 && body->getInvMass() > 0)
+	{
+		//Cancel out gravity and whatever the water holds up, which Dynamic::applyWaterForces adds on both client and server
+		btScalar mass = 1.0f / body->getInvMass();
+		body->applyCentralForce(-body->getGravity() * mass * (1 - player->buoyancy * submerged));
+	}
+
+	btScalar blend = 1.0f - std::exp(-deltaT / swimBlendTime);
+	player->setVelocity(player->getVelocity().lerp(swimDir * swimSpeed, blend));
+}
 
 //Client only, send last inputs to server for caching and reflection
 //Can return nullptr if object was deleted or packet was recently sent
@@ -87,6 +139,7 @@ ENetPacket* PlayerController::makeMovementInputsPacket()
 	return makeMovementInputs(
 		targetLock->getID(),
 		lastJump,
+		lastJumpHeld,
 		lastForward,
 		lastBackward,
 		lastLeft,
@@ -97,18 +150,19 @@ ENetPacket* PlayerController::makeMovementInputsPacket()
 }
 
 //Server only wrapper
-bool PlayerController::controlWithLastInput(std::shared_ptr<PhysicsWorld> world, float deltaT)
+bool PlayerController::controlWithLastInput(std::shared_ptr<PhysicsWorld> world, float deltaT, float waterLevel)
 {
 	serverSide = true;
-	return control(world, deltaT, lastCameraDirection, lastCameraPosition, lastJump, lastForward, lastBackward, lastLeft, lastRight);
+	return control(world, deltaT, lastCameraDirection, lastCameraPosition, lastJump, lastJumpHeld, lastForward, lastBackward, lastLeft, lastRight, waterLevel);
 }
 
 //Server and client side, called per frame, server caches last inputs from clients
-bool PlayerController::control(std::shared_ptr<PhysicsWorld> world, float deltaT, glm::vec3 cameraDirection, glm::vec3 cameraPosition, bool jump, bool forward, bool backward, bool left, bool right)
+bool PlayerController::control(std::shared_ptr<PhysicsWorld> world, float deltaT, glm::vec3 cameraDirection, glm::vec3 cameraPosition, bool jump, bool jumpHeld, bool forward, bool backward, bool left, bool right, float waterLevel)
 {
 	lastCameraDirection = cameraDirection;
 	lastCameraPosition = cameraPosition;
 	lastJump = jump;
+	lastJumpHeld = jumpHeld;
 	lastForward = forward;
 	lastBackward = backward;
 	lastLeft = left;
@@ -124,6 +178,8 @@ bool PlayerController::control(std::shared_ptr<PhysicsWorld> world, float deltaT
 
 	targetLock->body->activate();
 
+	btScalar submerged = targetLock->getSubmergedFraction(waterLevel);
+
 	if (jump)
 	{
 		//Make sure we are standing on the ground before we try and jump
@@ -135,14 +191,22 @@ bool PlayerController::control(std::shared_ptr<PhysicsWorld> world, float deltaT
 
 		btRigidBody *sweepResult = world->boxSweepTest(boxSize, feetStart, feetEnd, targetLock->body);
 
+		//Or treading water with their head above it, so they can climb out onto something
+		bool treadingWater = submerged > treadWaterDepth && submerged < 1;
+
 		//TODO: Check if we're on the ground
-		if (sweepResult)
+		if (sweepResult || treadingWater)
 		{
 			targetLock->body->applyCentralImpulse(btVector3(0, 30, 0));
 			jumped = true;
+
+			if (!sweepResult)
+				lastWaterJump = getTicksMS();
 		}
 	}
 
+	//Past Dynamic::swimDepth they go wherever the camera points
+	bool swimming = submerged >= Dynamic::swimDepth &&getTicksMS() - lastWaterJump >= waterJumpMS;
 
 	//TODO: Move this to a constructor or something
 	targetLock->body->setAngularFactor(btVector3(0, 0, 0));
@@ -181,7 +245,9 @@ bool PlayerController::control(std::shared_ptr<PhysicsWorld> world, float deltaT
 		leftRightTurn = btQuaternion(3.1415 / 2.0 + cameraYaw, 0.0, 0.0);
 	}
 
-	if (!(leftRightUsed || forwardBackUsed))
+	bool moving = leftRightUsed || forwardBackUsed;
+
+	if (!moving && !(swimming && jumpHeld))
 	{
 		targetLock->body->setFriction(1.0);
 		targetLock->stop(0);
@@ -191,8 +257,14 @@ bool PlayerController::control(std::shared_ptr<PhysicsWorld> world, float deltaT
 	else
 	{
 		targetLock->body->setFriction(0.0);
-		targetLock->play(0, true); 
+		targetLock->play(0, true);
 		targetLock->playWalkingAnimation = true;
+	}
+
+	if (swimming && !moving)
+	{
+		swim(targetLock, deltaT, cameraDirection, jumpHeld, forward, backward, left, right, submerged);
+		return false;
 	}
 
 	btQuaternion turn;
@@ -209,10 +281,6 @@ bool PlayerController::control(std::shared_ptr<PhysicsWorld> world, float deltaT
 	//TODO: This LERP isn't right
 	playerYaw = playerYaw.slerp(turn, deltaT / blendTime);
 
-	btVector3 walkDir = btMatrix3x3(turn) * btVector3(0.0, 0.0, -1.0);
-
-	stepUp(world, targetLock, walkDir);
-
 	if (!serverSide)
 	{
 		//Don't want to compete with ControlledPhysics packets from the same client
@@ -220,6 +288,16 @@ bool PlayerController::control(std::shared_ptr<PhysicsWorld> world, float deltaT
 		t.setRotation(playerYaw);
 		targetLock->body->setWorldTransform(t);
 	}
+
+	if (swimming)
+	{
+		swim(targetLock, deltaT, cameraDirection, jumpHeld, forward, backward, left, right, submerged);
+		return false;
+	}
+
+	btVector3 walkDir = btMatrix3x3(turn) * btVector3(0.0, 0.0, -1.0);
+
+	stepUp(world, targetLock, walkDir);
 
 	btVector3 oldVel = targetLock->getVelocity();
 	//TODO: This LERP isn't right
@@ -234,8 +312,8 @@ bool PlayerController::control(std::shared_ptr<PhysicsWorld> world, float deltaT
 	Client side wrapper
 	Call for each controller each frame, returns true if weak_ptr lock expired
 */
-bool PlayerController::control(const std::shared_ptr<InputMap> input, const std::shared_ptr<Camera> camera, float deltaT, std::shared_ptr<PhysicsWorld> world)
+bool PlayerController::control(const std::shared_ptr<InputMap> input, const std::shared_ptr<Camera> camera, float deltaT, std::shared_ptr<PhysicsWorld> world, float waterLevel)
 {
 	serverSide = false;
-	return control(world, deltaT, camera->getDirection(), camera->getPosition(), input->pollCommand(Jump), input->isCommandKeydown(WalkForward), input->isCommandKeydown(WalkBackward), input->isCommandKeydown(WalkLeft), input->isCommandKeydown(WalkRight));
+	return control(world, deltaT, camera->getDirection(), camera->getPosition(), input->pollCommand(Jump), input->isCommandKeydown(Jump), input->isCommandKeydown(WalkForward), input->isCommandKeydown(WalkBackward), input->isCommandKeydown(WalkLeft), input->isCommandKeydown(WalkRight), waterLevel);
 }

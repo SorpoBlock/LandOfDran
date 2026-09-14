@@ -110,6 +110,9 @@ class ShaderManager
 	//Program for drawing the water surface
 	Program* waterShader = new Program();
 
+	//Program for tinting the whole screen while the camera is under the water
+	Program* underwaterShader = new Program();
+
 	/*
 		Reads a text file to see where we should find the shader files for the above programs
 		Returns true if there was an error with at least one shader compilation

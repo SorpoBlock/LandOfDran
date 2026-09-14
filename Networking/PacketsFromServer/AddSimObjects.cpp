@@ -210,6 +210,10 @@ bool AddSimObjectsPacket::applyPacket(const ClientProgramData& pd, Simulation& s
 					byteIterator += sizeof(float);
 				}
 
+				float buoyancy;
+				memcpy(&buoyancy, packet->data + byteIterator, sizeof(float));
+				byteIterator += sizeof(float);
+
 				//TODO: Actually return false if we can't find a type with the type ID given
 				if (!foundType)
 				{
@@ -233,6 +237,8 @@ bool AddSimObjectsPacket::applyPacket(const ClientProgramData& pd, Simulation& s
 
 				if (hasHighlight)
 					newDynamic->setHighlight(highlightColor, highlightThickness);
+
+				newDynamic->buoyancy = buoyancy;
 
 				if (byteIterator >= packet->dataLength)
 					break;
