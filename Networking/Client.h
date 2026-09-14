@@ -31,6 +31,7 @@
 #include "PacketsFromServer/ParticleEmitterType.h"
 #include "PacketsFromServer/PlayerAbilities.h"
 #include "PacketsFromServer/MeshDecal.h"
+#include "PacketsFromServer/OpenWrenchDialog.h"
 #include "../GameLoop/ClientProgramData.h"
 #include "../GameLoop/Simulation.h"
 

@@ -127,6 +127,13 @@ class BrickHolder
 	//Pops the table on top of the stack, nullptr (with an error logged) if it isn't an existing brick
 	Brick* popLua(lua_State* L) const;
 
+	/*
+		Server only, set by LoopServer: makes the music loop, light, and emitter of a brick added with attachments (from a save),
+		and gets rid of them just before a brick with attachments is removed
+	*/
+	std::function<void(Brick*)> spawnAttachments = nullptr;
+	std::function<void(Brick*)> removeAttachments = nullptr;
+
 	//Client: every brick added, changed, or removed from here on is passed along to this renderer
 	void setRenderer(InstancedBrickRenderer* _renderer) { renderer = _renderer; }
 

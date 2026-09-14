@@ -67,6 +67,7 @@ else
     docker rm "$CONTAINER_ID" >/dev/null
 fi
 
+# From the local copy rather than git, so gitignored assets like Assets/music are packaged too
 cp -r Assets "$PKG_DIR/"
 cp -r Shaders "$PKG_DIR/"
 cp serverstart.lua "$PKG_DIR/"

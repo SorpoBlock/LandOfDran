@@ -10,6 +10,7 @@ void LoopClient::leaveServer(ExecutableArguments& cmdArgs)
 		return;
 
 	pd.chatWindow->close();
+	pd.wrenchDialog->close();
 
 	//Will need to log in again to get eval access
 	pd.debugMenu->reset();
@@ -406,12 +407,18 @@ void LoopClient::handleInput(float deltaT, ExecutableArguments& cmdArgs, std::sh
 			glm::vec3 worldPos = simulation.camera->mouseCoordsToWorldSpace(glm::vec2(x, y));
 			glm::vec3 dir = simulation.camera->getDirection();
 
-			ENetPacket *mouseClickPacket = makeMouseClickPacket(worldPos, dir, mask);
-			client->send(mouseClickPacket, OtherReliable);
+			//Holding the wrench key, a left click wrenches the brick under the crosshair instead, until there's a wrench item
+			if (e.button.button == SDL_BUTTON_LEFT && pd.input->isCommandKeydown(Wrench))
+				client->send(makeWrenchRequestPacket(simulation.camera->getPosition(), dir), OtherReliable);
+			else
+			{
+				ENetPacket *mouseClickPacket = makeMouseClickPacket(worldPos, dir, mask);
+				client->send(mouseClickPacket, OtherReliable);
 
-			//While building, a left click puts the ghost brick wherever the crosshair points
-			if ((mask & SDL_BUTTON_LMASK) && pd.brickHotbar->isBuilding())
-				spawnGhostFromCamera(pd, simulation);
+				//While building, a left click puts the ghost brick wherever the crosshair points
+				if ((mask & SDL_BUTTON_LMASK) && pd.brickHotbar->isBuilding())
+					spawnGhostFromCamera(pd, simulation);
+			}
 		}
 	}
 
@@ -462,6 +469,15 @@ void LoopClient::handleInput(float deltaT, ExecutableArguments& cmdArgs, std::sh
 		std::string command = pd.debugMenu->getLuaCommand();
 		client->send(evalCommand(simulation.evalPassword, command), OtherReliable);
 	}
+
+	WrenchSubmission wrenchSubmission;
+	if (pd.wrenchDialog->takeSubmission(wrenchSubmission) && client)
+		client->send(makeWrenchSubmitPacket(wrenchSubmission.brickID, wrenchSubmission.collides, wrenchSubmission.name, wrenchSubmission.attachments), OtherReliable);
+
+	//Applied or closed, back to playing if nothing else is open
+	if (wrenchDialogWasOpen && !pd.wrenchDialog->isOpen() && pd.gui->getOpenWindowCount() == 0 && cmdArgs.gameState == InGame)
+		pd.context->setMouseLock(true);
+	wrenchDialogWasOpen = pd.wrenchDialog->isOpen();
 
 	if (pd.serverBrowser->serverPickReady())
 	{
@@ -1743,6 +1759,7 @@ LoopClient::LoopClient(ExecutableArguments& cmdArgs, std::shared_ptr<SettingMana
 	pd.brickSelector = pd.gui->createWindow<BrickSelector>(&pd.brickTypes, pd.textures);
 	pd.brickHotbar = pd.gui->createWindow<BrickHotbar>();
 	pd.appearanceEditor = pd.gui->createWindow<AppearanceEditor>(settings, pd.textures, &pd.faceNames);
+	pd.wrenchDialog = pd.gui->createWindow<WrenchDialog>();
 	//Builds from before the state file kept the hot bar in settings.txt
 	std::shared_ptr<SettingManager> hotbarSource = pd.state;
 	if (!pd.state->getPreference("hotbar/slot1/filled") && settings->getPreference("hotbar/slot1/filled"))

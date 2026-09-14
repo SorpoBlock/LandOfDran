@@ -331,7 +331,14 @@ add_executable (LandOfDran
 "Interface/AppearanceEditor.h"
 "Interface/AppearanceEditor.cpp"
 "LuaFunctions/BrickLua.h"
-"LuaFunctions/BrickLua.cpp"   )   
+"LuaFunctions/BrickLua.cpp"
+"Bricks/BrickAttachments.h"
+"Bricks/BrickAttachments.cpp"
+"Networking/PacketsFromClient/Wrench.cpp"
+"Networking/PacketsFromServer/OpenWrenchDialog.h"
+"Networking/PacketsFromServer/OpenWrenchDialog.cpp"
+"Interface/WrenchDialog.h"
+"Interface/WrenchDialog.cpp"   )
 
 target_include_directories(LandOfDran PRIVATE ${LUA_INCLUDE_DIR})
 

@@ -10,14 +10,15 @@
 std::string getSavePath(const std::string& fileName);
 
 /*
-	Old Land of Dran binary save format, written exactly like OldServer/lua/miscFunctions.h's saveBuild
+	Old Land of Dran binary save format, written like OldServer/lua/miscFunctions.h's saveBuild except that each brick's
+	music, light, and emitter are written as BrickAttachments under a newer version number the old game can't read
 	Returns false if the file couldn't be written
 */
 bool saveLodBuild(const BrickHolder& bricks, const std::string& path, bool omitOwnership);
 
 /*
-	Loads either version of the old binary format, offset by whole studs/plates
-	Special bricks, lights, music, and prints in the file are skipped
+	Loads either version of the old binary format or our own newer one, offset by whole studs/plates
+	Special bricks of types we don't have, and the old game's lights, music, and prints, are skipped
 	Returns how many bricks were added, or -1 if the file couldn't be read
 */
 int loadLodBuild(BrickHolder& bricks, const std::string& path, int offsetX, int offsetY, int offsetZ);

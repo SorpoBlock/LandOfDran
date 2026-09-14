@@ -151,6 +151,17 @@ void playSoundOn(const std::string& name, const std::shared_ptr<Dynamic>& dynami
 	LUA_server->broadcast(makeOneShotPacket(soundID, pitch, volume, SoundLocationDynamic, glm::vec3(0), dynamic), Unreliable);
 }
 
+bool soundTypeExists(const std::string& name)
+{
+	return LUA_pd && findSoundType(name) != -1;
+}
+
+bool isMusicSoundType(const std::string& name)
+{
+	int soundID = LUA_pd ? findSoundType(name) : -1;
+	return soundID != -1 && LUA_pd->soundTypes[soundID].isMusic;
+}
+
 //Loops on a Dynamic end when it's destroyed, clients stop them on their own
 static void forgetEndedSoundLoops()
 {
@@ -346,6 +357,55 @@ static void startSoundLoop(lua_State* L, const SoundArgs& args, SoundLocationKin
 	lua_pushinteger(L, loop.id);
 }
 
+bool startSoundLoopAt(const std::string& name, const glm::vec3& position, float pitch, float volume, unsigned int& loopID)
+{
+	if (!LUA_pd || !LUA_server)
+		return false;
+
+	int soundID = findSoundType(name);
+	if (soundID == -1)
+		return false;
+
+	forgetEndedSoundLoops();
+
+	ServerProgramData::ActiveSoundLoop loop;
+	loop.id = LUA_pd->nextSoundLoopID++;
+	loop.soundID = (uint16_t)soundID;
+	loop.kind = SoundLocationFixed;
+	loop.position = position;
+	loop.pitch = std::clamp(pitch, 0.05f, 10.0f);
+	loop.volume = std::clamp(volume, 0.0f, 1.0f);
+	LUA_pd->soundLoops.push_back(loop);
+
+	LUA_server->broadcast(makeLoopStartPacket(loop, nullptr), OtherReliable);
+
+	loopID = loop.id;
+	return true;
+}
+
+void stopSoundLoopByID(unsigned int loopID)
+{
+	if (!LUA_pd || !LUA_server)
+		return;
+
+	//Nothing to do if it already ended with its Dynamic
+	auto loop = std::find_if(LUA_pd->soundLoops.begin(), LUA_pd->soundLoops.end(), [loopID](const ServerProgramData::ActiveSoundLoop& loop) { return loop.id == loopID; });
+	if (loop == LUA_pd->soundLoops.end())
+		return;
+
+	LUA_pd->soundLoops.erase(loop);
+	LUA_server->broadcast(makeLoopStopPacket(loopID), OtherReliable);
+}
+
+bool isSoundLoopPlaying(unsigned int loopID)
+{
+	if (!LUA_pd)
+		return false;
+
+	forgetEndedSoundLoops();
+	return std::any_of(LUA_pd->soundLoops.begin(), LUA_pd->soundLoops.end(), [loopID](const ServerProgramData::ActiveSoundLoop& loop) { return loop.id == loopID; });
+}
+
 static int LUA_startSoundLoop(lua_State* L)
 {
 	scope("(LUA) startSoundLoop");
@@ -397,13 +457,7 @@ static int LUA_stopSoundLoop(lua_State* L)
 	unsigned int id = (unsigned int)lua_tointeger(L, 1);
 	lua_settop(L, 0);
 
-	//Nothing to do if it already ended with its Dynamic
-	auto loop = std::find_if(LUA_pd->soundLoops.begin(), LUA_pd->soundLoops.end(), [id](const ServerProgramData::ActiveSoundLoop& loop) { return loop.id == id; });
-	if (loop == LUA_pd->soundLoops.end())
-		return 0;
-
-	LUA_pd->soundLoops.erase(loop);
-	LUA_server->broadcast(makeLoopStopPacket(id), OtherReliable);
+	stopSoundLoopByID(id);
 
 	return 0;
 }

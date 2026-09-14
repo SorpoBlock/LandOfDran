@@ -76,6 +76,8 @@ enum FromClientPacketType : unsigned char
 	VoiceFrame = 11,		//One 20 ms Opus frame of voice chat while push to talk is held, see Audio/VoiceChat.h
 	FlashlightRequest = 12,	//Turn the client's flashlight on or off, and what color it is
 	AppearanceChoice = 13,	//How the client wants their player to look, sent as they connect and whenever they save a change, see PlayerAppearance
+	WrenchRequest = 14,		//Wrench whatever brick is under the crosshair, see Networking/PacketsFromClient/Wrench.cpp
+	WrenchSubmit = 15,		//What the client changed in the wrench dialog the server last sent them
 };
 
 //Movement flags byte of MovementInputs packets
@@ -138,6 +140,7 @@ enum FromServerPacketType : unsigned char
 	PlayerAbilities = 27,	//Whether Lua lets this client use jets and a flashlight, see PlayerAbility flags
 	MeshDecal = 28,			//Put a face from Assets/faces on one mesh of a dynamic, or take it off, see Dynamic::setMeshDecal
 	SpecialBrickTypes = 29,	//The server's special brick type IDs and names as a client joins, so it can match them to its own, see SpecialBrickTypesPacket
+	OpenWrenchDialog = 30,	//Open the wrench dialog for a brick, with its collision, name, and attachments, see Interface/WrenchDialog.h
 };
 
 //Flags byte of a PlayerAbilities packet

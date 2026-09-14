@@ -1,7 +1,11 @@
 #include "BrickSaves.h"
 
-//The "next version" (16483535) adds owner, name, and flag fields to every brick record
+/*
+	The "next version" (16483535) adds owner, name, and flag fields to every brick record
+	Our own version after that (16483536) swaps its music track and light color for BrickAttachments' music loop, whole light, and emitter
+*/
 static constexpr unsigned int lodMagic = 16483534;
+static constexpr unsigned int lodMagicAttachments = lodMagic + 2;
 
 //Fixed size parts of old save brick records
 static constexpr std::streamoff basicRecordBytes = 4 + 3 * 4 + 4 + 2;
@@ -70,7 +74,7 @@ bool saveLodBuild(const BrickHolder& bricks, const std::string& path, bool omitO
 	}
 
 	unsigned int count = bricks.size();
-	writeValue(file, lodMagic + 1);
+	writeValue(file, lodMagicAttachments);
 	writeValue(file, count);
 
 	writeValue(file, (unsigned int)typeNames.size());
@@ -110,7 +114,13 @@ bool saveLodBuild(const BrickHolder& bricks, const std::string& path, bool omitO
 		writeValue(file, (unsigned char)name.length());
 		file.write(name.c_str(), name.length());
 
-		writeValue(file, (unsigned char)(brick->collides ? 1 : 0));
+		unsigned char flags = brick->collides ? 1 : 0;
+		if (brick->attachments)
+			flags |= brick->attachments->getFlags();
+		writeValue(file, flags);
+
+		if (brick->attachments)
+			brick->attachments->writeParts([&file](const void* data, size_t count) { file.write((const char*)data, count); });
 	};
 
 	writeValue(file, (unsigned int)basic.size());
@@ -134,10 +144,10 @@ bool saveLodBuild(const BrickHolder& bricks, const std::string& path, bool omitO
 }
 
 /*
-	Skips the owner, name, flags, and optional music/light/print data at the end of a next version record
+	Reads the owner, name, and flags at the end of a next version record, then either our attachments or the old game's music/light/print data, which is skipped
 	Returns false if the file ran out
 */
-static bool readRecordExtras(std::ifstream& file, bool& collides, std::string& name)
+static bool readRecordExtras(std::ifstream& file, bool hasAttachments, bool& collides, std::string& name, std::shared_ptr<BrickAttachments>& attachments)
 {
 	int ownerID;
 	unsigned char nameLength, flags;
@@ -152,6 +162,21 @@ static bool readRecordExtras(std::ifstream& file, bool& collides, std::string& n
 		return false;
 
 	collides = flags & 1;
+
+	if (hasAttachments)
+	{
+		if (!(flags & (BrickAttachment_Music | BrickAttachment_Light | BrickAttachment_Emitter)))
+			return true;
+
+		auto read = std::make_shared<BrickAttachments>();
+		if (!read->readParts(flags, [&file](void* data, size_t count) { return (bool)file.read((char*)data, count); }))
+			return false;
+
+		read->clampValues();
+		if (!read->isEmpty())
+			attachments = read;
+		return true;
+	}
 
 	//Music: track and pitch
 	if (flags & 2)
@@ -187,12 +212,13 @@ int loadLodBuild(BrickHolder& bricks, const std::string& path, int offsetX, int 
 	}
 
 	unsigned int magic, brickCount, typeCount;
-	if (!readValue(file, magic) || (magic != lodMagic && magic != lodMagic + 1))
+	if (!readValue(file, magic) || magic < lodMagic || magic > lodMagicAttachments)
 	{
 		error(path + " is not a Land of Dran binary save");
 		return -1;
 	}
-	bool hasExtras = magic == lodMagic + 1;
+	bool hasExtras = magic != lodMagic;
+	bool hasAttachments = magic == lodMagicAttachments;
 
 	if (!readValue(file, brickCount) || !readValue(file, typeCount))
 	{
@@ -259,8 +285,9 @@ int loadLodBuild(BrickHolder& bricks, const std::string& path, int offsetX, int 
 
 			bool collides = true;
 			std::string name = "";
+			std::shared_ptr<BrickAttachments> attachments = nullptr;
 			if (ok && hasExtras)
-				ok = readRecordExtras(file, collides, name);
+				ok = readRecordExtras(file, hasAttachments, collides, name, attachments);
 
 			if (!ok)
 			{
@@ -299,6 +326,7 @@ int loadLodBuild(BrickHolder& bricks, const std::string& path, int offsetX, int 
 			desc.color = glm::u8vec4(color[0], color[1], color[2], color[3]);
 			desc.collides = collides;
 			desc.name = name;
+			desc.attachments = attachments;
 			desc.x = (int)lround(centerX - desc.footprintWidth() * 0.5) + offsetX;
 			desc.y = (int)lround(centerY / PLATE_SIZE - height * 0.5) + offsetY;
 			desc.z = (int)lround(centerZ - desc.footprintLength() * 0.5) + offsetZ;

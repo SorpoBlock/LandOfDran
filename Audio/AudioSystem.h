@@ -217,6 +217,18 @@ public:
 	//-1 if the server hasn't registered a sound with that name
 	int findSound(const std::string& name) const;
 
+	//Names of the sound types the server registered as music, in ID order, for the wrench dialog
+	std::vector<std::string> getMusicNames() const
+	{
+		std::vector<std::string> names;
+		for (const SoundType& sound : sounds)
+		{
+			if (sound.isMusic && !sound.name.empty())
+				names.push_back(sound.name);
+		}
+		return names;
+	}
+
 	void playSound(int soundID, const SoundLocation& where, float pitch = 1.0f, float volume = 1.0f);
 
 	//For sounds the client plays on its own, like brick clicks. Silent if the server didn't register one by that name

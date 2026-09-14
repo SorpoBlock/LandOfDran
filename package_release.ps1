@@ -56,6 +56,7 @@ New-Item -ItemType Directory -Path $PkgDir -Force | Out-Null
 try {
     Copy-Item (Join-Path $OutDir "*.exe") $PkgDir
     Copy-Item (Join-Path $OutDir "*.dll") $PkgDir -ErrorAction SilentlyContinue
+    # From the local copy rather than git, so gitignored assets like Assets/music are packaged too
     Copy-Item "Assets" $PkgDir -Recurse
     Copy-Item "Shaders" $PkgDir -Recurse
     Copy-Item "serverstart.lua" $PkgDir

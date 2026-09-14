@@ -110,6 +110,16 @@ void Server::switchPacketType(JoinedClient * source, ENetPacket* packet, const v
 			appearanceChoice(source, this, packet, pd);
 			return;
 		}
+		case WrenchRequest:
+		{
+			wrenchRequest(source, this, packet, pd);
+			return;
+		}
+		case WrenchSubmit:
+		{
+			wrenchSubmit(source, this, packet, pd);
+			return;
+		}
 
 		case InvalidClient:
 		default:

@@ -73,6 +73,19 @@ std::shared_ptr<Emitter> spawnEmitterAt(const std::string& typeName, const glm::
 	return LUA_pd->emitters->create((uint16_t)type, position);
 }
 
+std::string getEmitterTypeName(const Emitter& emitter)
+{
+	if (!LUA_pd || emitter.getTypeID() >= LUA_pd->emitterTypes.size())
+		return "";
+
+	return LUA_pd->emitterTypes[emitter.getTypeID()].name;
+}
+
+bool emitterTypeExists(const std::string& typeName)
+{
+	return LUA_pd && findEmitterType(typeName) != -1;
+}
+
 //Reads count numbers starting at stack index first into out, logging usage and returning false if any is missing or not a finite number
 static bool readNumbers(lua_State* L, int first, int count, float* out, const std::string& usage)
 {

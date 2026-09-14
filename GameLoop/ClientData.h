@@ -30,6 +30,9 @@ struct ClientData
 	//IDs of bricks this client planted, newest last, for undo
 	std::vector<netIDType> plantedBricks;
 
+	//The brick in the last wrench dialog sent to them, the only one a WrenchSubmit from them can change, NO_ID once they've submitted
+	netIDType wrenchedBrickID = NO_ID;
+
 	//Voice chat, see Networking/PacketsFromClient/VoiceFrame.cpp
 	//Lua's client:setVoiceMuted, their voice is dropped while it's set
 	bool voiceMuted = false;

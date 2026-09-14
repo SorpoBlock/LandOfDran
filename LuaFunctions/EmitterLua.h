@@ -20,6 +20,11 @@ void sendParticleEmitterTypes(const ServerProgramData* pd, JoinedClient* client)
 //For effects the server makes on its own, like splashes: an emitter of the named type, nullptr without logging anything if there's no such type
 std::shared_ptr<Emitter> spawnEmitterAt(const std::string& typeName, const glm::vec3& position);
 
+//The name of an emitter's type, "" if its type is gone
+std::string getEmitterTypeName(const Emitter& emitter);
+
+bool emitterTypeExists(const std::string& typeName);
+
 /*
 	Registers addParticleType, addEmitterType, addEmitter, getParticleTable, getEmitterTable, getEmitterId, getEmitterIdx, and getNumEmitters
 	Returns a list to be passed to ObjHolder<Emitter>::makeLuaMetatable which then deletes the list

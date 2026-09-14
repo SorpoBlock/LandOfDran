@@ -24,6 +24,7 @@
 #include "../Interface/BrickSelector.h"
 #include "../Interface/BrickHotbar.h"
 #include "../Interface/AppearanceEditor.h"
+#include "../Interface/WrenchDialog.h"
 #include "../Audio/AudioSystem.h"
 #include "../Audio/AcousticProbe.h"
 #include "../Audio/VoiceChat.h"
@@ -120,6 +121,7 @@ struct ClientProgramData
 	std::shared_ptr<EscapeMenu>		escapeMenu = nullptr;
 	std::shared_ptr<ChatWindow>		chatWindow = nullptr;
 	std::shared_ptr<AppearanceEditor> appearanceEditor = nullptr;
+	std::shared_ptr<WrenchDialog>	wrenchDialog = nullptr;
 
 	//File names of the images in Assets/faces, each one's index is its layer in the decal array, see LoopClient's constructor
 	std::vector<std::string> faceNames;

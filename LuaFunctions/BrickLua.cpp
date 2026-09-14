@@ -1,10 +1,163 @@
 #include "BrickLua.h"
 
+#include "SoundLua.h"
+#include "EmitterLua.h"
 #include "../Bricks/BrickSaves.h"
+
+#include <cmath>
 
 static unsigned char colorByte(double value)
 {
 	return (unsigned char)std::clamp(value * 255.0 + 0.5, 0.0, 255.0);
+}
+
+void updateBrickAttachments(Brick* brick)
+{
+	if (!LUA_pd || !brick->attachments)
+		return;
+
+	BrickAttachments& settings = *brick->attachments;
+	glm::vec3 center = brick->getWorldCenter();
+
+	//Music, started again if Lua stopped it
+	if (settings.musicName.empty())
+	{
+		if (settings.musicLoopID != NO_ID)
+			stopSoundLoopByID(settings.musicLoopID);
+		settings.musicLoopID = NO_ID;
+	}
+	else if (settings.musicLoopID == NO_ID || !isSoundLoopPlaying(settings.musicLoopID))
+	{
+		unsigned int loopID;
+		settings.musicLoopID = startSoundLoopAt(settings.musicName, center, settings.musicPitch, settings.musicVolume, loopID) ? loopID : NO_ID;
+	}
+
+	//Light, made again if Lua destroyed it
+	if (LUA_pd->lights)
+	{
+		std::shared_ptr<Light> light = settings.lightID != NO_ID ? LUA_pd->lights->find(settings.lightID) : nullptr;
+
+		if (!settings.hasLight)
+		{
+			if (light)
+				LUA_pd->lights->destroy(light);
+			settings.lightID = NO_ID;
+		}
+		else
+		{
+			glm::vec3 position = center + settings.lightOffset;
+			if (!light)
+			{
+				light = LUA_pd->lights->create(position, settings.lightColor, settings.lightBrightness, settings.lightFlicker, settings.lightCoronaWidth);
+				settings.lightID = light->getID();
+			}
+			else
+			{
+				light->setPosition(position);
+				light->setColor(settings.lightColor);
+				light->setBrightness(settings.lightBrightness);
+				light->setFlicker(settings.lightFlicker);
+				light->setCoronaWidth(settings.lightCoronaWidth);
+			}
+
+			light->setConeAngle(settings.lightConeAngle);
+			light->setDirection(settings.lightDirection);
+			light->setSpin(settings.lightSpin);
+		}
+	}
+
+	//Emitter, made again if Lua destroyed it or changed its type, and left alone if Lua took it off the brick
+	if (LUA_pd->emitters)
+	{
+		std::shared_ptr<Emitter> emitter = settings.emitterID != NO_ID ? LUA_pd->emitters->find(settings.emitterID) : nullptr;
+		if (emitter && emitter->brickID != brick->netId)
+			emitter = nullptr;
+
+		if (emitter && getEmitterTypeName(*emitter) != settings.emitterName)
+			LUA_pd->emitters->destroy(emitter);
+
+		if (!emitter)
+		{
+			settings.emitterID = NO_ID;
+
+			emitter = settings.emitterName.empty() ? nullptr : spawnEmitterAt(settings.emitterName, center);
+			if (emitter)
+			{
+				emitter->brickID = brick->netId;
+				settings.emitterID = emitter->getID();
+			}
+		}
+	}
+}
+
+void removeBrickAttachments(Brick* brick)
+{
+	if (!brick->attachments)
+		return;
+
+	brick->attachments->musicName = "";
+	brick->attachments->hasLight = false;
+	brick->attachments->emitterName = "";
+	updateBrickAttachments(brick);
+}
+
+void setBrickAttachments(Brick* brick, const BrickAttachments& requested)
+{
+	auto settings = std::make_shared<BrickAttachments>(requested);
+	settings->clampValues();
+
+	settings->musicLoopID = NO_ID;
+	settings->lightID = NO_ID;
+	settings->emitterID = NO_ID;
+
+	if (const BrickAttachments* old = brick->attachments.get())
+	{
+		settings->musicLoopID = old->musicLoopID;
+		settings->lightID = old->lightID;
+		settings->emitterID = old->emitterID;
+
+		//Loops can't be changed while they play, so different music, volume, or pitch starts it over
+		bool musicChanged = old->musicName != settings->musicName || old->musicVolume != settings->musicVolume || old->musicPitch != settings->musicPitch;
+		if (musicChanged && settings->musicLoopID != NO_ID)
+		{
+			stopSoundLoopByID(settings->musicLoopID);
+			settings->musicLoopID = NO_ID;
+		}
+	}
+
+	brick->attachments = settings;
+	updateBrickAttachments(brick);
+
+	if (settings->isEmpty())
+		brick->attachments = nullptr;
+}
+
+void openWrenchDialog(ClientData& client, const Brick* brick)
+{
+	if (!client.client)
+		return;
+
+	/*
+		1 byte		-	packet type
+		4 bytes		-	brick net ID
+		1 byte		-	1 if it collides
+		1 byte		-	name length
+		0-255 bytes	-	name
+		The rest	-	BrickAttachments::write
+	*/
+	std::string name = brick->name.substr(0, 255);
+
+	std::vector<unsigned char> bytes;
+	bytes.push_back(OpenWrenchDialog);
+	bytes.resize(1 + sizeof(netIDType));
+	memcpy(bytes.data() + 1, &brick->netId, sizeof(netIDType));
+	bytes.push_back(brick->collides ? 1 : 0);
+	bytes.push_back((unsigned char)name.length());
+	bytes.insert(bytes.end(), name.begin(), name.end());
+	(brick->attachments ? *brick->attachments : BrickAttachments()).write(bytes);
+
+	client.client->send(enet_packet_create(bytes.data(), bytes.size(), getFlagsFromChannel(OtherReliable)), OtherReliable);
+	client.wrenchedBrickID = brick->netId;
 }
 
 //Methods are called as brick:method(...), so the brick is always argument 1
@@ -499,6 +652,283 @@ static int LUA_brickGetTypeName(lua_State* L)
 	return 1;
 }
 
+static int LUA_brickGetMusic(lua_State* L)
+{
+	scope("(LUA) brick:getMusic");
+
+	if (lua_gettop(L) != 1)
+	{
+		error("Expected 1 argument brick:getMusic()");
+		return 0;
+	}
+
+	Brick* brick = brickArgument(L);
+	if (!brick)
+		return 0;
+
+	if (!brick->attachments || brick->attachments->musicName.empty())
+	{
+		lua_pushnil(L);
+		return 1;
+	}
+
+	lua_pushstring(L, brick->attachments->musicName.c_str());
+	lua_pushnumber(L, brick->attachments->musicVolume);
+	lua_pushnumber(L, brick->attachments->musicPitch);
+	return 3;
+}
+
+static int LUA_brickSetMusic(lua_State* L)
+{
+	scope("(LUA) brick:setMusic");
+
+	const std::string usage = "brick:setMusic(soundName[, volume, pitch]) or brick:setMusic(nil)";
+
+	int args = lua_gettop(L);
+	bool valid = (args == 2 || args == 4) && (lua_isnil(L, 2) || lua_type(L, 2) == LUA_TSTRING) && (args == 2 || (lua_isnumber(L, 3) && lua_isnumber(L, 4)));
+	if (!valid)
+	{
+		error("Expected " + usage);
+		return 0;
+	}
+
+	Brick* brick = brickArgument(L);
+	if (!brick)
+		return 0;
+
+	BrickAttachments settings = brick->attachments ? *brick->attachments : BrickAttachments();
+	settings.musicName = lua_isnil(L, 2) ? "" : lua_tostring(L, 2);
+
+	if (!settings.musicName.empty() && !soundTypeExists(settings.musicName))
+	{
+		error("No sound type named " + settings.musicName + ", see newSoundType");
+		return 0;
+	}
+
+	if (args == 4)
+	{
+		settings.musicVolume = (float)lua_tonumber(L, 3);
+		settings.musicPitch = (float)lua_tonumber(L, 4);
+	}
+
+	setBrickAttachments(brick, settings);
+	return 0;
+}
+
+//Pushes a table like {x, y, z}
+static void pushVector(lua_State* L, const glm::vec3& vector)
+{
+	lua_newtable(L);
+	for (int axis = 0; axis < 3; axis++)
+	{
+		lua_pushnumber(L, vector[axis]);
+		lua_rawseti(L, -2, axis + 1);
+	}
+}
+
+static int LUA_brickGetLight(lua_State* L)
+{
+	scope("(LUA) brick:getLight");
+
+	if (lua_gettop(L) != 1)
+	{
+		error("Expected 1 argument brick:getLight()");
+		return 0;
+	}
+
+	Brick* brick = brickArgument(L);
+	if (!brick)
+		return 0;
+
+	if (!brick->attachments || !brick->attachments->hasLight)
+	{
+		lua_pushnil(L);
+		return 1;
+	}
+
+	const BrickAttachments& settings = *brick->attachments;
+	lua_newtable(L);
+
+	pushVector(L, settings.lightColor);
+	lua_setfield(L, -2, "color");
+	pushVector(L, settings.lightDirection);
+	lua_setfield(L, -2, "direction");
+	pushVector(L, settings.lightOffset);
+	lua_setfield(L, -2, "offset");
+
+	const std::pair<const char*, float> numberFields[] = {
+		{ "brightness", settings.lightBrightness },
+		{ "flicker", settings.lightFlicker },
+		{ "coronaWidth", settings.lightCoronaWidth },
+		{ "coneAngle", settings.lightConeAngle },
+		{ "spin", settings.lightSpin } };
+
+	for (const auto& field : numberFields)
+	{
+		lua_pushnumber(L, field.second);
+		lua_setfield(L, -2, field.first);
+	}
+
+	return 1;
+}
+
+//Reads a table of three finite numbers at index into out, false if it's anything else
+static bool readVectorTable(lua_State* L, int index, glm::vec3& out)
+{
+	if (!lua_istable(L, index))
+		return false;
+
+	for (int axis = 0; axis < 3; axis++)
+	{
+		lua_rawgeti(L, index, axis + 1);
+		bool number = lua_isnumber(L, -1);
+		out[axis] = number ? (float)lua_tonumber(L, -1) : 0.0f;
+		lua_pop(L, 1);
+
+		if (!number || !std::isfinite(out[axis]))
+			return false;
+	}
+
+	return true;
+}
+
+static int LUA_brickSetLight(lua_State* L)
+{
+	scope("(LUA) brick:setLight");
+
+	const std::string usage = "brick:setLight(table) or brick:setLight(nil)";
+
+	if (lua_gettop(L) != 2 || !(lua_istable(L, 2) || lua_isnil(L, 2)))
+	{
+		error("Expected " + usage);
+		return 0;
+	}
+
+	Brick* brick = brickArgument(L);
+	if (!brick)
+		return 0;
+
+	BrickAttachments settings = brick->attachments ? *brick->attachments : BrickAttachments();
+
+	if (lua_isnil(L, 2))
+	{
+		settings.hasLight = false;
+		setBrickAttachments(brick, settings);
+		return 0;
+	}
+
+	//Fields left out keep the light's current values, or a new light's
+	if (!settings.hasLight)
+		settings.resetLight(brick->height);
+	settings.hasLight = true;
+
+	const std::pair<const char*, glm::vec3*> vectorFields[] = {
+		{ "color", &settings.lightColor },
+		{ "direction", &settings.lightDirection },
+		{ "offset", &settings.lightOffset } };
+
+	const std::pair<const char*, float*> numberFields[] = {
+		{ "brightness", &settings.lightBrightness },
+		{ "flicker", &settings.lightFlicker },
+		{ "coronaWidth", &settings.lightCoronaWidth },
+		{ "coneAngle", &settings.lightConeAngle },
+		{ "spin", &settings.lightSpin } };
+
+	lua_pushnil(L);
+	while (lua_next(L, 2))
+	{
+		std::string field = lua_type(L, -2) == LUA_TSTRING ? lua_tostring(L, -2) : "";
+		int value = lua_gettop(L);
+		bool known = false;
+		bool fits = false;
+
+		for (const auto& vectorField : vectorFields)
+		{
+			if (field == vectorField.first)
+			{
+				known = true;
+				fits = readVectorTable(L, value, *vectorField.second);
+			}
+		}
+
+		for (const auto& numberField : numberFields)
+		{
+			if (field == numberField.first)
+			{
+				known = true;
+				fits = lua_isnumber(L, value);
+				*numberField.second = fits ? (float)lua_tonumber(L, value) : 0.0f;
+			}
+		}
+
+		if (!known || !fits)
+		{
+			error(known ? "Light field " + field + " has the wrong kind of value, see LuaAPI.md" : "Lights have no field named " + field + ", see LuaAPI.md");
+			lua_settop(L, 0);
+			return 0;
+		}
+
+		lua_pop(L, 1);
+	}
+
+	if (glm::length(settings.lightDirection) < 0.0001f)
+	{
+		error("A light's direction can't be 0, 0, 0");
+		return 0;
+	}
+
+	setBrickAttachments(brick, settings);
+	return 0;
+}
+
+static int LUA_brickGetEmitter(lua_State* L)
+{
+	scope("(LUA) brick:getEmitter");
+
+	if (lua_gettop(L) != 1)
+	{
+		error("Expected 1 argument brick:getEmitter()");
+		return 0;
+	}
+
+	Brick* brick = brickArgument(L);
+	if (!brick)
+		return 0;
+
+	if (!brick->attachments || brick->attachments->emitterName.empty())
+		lua_pushnil(L);
+	else
+		lua_pushstring(L, brick->attachments->emitterName.c_str());
+	return 1;
+}
+
+static int LUA_brickSetEmitter(lua_State* L)
+{
+	scope("(LUA) brick:setEmitter");
+
+	if (lua_gettop(L) != 2 || !(lua_isnil(L, 2) || lua_type(L, 2) == LUA_TSTRING))
+	{
+		error("Expected brick:setEmitter(emitterTypeName) or brick:setEmitter(nil)");
+		return 0;
+	}
+
+	Brick* brick = brickArgument(L);
+	if (!brick)
+		return 0;
+
+	BrickAttachments settings = brick->attachments ? *brick->attachments : BrickAttachments();
+	settings.emitterName = lua_isnil(L, 2) ? "" : lua_tostring(L, 2);
+
+	if (!settings.emitterName.empty() && !emitterTypeExists(settings.emitterName))
+	{
+		error("There's no emitter type named " + settings.emitterName);
+		return 0;
+	}
+
+	setBrickAttachments(brick, settings);
+	return 0;
+}
+
 static int LUA_brickRemove(lua_State* L)
 {
 	scope("(LUA) brick:remove");
@@ -531,7 +961,7 @@ luaL_Reg* getBrickFunctions(lua_State* L)
 	lua_register(L, "loadLodSave", LUA_loadLodSave);
 	lua_register(L, "loadBlocklandSave", LUA_loadBlocklandSave);
 
-	luaL_Reg* methods = new luaL_Reg[15];
+	luaL_Reg* methods = new luaL_Reg[20];
 	methods[0] = { "getPosition", LUA_brickGetPosition };
 	methods[1] = { "getDimensions", LUA_brickGetDimensions };
 	methods[2] = { "getAngleID", LUA_brickGetAngleID };
@@ -545,7 +975,12 @@ luaL_Reg* getBrickFunctions(lua_State* L)
 	methods[10] = { "remove", LUA_brickRemove };
 	methods[11] = { "isSpecial", LUA_brickIsSpecial };
 	methods[12] = { "getTypeName", LUA_brickGetTypeName };
-	methods[13] = { NULL, NULL };
-	methods[14] = { NULL, NULL };
+	methods[13] = { "getMusic", LUA_brickGetMusic };
+	methods[14] = { "setMusic", LUA_brickSetMusic };
+	methods[15] = { "getLight", LUA_brickGetLight };
+	methods[16] = { "setLight", LUA_brickSetLight };
+	methods[17] = { "getEmitter", LUA_brickGetEmitter };
+	methods[18] = { "setEmitter", LUA_brickSetEmitter };
+	methods[19] = { NULL, NULL };
 	return methods;
 }

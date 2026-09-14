@@ -5,6 +5,7 @@
 #include "../LuaFunctions/LightLua.h"
 #include "../LuaFunctions/SoundLua.h"
 #include "../LuaFunctions/EmitterLua.h"
+#include "../LuaFunctions/BrickLua.h"
 
 #include <random>
 
@@ -355,6 +356,9 @@ LoopServer::LoopServer(ExecutableArguments& cmdArgs, std::shared_ptr<SettingMana
 	pd.emitters = new ObjHolder<Emitter>(SimObjectType::EmitterTypeId, server);
 	pd.emitters->makeLuaMetatable(pd.luaState, "metatable_emitter", getEmitterFunctions(pd.luaState));
 	pd.bricks = new BrickHolder(pd.physicsWorld, &pd.brickTypes, server);
+	//Music, lights, and emitters put on bricks come and go with them
+	pd.bricks->spawnAttachments = updateBrickAttachments;
+	pd.bricks->removeAttachments = removeBrickAttachments;
 	pd.brickTypes.load("Assets/brick/types");
 	pd.bricks->makeLuaMetatable(pd.luaState, "metatable_brick", getBrickFunctions(pd.luaState));
 

@@ -214,6 +214,10 @@ KickReason Client::handleEvent(ENetEvent& event)
 					packets.push_back(new PlayerAbilitiesPacket(packetHoldTime, event.packet));
 					return NotKicked;
 
+				case OpenWrenchDialog:
+					packets.push_back(new OpenWrenchDialogPacket(packetHoldTime, event.packet));
+					return NotKicked;
+
 				//Can't process packet
 				case InvalidServer:
 				default:

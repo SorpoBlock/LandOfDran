@@ -50,7 +50,8 @@ enum InputCommand
     PushToTalk = 38,
     Zoom = 39,
     Flashlight = 40,
-    EndOfCommands = 41
+    Wrench = 41,
+    EndOfCommands = 42
 };
 
 //For user interface

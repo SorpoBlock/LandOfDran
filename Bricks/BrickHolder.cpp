@@ -118,10 +118,23 @@ Brick* BrickHolder::add(const Brick& requested)
 
 	Brick* brick = new Brick(desc);
 	brick->netId = lastNetId++;
+
+	//Its own copy, with nothing made from it yet
+	if (brick->attachments)
+	{
+		brick->attachments = std::make_shared<BrickAttachments>(*brick->attachments);
+		brick->attachments->musicLoopID = NO_ID;
+		brick->attachments->lightID = NO_ID;
+		brick->attachments->emitterID = NO_ID;
+	}
+
 	insert(brick);
 
 	if (server)
 		pendingSends.insert(brick->netId);
+
+	if (brick->attachments && spawnAttachments)
+		spawnAttachments(brick);
 
 	return brick;
 }
@@ -168,6 +181,9 @@ void BrickHolder::insert(Brick* brick)
 
 void BrickHolder::remove(Brick* brick, bool showEffect)
 {
+	if (brick->attachments && removeAttachments)
+		removeAttachments(brick);
+
 	if (server)
 	{
 		pendingSends.erase(brick->netId);
@@ -194,6 +210,15 @@ void BrickHolder::remove(Brick* brick, bool showEffect)
 
 void BrickHolder::clear()
 {
+	if (removeAttachments)
+	{
+		for (Brick* brick : bricks)
+		{
+			if (brick->attachments)
+				removeAttachments(brick);
+		}
+	}
+
 	if (server)
 	{
 		pendingSends.clear();
@@ -471,8 +496,10 @@ BrickHolder::BrickHolder(std::shared_ptr<PhysicsWorld> _world, const BrickTypes*
 
 BrickHolder::~BrickHolder()
 {
-	//Don't queue removal packets for a holder that's going away
+	//Don't queue removal packets for a holder that's going away, or reach for the Lua state it's being torn down with
 	server = nullptr;
+	spawnAttachments = nullptr;
+	removeAttachments = nullptr;
 	clear();
 
 	for (auto& entry : shapes)

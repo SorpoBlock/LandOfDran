@@ -79,6 +79,18 @@ class ParticleSystem
 	//nullptr if the server hasn't sent one with that ID
 	const EmitterTypeData* getEmitterType(uint16_t id) const;
 
+	//Names of every emitter type the server sent, in ID order, for the wrench dialog
+	std::vector<std::string> getEmitterTypeNames() const
+	{
+		std::vector<std::string> names;
+		for (const EmitterTypeSlot& slot : emitterTypes)
+		{
+			if (slot.defined && !slot.data.name.empty())
+				names.push_back(slot.data.name);
+		}
+		return names;
+	}
+
 	/*
 		Ejects every particle an emitter of this type owes since it last did, spread along the way it moved and turned since its last position and rotation
 		Ejection directions are turned by rotation, velocity is that of what the emitter follows, for particle types with an inheritedVelFactor

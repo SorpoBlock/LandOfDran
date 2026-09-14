@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../LandOfDran.h"
+#include "BrickAttachments.h"
 
 class btRigidBody;
 
@@ -45,6 +46,9 @@ struct Brick
 	int ownerID = -1;
 
 	std::string name = "";
+
+	//Server only: its music loop, light, and emitter, nullptr for a brick with none, see BrickHolder::spawnAttachments
+	std::shared_ptr<BrickAttachments> attachments = nullptr;
 
 	btRigidBody* body = nullptr;
 

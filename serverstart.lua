@@ -29,6 +29,8 @@ newSoundType("ExitWater","Assets/sound/exitWater.wav")
 --And these from a player whose flashlight turns on or off
 newSoundType("LightOn","Assets/sound/lightOn.wav")
 newSoundType("LightOff","Assets/sound/lightOff.wav")
+--Music, which players can put on bricks by holding Insert and clicking one to open the wrench dialog
+newSoundType("After School Special","Assets/music/After_School_Special.wav",true)
 
 --Particle and emitter types, including the splash the server makes where dynamics fall into the water
 dofile("EmitterDefaults.lua")

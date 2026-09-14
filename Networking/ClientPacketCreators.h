@@ -184,6 +184,46 @@ inline ENetPacket* makeFlashlightPacket(bool on, glm::vec3 color)
 
 /*
 	1 byte		-	packet type
+	12 bytes	-	camera position
+	12 bytes	-	camera direction
+*/
+inline ENetPacket* makeWrenchRequestPacket(glm::vec3 position, glm::vec3 direction)
+{
+	ENetPacket* ret = enet_packet_create(NULL, 1 + sizeof(float) * 6, getFlagsFromChannel(OtherReliable));
+
+	ret->data[0] = (unsigned char)WrenchRequest;
+	memcpy(ret->data + 1, &position[0], sizeof(float) * 3);
+	memcpy(ret->data + 1 + sizeof(float) * 3, &direction[0], sizeof(float) * 3);
+
+	return ret;
+}
+
+/*
+	1 byte		-	packet type
+	4 bytes		-	brick net ID, from the WrenchDialog packet
+	1 byte		-	1 if it collides
+	1 byte		-	name length
+	0-255 bytes	-	name
+	The rest	-	BrickAttachments::write
+*/
+inline ENetPacket* makeWrenchSubmitPacket(netIDType brickID, bool collides, const std::string& name, const BrickAttachments& attachments)
+{
+	std::string shortName = name.substr(0, 255);
+
+	std::vector<unsigned char> bytes;
+	bytes.push_back((unsigned char)WrenchSubmit);
+	bytes.resize(1 + sizeof(netIDType));
+	memcpy(bytes.data() + 1, &brickID, sizeof(netIDType));
+	bytes.push_back(collides ? 1 : 0);
+	bytes.push_back((unsigned char)shortName.length());
+	bytes.insert(bytes.end(), shortName.begin(), shortName.end());
+	attachments.write(bytes);
+
+	return enet_packet_create(bytes.data(), bytes.size(), getFlagsFromChannel(OtherReliable));
+}
+
+/*
+	1 byte		-	packet type
 	1 byte		-	face name length, 0 for no face
 	0-64 bytes	-	face name, a file in Assets/faces
 	1 byte		-	how many painted parts follow

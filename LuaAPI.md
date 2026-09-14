@@ -100,6 +100,7 @@ count or type. Negative colors and brightness are treated as 0.
 | `ClientClick` | `function(client, posX, posY, posZ, dirX, dirY, dirZ, mask) ... return client, posX, posY, posZ, dirX, dirY, dirZ, mask end` | Fires on every mouse click. `posX/Y/Z` and `dirX/Y/Z` are the camera's position and look direction *at the moment of the click*; `mask` is the SDL mouse button mask (see Conventions). |
 | `ClientStartTalking` | `function(client) ... return client end` | Fires when a client starts sending voice chat. Calling `client:setVoiceMuted(true)` here cuts them off before anyone hears them. |
 | `ClientStopTalking` | `function(client) ... return client end` | Fires when a client lets go of push to talk, or half a second after their voice stops arriving (a lost last packet, or muted while talking). Not fired for a client who leaves while talking. |
+| `ClientWrenchBrick` | `function(client, brick) ... return client, brick end` | Fires when a client wrenches a brick (for now: holds Insert and left clicks it, within 100 studs of their camera), before its wrench dialog opens. Return `client, nil` to keep the dialog closed, or another brick to open that one's dialog instead. Not fired by `client:openWrenchDialog`. |
 
 ---
 
@@ -374,8 +375,8 @@ as they join, and draw bricks of types they don't have as plain boxes.
 | `getBrickId(id)` | net ID | Brick or `nil` | Looks up a brick by its net ID. |
 | `getBrickAt(x, y, z)` | one stud/plate grid cell | Brick or `nil` | The brick filling that cell, if any. |
 | `clearAllBricks()` | none | none | Removes every brick. |
-| `saveBuild(fileName[, omitOwnership])` | file name inside the `Saves` folder; `omitOwnership` writes every owner as `-1` | bool | Saves every brick in the old Land of Dran binary format. |
-| `loadLodSave(fileName[, x, y, z])` | file name inside `Saves`; optional offset in studs/plates | count, or `nil` | Loads an old Land of Dran binary save (either version) on top of the current bricks, returning how many were added. Special bricks of types in `Assets/brick/types` are loaded; other special types, lights, music, and prints in the file are skipped. |
+| `saveBuild(fileName[, omitOwnership])` | file name inside the `Saves` folder; `omitOwnership` writes every owner as `-1` | bool | Saves every brick, with its name, collision, music, light, and emitter, in the Land of Dran binary format. Saves are written under a newer version number than the old game's, so the old game can't load them. |
+| `loadLodSave(fileName[, x, y, z])` | file name inside `Saves`; optional offset in studs/plates | count, or `nil` | Loads a Land of Dran binary save (either of the old game's versions, or ours) on top of the current bricks, returning how many were added. Special bricks of types in `Assets/brick/types` are loaded, and so are names, collision, and our saves' music, lights, and emitters. Other special types, and the old game's lights, music, and prints, are skipped. A brick's music or emitter of a type the server doesn't have is kept (and saved again) but doesn't play. |
 | `loadBlocklandSave(fileName)` | file name inside `Saves` | count, or `nil` | Imports a Blockland `.bls` save using its own color palette, returning how many bricks were added. Brick names are matched against `Assets/brick/types`, special bricks included; unrecognized names are skipped and listed in the log. |
 
 Save and load functions only accept a plain file name, with no folders, since saves always live
@@ -398,6 +399,40 @@ directly in `Saves/`. Bricks that would overlap an existing brick are skipped wh
 | `brick:remove([showEffect])` | optional bool | none | Removes the brick. With `true`, clients show it popping loose and flying off like an undone brick. Leave it off when removing many bricks at once. |
 | `brick:isSpecial()` | none | bool | Whether it's a special brick with its own shape, rather than a basic box. |
 | `brick:getTypeName()` | none | string | A special brick's type name, like `"45° Ramp 2x"`. Empty for basic bricks. |
+| `brick:getMusic()` | none | sound name, volume, pitch; or `nil` | The music loop playing from the brick. |
+| `brick:setMusic(soundName[, volume, pitch])` / `brick:setMusic(nil)` | a sound type's name (any sound, not just ones marked as music); `volume` 0-1 and `pitch` 0.05-10, clamped | none | Plays the sound on a loop from the middle of the brick for everyone, like `startSoundLoop`, until it's changed or the brick is removed. Leaving out volume and pitch keeps the brick's current ones (1 and 1 at first). Changing anything starts the loop over. `nil` or `""` stops it. |
+| `brick:getLight()` | none | table, or `nil` | The brick's light settings, with every field below. |
+| `brick:setLight(table)` / `brick:setLight(nil)` | light fields, see below | none | Puts a light on the brick, or changes it. Fields left out keep the brick's current values, or a new light's defaults. An unknown field or a value of the wrong kind logs an error and changes nothing. `nil` takes the light off. |
+| `brick:getEmitter()` | none | emitter type name, or `nil` | The emitter on the brick. |
+| `brick:setEmitter(typeName)` / `brick:setEmitter(nil)` | an emitter type's name | none | Puts an emitter of that type in the middle of the brick, replacing any it had. `nil` takes it off. |
+
+### Wrench dialog and brick attachments
+
+Players wrench a brick to open its wrench dialog, where they can change whether it collides, its name,
+its music loop with volume and pitch, its light, and its emitter. Until there's an inventory with a wrench
+item, wrenching is holding Insert (the `Wrench` key bind) and left clicking a brick. Lua can veto or
+redirect that with the `ClientWrenchBrick` event, or open a dialog itself with `client:openWrenchDialog`.
+Anyone can currently wrench any brick; there are no build permissions yet. The music list only shows
+sounds registered with `newSoundType(name, file, true)` and the emitter list every emitter type, but a
+brick keeps any sound or emitter Lua put on it when a player applies the dialog without changing it.
+
+The music loop, light, and emitter are real sound loops, lights, and emitters: they show up in
+`getNumLights`/`getLightIdx` and `getNumEmitters`/`getEmitterIdx`, are sent to players who join later,
+and are removed along with the brick. If Lua destroys one, the brick makes it again the next time its
+settings are changed. They're saved with the brick by `saveBuild`.
+
+Light fields for `brick:setLight` and `brick:getLight` (see [Lights](#lights) for what each does):
+
+| Field | Default | Description |
+|---|---|---|
+| `color` | `{1, 1, 1}` | RGB, 0-1. |
+| `brightness` | `50` | 0-100000. |
+| `flicker` | `0` | World units, 0-16. |
+| `coronaWidth` | `0` | World units, 0-256. |
+| `coneAngle` | `0` | 0 shines every way, 1-179 makes a spotlight this many degrees wide. |
+| `direction` | `{0, -1, 0}` | Which way a spotlight points, any length but zero. |
+| `spin` | `0` | Degrees per second, -3600 to 3600. |
+| `offset` | just above the brick | Where the light is from the middle of the brick, in world units, -32 to 32 on each axis. The default is 0.25 above the middle of its top face, so the light isn't in its own brick's shadow. |
 
 ---
 
@@ -441,7 +476,7 @@ and `volume` is 0-1 (default `1`). They can only be given together.
 
 | Function | Arguments | Returns | Description |
 |---|---|---|---|
-| `newSoundType(name, filePath[, isMusic])` | unique name and a path relative to the game folder, each 1-255 characters; `isMusic` marks it as music (not used yet) | none | Registers a sound. Logs an error and skips it if the name is taken or the file doesn't exist on the server. |
+| `newSoundType(name, filePath[, isMusic])` | unique name and a path relative to the game folder, each 1-255 characters; `isMusic` marks it as music | none | Registers a sound. Logs an error and skips it if the name is taken or the file doesn't exist on the server. Sounds marked as music are the ones players can pick for a brick in the wrench dialog. `serverstart.lua` registers `After School Special` from `Assets/music` as music. |
 | `playSound(name[, x, y, z][, pitch, volume])` | sound type name; optional world position | none | Plays a sound once for every client, with no position or at `x, y, z`. Sent unreliably, so a client can occasionally miss one. |
 | `startSoundLoop(name[, x, y, z][, pitch, volume])` | sound type name; optional world position | loop ID | Starts a sound that repeats until `stopSoundLoop`, with no position or at `x, y, z`. Clients who join later hear it too. Each client only plays the 16 loops closest to them at once; farther ones pause and pick up where they left off. Loops use the music volume setting on top of `volume`. |
 | `stopSoundLoop(loopID)` | ID from `startSoundLoop` or `dynamic:startSoundLoop` | none | Stops a loop. Does nothing if it already ended. |
@@ -514,4 +549,5 @@ A "client" represents one connected player/connection.
 | `client:getJetsEnabled()` | none | bool | Whether `setJetsEnabled` lets the client jet. |
 | `client:setFlashlightEnabled(enabled)` | bool | none | Whether the client can use their flashlight, on by default. Players tap their flashlight key (`]` by default) to switch it on or off, and hold it to cycle through colors starting from white. The `LightOn` and `LightOff` sounds play from their player. Turning it off switches off a flashlight that's on. Needs a player from `setDefaultController` to hold it (see Lights). Not remembered if they reconnect. |
 | `client:getFlashlightEnabled()` | none | bool | Whether `setFlashlightEnabled` lets the client use a flashlight. |
+| `client:openWrenchDialog(brick)` | Brick | none | Opens the wrench dialog for the brick on the client's screen, as if they'd wrenched it, without firing `ClientWrenchBrick`. What they apply only reaches the brick in the last dialog they were sent, once. See [Wrench dialog and brick attachments](#wrench-dialog-and-brick-attachments). |
 | `client:applyAppearance(dynamic)` | Dynamic | none | Puts the colors and face the client picked in their appearance editor on the dynamic, usually their player in `ClientJoin`. Their game sends their appearance as they connect: each painted part is matched to a mesh by name ignoring case (parts the model doesn't have are skipped), and the face goes on the `Face1` mesh, or `Face` or `Head` if there's no `Face1`, like `dynamic:setMeshDecal`. If they save a change while connected, it's put on the last dynamic this was called with, and parts they no longer paint go back to the model's own look. |

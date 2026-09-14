@@ -25,6 +25,19 @@ void playSoundAt(const std::string& name, const glm::vec3& position, float pitch
 //Same, following a dynamic around while it plays
 void playSoundOn(const std::string& name, const std::shared_ptr<Dynamic>& dynamic, float pitch, float volume);
 
+//For music bricks: starts a loop of a registered sound at a position for everyone, false if there's no sound by that name
+bool startSoundLoopAt(const std::string& name, const glm::vec3& position, float pitch, float volume, unsigned int& loopID);
+
+//Stops a loop from startSoundLoop or startSoundLoopAt, nothing happens if it already ended
+void stopSoundLoopByID(unsigned int loopID);
+
+bool isSoundLoopPlaying(unsigned int loopID);
+
+bool soundTypeExists(const std::string& name);
+
+//Whether there's a sound type by this name that was registered as music, which players can pick in the wrench dialog
+bool isMusicSoundType(const std::string& name);
+
 //dynamic: and client: methods, registered in getDynamicFunctions and registerClientFunctions
 int LUA_dynamicPlaySound(lua_State* L);
 int LUA_dynamicStartSoundLoop(lua_State* L);

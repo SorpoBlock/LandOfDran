@@ -1,6 +1,7 @@
 #include "ClientLua.h"
 #include "Dynamic.h" //pushRaycastResult
 #include "SoundLua.h"
+#include "BrickLua.h"
 
 Server * LUA_server = nullptr;
 
@@ -970,6 +971,33 @@ static int LUA_clientApplyAppearance(lua_State* L)
 	return 0;
 }
 
+static int LUA_clientOpenWrenchDialog(lua_State* L)
+{
+	scope("(LUA) client:openWrenchDialog");
+
+	if (lua_gettop(L) != 2)
+	{
+		error("Expected 2 arguments client:openWrenchDialog(brick)");
+		lua_settop(L, 0);
+		return 0;
+	}
+
+	//Pops the brick off the top, leaving the client
+	Brick* brick = LUA_pd->bricks->popLua(L);
+	if (!brick)
+	{
+		lua_settop(L, 0);
+		return 0;
+	}
+
+	std::shared_ptr<ClientData> client = popClientData(L, 1, "client:openWrenchDialog(brick)");
+	if (!client)
+		return 0;
+
+	openWrenchDialog(*client, brick);
+	return 0;
+}
+
 void registerClientFunctions(lua_State* L)
 {
 	//Register client global functions:
@@ -1006,6 +1034,7 @@ void registerClientFunctions(lua_State* L)
 		{ "setFlashlightEnabled", LUA_clientSetFlashlightEnabled },
 		{ "getFlashlightEnabled", LUA_clientGetFlashlightEnabled },
 		{ "applyAppearance", LUA_clientApplyAppearance },
+		{ "openWrenchDialog", LUA_clientOpenWrenchDialog },
 		{ NULL, NULL }
 	};
 
