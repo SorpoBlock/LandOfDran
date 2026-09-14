@@ -244,8 +244,18 @@ bool PlayerController::control(std::shared_ptr<PhysicsWorld> world, float deltaT
 
 	btVector3 dir = g2b3(cameraDirection);
 	dir.setY(0);
-	dir = dir.normalized();
+	dir = dir.length2() > 0.00000001f ? dir.normalized() : btVector3(0, 0, 1);
 	float cameraYaw = atan2(dir.getX(), dir.getZ());
+
+	if (faceCamera && !serverSide)
+	{
+		playerYaw = playerYaw.slerp(btQuaternion(3.1415 + cameraYaw, 0, 0), std::min(deltaT / blendTime, 1.0f));
+
+		//Don't want to compete with ControlledPhysics packets from the same client
+		btTransform t = targetLock->body->getWorldTransform();
+		t.setRotation(playerYaw);
+		targetLock->body->setWorldTransform(t);
+	}
 
 	bool leftRightUsed = false;
 	bool forwardBackUsed = false;
@@ -306,11 +316,11 @@ bool PlayerController::control(std::shared_ptr<PhysicsWorld> world, float deltaT
 	else if (forwardBackUsed)
 		turn = forwardBackTurn;
 
-	//TODO: This LERP isn't right
-	playerYaw = playerYaw.slerp(turn, deltaT / blendTime);
-
-	if (!serverSide)
+	if (!faceCamera && !serverSide)
 	{
+		//TODO: This LERP isn't right
+		playerYaw = playerYaw.slerp(turn, deltaT / blendTime);
+
 		//Don't want to compete with ControlledPhysics packets from the same client
 		btTransform t = targetLock->body->getWorldTransform();
 		t.setRotation(playerYaw);
@@ -345,5 +355,6 @@ bool PlayerController::control(std::shared_ptr<PhysicsWorld> world, float deltaT
 bool PlayerController::control(const std::shared_ptr<InputMap> input, const std::shared_ptr<Camera> camera, float deltaT, std::shared_ptr<PhysicsWorld> world, bool jet, float waterLevel)
 {
 	serverSide = false;
+	faceCamera = camera->getFirstPerson() && camera->target.lock() == target.lock();
 	return control(world, deltaT, camera->getDirection(), camera->getPosition(), input->pollCommand(Jump), input->isCommandKeydown(Jump), input->isCommandKeydown(WalkForward), input->isCommandKeydown(WalkBackward), input->isCommandKeydown(WalkLeft), input->isCommandKeydown(WalkRight), jet, waterLevel);
 }

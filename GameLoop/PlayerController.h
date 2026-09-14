@@ -25,6 +25,10 @@ struct PlayerController
 
 	bool serverSide = false;
 
+	//Client only, set each frame by the client wrapper: our camera is in first person on the target, so its hidden body turns to face where we look
+	//instead of where we walk, keeping what it holds (the flashlight) in front of it
+	bool faceCamera = false;
+
 	//Client uses these to send last inputs to server
 	//Server cachces these and applies them each frame until a new packet comes in
 	bool lastJump, lastJumpHeld, lastForward, lastBackward, lastLeft, lastRight;

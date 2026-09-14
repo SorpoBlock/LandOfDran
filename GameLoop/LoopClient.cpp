@@ -290,7 +290,7 @@ bool LoopClient::placeHeldLight(Light& light, glm::vec3& position, glm::vec3& di
 		glm::vec3 along = toBox * direction;
 
 		//Slid out of the box along the beam, so the holder's own body can't shadow it: just past the hand when it points away from them,
-		//around the far side of them when it points across or behind them, since the body only turns while walking
+		//around the far side of them when it points across or behind them, for a body still turning to face where they look
 		float exit = std::numeric_limits<float>::max();
 		for (int axis = 0; axis < 3; axis++)
 		{
