@@ -48,7 +48,7 @@ struct CameraUniforms
 /*
 	Time of day, lighting, fog, and water information for a uniform buffer object
 	Every vec3 is followed by a float so std140 needs no extra padding
-	Size: 112 bytes
+	Size: 144 bytes
 */
 struct EnvironmentUniforms
 {
@@ -68,6 +68,14 @@ struct EnvironmentUniforms
 	glm::vec3 AmbientColor = glm::vec3(0, 0, 0);		//12			96
 	//1 normally, fades to 0 as the sun or moon reaches the horizon
 	float ShadowStrength = 1;							//4				108
+	//Rain, all 0 while it isn't raining and nothing is wet, see Rain::passUniforms
+	float RainIntensity = 0;							//4				112
+	float RainWetness = 0;								//4				116
+	//World heights the rain map's depths of 0 and 1 are at
+	float RainMapTop = 0;								//4				120
+	float RainMapBottom = 0;							//4				124
+	//xy the world x and z of the rain map's corner, z its width, w the world size of one of its texels
+	glm::vec4 RainMapArea = glm::vec4(0, 0, 1, 1);		//16			128
 };
 
 /*
@@ -173,6 +181,10 @@ class ShaderManager
 
 	//Program for tinting the whole screen while the camera is under the water
 	Program* underwaterShader = new Program();
+
+	//Programs for drawing falling rain drops and their splashes, see Rain::render
+	Program* rainShader = new Program();
+	Program* rainSplashShader = new Program();
 
 	/*
 		Reads a text file to see where we should find the shader files for the above programs

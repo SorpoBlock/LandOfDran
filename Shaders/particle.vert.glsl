@@ -31,6 +31,11 @@ layout (std140) uniform EnvironmentUniforms
 	vec4 ClipPlane;
 	vec3 AmbientColor;
 	float ShadowStrength;
+	float RainIntensity;
+	float RainWetness;
+	float RainMapTop;
+	float RainMapBottom;
+	vec4 RainMapArea;
 };
 
 //Lights placed by Lua, nearest the camera first, see PointLights::update and PointLightUniforms in ShaderSpecification.h

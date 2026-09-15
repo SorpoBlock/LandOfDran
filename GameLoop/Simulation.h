@@ -30,6 +30,8 @@ struct Simulation
 	float timeScale = 1.0;
 	bool waterEnabled = false;
 	float waterLevel = 0.0;
+	//0-1 as the server set it, the client eases toward it, see Rain
+	float rainIntensity = 0.0;
 	DayCycle dayCycle;
 
 	//Day and night skybox paths, "" for the plain sky, see SkyboxPathsPacket and Skybox::update

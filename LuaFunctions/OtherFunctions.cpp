@@ -328,6 +328,31 @@ static int LUA_getWaterLevel(lua_State* L)
 	return 1;
 }
 
+static int LUA_setRain(lua_State* L)
+{
+	scope("LUA_setRain");
+
+	int args = lua_gettop(L);
+	if (args != 1 || !lua_isnumber(L, 1))
+	{
+		error("Expected 1 number argument");
+		lua_pop(L, args);
+		return 0;
+	}
+
+	LUA_pd->rainIntensity = std::clamp((float)lua_tonumber(L, 1), 0.0f, 1.0f);
+	lua_pop(L, args);
+	LUA_pd->worldStateChanged = true;
+
+	return 0;
+}
+
+static int LUA_getRain(lua_State* L)
+{
+	lua_pushnumber(L, LUA_pd->rainIntensity);
+	return 1;
+}
+
 //A phase name then r, g, b, and when allowBrightness is set optionally a 5th number, for the day cycle color setters
 //Logs an error and returns -1 for anything else, otherwise returns the DayPhase
 static int getPhaseColorArguments(lua_State* L, bool allowBrightness, glm::vec3& color, float& brightness, bool& hasBrightness)
@@ -565,6 +590,8 @@ void registerOtherFunctions(lua_State* L)
 	lua_register(L, "getTimeScale", LUA_getTimeScale);
 	lua_register(L, "setWaterLevel", LUA_setWaterLevel);
 	lua_register(L, "getWaterLevel", LUA_getWaterLevel);
+	lua_register(L, "setRain", LUA_setRain);
+	lua_register(L, "getRain", LUA_getRain);
 	lua_register(L, "setSkyColor", LUA_setSkyColor);
 	lua_register(L, "getSkyColor", LUA_getSkyColor);
 	lua_register(L, "setFogColor", LUA_setFogColor);

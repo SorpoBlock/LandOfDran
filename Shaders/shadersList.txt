@@ -25,3 +25,7 @@ particle	vert	particle.vert.glsl
 particle	frag	particle.frag.glsl
 skyPrefilter	vert	skyPrefilter.vert.glsl
 skyPrefilter	frag	skyPrefilter.frag.glsl
+rain	vert	rain.vert.glsl
+rain	frag	rain.frag.glsl
+rainSplash	vert	rainSplash.vert.glsl
+rainSplash	frag	rainSplash.frag.glsl

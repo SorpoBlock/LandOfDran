@@ -88,9 +88,17 @@ layout (std140) uniform EnvironmentUniforms
 	vec4 ClipPlane;
 	vec3 AmbientColor;
 	float ShadowStrength;
+	float RainIntensity;
+	float RainWetness;
+	float RainMapTop;
+	float RainMapBottom;
+	vec4 RainMapArea;
 };
 
 uniform sampler2DArray PBRArray;
+
+//Depth from straight above of the area around the camera, only bound while RainWetness is above 0, see Rain
+uniform sampler2D RainMap;
 uniform sampler2DArray DecalArray;
 uniform sampler2DArrayShadow ShadowArray;
 
@@ -322,6 +330,25 @@ vec3 cascadeLight(int cascade, vec3 surfaceNormal, float grazing, out float edge
 	float behindTransparent = 1.0 - filterShadow(TintDepthArray, coords, cascade, level);
 	vec3 tint = texture(TintColorArray, vec3(coords.xy, cascade)).rgb;
 	return lit * mix(vec3(1.0), tint, behindTransparent);
+}
+
+//How much rain reaches this surface: 0 under cover or facing down, 1 facing up out in the open, less for walls
+float rainExposure(vec3 surfaceNormal)
+{
+	float facing = smoothstep(-0.3, 0.1, surfaceNormal.y) * mix(0.7, 1.0, clamp(surfaceNormal.y, 0.0, 1.0));
+	if(facing <= 0.0)
+		return 0.0;
+
+	//Lifted off the surface by a couple of map texels, so a wall's own top doesn't count as covering its sides
+	vec3 position = worldPos + surfaceNormal * RainMapArea.w * 2.0 + vec3(0.0, 0.02, 0.0);
+	vec2 mapUV = (position.xz - RainMapArea.xy) / RainMapArea.z;
+
+	//Past the edge of the map, deep in the fog, everything counts as out in the open
+	if(any(lessThan(mapUV, vec2(0.0))) || any(greaterThan(mapUV, vec2(1.0))))
+		return facing;
+
+	float overhead = mix(RainMapTop, RainMapBottom, textureLod(RainMap, mapUV, 0.0).r);
+	return facing * clamp((position.y - overhead) / 0.1 + 1.0, 0.0, 1.0);
 }
 
 //Lights placed by Lua, nearest the camera first, see PointLights::update and PointLightUniforms in ShaderSpecification.h
@@ -631,6 +658,28 @@ void main()
 		mor.b = min(mor.b, 0.3);
 	}
 
+	//Rain darkens and smooths what it reaches, water filling in the texture's bumps, tops of things more than walls
+	float wet = 0.0;
+	//How much of that is standing water rather than damp: glassier, and it hides the texture almost completely
+	float puddle = 0.0;
+	if(RainWetness > 0.0 && pickingID <= 0)
+	{
+		//Water pools unevenly on anything near level, while walls shed it evenly. Fixed in place, so patches don't swim as the camera moves
+		float level = smoothstep(0.55, 0.95, surfaceNormal.y);
+		vec3 groundSpot = vec3(worldPos.x, 0.0, worldPos.z);
+		float hollow = valueNoise(groundSpot * 0.15) * 0.7 + valueNoise(groundSpot * 0.55) * 0.3;
+
+		//The lowest spots soak first and are the last to dry, so a shower starts patchy and puddles linger after it stops
+		float soaked = smoothstep(hollow - 0.3, hollow + 0.3, RainWetness);
+		wet = rainExposure(surfaceNormal) * mix(RainWetness, soaked, level);
+		puddle = level * wet * smoothstep(0.55, 0.15, hollow);
+
+		albedo *= 1.0 - 0.45 * wet;
+		mor.b = mix(mor.b, min(mor.b, mix(0.3, 0.08, clamp(surfaceNormal.y, 0.0, 1.0))), wet);
+		mor.b = mix(mor.b, 0.03, puddle * 0.7);
+		newNormal = normalize(mix(newNormal, surfaceNormal, max(wet * 0.45, puddle * 0.85)));
+	}
+
 	float NdotV = max(dot(newNormal, viewVector), 0.0);	
 	vec3 halfVector = normalize(viewVector + sunDirection);     
 	vec3 F0 = vec3(0.04); 
@@ -667,6 +716,16 @@ void main()
 		color.rgb += (kD * albedo * irradiance / PI + reflected * (F * reflectance.x + reflectance.y)) * mor.g * ambientShadow;
 	}
 	color.rgb += pointLighting(newNormal, viewVector, NdotV, albedo, mor, F0, surfaceNormal);
+
+	//Without a .hdr sky there are no reflections, so wet surfaces reflect the sky's gradient instead to still look shiny
+	if(wet > 0.0 && skyLight < 1.0)
+	{
+		vec3 reflectedRay = reflect(-viewVector, newNormal);
+		vec3 skyReflection = pow(mix(FogColor, SkyColor, smoothstep(0.0, 0.6, reflectedRay.y)), vec3(2.2));
+		vec3 wetFresnel = fresnelSchlickRoughness(NdotV, F0, mor.b);
+		color.rgb += skyReflection * wetFresnel * wet * mor.g * (1.0 - skyLight) * 0.5;
+	}
+
 	color.a = opacity;
 
 	//Tone maping

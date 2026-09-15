@@ -14,6 +14,13 @@ class AcousticProbe
 	float sinceMeasureMS = 0.0f;
 	int occlusionRays = 1;
 
+	//Up and around the sky for skyExposure, the same at every quality, with how much each counts
+	std::vector<glm::vec3> skyDirections;
+	std::vector<float> skyWeights;
+	float skyIntervalMS = 250.0f;
+	//Starts due, so the first call after rain starts casts right away
+	float sinceSkyMS = 250.0f;
+
 	//Totals for getStats, refreshed once a second by updateStats
 	unsigned int raysThisSecond = 0;
 	double msThisSecond = 0;
@@ -39,6 +46,16 @@ public:
 		The ground doesn't count toward either, it's under you in the open too
 	*/
 	bool measure(float deltaT, const PhysicsWorld& world, const glm::vec3& listener, const btRigidBody* ignore, float& averageDistance, float& enclosure);
+
+	//skyExposure's rays stop this far out, anything farther counts as open sky
+	static constexpr float skyDistance = 150.0f;
+
+	/*
+		For rain: casts rays straight up and around the sky once every sky interval, returns true when it did and filled in exposure
+		exposure: 1 out in the open, 0 with a roof and walls all around, in between in a doorway or under an overhang
+		Rays nearer straight up count more
+	*/
+	bool skyExposure(float deltaT, const PhysicsWorld& world, const glm::vec3& listener, const btRigidBody* ignore, float& exposure);
 
 	//0 for a clear path from listener to source, getting closer to 1 the more solid is in the way, skipping the two bodies given
 	float occlusion(const PhysicsWorld& world, const glm::vec3& listener, const glm::vec3& source, const btRigidBody* ignoreA, const btRigidBody* ignoreB);

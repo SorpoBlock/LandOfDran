@@ -28,6 +28,11 @@ layout (std140) uniform EnvironmentUniforms
 	vec4 ClipPlane;
 	vec3 AmbientColor;
 	float ShadowStrength;
+	float RainIntensity;
+	float RainWetness;
+	float RainMapTop;
+	float RainMapBottom;
+	vec4 RainMapArea;
 };
 
 //How far the grid reaches from the camera and how big one grid cell is, see LoopClient::waterRadius

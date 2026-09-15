@@ -34,6 +34,8 @@ enum TextureLocations
 	//Cube maps of the day and night skies, see Skybox
 	SkyDay = 12,
 	SkyNight = 13,
+	//Depth from straight above the area around the camera, see Rain
+	RainMap = 14,
 	//Add as needed:
 	/*BRDF = 2,
 	HeightMap = 3,

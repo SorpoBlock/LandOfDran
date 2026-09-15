@@ -82,6 +82,8 @@ void LoopClient::leaveServer(ExecutableArguments& cmdArgs)
 	simulation.evalPassword = "";
 	simulation.waterEnabled = false;
 	pd.waterRipples.clear();
+	simulation.rainIntensity = 0.0f;
+	pd.rain.clear();
 	simulation.dayCycle = DayCycle();
 	simulation.skyboxPaths[0].clear();
 	simulation.skyboxPaths[1].clear();
@@ -823,6 +825,7 @@ void LoopClient::handleInput(float deltaT, ExecutableArguments& cmdArgs, std::sh
 			simulation.brickDebris->setLifetime(settings->getFloat("graphics/brickdebrisseconds"));
 		pd.particles->setMaxParticles(settings->getInt("graphics/maxparticles"));
 		pd.imageBasedLighting = settings->getBool("graphics/imagebasedlighting");
+		pd.rain.setQuality(settings->getInt("graphics/rainquality"), pd.textures);
 	}
 
 	if (pd.debugMenu->passwordSubmitted())
@@ -1364,6 +1367,7 @@ void LoopClient::renderScene(bool clipAtWater)
 	pd.shadowTint->bindDepthResult(TintDepthArray);
 	pd.shadowTint->bindColorResult(TintColorArray);
 	pd.pointLights->bindShadowMaps();
+	pd.rain.bindMap();
 
 	//Models:
 	pd.shaders->basicUniforms.nonInstanced = 0;
@@ -1416,6 +1420,7 @@ void LoopClient::renderTransparent(bool clipAtWater)
 	pd.shadowTint->bindDepthResult(TintDepthArray);
 	pd.shadowTint->bindColorResult(TintColorArray);
 	pd.pointLights->bindShadowMaps();
+	pd.rain.bindMap();
 	pd.brickRenderer->render(pd.shaders, true);
 	pd.brickRenderer->renderGroups(pd.shaders, vehicleDraws, true);
 
@@ -1733,6 +1738,10 @@ void LoopClient::renderEverything(float deltaT)
 	pd.environment.calc(simulation.worldTimeSeconds);
 	pd.environment.passUniforms(pd.shaders);
 
+	//Eases toward the server's rain and moves the map of what's overhead along with the camera, does nothing while it's dry
+	pd.rain.update(deltaT, simulation.rainIntensity, simulation.camera->getPosition());
+	pd.rain.passUniforms(pd.shaders);
+
 	//Only loads anything when the server picks new skyboxes or graphics/imagebasedlighting changes
 	pd.skybox->update(simulation.skyboxPaths[0], simulation.skyboxPaths[1], pd.imageBasedLighting);
 	pd.skybox->passUniforms(pd.shaders, pd.environment.skyboxBlend);
@@ -1948,6 +1957,23 @@ void LoopClient::renderEverything(float deltaT)
 
 	glDisable(GL_POLYGON_OFFSET_FILL);
 
+	//The rain map: the topmost brick at each spot around the camera, seen straight down, only redrawn when it moves or bricks change
+	//Nearly see-through bricks let rain through, and players and other dynamics don't keep it off anything
+	if (pd.rain.mapNeedsDrawing(pd.brickRenderer->getGeneration(), !vehicleDraws.empty(), deltaT))
+	{
+		//Bricks above the map's top are flattened onto it, so they still count as overhead
+		glEnable(GL_DEPTH_CLAMP);
+		glDisable(GL_CULL_FACE);
+		pd.shaders->brickShadowCascadeShader->use();
+		glm::mat4 mapMatrix = pd.rain.useMap();
+		glUniformMatrix4fv(pd.shadowCascadeMatrixUniformBrick, 1, GL_FALSE, &mapMatrix[0][0]);
+		glUniform1f(pd.shadowCascadeMinOpacityUniform, 0.05f);
+		glUniform1i(pd.shadowCascadeSkipContainingUniform, 0);
+		pd.brickRenderer->renderShadowCascade(mapMatrix, true, true, false, &vehicleDraws);
+		glEnable(GL_CULL_FACE);
+		glDisable(GL_DEPTH_CLAMP);
+	}
+
 	bool cameraUnderwater = simulation.camera->getPosition().y < simulation.waterLevel;
 	bool renderWaterPasses = simulation.waterEnabled && pd.waterReflection && pd.waterRefraction;
 
@@ -2019,6 +2045,10 @@ void LoopClient::renderEverything(float deltaT)
 
 	//After the water, which writes depth, so water behind a transparent brick can't paint over it
 	renderTransparent(false);
+
+	//Rain drops and splashes, not seen from under the water
+	if (!(simulation.waterEnabled && cameraUnderwater))
+		pd.rain.render(pd.shaders, pd.skyVao, pd.context->getResolution().y);
 
 	//Outlines/highlights: a selection-style indicator that should show through everything in the scene except
 	//its own source object (so it doesn't just paint a solid blob over the object it's highlighting) and other
@@ -2277,6 +2307,7 @@ void LoopClient::run(float deltaT,ExecutableArguments& cmdArgs, std::shared_ptr<
 	if (simulation.bricks)
 		pd.debugMenu->addExtraLine("Bricks: " + std::to_string(simulation.bricks->size()));
 	pd.debugMenu->addExtraLine("Environmental audio: " + pd.acousticProbe.getStats());
+	pd.debugMenu->addExtraLine("Rain: " + pd.rain.getStats());
 	pd.debugMenu->addExtraLine("Point lights: " + pd.pointLights->getStats());
 	pd.debugMenu->addExtraLine("Particles: " + pd.particles->getStats());
 	if (simulation.dynamics && simulation.dynamics->size() > 0)
@@ -2387,6 +2418,17 @@ void LoopClient::run(float deltaT,ExecutableArguments& cmdArgs, std::shared_ptr<
 		if (pd.acousticProbe.measure(deltaT, *pd.physicsWorld, listener, player, averageDistance, enclosure))
 			pd.audio->setListenerSpace(averageDistance, enclosure);
 	}
+
+	//Rain gets quieter and muffled the less open sky there is around the camera, which is only measured while it's raining
+	float rainIntensity = inWorld ? pd.rain.getIntensity() : 0.0f;
+	if (rainIntensity > 0.0f)
+	{
+		const btRigidBody* player = simulation.controlledDynamics.empty() ? nullptr : simulation.controlledDynamics[0]->body;
+		float skyExposure;
+		if (pd.acousticProbe.skyExposure(deltaT, *pd.physicsWorld, listener, player, skyExposure))
+			pd.audio->setRainExposure(skyExposure);
+	}
+	pd.audio->setRain(rainIntensity);
 
 	//The Doppler effect goes by the velocity of what the camera follows, so swinging a third person camera around doesn't bend every sound's pitch
 	std::optional<glm::vec3> listenerVelocity;
@@ -2575,6 +2617,7 @@ LoopClient::LoopClient(ExecutableArguments& cmdArgs, std::shared_ptr<SettingMana
 	pd.particles = new ParticleSystem(pd.textures);
 	pd.particles->setMaxParticles(settings->getInt("graphics/maxparticles"));
 	createShadowTarget(settings);
+	pd.rain.setQuality(settings->getInt("graphics/rainquality"), pd.textures);
 	pd.lightSpaceMatriciesUniformModel = pd.shaders->modelShader->getUniformLocation("lightSpaceMatricies");
 	pd.lightSpaceMatriciesUniformBrick = pd.shaders->brickShader->getUniformLocation("lightSpaceMatricies");
 	pd.shadowCascadeMatrixUniformModel = pd.shaders->modelShadowCascadeShader->getUniformLocation("lightSpaceMatrix");

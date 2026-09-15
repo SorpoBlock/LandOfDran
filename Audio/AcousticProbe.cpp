@@ -1,5 +1,7 @@
 #include "AcousticProbe.h"
 
+#include <glm/gtc/constants.hpp>
+
 void AcousticProbe::setQuality(int reverbQuality, int occlusionQuality)
 {
 	static constexpr int rayCounts[3] = { 12, 24, 48 };
@@ -55,6 +57,32 @@ bool AcousticProbe::measure(float deltaT, const PhysicsWorld& world, const glm::
 	enclosure = levelRays > 0 ? (float)levelHits / levelRays : 0.0f;
 
 	raysThisSecond += levelRays;
+	msThisSecond += std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - started).count();
+
+	return true;
+}
+
+bool AcousticProbe::skyExposure(float deltaT, const PhysicsWorld& world, const glm::vec3& listener, const btRigidBody* ignore, float& exposure)
+{
+	sinceSkyMS += deltaT;
+	if (sinceSkyMS < skyIntervalMS)
+		return false;
+	sinceSkyMS = 0;
+
+	auto started = std::chrono::steady_clock::now();
+
+	float open = 0;
+	float total = 0;
+	for (size_t a = 0; a < skyDirections.size(); a++)
+	{
+		total += skyWeights[a];
+		if (world.rayHitFraction(g2b3(listener), g2b3(listener + skyDirections[a] * skyDistance), ignore, nullptr) >= 1)
+			open += skyWeights[a];
+	}
+
+	exposure = total > 0 ? open / total : 1.0f;
+
+	raysThisSecond += (unsigned int)skyDirections.size();
 	msThisSecond += std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - started).count();
 
 	return true;
@@ -116,4 +144,20 @@ std::string AcousticProbe::getStats() const
 AcousticProbe::AcousticProbe()
 {
 	setQuality(2, 2);
+
+	//Straight up, then a ring of 6 steeply up and a ring of 8 lower down that can see out doorways and windows
+	skyDirections.push_back(glm::vec3(0, 1, 0));
+	skyWeights.push_back(2.0f);
+	auto addRing = [this](int count, float elevationDegrees, float weight, float turn)
+	{
+		float elevation = glm::radians(elevationDegrees);
+		for (int a = 0; a < count; a++)
+		{
+			float angle = (a + turn) * glm::two_pi<float>() / count;
+			skyDirections.push_back(glm::vec3(std::cos(angle) * std::cos(elevation), std::sin(elevation), std::sin(angle) * std::cos(elevation)));
+			skyWeights.push_back(weight);
+		}
+	};
+	addRing(6, 65.0f, 1.0f, 0.0f);
+	addRing(8, 35.0f, 0.6f, 0.5f);
 }

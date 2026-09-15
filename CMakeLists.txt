@@ -154,6 +154,8 @@ add_executable (LandOfDran
 "Graphics/WaterRipples.cpp"
 "Graphics/ParticleSystem.h"
 "Graphics/ParticleSystem.cpp"
+"Graphics/Rain.h"
+"Graphics/Rain.cpp"
 
 "Interface/InputMap.h"  
 "Interface/InputMap.cpp" 

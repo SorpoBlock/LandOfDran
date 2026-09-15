@@ -30,6 +30,11 @@ layout (std140) uniform EnvironmentUniforms
 	vec4 ClipPlane;
 	vec3 AmbientColor;
 	float ShadowStrength;
+	float RainIntensity;
+	float RainWetness;
+	float RainMapTop;
+	float RainMapBottom;
+	vec4 RainMapArea;
 };
 
 //See SkyUniforms in ShaderSpecification.h, only the part the sky needs

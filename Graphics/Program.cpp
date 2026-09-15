@@ -51,6 +51,9 @@ void Program::registerSamplerUniforms()
     if (glGetUniformLocation(handle, "SkyNight") != -1)
         glUniform1i(glGetUniformLocation(handle, "SkyNight"), SkyNight);
 
+    if (glGetUniformLocation(handle, "RainMap") != -1)
+        glUniform1i(glGetUniformLocation(handle, "RainMap"), RainMap);
+
     //Enable others as they are actually added
     /*glUniform1i(glGetUniformLocation(handle, "BRDF"), BRDF);
     glUniform1i(glGetUniformLocation(handle, "HeightMap"),          HeightMap);

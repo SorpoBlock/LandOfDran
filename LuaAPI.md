@@ -45,6 +45,8 @@ client finishes joining.
 | `getTimeScale()` | none | number | Current time scale. |
 | `setWaterLevel([y])` | `y`: world height of the water surface, or no argument / `nil` | none | Puts a water surface at height `y` across the whole world, or removes it when called with no argument. Off by default. Dynamics in the water float or sink depending on their buoyancy (see `dynamic:setBuoyancy`) and are slowed by drag. Players at least half under water swim: W and S follow the camera up and down, A and D stay level, holding jump swims up, and pressing jump with their head above the surface jumps out. The server plays the `Splash` sound where a dynamic falls in fast and `ExitWater` where one comes out fast, if they're registered. Clients draw ripples spreading across the surface where dynamics go in, come out, or move along it. |
 | `getWaterLevel()` | none | number, or `nil` if there's no water | Current water height. |
+| `setRain(intensity)` | `intensity`: `0` for none up to `1` for a downpour, clamped to that range | none | Makes it rain everywhere. Off by default. Clients ease into the new intensity over a few seconds. They play a rain loop that gets quieter and muffled the less open sky is above the camera, and, unless their `graphics/rainquality` is off, draw falling drops and splashes only where nothing is overhead, and darken and add shine to surfaces the rain reaches. Surfaces dry off slowly after the rain stops. Rain doesn't change the sky or sun, pair it with `setSunColor` / `setFogColor` / `setFogDistance` for an overcast look. |
+| `getRain()` | none | number, 0-1 | Current rain intensity. |
 
 All of these except the getters use the strict `Expected 1 number argument` check described
 above (`setWaterLevel` also accepts no arguments).

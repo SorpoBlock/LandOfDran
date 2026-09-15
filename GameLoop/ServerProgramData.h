@@ -45,6 +45,8 @@ struct ServerProgramData
 	float timeScale = 1.0;
 	bool waterEnabled = false;
 	float waterLevel = 0.0;
+	//0 for no rain up to 1 for a downpour, see setRain
+	float rainIntensity = 0.0;
 	//Sky, fog, and sun colors for each part of the day, and the fog distances
 	DayCycle dayCycle;
 	//Day and night skyboxes from setSkybox, "" for the plain sky, a .hdr file or the start of five _0.png to _4.png face files

@@ -577,7 +577,7 @@ void LoopServer::broadcastWorldState()
 	lastWorldStateBroadcast = SDL_GetTicks();
 	pd.worldStateChanged = false;
 
-	ENetPacket* packet = enet_packet_create(NULL, 1 + sizeof(double) + sizeof(float) * 2 + 1 + sizeof(float) * DayCycle::networkFloats, getFlagsFromChannel(OtherReliable));
+	ENetPacket* packet = enet_packet_create(NULL, 1 + sizeof(double) + sizeof(float) * 2 + 1 + sizeof(float) * DayCycle::networkFloats + sizeof(float), getFlagsFromChannel(OtherReliable));
 	enet_uint8* data = packet->data;
 
 	data[0] = (unsigned char)WorldStateUpdate;
@@ -612,6 +612,9 @@ void LoopServer::broadcastWorldState()
 	data += sizeof(float);
 
 	memcpy(data, &pd.dayCycle.fogEnd, sizeof(float));
+	data += sizeof(float);
+
+	memcpy(data, &pd.rainIntensity, sizeof(float));
 
 	server->broadcast(packet, OtherReliable);
 }

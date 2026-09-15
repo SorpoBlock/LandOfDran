@@ -46,6 +46,11 @@ static constexpr float underwaterFadeMS = 250.0f;
 
 static const EFXEAXREVERBPROPERTIES underwaterReverb = EFX_REVERB_PRESET_UNDERWATER;
 
+//Rain with no open sky above, as a share of its volume out in the open and how much high end it keeps, see AudioSystem::updateRain
+static constexpr float rainIndoorGain = 0.12f;
+static constexpr float rainIndoorGainHF = 0.08f;
+static constexpr float rainExposureSmoothingMS = 500.0f;
+
 //Where it's drawn, or where its body is if it hasn't been drawn yet
 static glm::vec3 soundPositionOf(const Dynamic& dynamic)
 {
@@ -675,6 +680,78 @@ void AudioSystem::setListenerSpace(float averageDistance, float enclosure)
 	spaceEnclosure = enclosure;
 }
 
+void AudioSystem::updateRain(float deltaT)
+{
+	if (rainVolume <= 0.0f)
+	{
+		//Paused rather than stopped, so the next shower picks the loop up where it left off
+		if (rainPlaying)
+		{
+			alSourcePause(rainSource);
+			rainPlaying = false;
+		}
+		return;
+	}
+
+	//Decoded the first time it rains, so a server that never rains never loads it
+	if (!rainBuffer)
+	{
+		if (rainLoadFailed)
+			return;
+
+		std::vector<int16_t> samples;
+		int channels = 0, sampleRate = 0;
+		if (!decodeSoundFile(rainSoundPath, samples, channels, sampleRate))
+		{
+			error("Couldn't load the rain sound " + std::string(rainSoundPath));
+			rainLoadFailed = true;
+			return;
+		}
+
+		alGenBuffers(1, &rainBuffer);
+		alBufferData(rainBuffer, channels == 2 ? AL_FORMAT_STEREO16 : AL_FORMAT_MONO16, samples.data(), (ALsizei)(samples.size() * sizeof(int16_t)), sampleRate);
+		alSourcei(rainSource, AL_BUFFER, (ALint)rainBuffer);
+
+		ALenum alError = alGetError();
+		if (alError != AL_NO_ERROR)
+		{
+			error("OpenAL error " + std::to_string(alError) + " loading the rain sound");
+			alSourcei(rainSource, AL_BUFFER, 0);
+			alDeleteBuffers(1, &rainBuffer);
+			rainBuffer = 0;
+			rainLoadFailed = true;
+			return;
+		}
+	}
+
+	if (!rainPlaying)
+	{
+		//Starting from wherever the camera is now, not gliding in from wherever it was when the last rain stopped
+		rainExposure = rainExposureTarget;
+		alSourcePlay(rainSource);
+		rainPlaying = true;
+	}
+	else
+		rainExposure += (rainExposureTarget - rainExposure) * (1.0f - std::exp(-deltaT / rainExposureSmoothingMS));
+
+	//A doorway or open garage still sounds fairly loud, so volume comes back faster than the high end does
+	alSourcef(rainSource, AL_GAIN, rainVolume * musicVolume * glm::mix(rainIndoorGain, 1.0f, std::sqrt(rainExposure)));
+
+	if (!directFilter)
+		return;
+
+	float gain = glm::mix(1.0f, underwaterGain, underwaterAmount);
+	float gainHF = glm::mix(rainIndoorGainHF, 1.0f, rainExposure) * glm::mix(1.0f, underwaterGainHF, underwaterAmount);
+	if (std::abs(gain - rainAppliedGain) < 0.003f && std::abs(gainHF - rainAppliedGainHF) < 0.003f)
+		return;
+
+	alFilterf(directFilter, AL_LOWPASS_GAIN, gain);
+	alFilterf(directFilter, AL_LOWPASS_GAINHF, gainHF);
+	alSourcei(rainSource, AL_DIRECT_FILTER, (ALint)directFilter);
+	rainAppliedGain = gain;
+	rainAppliedGainHF = gainHF;
+}
+
 void AudioSystem::setVolumes(float master, float music)
 {
 	musicVolume = std::clamp(music, 0.0f, 1.0f);
@@ -836,6 +913,8 @@ void AudioSystem::update(const glm::vec3& position, const glm::vec3& listenerDir
 
 	underwaterAmount = std::clamp(underwaterAmount + (underwater ? 1.0f : -1.0f) * deltaT / underwaterFadeMS, 0.0f, 1.0f);
 
+	updateRain(deltaT);
+
 	//Reverb glides toward what the space around the listener calls for
 	if (wantsListenerSpace())
 	{
@@ -983,6 +1062,14 @@ void AudioSystem::clear()
 		for (int a = 0; a < voiceSourceCount; a++)
 			closeVoice(a);
 
+		//The buffer is the game's own, so it's kept for the next server that rains
+		rainVolume = 0.0f;
+		if (rainPlaying)
+		{
+			alSourceStop(rainSource);
+			rainPlaying = false;
+		}
+
 		updateReverbConnection();
 
 		for (SoundType& sound : sounds)
@@ -1021,6 +1108,7 @@ AudioSystem::AudioSystem()
 	alGenSources(generalSourceCount, generalSources);
 	alGenSources(loopSourceCount, loopSources);
 	alGenSources(voiceSourceCount, voiceSources);
+	alGenSources(1, &rainSource);
 
 	ALenum alError = alGetError();
 	if (alError != AL_NO_ERROR)
@@ -1055,6 +1143,12 @@ AudioSystem::AudioSystem()
 		alSourcef(source, AL_ROLLOFF_FACTOR, distanceRolloff);
 		alSourcei(source, AL_LOOPING, AL_FALSE);
 	}
+
+	//Rain is all around, not coming from anywhere, and doesn't go through the reverb
+	alSourcei(rainSource, AL_SOURCE_RELATIVE, AL_TRUE);
+	alSource3f(rainSource, AL_POSITION, 0, 0, 0);
+	alSourcef(rainSource, AL_ROLLOFF_FACTOR, 0);
+	alSourcei(rainSource, AL_LOOPING, AL_TRUE);
 
 	alDopplerFactor(dopplerStrength);
 	alSpeedOfSound(speedOfSound);
@@ -1120,6 +1214,10 @@ AudioSystem::~AudioSystem()
 	alDeleteSources(generalSourceCount, generalSources);
 	alDeleteSources(loopSourceCount, loopSources);
 	alDeleteSources(voiceSourceCount, voiceSources);
+	alSourcei(rainSource, AL_DIRECT_FILTER, AL_FILTER_NULL);
+	alDeleteSources(1, &rainSource);
+	if (rainBuffer)
+		alDeleteBuffers(1, &rainBuffer);
 	if (!allVoiceBuffers.empty())
 		alDeleteBuffers((ALsizei)allVoiceBuffers.size(), allVoiceBuffers.data());
 

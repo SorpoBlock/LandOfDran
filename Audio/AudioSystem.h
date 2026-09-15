@@ -211,6 +211,24 @@ private:
 	//Takes buffers a voice source finished playing off it, into spareVoiceBuffers
 	void recycleVoiceBuffers(ALuint source);
 
+	//Rain: a flat looping source of its own outside the loop pool, see setRain
+	static constexpr const char* rainSoundPath = "Assets/music/dragon-studio-calming-rain-loop-398653.mp3";
+	ALuint rainSource = 0;
+	//Decoded the first time it rains, 0 until then
+	ALuint rainBuffer = 0;
+	//Don't try to decode it again every frame
+	bool rainLoadFailed = false;
+	bool rainPlaying = false;
+	float rainVolume = 0.0f;
+	//Glides toward rainExposureTarget, see setRainExposure
+	float rainExposure = 1.0f;
+	float rainExposureTarget = 1.0f;
+	float rainAppliedGain = -1.0f;
+	float rainAppliedGainHF = -1.0f;
+
+	//Starts, pauses, loads, and muffles the rain sound
+	void updateRain(float deltaT);
+
 public:
 
 	bool isValid() const { return valid; }
@@ -261,6 +279,12 @@ public:
 
 	//Both 0-1, master scales everything, music scales loops
 	void setVolumes(float master, float music);
+
+	//0-1, how hard it's raining, 0 pauses the rain sound. Uses the music volume like other ambience
+	void setRain(float intensity) { rainVolume = std::clamp(intensity, 0.0f, 1.0f); }
+
+	//0-1 from AcousticProbe::skyExposure, the rain sound gets quieter and more muffled the less open sky there is
+	void setRainExposure(float exposure) { rainExposureTarget = std::clamp(exposure, 0.0f, 1.0f); }
 
 	//Call every frame: moves the listener, follows moving sounds, updates reverb and muffling, and hands loop sources to the closest loops
 	//listenerVelocity is for the Doppler effect, like that of the player the camera follows. Without one, it comes from how the listener moves

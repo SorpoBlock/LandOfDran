@@ -90,6 +90,10 @@ bool ShaderManager::readShaderList(const std::string &filePath)
 				particleShader = lastProgram;
 			else if (programName == "skyPrefilter")
 				skyPrefilterShader = lastProgram;
+			else if (programName == "rain")
+				rainShader = lastProgram;
+			else if (programName == "rainSplash")
+				rainSplashShader = lastProgram;
 			else
 				error("Invalid program name " + programName);
 		}
@@ -167,7 +171,7 @@ ShaderManager::ShaderManager()
 		error("Could not allocate uniform buffer object!");
 
 	glBindBuffer(GL_UNIFORM_BUFFER, environmentUBO);
-	glBufferData(GL_UNIFORM_BUFFER, 112, &environmentUniforms, GL_DYNAMIC_DRAW);
+	glBufferData(GL_UNIFORM_BUFFER, 144, &environmentUniforms, GL_DYNAMIC_DRAW);
 	glBindBuffer(GL_UNIFORM_BUFFER, 0);
 
 	//Point lights:
@@ -232,7 +236,7 @@ void ShaderManager::updateBasicUBO() const
 void ShaderManager::updateEnvironmentUBO() const
 {
 	glBindBuffer(GL_UNIFORM_BUFFER, environmentUBO);
-	glBufferData(GL_UNIFORM_BUFFER, 112, &environmentUniforms, GL_DYNAMIC_DRAW);
+	glBufferData(GL_UNIFORM_BUFFER, 144, &environmentUniforms, GL_DYNAMIC_DRAW);
 	glBindBuffer(GL_UNIFORM_BUFFER, 0);
 }
 

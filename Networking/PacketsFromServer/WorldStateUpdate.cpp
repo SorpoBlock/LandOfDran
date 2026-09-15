@@ -5,7 +5,7 @@ bool WorldStateUpdatePacket::applyPacket(const ClientProgramData& pd, Simulation
 	if (cmdArgs.gameState != InGame)
 		return false;
 
-	if (packet->dataLength < 1 + sizeof(double) + sizeof(float) * 2 + 1 + sizeof(float) * DayCycle::networkFloats)
+	if (packet->dataLength < 1 + sizeof(double) + sizeof(float) * 2 + 1 + sizeof(float) * DayCycle::networkFloats + sizeof(float))
 		return true;
 
 	enet_uint8* data = packet->data + 1;
@@ -39,6 +39,10 @@ bool WorldStateUpdatePacket::applyPacket(const ClientProgramData& pd, Simulation
 	data += sizeof(float);
 
 	memcpy(&simulation.dayCycle.fogEnd, data, sizeof(float));
+	data += sizeof(float);
+
+	memcpy(&simulation.rainIntensity, data, sizeof(float));
+	simulation.rainIntensity = std::clamp(simulation.rainIntensity, 0.0f, 1.0f);
 
 	return true;
 }

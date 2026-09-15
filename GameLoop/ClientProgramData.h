@@ -20,6 +20,7 @@
 #include "../Graphics/PointLights.h"
 #include "../Graphics/WaterRipples.h"
 #include "../Graphics/ParticleSystem.h"
+#include "../Graphics/Rain.h"
 #include "../Bricks/GhostBrick.h"
 #include "../Bricks/SelectionBox.h"
 #include "../Bricks/VehicleGhost.h"
@@ -131,6 +132,9 @@ struct ClientProgramData
 
 	//Rings on the water from things moving through its surface, of whichever server we're on
 	WaterRipples waterRipples;
+
+	//Rain of whichever server we're on, and the map of what's overhead that keeps it outside
+	Rain rain;
 
 	//Copy of the finished scene that underwater.frag draws back warped, made the first time the camera goes under the water
 	std::shared_ptr<RenderTarget> underwaterScene = nullptr;
