@@ -17,6 +17,7 @@ void Environment::calc(double worldTimeSeconds)
 	sunDirection = glm::normalize(glm::vec3(cos(angle), sin(angle) * cos(tilt), sin(angle) * sin(tilt)));
 
 	float elevation = sunDirection.y;
+	skyboxBlend = 1.0f - glm::smoothstep(-0.15f, 0.1f, elevation);
 	const SkyKeyframe& night = cycle.phases[NightPhase];
 	const SkyKeyframe& day = cycle.phases[DaytimePhase];
 	const SkyKeyframe& twilight = dayFraction < 0.5f ? cycle.phases[DawnPhase] : cycle.phases[DuskPhase];

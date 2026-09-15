@@ -71,6 +71,8 @@ void populateDefaults(std::shared_ptr<SettingManager> settings)
 	settings->addEnum("graphics/shadowsoftness",		1,  			"Shadow Softness" , 	{"Hard","Soft (3x3 texels)","Softer (5x5 texels)","Softest (7x7 texels)"});
 	settings->addBool("graphics/shadowcolor",		true, false, 	"Colored Shadows");
 	settings->setTooltip("graphics/shadowcolor",		"Light through transparent bricks takes on their color");
+	settings->addBool("graphics/imagebasedlighting",	true, false,	"Image Based Lighting");
+	settings->setTooltip("graphics/imagebasedlighting", "Servers with a .hdr sky light everything with it and show it in reflections, otherwise it's only drawn as the sky");
 	settings->addInt("graphics/pointshadows",		4, false,		"Point Light Shadows", 0, 8);
 	settings->setTooltip("graphics/pointshadows",	"How many of the lights nearest the camera cast shadows, each costs up to six extra shadow passes a frame");
 	settings->addEnum("graphics/godrayquality",		1, 	 			"God ray samples", 	{"None","32 samples","64 samples","96 samples","128 samples"});

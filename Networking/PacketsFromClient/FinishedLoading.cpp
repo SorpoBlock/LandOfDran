@@ -2,6 +2,7 @@
 #include "../../GameLoop/ServerProgramData.h"
 #include "../../LuaFunctions/ClientLua.h"
 #include "../../LuaFunctions/SoundLua.h"
+#include "../../LuaFunctions/SkyLua.h"
 
 /*
 	Do not attempt to assign a handle to JoinedClient to other objects directly
@@ -41,6 +42,8 @@ void clientFinishedLoading(JoinedClient* source, Server const* const server, ENe
 
 	//Loops already playing and the reverb preset
 	sendSoundState(pd, source);
+
+	sendSkybox(pd, source);
 
 	//Time of day and water level, instead of waiting up to a second for the regular update
 	pd->worldStateChanged = true;

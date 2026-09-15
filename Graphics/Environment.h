@@ -39,6 +39,9 @@ class Environment
 	float fogDistanceMin = 150;
 	float fogDistanceMax = 290;
 
+	//0 shows the day skybox and 1 the night one, they cross fade while the sun is near the horizon, see Skybox
+	float skyboxBlend = 0;
+
 	void calc(double worldTimeSeconds);
 
 	//Copies the results of calc into the environment UBO struct, does not upload it

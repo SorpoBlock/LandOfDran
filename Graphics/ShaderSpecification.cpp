@@ -88,6 +88,8 @@ bool ShaderManager::readShaderList(const std::string &filePath)
 				coronaShader = lastProgram;
 			else if (programName == "particle")
 				particleShader = lastProgram;
+			else if (programName == "skyPrefilter")
+				skyPrefilterShader = lastProgram;
 			else
 				error("Invalid program name " + programName);
 		}
@@ -177,6 +179,16 @@ ShaderManager::ShaderManager()
 	glBindBuffer(GL_UNIFORM_BUFFER, pointLightUBO);
 	glBufferData(GL_UNIFORM_BUFFER, PointLightUniforms::byteSize, &pointLightUniforms, GL_DYNAMIC_DRAW);
 	glBindBuffer(GL_UNIFORM_BUFFER, 0);
+
+	//Sky:
+
+	glGenBuffers(1, &skyUBO);
+	if (!skyUBO)
+		error("Could not allocate uniform buffer object!");
+
+	glBindBuffer(GL_UNIFORM_BUFFER, skyUBO);
+	glBufferData(GL_UNIFORM_BUFFER, sizeof(SkyUniforms), &skyUniforms, GL_DYNAMIC_DRAW);
+	glBindBuffer(GL_UNIFORM_BUFFER, 0);
 }
 
 ShaderManager::~ShaderManager()
@@ -185,6 +197,7 @@ ShaderManager::~ShaderManager()
 	glDeleteBuffers(1, &cameraUBO);
 	glDeleteBuffers(1, &environmentUBO);
 	glDeleteBuffers(1, &pointLightUBO);
+	glDeleteBuffers(1, &skyUBO);
 }
 
 /*
@@ -197,6 +210,7 @@ void ShaderManager::bind(Program* target) const
 	target->bindUniformBlock("CameraUniforms", cameraUBO, 1);
 	target->bindUniformBlock("EnvironmentUniforms", environmentUBO, 2);
 	target->bindUniformBlock("PointLightUniforms", pointLightUBO, 3);
+	target->bindUniformBlock("SkyUniforms", skyUBO, 4);
 }
 
 //Push camera changes to GPU/OpenGL
@@ -226,5 +240,12 @@ void ShaderManager::updatePointLightUBO() const
 {
 	glBindBuffer(GL_UNIFORM_BUFFER, pointLightUBO);
 	glBufferData(GL_UNIFORM_BUFFER, PointLightUniforms::byteSize, &pointLightUniforms, GL_DYNAMIC_DRAW);
+	glBindBuffer(GL_UNIFORM_BUFFER, 0);
+}
+
+void ShaderManager::updateSkyUBO() const
+{
+	glBindBuffer(GL_UNIFORM_BUFFER, skyUBO);
+	glBufferData(GL_UNIFORM_BUFFER, sizeof(SkyUniforms), &skyUniforms, GL_DYNAMIC_DRAW);
 	glBindBuffer(GL_UNIFORM_BUFFER, 0);
 }

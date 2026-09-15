@@ -141,6 +141,7 @@ enum FromServerPacketType : unsigned char
 	MeshDecal = 28,			//Put a face from Assets/faces on one mesh of a dynamic, or take it off, see Dynamic::setMeshDecal
 	SpecialBrickTypes = 29,	//The server's special brick type IDs and names as a client joins, so it can match them to its own, see SpecialBrickTypesPacket
 	OpenWrenchDialog = 30,	//Open the wrench dialog for a brick, with its collision, name, and attachments, see Interface/WrenchDialog.h
+	SkyboxPaths = 31,		//The day and night skyboxes from Lua's setSkybox, see Graphics/Skybox.h
 };
 
 //Flags byte of a PlayerAbilities packet

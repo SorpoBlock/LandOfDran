@@ -15,6 +15,7 @@
 #include "../Interface/ChatWindow.h"
 #include "../Graphics/RenderTarget.h"
 #include "../Graphics/Environment.h"
+#include "../Graphics/Skybox.h"
 #include "../Graphics/InstancedBrickRenderer.h"
 #include "../Graphics/PointLights.h"
 #include "../Graphics/WaterRipples.h"
@@ -97,6 +98,11 @@ struct ClientProgramData
 	bool tintShadowsActive = false;
 
 	Environment environment;
+
+	//Lives for the whole program, skyboxes of whichever server we're on are loaded into it, see LoopClient::renderEverything
+	Skybox* skybox = nullptr;
+	//graphics/imagebasedlighting as of launch or the last settings save
+	bool imageBasedLighting = true;
 
 	//Empty, sky.vert builds a fullscreen triangle from gl_VertexID but core profile still needs a VAO bound
 	GLuint skyVao = 0;

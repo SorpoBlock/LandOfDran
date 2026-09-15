@@ -30,6 +30,9 @@ struct Simulation
 	float waterLevel = 0.0;
 	DayCycle dayCycle;
 
+	//Day and night skybox paths, "" for the plain sky, see SkyboxPathsPacket and Skybox::update
+	std::string skyboxPaths[2];
+
 	//Whether the server lets us use jets and a flashlight, see PlayerAbilitiesPacket
 	bool jetsEnabled = true;
 	bool flashlightEnabled = true;

@@ -45,6 +45,12 @@ void Program::registerSamplerUniforms()
     if (glGetUniformLocation(handle, "PointTintColorArray") != -1)
         glUniform1i(glGetUniformLocation(handle, "PointTintColorArray"), PointTintColorArray);
 
+    if (glGetUniformLocation(handle, "SkyDay") != -1)
+        glUniform1i(glGetUniformLocation(handle, "SkyDay"), SkyDay);
+
+    if (glGetUniformLocation(handle, "SkyNight") != -1)
+        glUniform1i(glGetUniformLocation(handle, "SkyNight"), SkyNight);
+
     //Enable others as they are actually added
     /*glUniform1i(glGetUniformLocation(handle, "BRDF"), BRDF);
     glUniform1i(glGetUniformLocation(handle, "HeightMap"),          HeightMap);

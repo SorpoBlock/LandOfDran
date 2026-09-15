@@ -376,6 +376,51 @@ vec3 pointLightShadow(int slot, vec3 fromLight, vec3 surfaceNormal, float lightF
 	return lit * mix(vec3(1.0), tint, behindTransparent);
 }
 
+//Skies from Lua's setSkybox, see SkyUniforms in ShaderSpecification.h
+layout (std140) uniform SkyUniforms
+{
+	//Day's 9 irradiance coefficients then night's, see Skybox::Slot::irradiance
+	vec4 SkyIrradiance[18];
+	float SkyboxBlend;
+	int DaySkybox;
+	int NightSkybox;
+	//How much each sky lights the world, 0 unless it's a .hdr and graphics/imagebasedlighting is on
+	float SkyLightDay;
+	float SkyLightNight;
+	//Mip level of the roughest reflections
+	float SkyReflectionLevels;
+};
+
+//Full size sky, with blurrier reflections in each mip level after the first, see Skybox::prefilter
+uniform samplerCube SkyDay;
+uniform samplerCube SkyNight;
+
+//Light reaching a surface facing n from one sky, first is 0 for day and 9 for night
+//Keep in sync with basis in Skybox::loadSlot
+vec3 skyIrradiance(int first, vec3 n)
+{
+	vec3 irradiance = SkyIrradiance[first].xyz
+		+ SkyIrradiance[first + 1].xyz * n.y
+		+ SkyIrradiance[first + 2].xyz * n.z
+		+ SkyIrradiance[first + 3].xyz * n.x
+		+ SkyIrradiance[first + 4].xyz * (n.x * n.y)
+		+ SkyIrradiance[first + 5].xyz * (n.y * n.z)
+		+ SkyIrradiance[first + 6].xyz * (3.0 * n.z * n.z - 1.0)
+		+ SkyIrradiance[first + 7].xyz * (n.x * n.z)
+		+ SkyIrradiance[first + 8].xyz * (n.x * n.x - n.y * n.y);
+	return max(irradiance, vec3(0.0));
+}
+
+//The split sum approximation's second half without a lookup texture, see Karis, Physically Based Shading on Mobile
+vec2 environmentBRDF(float NdotV, float roughness)
+{
+	const vec4 c0 = vec4(-1.0, -0.0275, -0.572, 0.022);
+	const vec4 c1 = vec4(1.0, 0.0425, 1.04, -0.04);
+	vec4 r = roughness * c0 + c1;
+	float a004 = min(r.x * r.x, pow(2.0, -9.28 * NdotV)) * r.x + r.y;
+	return vec2(-1.04, 1.04) * a004 + r.zw;
+}
+
 //Light from every point light that reaches this surface: inverse square falloff, eased to exactly nothing at each light's range
 vec3 pointLighting(vec3 N, vec3 V, float NdotV, vec3 albedo, vec3 mor, vec3 F0, vec3 surfaceNormal)
 {
@@ -552,10 +597,17 @@ void main()
 	if(useRoughness == -1)
 		mor.b = 0.5;
 
+	//Both replace the brick texture's scuffed plastic roughness, which is far too rough to reflect anything recognizable
 	if(material == MaterialPearl)
-		mor.r = max(mor.r, 0.5);
+	{
+		mor.r = 0.8;
+		mor.b = 0.2;
+	}
 	else if(material == MaterialChrome)
-		mor.r = 1.0;
+	{
+		mor.r = 0.95;
+		mor.b = 0.08;
+	}
 	else if(material == MaterialSlippery)
 	{
 		//Not quite 0, which would shrink the sun's highlight to nothing
@@ -592,7 +644,19 @@ void main()
 	//Ambient stays on while the direct light fades out at the horizon, and stops being shadowed there too, since the
 	//shadow maps are about to switch between the sun and moon
 	vec3 ambientShadow = mix(vec3(1.0), shadowLight, ShadowStrength);
-	color.rgb += mor.g * albedo * AmbientColor * ambientShadow;
+
+	//A .hdr sky lights the world in place of the ambient color: diffuse light from all over it and blurred reflections of it
+	float skyLight = SkyLightDay + SkyLightNight;
+	color.rgb += mor.g * albedo * AmbientColor * ambientShadow * (1.0 - skyLight);
+	if(skyLight > 0.0)
+	{
+		vec3 irradiance = SkyLightDay * skyIrradiance(0, newNormal) + SkyLightNight * skyIrradiance(9, newNormal);
+		vec3 reflectedRay = reflect(-viewVector, newNormal);
+		float reflectionLevel = mor.b * SkyReflectionLevels;
+		vec3 reflected = SkyLightDay * textureLod(SkyDay, reflectedRay, reflectionLevel).rgb + SkyLightNight * textureLod(SkyNight, reflectedRay, reflectionLevel).rgb;
+		vec2 reflectance = environmentBRDF(NdotV, mor.b);
+		color.rgb += (kD * albedo * irradiance / PI + reflected * (F * reflectance.x + reflectance.y)) * mor.g * ambientShadow;
+	}
 	color.rgb += pointLighting(newNormal, viewVector, NdotV, albedo, mor, F0, surfaceNormal);
 	color.a = opacity;
 

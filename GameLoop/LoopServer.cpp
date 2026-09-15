@@ -6,6 +6,7 @@
 #include "../LuaFunctions/SoundLua.h"
 #include "../LuaFunctions/EmitterLua.h"
 #include "../LuaFunctions/BrickLua.h"
+#include "../LuaFunctions/SkyLua.h"
 
 #include <random>
 
@@ -343,6 +344,7 @@ LoopServer::LoopServer(ExecutableArguments& cmdArgs, std::shared_ptr<SettingMana
 	pd.eventManager = new EventManager(pd.luaState);
 	registerClientFunctions(pd.luaState);
 	registerSoundFunctions(pd.luaState);
+	registerSkyFunctions(pd.luaState);
 
 	///Server just has one physics world that's started when the program starts and stays until shutdown, unlike client
 	pd.physicsWorld = std::make_shared<PhysicsWorld>();

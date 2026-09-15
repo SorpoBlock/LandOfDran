@@ -72,6 +72,40 @@ side of the sky.
 The setters log an error and do nothing if the phase name is unknown or the arguments are the wrong
 count or type. Negative colors and brightness are treated as 0.
 
+### Skyboxes
+
+By default the sky is the gradient from the colors above. A server can replace it with a day skybox
+and a night skybox instead. They cross fade while the sun is near the horizon (starting a little
+before sunrise, done a little after). Leaving one out keeps the gradient for that part of the day.
+Clients load skyboxes from their own copy of the game folder, so every player needs the same files.
+
+A skybox path is one of:
+
+- A `.hdr` file (Radiance HDR, equirectangular like `Assets/ibl/main.hdr`), with straight up at the
+  top of the image. Clients with the **Image Based Lighting** graphics setting on (the default) also
+  light everything with it: bricks, models, water, and lit particles get their ambient light from
+  the sky around them in place of the ambient color, and shiny materials (Chrome, Pearl, Foil,
+  Slippery) reflect it. The day cycle's sun still adds its light and shadows on top, and the
+  brightest parts of the image (such as a sun in the photo) are capped for lighting so that sunlight
+  isn't counted twice. The sun and moon discs aren't drawn over a `.hdr` sky. With the setting off,
+  a `.hdr` sky is only drawn, and the ambient color lights the world as usual.
+- Five `.png` face images in the old game's layout, given as the path without the `_N.png` ending,
+  e.g. `"Assets/skyboxes/bluecloud"` for `bluecloud_0.png` to `bluecloud_4.png`: `_0` is the top,
+  `_1` +x, `_2` -x, `_3` +z, `_4` -z. An optional `_5.png` is the bottom, otherwise the top is used
+  again. Images are drawn as they are and never light anything. The sun and moon are drawn over them.
+
+Every skybox fades into the fog color toward the horizon, so the fogged edge of the world blends into it.
+
+| Function | Arguments | Returns | Description |
+|---|---|---|---|
+| `setSkybox([day[, night]])` | `day`, `night`: skybox paths, or `nil` for the gradient | none | Sets both skyboxes at once and sends them to every client. `setSkybox()` goes back to the gradient all day. Logs an error and changes nothing if a path isn't relative, reaches outside the game folder, is longer than 255 characters, or the server doesn't have the file(s). |
+| `getSkybox()` | none | day, night | Current skybox paths, `nil` for the gradient. |
+
+```lua
+setSkybox("Assets/skyboxes/bluecloud", "Assets/skyboxes/space")  -- clouds by day, stars by night
+setSkybox("Assets/ibl/main.hdr")                                  -- lit by a photo of a road by day, gradient at night
+```
+
 ## Scheduling
 
 | Function | Arguments | Returns | Description |
@@ -395,8 +429,8 @@ selector. Shape effects are only drawn: a brick always collides as its plain sha
 | `None` | Plain brick. |
 | `Undulo` | Its corners wiggle and dance around, up to 0.3 studs along each axis. |
 | `Bouncy` | Stretches up to 35% taller and back down, once every 1.25 seconds. Anything landing on it bounces back up as fast as it came down (100% restitution), like a trampoline. |
-| `Pearl` | At least half metallic. |
-| `Chrome` | Fully metallic. |
+| `Pearl` | Mostly metallic and fairly smooth, a soft blurred sheen. |
+| `Chrome` | Almost fully metallic and very smooth, a mirror of a `.hdr` sky when clients have image based lighting on. |
 | `Blink` | Pulses once a second, like the part under the mouse in the appearance editor. |
 | `Hologram` | See-through bars walk around its sides. |
 | `Glow` | Never drawn darker than its own color, however dark it is. |

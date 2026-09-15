@@ -31,6 +31,9 @@ enum TextureLocations
 	ParticleTexture = 9,
 	PointTintDepthArray = 10,
 	PointTintColorArray = 11,
+	//Cube maps of the day and night skies, see Skybox
+	SkyDay = 12,
+	SkyNight = 13,
 	//Add as needed:
 	/*BRDF = 2,
 	HeightMap = 3,

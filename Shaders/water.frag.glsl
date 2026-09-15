@@ -96,10 +96,54 @@ vec3 waveNormal(vec2 p, vec2 rippleSlope)
 	return normalize(vec3(-slope.x, 1.0, -slope.y));
 }
 
-//Same gradient as sky.frag, minus the sun and moon
+//Same as in model.frag, see SkyUniforms in ShaderSpecification.h
+layout (std140) uniform SkyUniforms
+{
+	vec4 SkyIrradiance[18];
+	float SkyboxBlend;
+	int DaySkybox;
+	int NightSkybox;
+	float SkyLightDay;
+	float SkyLightNight;
+	float SkyReflectionLevels;
+};
+
+uniform samplerCube SkyDay;
+uniform samplerCube SkyNight;
+
+//Same as in model.frag
+vec3 skyIrradiance(int first, vec3 n)
+{
+	vec3 irradiance = SkyIrradiance[first].xyz
+		+ SkyIrradiance[first + 1].xyz * n.y
+		+ SkyIrradiance[first + 2].xyz * n.z
+		+ SkyIrradiance[first + 3].xyz * n.x
+		+ SkyIrradiance[first + 4].xyz * (n.x * n.y)
+		+ SkyIrradiance[first + 5].xyz * (n.y * n.z)
+		+ SkyIrradiance[first + 6].xyz * (3.0 * n.z * n.z - 1.0)
+		+ SkyIrradiance[first + 7].xyz * (n.x * n.z)
+		+ SkyIrradiance[first + 8].xyz * (n.x * n.x - n.y * n.y);
+	return max(irradiance, vec3(0.0));
+}
+
+//Keep in sync with skyboxColor in sky.frag
+const float skyboxFogHeight = 0.25;
+vec3 skyboxColor(int kind, samplerCube cube, vec3 ray, vec3 gradient)
+{
+	if(kind == 0)
+		return gradient;
+
+	vec3 image = textureLod(cube, ray, 0.0).rgb;
+	if(kind == 2)
+		image = pow(image / (image + vec3(1.0)), vec3(1.0 / 2.2));
+	return mix(FogColor, image, smoothstep(0.0, skyboxFogHeight, ray.y));
+}
+
+//Same as sky.frag, minus the sun and moon
 vec3 skyColorFor(vec3 ray)
 {
-	return mix(FogColor, SkyColor, smoothstep(0.0, 0.4, ray.y));
+	vec3 gradient = mix(FogColor, SkyColor, smoothstep(0.0, 0.4, ray.y));
+	return mix(skyboxColor(DaySkybox, SkyDay, ray, gradient), skyboxColor(NightSkybox, SkyNight, ray, gradient), SkyboxBlend);
 }
 
 //Same as in model.frag, see PointLightUniforms in ShaderSpecification.h
@@ -199,6 +243,17 @@ void main()
 
 	//Darker at night, roughly following how bright the horizon is
 	vec3 waterTint = vec3(0.1, 0.3, 0.35) * clamp(dot(FogColor, vec3(0.333)) * 1.3, 0.05, 1.0);
+
+	//A .hdr sky lights the water below the surface instead, tone mapped like model.frag
+	//This albedo comes out close to the tint above under a typical daytime sky
+	float skyLight = SkyLightDay + SkyLightNight;
+	if(skyLight > 0.0)
+	{
+		const vec3 bodyAlbedo = vec3(0.003, 0.04, 0.055);
+		vec3 up = vec3(0.0, 1.0, 0.0);
+		vec3 lit = bodyAlbedo * (SkyLightDay * skyIrradiance(0, up) + SkyLightNight * skyIrradiance(9, up)) * 2.0 / TAU;
+		waterTint = mix(waterTint, pow(lit / (lit + vec3(1.0)), vec3(1.0 / 2.2)), skyLight);
+	}
 
 	vec3 refraction = waterTint;
 	if(useRefraction)

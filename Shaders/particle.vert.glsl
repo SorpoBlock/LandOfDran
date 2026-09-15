@@ -49,6 +49,18 @@ layout (std140) uniform PointLightUniforms
 	mat4 PointShadowMatrices[48];
 };
 
+//Only the part lit particles need, see SkyUniforms in ShaderSpecification.h
+layout (std140) uniform SkyUniforms
+{
+	//Day's 9 irradiance coefficients then night's, the first of each is the light arriving from every way on average
+	vec4 SkyIrradiance[18];
+	float SkyboxBlend;
+	int DaySkybox;
+	int NightSkybox;
+	float SkyLightDay;
+	float SkyLightNight;
+};
+
 uniform sampler2DArrayShadow ShadowArray;
 uniform sampler2DArrayShadow PointShadowArray;
 uniform mat4 lightSpaceMatricies[3];
@@ -164,7 +176,10 @@ void main()
 	{
 		vec3 shadowLight = vec3(clamp(sunShadow(center), 0.35, 1.0));
 		vec3 ambientShadow = mix(vec3(1.0), shadowLight, ShadowStrength);
-		incomingLight = LightColor * shadowLight / PI + AmbientColor * ambientShadow + pointLights(center) / PI;
+		//A .hdr sky replaces the ambient color, like in model.frag
+		vec3 skyLight = (SkyLightDay * SkyIrradiance[0].xyz + SkyLightNight * SkyIrradiance[9].xyz) / PI;
+		vec3 ambient = AmbientColor * (1.0 - SkyLightDay - SkyLightNight) + skyLight;
+		incomingLight = LightColor * shadowLight / PI + ambient * ambientShadow + pointLights(center) / PI;
 	}
 
 	gl_ClipDistance[0] = dot(vec4(worldPos, 1.0), ClipPlane);

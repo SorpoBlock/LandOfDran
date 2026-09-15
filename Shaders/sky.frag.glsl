@@ -32,31 +32,70 @@ layout (std140) uniform EnvironmentUniforms
 	float ShadowStrength;
 };
 
+//See SkyUniforms in ShaderSpecification.h, only the part the sky needs
+layout (std140) uniform SkyUniforms
+{
+	vec4 SkyIrradiance[18];
+	//0 while it's day, 1 at night
+	float SkyboxBlend;
+	//SkyboxKind of each: 0 for the gradient below, 1 for screen color images, 2 for a .hdr
+	int DaySkybox;
+	int NightSkybox;
+};
+
+uniform samplerCube SkyDay;
+uniform samplerCube SkyNight;
+
 //How far grass and water reach from the camera, see model.vert's cameraSpacePosition and LoopClient::waterRadius
 const float surfaceRadius = 300.0;
+
+//How high up the sky, in ray height, a skybox takes to fade in from the fog color, so the fogged edge of the grass or water blends into it
+//Keep in sync with water.frag
+const float skyboxFogHeight = 0.25;
+
+//One of the two skies along ray, the gradient if Lua didn't pick a skybox for it
+//Keep in sync with water.frag
+vec3 skyboxColor(int kind, samplerCube cube, vec3 ray, vec3 gradient)
+{
+	if(kind == 0)
+		return gradient;
+
+	vec3 image = textureLod(cube, ray, 0.0).rgb;
+	//Tone mapped like model.frag
+	if(kind == 2)
+		image = pow(image / (image + vec3(1.0)), vec3(1.0 / 2.2));
+	return mix(FogColor, image, smoothstep(0.0, skyboxFogHeight, ray.y));
+}
+
+//The sun and moon drawn over a sky, except a .hdr, which has its own sun in it
+vec3 withSunAndMoon(int kind, vec3 sky, vec3 ray, float visibleHorizon)
+{
+	if(kind == 2 || ray.y <= visibleHorizon)
+		return sky;
+
+	float sunAmount = dot(ray, SunDirection);
+	vec3 sunTint = mix(vec3(1.0, 0.45, 0.15), vec3(1.0, 0.95, 0.85), smoothstep(0.0, 0.3, SunDirection.y));
+	sky += sunTint * pow(max(sunAmount, 0.0), 300.0) * 0.6;
+	sky = mix(sky, sunTint, smoothstep(0.9990, 0.9995, sunAmount));
+
+	float moonAmount = dot(ray, -SunDirection);
+	return mix(sky, vec3(0.85, 0.88, 0.95), smoothstep(0.9994, 0.9997, moonAmount));
+}
 
 void main()
 {
 	vec3 ray = normalize(viewRay);
 
 	//Keep in sync with skyColorFor in water.frag
-	vec3 sky = mix(FogColor, SkyColor, smoothstep(0.0, 0.4, ray.y));
+	vec3 gradient = mix(FogColor, SkyColor, smoothstep(0.0, 0.4, ray.y));
 
 	//From above the ground, the fogged far edge of the grass or water sits below straight ahead, with nothing drawn
 	//between the two. The sun and moon need to set behind that edge, not straight ahead, or they vanish early
 	float height = max(CameraPosition.y - HorizonHeight, 0.0);
 	float visibleHorizon = -height / sqrt(height * height + surfaceRadius * surfaceRadius);
 
-	if(ray.y > visibleHorizon)
-	{
-		float sunAmount = dot(ray, SunDirection);
-		vec3 sunTint = mix(vec3(1.0, 0.45, 0.15), vec3(1.0, 0.95, 0.85), smoothstep(0.0, 0.3, SunDirection.y));
-		sky += sunTint * pow(max(sunAmount, 0.0), 300.0) * 0.6;
-		sky = mix(sky, sunTint, smoothstep(0.9990, 0.9995, sunAmount));
+	vec3 day = withSunAndMoon(DaySkybox, skyboxColor(DaySkybox, SkyDay, ray, gradient), ray, visibleHorizon);
+	vec3 night = withSunAndMoon(NightSkybox, skyboxColor(NightSkybox, SkyNight, ray, gradient), ray, visibleHorizon);
 
-		float moonAmount = dot(ray, -SunDirection);
-		sky = mix(sky, vec3(0.85, 0.88, 0.95), smoothstep(0.9994, 0.9997, moonAmount));
-	}
-
-	color = vec4(sky, 1.0);
+	color = vec4(mix(day, night, SkyboxBlend), 1.0);
 }

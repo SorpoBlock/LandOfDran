@@ -46,6 +46,8 @@ struct ServerProgramData
 	float waterLevel = 0.0;
 	//Sky, fog, and sun colors for each part of the day, and the fog distances
 	DayCycle dayCycle;
+	//Day and night skyboxes from setSkybox, "" for the plain sky, a .hdr file or the start of five _0.png to _4.png face files
+	std::string skyboxPaths[2];
 	//Set when the above change other than time passing normally, or someone joins, so clients hear about it on the next tick
 	mutable bool worldStateChanged = true;
 

@@ -69,6 +69,8 @@ void LoopClient::leaveServer(ExecutableArguments& cmdArgs)
 	simulation.waterEnabled = false;
 	pd.waterRipples.clear();
 	simulation.dayCycle = DayCycle();
+	simulation.skyboxPaths[0].clear();
+	simulation.skyboxPaths[1].clear();
 	pd.ghostBrick.hide();
 	pd.brickHotbar->putAway();
 	pd.brickHotbar->takeChange();
@@ -453,6 +455,7 @@ void LoopClient::handleInput(float deltaT, ExecutableArguments& cmdArgs, std::sh
 		if (simulation.brickDebris)
 			simulation.brickDebris->setLifetime(settings->getFloat("graphics/brickdebrisseconds"));
 		pd.particles->setMaxParticles(settings->getInt("graphics/maxparticles"));
+		pd.imageBasedLighting = settings->getBool("graphics/imagebasedlighting");
 	}
 
 	if (pd.debugMenu->passwordSubmitted())
@@ -1119,6 +1122,12 @@ void LoopClient::renderEverything(float deltaT)
 	pd.environment.cycle = simulation.dayCycle;
 	pd.environment.calc(simulation.worldTimeSeconds);
 	pd.environment.passUniforms(pd.shaders);
+
+	//Only loads anything when the server picks new skyboxes or graphics/imagebasedlighting changes
+	pd.skybox->update(simulation.skyboxPaths[0], simulation.skyboxPaths[1], pd.imageBasedLighting);
+	pd.skybox->passUniforms(pd.shaders, pd.environment.skyboxBlend);
+	pd.skybox->bind();
+
 	//Every wave in water.vert/frag completes a whole number of cycles per 100 seconds, so wrapping here is seamless
 	pd.shaders->environmentUniforms.WaveTime = (float)fmod(getTicksMS() / 1000.0, 100.0);
 	pd.shaders->environmentUniforms.WaterLevel = simulation.waterLevel;
@@ -1885,6 +1894,9 @@ LoopClient::LoopClient(ExecutableArguments& cmdArgs, std::shared_ptr<SettingMana
 
 	pd.brickRenderer = new InstancedBrickRenderer(pd.shaders, pd.textures, &pd.brickTypes);
 
+	pd.skybox = new Skybox(pd.shaders);
+	pd.imageBasedLighting = settings->getBool("graphics/imagebasedlighting");
+
 	glGenVertexArrays(1, &pd.skyVao);
 
 	//Integer grid coordinates go through the same math for every cell that shares a vertex, so no cracks between cells
@@ -1951,6 +1963,9 @@ LoopClient::~LoopClient()
 
 	delete pd.particles;
 	pd.particles = nullptr;
+
+	delete pd.skybox;
+	pd.skybox = nullptr;
 
 	//Its model and picking target need the OpenGL context, which goes away with pd.context
 	if (pd.appearanceEditor)

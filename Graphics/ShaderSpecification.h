@@ -89,6 +89,28 @@ struct PointLightUniforms
 };
 
 /*
+	Skies server Lua picked with setSkybox for a uniform buffer object, filled by Skybox::passUniforms
+	Size: 320 bytes
+*/
+struct SkyUniforms
+{
+	//Day's 9 irradiance coefficients then night's, xyz only, see Skybox::Slot::irradiance
+	glm::vec4 SkyIrradiance[18];						//16*18			0
+	//0 while it's day, 1 at night
+	float SkyboxBlend = 0;								//4				288
+	//SkyboxKind of each
+	GLint DaySkybox = 0;								//4				292
+	GLint NightSkybox = 0;								//4				296
+	//How much each lights the world, only above 0 for a .hdr with image based lighting on, already faded by SkyboxBlend
+	float SkyLightDay = 0;								//4				300
+	float SkyLightNight = 0;							//4				304
+	//Mip level of the roughest reflections
+	float SkyReflectionLevels = 0;						//4				308
+	float padding1 = 0;									//4				312
+	float padding2 = 0;									//4				316
+};
+
+/*
 	Handles a uniform buffer object and a few other uniform related things for programs
 */
 class ShaderManager
@@ -96,7 +118,7 @@ class ShaderManager
 	private:
 
 	//A handle to the actual OpenGL uniform buffer object
-	GLuint basicUBO, cameraUBO, environmentUBO, pointLightUBO;
+	GLuint basicUBO, cameraUBO, environmentUBO, pointLightUBO, skyUBO;
 
 	public:
 
@@ -111,6 +133,12 @@ class ShaderManager
 
 	//See note on struct definition, this is passed to a uniform buffer object
 	PointLightUniforms pointLightUniforms;
+
+	//See note on struct definition, this is passed to a uniform buffer object
+	SkyUniforms skyUniforms;
+
+	//Program for blurring a .hdr sky into its reflection mip levels, see Skybox::prefilter
+	Program* skyPrefilterShader = new Program();
 
 	//Program for drawing the glow around point lights
 	Program* coronaShader = new Program();
@@ -160,6 +188,9 @@ class ShaderManager
 
 	//Sends changes to pointLightUniforms to the GPU
 	void updatePointLightUBO() const;
+
+	//Sends changes to skyUniforms to the GPU
+	void updateSkyUBO() const;
 
 	/*
 		Associates contained UBOs with their definitions in the OpenGL shaders
