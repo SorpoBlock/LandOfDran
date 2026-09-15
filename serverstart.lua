@@ -13,6 +13,16 @@ centerPlate = newDynamicType("center","Assets/cube/cube.txt",0.1,0.01,0.1)
 
 button = newDynamicType("button","Assets/button/button.txt",1,1,1)
 
+--Items players carry in their inventory, see Inventory.lua
+--setItemHand's grip is the point on the model held in the hand, then the model is turned by pitch, yaw, and roll in degrees
+--A negative pitch leans the top of the model forward
+hammerItem = newItemType("hammer","Assets/tools/hammer.txt",0.02,0.02,0.02,"Hammer","Assets/tools/icons/hammerIcon.png")
+setItemHand(hammerItem,0,-0.7,0,-20,0,0)
+wrenchItem = newItemType("wrench","Assets/tools/wrench.txt",0.02,0.02,0.02,"Wrench","Assets/tools/icons/wrenchIcon.png")
+setItemHand(wrenchItem,0,-1,0,-20,0,0)
+paintCanItem = newItemType("paintCan","Assets/tools/spraycan.txt",0.02,0.02,0.02,"Paint Can","Assets/tools/icons/paintCanIcon.png")
+setItemHand(paintCanItem,0,0,0,-10,0,0)
+
 --Sounds, with the old game's names and file names. Clients play ClickMove, ClickRotate, Jump, and BrickBreak on their own
 --when the server has sounds by those names. A file that isn't in Assets/sound/ logs an error and is skipped
 newSoundType("ClickMove","Assets/sound/clickMove.wav")
@@ -30,6 +40,11 @@ newSoundType("ExitWater","Assets/sound/exitWater.wav")
 --And these from a player whose flashlight turns on or off
 newSoundType("LightOn","Assets/sound/lightOn.wav")
 newSoundType("LightOff","Assets/sound/lightOff.wav")
+--Inventory.lua plays these where the hammer and wrench hit, and loops SprayLoop from a spraying paint can
+newSoundType("HammerHit","Assets/sound/hammerHit.WAV")
+newSoundType("WrenchHit","Assets/sound/wrenchHit.wav")
+newSoundType("WrenchMiss","Assets/sound/wrenchMiss.wav")
+newSoundType("SprayLoop","Assets/sound/sprayLoop.wav")
 --Music, which players can put on bricks by holding Insert and clicking one to open the wrench dialog
 newSoundType("After School Special","Assets/music/After_School_Special.wav",true)
 
@@ -37,6 +52,8 @@ newSoundType("After School Special","Assets/music/After_School_Special.wav",true
 dofile("EmitterDefaults.lua")
 --What lights and emitters on bricks in Blockland saves become, see addBlocklandLight and addBlocklandEmitter
 dofile("BlocklandImports.lua")
+--Starting tools, picking up and throwing items, and swinging the hammer and wrench
+dofile("Inventory.lua")
 
 --Different arrays of kinds of plates that can be made to dissapear with their own button
 larges = {}

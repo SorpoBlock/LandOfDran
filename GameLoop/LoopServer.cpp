@@ -7,6 +7,7 @@
 #include "../LuaFunctions/EmitterLua.h"
 #include "../LuaFunctions/BrickLua.h"
 #include "../LuaFunctions/SkyLua.h"
+#include "../LuaFunctions/ItemLua.h"
 
 #include <random>
 
@@ -49,6 +50,7 @@ void LoopServer::run(float deltaT, ExecutableArguments& cmdArgs, std::shared_ptr
 	server->run(&pd,pd.luaState,pd.eventManager); //   <---- networking
 	endQuietTalkers();
 	pd.dynamics->sendRecent();
+	updateItems();
 	pd.statics->sendRecent();
 	pd.lights->sendRecent();
 	pd.emitters->sendRecent();
@@ -114,6 +116,45 @@ void LoopServer::endQuietTalkers()
 	}
 }
 
+void LoopServer::updateItems()
+{
+	for (std::shared_ptr<ClientData>& client : pd.clients)
+	{
+		std::shared_ptr<Dynamic> holder = client->controllers.empty() ? nullptr : client->controllers[0].target.lock();
+
+		for (int slot = 0; slot < inventorySize; slot++)
+		{
+			std::shared_ptr<Item> item = client->inventory[slot].lock();
+			if (!item)
+				continue;
+
+			//Goes along with its holder, so it comes back out of their inventory next to them and getPosition says where they are
+			if (holder)
+			{
+				btTransform transform = item->body->getWorldTransform();
+				transform.setOrigin(holder->getPosition());
+				item->body->setWorldTransform(transform);
+			}
+
+			//Everyone else draws it in the hand of whoever holds it, while it's picked
+			netIDType holderID = holder ? holder->getID() : NO_ID;
+			if (holderID != item->sentHolderID || item->isEquipped() != item->sentEquipped)
+				pd.markItemChanged(item);
+		}
+	}
+
+	for (std::weak_ptr<Item>& changed : pd.changedItems)
+	{
+		std::shared_ptr<Item> item = changed.lock();
+		if (!item)
+			continue;
+
+		item->stateChanged = false;
+		server->broadcast(item->makeStatePacket(), OtherReliable);
+	}
+	pd.changedItems.clear();
+}
+
 void LoopServer::applyWaterForces(float deltaT)
 {
 	if (!pd.waterEnabled)
@@ -126,7 +167,7 @@ void LoopServer::applyWaterForces(float deltaT)
 	for (unsigned int a = 0; a < pd.dynamics->size(); a++)
 	{
 		std::shared_ptr<Dynamic> dynamic = pd.dynamics->get(a);
-		if (dynamic->isSnappedToCursor())
+		if (dynamic->isSnappedToCursor() || !dynamic->isInWorld())
 			continue;
 
 		dynamic->applyWaterForces(pd.waterLevel, deltaT);
@@ -147,7 +188,8 @@ void LoopServer::playWaterSounds()
 	{
 		std::shared_ptr<Dynamic> dynamic = pd.dynamics->get(a);
 
-		if (!pd.waterEnabled)
+		//Carried items don't splash, and do if they're thrown back in
+		if (!pd.waterEnabled || !dynamic->isInWorld())
 		{
 			dynamic->inWater = false;
 			continue;
@@ -352,6 +394,8 @@ LoopServer::LoopServer(ExecutableArguments& cmdArgs, std::shared_ptr<SettingMana
 
 	pd.dynamics = new ObjHolder<Dynamic>(SimObjectType::DynamicTypeId, server);
 	pd.dynamics->makeLuaMetatable(pd.luaState, "metatable_dynamic", getDynamicFunctions(pd.luaState));
+	//Items copy every dynamic function, so they come after
+	registerItemFunctions(pd.luaState);
 	pd.statics = new ObjHolder<StaticObject>(SimObjectType::StaticTypeId, server);
 	pd.statics->makeLuaMetatable(pd.luaState, "metatable_static", getStaticFunctions(pd.luaState));
 	pd.lights = new ObjHolder<Light>(SimObjectType::LightTypeId, server);

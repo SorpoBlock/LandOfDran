@@ -46,6 +46,10 @@ class Dynamic : public SimObject
 	//Called by objHolder when destroy is first called, gives object an oppertunity to reset smart pointers it might have
 	virtual void requestDestruction() override;
 
+	//See isInWorld, and the gravity it had before leaving, which rejoining the world would replace with the world's
+	bool inWorld = true;
+	btVector3 outOfWorldGravity = btVector3(0, 0, 0);
+
 	public:
 
 	//TODO: Just make updating these values on body require going through a setter method that sets these as well
@@ -57,6 +61,23 @@ class Dynamic : public SimObject
 
 	//If lua changed the position/velocity/etc of a player controlled object
 	bool forcePlayerUpdate = false;
+
+	//What kind of dynamic this is, and what its creation packet carries after a plain dynamic's, see DynamicKind
+	virtual DynamicKind getKind() const { return DynamicKind_Plain; }
+	virtual unsigned int getKindCreationBytes() const { return 0; }
+	virtual void addKindCreationData(enet_uint8* dest) const {}
+
+	//False while its body is out of the physics world, like an item in someone's inventory: it doesn't collide, fall, or float, and the server sends no updates for it
+	bool isInWorld() const { return inWorld; }
+
+	//Takes its body out of the physics world, unsnapping it from any cursor
+	void removeFromWorld();
+
+	//Puts its body back into the physics world at transform, not moving, with the gravity it had before
+	void returnToWorld(const btTransform& transform);
+
+	//Client: draws it here rather than where physics or the interpolator have it, like an item in someone's hand, for everything that follows where it's drawn too
+	void setDrawnTransform(const glm::vec3& position, const glm::quat& rotation);
 
 	void play(int id, bool loop) { if (!modelInstance) return; modelInstance->playAnimation(id, loop); }
 

@@ -1,0 +1,4 @@
+albedo	Iron-Scuffed_basecolor.png
+normal	Iron-Scuffed_normal.png
+roughness	Iron-Scuffed_roughness.png
+metalness	Iron-Scuffed_metallic.png

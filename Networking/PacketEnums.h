@@ -79,7 +79,24 @@ enum FromClientPacketType : unsigned char
 	WrenchRequest = 14,		//Wrench whatever brick is under the crosshair, see Networking/PacketsFromClient/Wrench.cpp
 	WrenchSubmit = 15,		//What the client changed in the wrench dialog the server last sent them
 	PlayerGrab = 16,		//The client left clicked in game, so their player plays its grab animation for everyone else
+	InventorySelect = 17,	//Whether the client's item bar is out and which slot it has picked, see Networking/PacketsFromClient/Inventory.cpp
+	DropItemRequest = 18,	//The client pressed the drop item keys, with the slot their item bar has picked
+	PaintChoice = 19,		//The color and material the client's paint palette has picked, sent as they connect and whenever it changes
 };
+
+//Flags byte after the mask of a ClickDetails packet
+#define ClickFlag_Release 1			//A mouse button was let go rather than pressed, mask is just that button
+
+//Byte after a dynamic's decals in creation packets, saying what kind of dynamic it is and what follows
+enum DynamicKind : unsigned char
+{
+	DynamicKind_Plain = 0,		//Nothing follows
+	DynamicKind_Item = 1		//Item::stateBytes follow, see SimObjects/Item.h
+};
+
+//Flags byte of an item's state, see Item::writeState
+#define ItemFlag_Held 1				//In someone's inventory
+#define ItemFlag_Equipped 2			//In their hand: their item bar is out with its slot picked
 
 //Second flags byte of a dynamic in UpdateSimObjects and ControlledPhysics packets
 #define DynamicExtra_Look 1			//2 bytes follow: where a player looks, see Dynamic::lookDirection
@@ -147,6 +164,8 @@ enum FromServerPacketType : unsigned char
 	SpecialBrickTypes = 29,	//The server's special brick type IDs and names as a client joins, so it can match them to its own, see SpecialBrickTypesPacket
 	OpenWrenchDialog = 30,	//Open the wrench dialog for a brick, with its collision, name, and attachments, see Interface/WrenchDialog.h
 	SkyboxPaths = 31,		//The day and night skyboxes from Lua's setSkybox, see Graphics/Skybox.h
+	ItemState = 32,			//Who carries an item, whether it's in their hand, and the animations it plays, see Item::writeState
+	InventoryContents = 33,	//The net IDs of the items in each of your inventory slots, see ClientData::sendInventory
 };
 
 //Flags byte of a PlayerAbilities packet

@@ -42,6 +42,11 @@ class PaintMenu : public Window
 
 	bool changed = false;
 
+	//The palette's key is down, see updatePaintKey: a column move waits for it to come back up, and doesn't happen if the wheel changed the material meanwhile
+	bool keyHeld = false;
+	bool advanceOnRelease = false;
+	bool scrolledWhileHeld = false;
+
 	void applyPaletteColor();
 
 	//The palette's top line, with the keys currently bound
@@ -57,8 +62,15 @@ class PaintMenu : public Window
 	//The palette's key, shows the palette or moves one column right, wrapping around
 	void pressNextColumn();
 
+	/*
+		Call every frame with whether the palette's key was just pressed
+		The first press shows the palette, a later tap moves one column once the key comes back up, and the palette stays up while it's held
+	*/
+	void updatePaintKey(bool pressed);
+
 	//Mouse wheel, moves amount rows up in the current column, wrapping around, only while the palette shows
-	//Returns false if the palette isn't showing so the scroll can go to something else
+	//While the palette's key is held it moves through materials instead, showing the palette, without changing the color
+	//Returns false if the palette isn't showing and the key isn't held, so the scroll can go to something else
 	bool scroll(int amount);
 
 	//Opens or closes the custom color picker

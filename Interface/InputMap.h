@@ -53,7 +53,9 @@ enum InputCommand
     Wrench = 41,
     OpenPaintMenu = 42,
     CustomColor = 43,
-    EndOfCommands = 44
+    OpenInventory = 44,
+    DropItem = 45,
+    EndOfCommands = 46
 };
 
 //For user interface

@@ -65,6 +65,18 @@ class LoopClient
 	//Puts a light held by a dynamic just past its right hand (or in front of its eyes without one), pointing where our camera does if it's our player. False if the dynamic isn't here
 	bool placeHeldLight(Light& light, glm::vec3& position, glm::vec3& direction);
 
+	//Item icons by path, loaded the first time the item bar shows one, nullptr for ones that couldn't be
+	std::map<std::string, Texture*> itemIcons;
+
+	//An item type's icon, see itemIcons
+	Texture* findItemIcon(const std::string& path);
+
+	//Fills the item bar's slots from the items the server says we carry
+	void updateItemHotbar();
+
+	//Moves item swings along and draws carried items in their holders' hands, or hides them, after the camera moves for the frame
+	void placeHeldItems(float deltaT);
+
 	//Send simulation.controlledObjects physics/transform data to server
 	void sendControlledObjects();
 

@@ -58,6 +58,27 @@ void Emitter::writeState(enet_uint8* dest) const
 	dest[3] = meshIndex < 0 ? 255 : (enet_uint8)meshIndex;
 	memcpy(dest + 4, &dynamicID, sizeof(netIDType));
 	memcpy(dest + 4 + sizeof(netIDType), &position[0], sizeof(float) * 3);
+
+	unsigned int at = 4 + sizeof(netIDType) + sizeof(float) * 3;
+	memcpy(dest + at, &color[0], 4);
+	memcpy(dest + at + 4, &aimDynamicID, sizeof(netIDType));
+	memcpy(dest + at + 4 + sizeof(netIDType), &aimRange, sizeof(float));
+}
+
+void Emitter::setColor(const glm::u8vec4& _color)
+{
+	if (_color == color)
+		return;
+
+	color = _color;
+	updatesLeft = resendCount;
+}
+
+void Emitter::aimWith(std::shared_ptr<Dynamic> aiming, float range)
+{
+	aimDynamicID = aiming ? aiming->getID() : NO_ID;
+	aimRange = aiming ? range : 0;
+	updatesLeft = resendCount;
 }
 
 void Emitter::readFromPacket(const enet_uint8* src)
@@ -74,6 +95,11 @@ void Emitter::readFromPacket(const enet_uint8* src)
 	meshIndex = src[3] == 255 ? -1 : src[3];
 	memcpy(&dynamicID, src + 4, sizeof(netIDType));
 	memcpy(&position[0], src + 4 + sizeof(netIDType), sizeof(float) * 3);
+
+	unsigned int at = 4 + sizeof(netIDType) + sizeof(float) * 3;
+	memcpy(&color[0], src + at, 4);
+	memcpy(&aimDynamicID, src + at + 4, sizeof(netIDType));
+	memcpy(&aimRange, src + at + 4 + sizeof(netIDType), sizeof(float));
 }
 
 bool Emitter::requiresNetUpdate()

@@ -42,6 +42,8 @@ std::string GetInputCommandString(InputCommand command)
         case Wrench: return "Wrench (hold and click)";
         case OpenPaintMenu: return "Paint Palette / Next Column";
         case CustomColor: return "Custom Paint Color";
+        case OpenInventory: return "Show/Hide Items";
+        case DropItem: return "Drop Item (with Ctrl)";
         default: return "Other error";
     }
 }
@@ -101,10 +103,13 @@ InputMap::InputMap(std::shared_ptr<SettingManager> settings)
         bindKey(PushToTalk, SDL_SCANCODE_V);
         bindKey(Zoom, SDL_SCANCODE_F);
         bindKey(Flashlight, SDL_SCANCODE_RIGHTBRACKET);
-        //Stands in for the wrench item until there's an inventory
+        //Wrenches without holding the wrench item
         bindKey(Wrench, SDL_SCANCODE_INSERT);
         bindKey(OpenPaintMenu, SDL_SCANCODE_E);
         bindKey(CustomColor, SDL_SCANCODE_RSHIFT);
+        bindKey(OpenInventory, SDL_SCANCODE_Q);
+        //Shares W with walking forward, dropping is Ctrl plus the bound key
+        bindKey(DropItem, SDL_SCANCODE_W);
 
         //Number keys 1 through 9 then 0, SDL's scancodes for them are in that order
         for (int a = 0; a < 10; a++)
@@ -175,7 +180,7 @@ void InputMap::handleInput(SDL_Event& event)
                 }
             }
 
-            break;
+            //No break, one key can be bound to more than one command, like W walking and Ctrl+W dropping an item
         }
     }
 }

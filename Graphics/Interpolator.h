@@ -31,6 +31,9 @@ class Interpolator
 	int getNumSnapshots() const { return snapshots.size(); }
 
 	void addSnapshot(const glm::vec3& pos, const glm::quat& rot, float idealBufferSize, unsigned int msSinceLastSend);
+
+	//Forgets every snapshot, like for an item dropped far from wherever it was last seen on the ground
+	void reset();
 	glm::vec3 getPosition();
 	glm::quat getRotation();
 };

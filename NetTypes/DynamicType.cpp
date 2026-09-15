@@ -115,6 +115,38 @@ bool DynamicType::loadFromPacket(ENetPacket const* const packet, const ClientPro
 		model->addAnimation(anim, animID);
 	}
 
+	//Item types, with their name, icon, and how they sit in a hand
+	if (byteIterator < (int)packet->dataLength && packet->data[byteIterator] == 1)
+	{
+		byteIterator++;
+		isItemType = true;
+
+		for (std::string* text : { &itemName, &itemIconPath })
+		{
+			if (byteIterator >= (int)packet->dataLength)
+				break;
+
+			unsigned int length = packet->data[byteIterator];
+			byteIterator++;
+			if (byteIterator + length > packet->dataLength)
+				break;
+
+			*text = std::string((char*)packet->data + byteIterator, length);
+			byteIterator += length;
+		}
+
+		if (byteIterator + sizeof(float) * 7 <= packet->dataLength)
+		{
+			memcpy(&handOffset.x, packet->data + byteIterator, sizeof(float) * 3);
+			byteIterator += sizeof(float) * 3;
+
+			float rotation[4];
+			memcpy(rotation, packet->data + byteIterator, sizeof(rotation));
+			byteIterator += sizeof(rotation);
+			handRotation = glm::normalize(glm::quat(rotation[0], rotation[1], rotation[2], rotation[3]));
+		}
+	}
+
 	loaded = true;
 	return false;
 }
@@ -181,8 +213,13 @@ ENetPacket* DynamicType::createTypePacket() const
 		animationSize += 5 * sizeof(float) + sizeof(int) + 1 + std::min(animation.name.length(), (size_t)255);
 	animationSize++; //Extra byte for number of animations
 
+	//A byte for whether it's an item type, then its name and icon each with a length byte, grip, and rotation
+	unsigned int itemSize = 1;
+	if (isItemType)
+		itemSize += 2 + std::min(itemName.length(), (size_t)255) + std::min(itemIconPath.length(), (size_t)255) + sizeof(float) * 7;
+
 	//unsigned int packetSize = model->loadedPath.length() + sizeof(netIDType) + 3 + PositionBytes + animationSize;
-	unsigned int packetSize = model->loadedPath.length() + sizeof(netIDType) + 3 + sizeof(float)*3 + animationSize;
+	unsigned int packetSize = model->loadedPath.length() + sizeof(netIDType) + 3 + sizeof(float)*3 + animationSize + itemSize;
 	ENetPacket* ret = enet_packet_create(NULL, packetSize, getFlagsFromChannel(JoinNegotiation));
 
 	unsigned int byteIterator = 0;
@@ -239,6 +276,28 @@ ENetPacket* DynamicType::createTypePacket() const
 		byteIterator++;
 		memcpy(ret->data + byteIterator, model->animations[a].name.data(), nameLength);
 		byteIterator += nameLength;
+	}
+
+	ret->data[byteIterator] = isItemType ? 1 : 0;
+	byteIterator++;
+
+	if (isItemType)
+	{
+		for (const std::string* text : { &itemName, &itemIconPath })
+		{
+			size_t length = std::min(text->length(), (size_t)255);
+			ret->data[byteIterator] = (unsigned char)length;
+			byteIterator++;
+			memcpy(ret->data + byteIterator, text->data(), length);
+			byteIterator += length;
+		}
+
+		memcpy(ret->data + byteIterator, &handOffset.x, sizeof(float) * 3);
+		byteIterator += sizeof(float) * 3;
+
+		float rotation[4] = { handRotation.w, handRotation.x, handRotation.y, handRotation.z };
+		memcpy(ret->data + byteIterator, rotation, sizeof(rotation));
+		byteIterator += sizeof(rotation);
 	}
 
 	return ret; 

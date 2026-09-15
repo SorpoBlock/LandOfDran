@@ -9,9 +9,17 @@
 	These are for packets sent to the server from the client
 */
 
-inline ENetPacket* makeMouseClickPacket(glm::vec3 pos, glm::vec3 dir, unsigned char mask)
+/*
+	1 byte		-	packet type
+	12 bytes	-	camera position
+	12 bytes	-	camera direction
+	1 byte		-	SDL mouse button mask, just the button let go for a release
+	1 byte		-	ClickFlag flags
+*/
+inline ENetPacket* makeMouseClickPacket(glm::vec3 pos, glm::vec3 dir, unsigned char mask, bool release = false)
 {
-	ENetPacket* ret = enet_packet_create(NULL, 2 + 6 * sizeof(float), getFlagsFromChannel(OtherReliable));
+	ENetPacket* ret = enet_packet_create(NULL, 3 + 6 * sizeof(float), getFlagsFromChannel(OtherReliable));
+	ret->data[2 + sizeof(float) * 6] = release ? ClickFlag_Release : 0;
 
 	ret->data[0] = (unsigned char)ClickDetails;
 	memcpy(ret->data + 1 + sizeof(float) * 0, &pos.x, sizeof(float));
@@ -21,7 +29,47 @@ inline ENetPacket* makeMouseClickPacket(glm::vec3 pos, glm::vec3 dir, unsigned c
 	memcpy(ret->data + 1 + sizeof(float) * 4, &dir.y, sizeof(float));
 	memcpy(ret->data + 1 + sizeof(float) * 5, &dir.z, sizeof(float));
 	ret->data[1 + sizeof(float) * 6] = mask;
-	
+
+	return ret;
+}
+
+/*
+	1 byte		-	packet type
+	1 byte		-	1 if the item bar is out
+	1 byte		-	picked slot
+*/
+inline ENetPacket* makeInventorySelectPacket(bool open, int slot)
+{
+	ENetPacket* ret = enet_packet_create(NULL, 3, getFlagsFromChannel(OtherReliable));
+	ret->data[0] = (unsigned char)InventorySelect;
+	ret->data[1] = open ? 1 : 0;
+	ret->data[2] = (unsigned char)slot;
+	return ret;
+}
+
+/*
+	1 byte		-	packet type
+	1 byte		-	picked slot
+*/
+inline ENetPacket* makeDropItemPacket(int slot)
+{
+	ENetPacket* ret = enet_packet_create(NULL, 2, getFlagsFromChannel(OtherReliable));
+	ret->data[0] = (unsigned char)DropItemRequest;
+	ret->data[1] = (unsigned char)slot;
+	return ret;
+}
+
+/*
+	1 byte		-	packet type
+	4 bytes		-	paint color: red, green, blue, alpha, 0-255
+	1 byte		-	paint material, a BrickMaterial
+*/
+inline ENetPacket* makePaintChoicePacket(glm::u8vec4 color, unsigned char material)
+{
+	ENetPacket* ret = enet_packet_create(NULL, 6, getFlagsFromChannel(OtherReliable));
+	ret->data[0] = (unsigned char)PaintChoice;
+	memcpy(ret->data + 1, &color[0], 4);
+	ret->data[5] = material;
 	return ret;
 }
 

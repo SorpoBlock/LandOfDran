@@ -10,7 +10,8 @@ source - if you add or change a binding, update this file too.
 - Every `Dynamic`, `StaticObject`, client, brick, light, and emitter table has an `id` field (its net ID) and a
   `type` field you can compare against: `1` = Dynamic, `2` = Static, `3` = Client, `4` = Brick,
   `5` = Light, `6` = Emitter (`NetTypes/NetType.h`'s `SimObjectType`). `raycast()` and `client:getCursorItem()` can
-  return a Dynamic, a Static, or a Brick, so check `.type` before assuming which.
+  return a Dynamic, a Static, or a Brick, so check `.type` before assuming which. Items are Dynamics too, with
+  more methods, see [Items](#items).
 - Functions documented as `Expected N arguments` in an error message are strict about
   argument count - passing the wrong number logs an error and does nothing (they don't
   throw a Lua error, so a mistake here fails silently unless you're watching the log).
@@ -134,7 +135,9 @@ setSkybox("Assets/ibl/main.hdr")                                  -- lit by a ph
 | `ClientClick` | `function(client, posX, posY, posZ, dirX, dirY, dirZ, mask) ... return client, posX, posY, posZ, dirX, dirY, dirZ, mask end` | Fires on every mouse click. `posX/Y/Z` and `dirX/Y/Z` are the camera's position and look direction *at the moment of the click*; `mask` is the SDL mouse button mask (see Conventions). |
 | `ClientStartTalking` | `function(client) ... return client end` | Fires when a client starts sending voice chat. Calling `client:setVoiceMuted(true)` here cuts them off before anyone hears them. |
 | `ClientStopTalking` | `function(client) ... return client end` | Fires when a client lets go of push to talk, or half a second after their voice stops arriving (a lost last packet, or muted while talking). Not fired for a client who leaves while talking. |
-| `ClientWrenchBrick` | `function(client, brick) ... return client, brick end` | Fires when a client wrenches a brick (for now: holds Insert and left clicks it, within 100 studs of their camera), before its wrench dialog opens. Return `client, nil` to keep the dialog closed, or another brick to open that one's dialog instead. Not fired by `client:openWrenchDialog`. |
+| `ClientWrenchBrick` | `function(client, brick) ... return client, brick end` | Fires when a client holds Insert and left clicks a brick within 100 studs of their camera, before its wrench dialog opens. Return `client, nil` to keep the dialog closed, or another brick to open that one's dialog instead. Not fired by `client:openWrenchDialog`, which is what the wrench item in `Inventory.lua` uses. |
+| `ClientClickRelease` | `function(client, posX, posY, posZ, dirX, dirY, dirZ, mask) ... return client, posX, posY, posZ, dirX, dirY, dirZ, mask end` | Fires when a client lets go of a mouse button in game, even over a window. Same arguments as `ClientClick`, except `mask` is only the button let go. `Inventory.lua` stops swinging the hammer or wrench here. |
+| `ClientDropItem` | `function(client, slot) ... return client, slot end` | Fires when a client presses their drop item key with Ctrl (Ctrl+W by default), with the slot their item bar has picked (0-4), whether or not there's an item in it or their items are out. Nothing is dropped unless a listener does it; `Inventory.lua` throws the item in their hand. |
 
 ---
 
@@ -153,7 +156,7 @@ Dynamics are physics-simulated objects (players, projectiles, pickups, etc).
 | `newDynamicType(scriptName, modelFilePath, scaleX, scaleY, scaleZ)` | `scriptName`: unique name used to refer to this type later; `modelFilePath`: path to the model file; scale on each axis | typeID | Registers a new kind of dynamic (model + scale). Call once at startup per type. |
 | `getDynamicType(scriptName)` | string | typeID | Looks up a previously-registered type's ID by its script name. |
 | `addAnimation(typeID, animationName, startFrame, endFrame, speed, fadeInMS, fadeOutMS)` | type to attach the animation to; frame range (the model file's animation ticks, which for an FBX are its frame numbers minus 1); playback speed in ticks per ms; fade in/out durations in ms | none | Adds a named animation clip to a dynamic type. The first animation added to a type is used as its walk cycle. One named `grab` plays on a player whenever its client left clicks in game, for everyone. While several play at once, animations added later play over earlier ones, but only on the parts of the model they actually move (a grab only takes over the arm it swings, the legs keep walking). Players' heads also turn to show where their camera looks, if the model has a node named `Head`. |
-| `raycast(startX, startY, startZ, endX, endY, endZ[, dynamicToIgnore])` | ray start/end points; optionally a Dynamic to exclude from the hit test | hit object, x, y, z, normalX, normalY, normalZ, distance; or `nil` | Casts a ray through the physics world. Returns the Dynamic, Static, or Brick it hit first, then the world position of the hit, the normal of the surface it hit (pointing out of it), and the distance from the start point. Returns just `nil` if it hit nothing. `local hit = raycast(...)` still works if you only need the object. |
+| `raycast(startX, startY, startZ, endX, endY, endZ[, dynamicToIgnore])` | ray start/end points; optionally a Dynamic to exclude from the hit test | hit object, x, y, z, normalX, normalY, normalZ, distance; or `nil` | Casts a ray through the physics world. Returns the Dynamic, Static, or Brick it hit first, then the world position of the hit, the normal of the surface it hit (pointing out of it), and the distance from the start point. If it hit the ground, which has no object, the hit object is `nil` and the rest still follow. Returns just `nil` if it hit nothing. `local hit = raycast(...)` still works if you only need the object. |
 
 ### `dynamic:` methods
 
@@ -194,6 +197,65 @@ Dynamics are physics-simulated objects (players, projectiles, pickups, etc).
 | `dynamic:startSoundLoop(name[, pitch, volume])` | sound type name; see [Sounds](#sounds) | loop ID | Starts a looping sound that follows the dynamic. It stops by itself when the dynamic is destroyed. |
 | `dynamic:setBuoyancy(buoyancy)` | 0-10, clamped; default 1.3 | none | How hard water pushes the dynamic up, as a multiple of its weight when it's fully under. `0` sinks (slowed by drag), `1` hangs wherever it is, higher values float with less of it under. Sent to clients too, since they simulate the dynamics they control (players) in water themselves. A swimming player holds their depth while moving, so buoyancy only decides whether they sink or float up while they aren't swimming. |
 | `dynamic:getBuoyancy()` | none | number | Current buoyancy. |
+| `dynamic:isItem()` | none | bool | Whether it's an item, which has the `item:` methods below too. |
+
+---
+
+## Items
+
+Items are tools like the hammer: dynamics that players can carry in their inventory. On the ground an item is an
+ordinary dynamic. It falls, collides, and floats, every `dynamic:` method works on it, and `raycast()` and
+`client:getCursorItem()` can hit it. Item tables are Dynamic tables (`type` is `1`) that have the `item:` methods
+below as well, so check with `dynamic:isItem()`.
+
+Each client can carry 5 items, in slots 0 to 4. While an item is carried its body is out of the physics world. It
+doesn't collide, fall, or float, and `setPosition`, `setRotation`, `setVelocity`, `setAngularVelocity`, `activate`,
+and `snapToCursor` do nothing. `getPosition` gives the position of the player carrying it. Settings like gravity,
+friction, and buoyancy are kept for when it's back on the ground. Items a leaving client still carries go back into the
+world where they were, after `ClientLeave` listeners run.
+
+Players press Q (the "Show/Hide Items" key) to slide their items out on the right of the screen, which puts the item in
+the picked slot in their player's right hand for everyone to see, or in front of their camera in first person. The mouse
+wheel picks another slot while their items are out. Pressing Q again, or a brick hot bar slot's key, puts them away. A
+carried item is held by the first dynamic `client:setDefaultController` gave its client, and isn't drawn anywhere
+without one. Pressing Ctrl+W fires `ClientDropItem`, and letting go of a mouse button fires `ClientClickRelease`.
+
+`Inventory.lua`, run from `serverstart.lua`, gives every player who joins the `hammer`, `wrench`, and `paintCan` item
+types `serverstart.lua` adds, and removes those when they leave (other items they carry are dropped). Left clicking an
+item on the ground within 10 studs picks it up into the first empty slot. Holding left mouse with the hammer or wrench
+in hand swings it, hitting right away and then about once a second for as long as it's held, except the wrench stops once
+it opens a dialog. The hammer knocks loose a brick it's clicked on (`brick:remove(true)`), and the wrench opens the
+brick's wrench dialog, playing `WrenchHit`. Hitting anything else within reach, the ground included, plays `HammerHit` or
+`WrenchMiss` there. Every hit makes the tool's spark and explosion emitters (`hammerSparkEmitter` and
+`hammerExplosionEmitter`, or the wrench's) where it hit. Holding left mouse with the paint can sprays a `paintEmitter` stream in the player's paint color from
+the can to what they look at, with the `SprayLoop` sound, and paints every brick within 13 studs the crosshair passes
+over with their paint color and material (`client:getPaintColor`, `client:getPaintMaterial`), checking about every 30 ms.
+Ctrl+W throws the item in hand the way the player looks.
+
+### Global functions
+
+| Function | Arguments | Returns | Description |
+|---|---|---|---|
+| `newItemType(scriptName, modelFilePath, scaleX, scaleY, scaleZ, uiName, iconPath)` | same as `newDynamicType`; the name shown in the item bar; an image for its slot, relative to the game folder, or `""` for none, which shows the name instead | typeID | Registers a kind of item. The type ID works anywhere a dynamic type's does, like `addAnimation` and `getDynamicType`. Call it at startup, before anyone joins. An icon that isn't a file in the game folder logs an error and the type gets none. Clients load the icon from their own game folder. A model with no `Collision` mesh collides as a box around the whole model. |
+| `setItemHand(typeID, gripX, gripY, gripZ, pitch, yaw, roll)` | item type ID; the point on the model that goes in the hand, in world units after scaling; degrees around the x, y, and z axes | none | How items of a type sit in a hand. Unturned, the model's +Y points up out of the hand and its -Z the way its holder faces, and a negative pitch leans its top forward. Call it at startup, before anyone joins. By default the model's origin is in the hand, unturned. |
+| `createItem(typeID, x, y, z)` | item type ID from `newItemType`; position | Item | Spawns an item on the ground. Logs an error for a type that isn't an item type. |
+| `getNumItems()` | none | count | How many items exist, carried or not. |
+| `getItemIdx(index)` | 0-based index | Item | The item at that position among all items. |
+
+### `item:` methods
+
+Along with every `dynamic:` method.
+
+| Method | Arguments | Returns | Description |
+|---|---|---|---|
+| `item:isHeld()` | none | bool | Whether it's in someone's inventory. |
+| `item:getHolder()` | none | Client or `nil` | The client carrying it. |
+| `item:getSlot()` | none | slot or `nil` | Which of its carrier's slots it's in, 0-4. |
+| `item:isEquipped()` | none | bool | Whether it's in its carrier's hand: their items are out with its slot picked. |
+| `item:playAnimation(name[, loop])` | `"swing"`, or the name of an animation `addAnimation` gave its type; `loop` defaults to false | none | Plays the animation for everyone, once or over and over. Every item can `"swing"`, tipping forward around its grip until its top points 90 degrees further toward the ground and back, a bit over a fifth of a second each time. Only one animation loops at a time, starting a loop replaces the last. Logs an error for an animation it doesn't have. |
+| `item:stopAnimation([name])` | animation name, or nothing | none | Stops the looping animation if it's the one named, or whatever loops without a name. A swing finishes the one it's partway through. |
+| `item:getItemName()` | none | string | Its type's name in the item bar, like `"Hammer"`. |
+| `item:getTypeName()` | none | string | Its type's script name, like `"hammer"`. |
 
 ---
 
@@ -381,6 +443,9 @@ These use the strict argument count check.
 | `emitter:setType(typeName)` | emitter type name | none | Switches it to another emitter type. |
 | `emitter:attachToDynamic(dynamic[, meshName])` | dynamic; name of one of its model's meshes | none | Follows the dynamic, or the middle of that mesh as it animates, ejecting particles turned the way the dynamic (or mesh) is turned. Removed along with the dynamic. |
 | `emitter:attachToBrick(brick)` | brick, or `nil` | none | Moves it to the middle of the brick, and it's removed along with the brick instead of after its type's `lifetimeMS`. `nil` leaves it where it is, no longer on or following anything. |
+| `emitter:setColor(r, g, b[, a])` | 0-1, clamped; `a` defaults to 1 | none | Multiplies its particles' colors and opacity by this, white by default. Only sent to clients if it changed, so it's cheap to call often. Particles already out keep the color they left with. |
+| `emitter:getColor()` | none | r, g, b, a | Its color. |
+| `emitter:aimWith(dynamic, range)` / `emitter:aimWith(nil)` | a dynamic, usually a player; how far its aim reaches in studs, 0-1000 | none | Sends particles toward whatever the dynamic looks at, up to `range` studs from its eyes (its client's crosshair for a player's own game, where a third person camera reaches that much further), and they only last until they get there. The type's `thetaMin` and `thetaMax` spread particles around that direction instead of around up. Other clients use the way the player's head turns. `nil` ejects normally again. The paint can in `Inventory.lua` uses this. |
 
 ---
 
@@ -467,9 +532,9 @@ selector. Shape effects are only drawn: a brick always collides as its plain sha
 ### Wrench dialog and brick attachments
 
 Players wrench a brick to open its wrench dialog, where they can change whether it collides, its name,
-its music loop with volume and pitch, its light, and its emitter. Until there's an inventory with a wrench
-item, wrenching is holding Insert (the `Wrench` key bind) and left clicking a brick. Lua can veto or
-redirect that with the `ClientWrenchBrick` event, or open a dialog itself with `client:openWrenchDialog`.
+its music loop with volume and pitch, its light, and its emitter. Wrenching is left clicking a brick with the
+wrench item in hand (see [Items](#items)), or holding Insert (the `Wrench` key bind) and left clicking one. Lua can
+veto or redirect the Insert way with the `ClientWrenchBrick` event, or open a dialog itself with `client:openWrenchDialog`.
 Anyone can currently wrench any brick; there are no build permissions yet. The music list only shows
 sounds registered with `newSoundType(name, file, true)` and the emitter list every emitter type, but a
 brick keeps any sound or emitter Lua put on it when a player applies the dialog without changing it.
@@ -527,7 +592,8 @@ console), and `BrickClear` (played to everyone when someone types `/clearbricks`
 all of their own bricks). It also registers `Splash` and `ExitWater`, which the server plays by
 name where dynamics hit or leave the water, louder the faster they're moving and lower pitched
 the bigger they are, and `LightOn` and `LightOff`, which the server plays from a player whose
-flashlight turns on or off.
+flashlight turns on or off. `Inventory.lua` plays `HammerHit`, `WrenchHit`, and `WrenchMiss` where tools hit, and loops
+`SprayLoop` from a spraying paint can.
 
 In the functions below, `pitch` is a playback speed multiplier (default `1`, clamped to 0.05-10)
 and `volume` is 0-1 (default `1`). They can only be given together.
@@ -607,5 +673,14 @@ A "client" represents one connected player/connection.
 | `client:getJetsEnabled()` | none | bool | Whether `setJetsEnabled` lets the client jet. |
 | `client:setFlashlightEnabled(enabled)` | bool | none | Whether the client can use their flashlight, on by default. Players tap their flashlight key (`]` by default) to switch it on or off, and hold it to cycle through colors starting from white. The `LightOn` and `LightOff` sounds play from their player. Turning it off switches off a flashlight that's on. Needs a player from `setDefaultController` to hold it (see Lights). Not remembered if they reconnect. |
 | `client:getFlashlightEnabled()` | none | bool | Whether `setFlashlightEnabled` lets the client use a flashlight. |
+| `client:addItem(item[, slot])` | an item on the ground; slot 0-4, or the first empty one | slot or `nil` | Puts the item in the client's inventory. Returns `nil` if that slot is taken or none are free, and logs an error too for an item someone already carries. See [Items](#items). |
+| `client:removeItem(slot)` | 0-4 | Item or `nil` | Takes the item out of the slot and puts it back into the world just in front of the client's player, not moving, or where it was without a player. `nil` for an empty slot. |
+| `client:getItem(slot)` | 0-4 | Item or `nil` | The item in that slot. |
+| `client:getSelectedSlot()` | none | slot, open | The slot the client's item bar has picked (0-4, kept while it's put away), and whether their items are out. |
+| `client:getHeldItem()` | none | Item or `nil` | The item in the client's hand: the one in the picked slot while their items are out. |
+| `client:getCameraPosition()` | none | x, y, z | Where the client's camera was as of their last movement update, which comes about every 100 ms. Needs `setDefaultController`. |
+| `client:getCameraDirection()` | none | x, y, z | Which way their camera looked then, normalized. Needs `setDefaultController`. While they hold left mouse, their camera is sent about every 30 ms instead. |
+| `client:getPaintColor()` | none | r, g, b, a | The color their paint palette (E, or Right Shift's custom color) has picked, 0-1. Their game sends it as they connect and whenever it changes. White until then. |
+| `client:getPaintMaterial()` | none | material name | The brick material their paint palette has picked, like `"Chrome"`, see [Brick materials](#brick-materials). |
 | `client:openWrenchDialog(brick)` | Brick | none | Opens the wrench dialog for the brick on the client's screen, as if they'd wrenched it, without firing `ClientWrenchBrick`. What they apply only reaches the brick in the last dialog they were sent, once. See [Wrench dialog and brick attachments](#wrench-dialog-and-brick-attachments). |
 | `client:applyAppearance(dynamic)` | Dynamic | none | Puts the colors and face the client picked in their appearance editor on the dynamic, usually their player in `ClientJoin`. Their game sends their appearance as they connect: each painted part is matched to a mesh by name ignoring case (parts the model doesn't have are skipped), and the face goes on the `Face1` mesh, or `Face` or `Head` if there's no `Face1`, like `dynamic:setMeshDecal`. If they save a change while connected, it's put on the last dynamic this was called with, and parts they no longer paint go back to the model's own look. |

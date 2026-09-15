@@ -205,7 +205,8 @@ bool UpdateSimObjectsPacket::applyPacket(const ClientProgramData& pd, Simulation
 			std::shared_ptr<Dynamic> toUpdate = simulation.dynamics->find(lastId);
 			if (toUpdate)
 			{
-				if (!toUpdate->clientControlled || forcePlayerUpdate)
+				//Carried items are drawn in hand, not wherever the server last had them on the ground
+				if (toUpdate->isInWorld() && (!toUpdate->clientControlled || forcePlayerUpdate))
 				{
 					//While we're locally predicting a collision response for this object (see LoopClient::predictLocalCollisions),
 					//don't let a server update - which is still describing the pre-collision state it hasn't caught up to yet -

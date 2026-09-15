@@ -5,6 +5,7 @@
 #include "../SimObjects/StaticObject.h"
 #include "../SimObjects/Light.h"
 #include "../SimObjects/Emitter.h"
+#include "../SimObjects/Item.h"
 #include "../Networking/ObjHolder.h"
 #include "../Graphics/PlayerCamera.h"
 #include "../GameLoop/PlayerController.h"
@@ -55,6 +56,9 @@ struct Simulation
 
 	//Probably a lot of overlap between targets and controlledDynamics
 	std::vector<std::shared_ptr<PlayerController>> controllers;
+
+	//Net IDs of the items in each of our inventory slots, NO_ID for an empty one, see InventoryContentsPacket
+	netIDType inventory[inventorySize] = { NO_ID, NO_ID, NO_ID, NO_ID, NO_ID };
 
 	//Objects (object holders):
 	ObjHolder<Dynamic>* dynamics = nullptr;

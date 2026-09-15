@@ -36,6 +36,16 @@ class DynamicType : public NetType
 
 	std::string scriptName = "";
 
+	//Types from Lua's newItemType, which items are made of, and what shows for them in the item bar
+	bool isItemType = false;
+	std::string itemName = "";
+	std::string itemIconPath = "";
+
+	//An item type's point on its scaled model that goes in a hand, and how the model is turned there, Lua's setItemHand
+	//Unturned, the model's +Y points up out of the hand and -Z the way its holder faces
+	glm::vec3 handOffset = glm::vec3(0);
+	glm::quat handRotation = glm::quat(1, 0, 0, 0);
+
 	const glm::vec3& getScale() const { return model->baseScale; }
 
 	std::shared_ptr<Model>  getModel() const { return model; }

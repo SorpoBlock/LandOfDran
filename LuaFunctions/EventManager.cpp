@@ -282,6 +282,8 @@ EventManager::EventManager(lua_State* L)
     events.push_back(LuaEvent("ClientStartTalking"));
     events.push_back(LuaEvent("ClientStopTalking"));
     events.push_back(LuaEvent("ClientWrenchBrick"));
+    events.push_back(LuaEvent("ClientClickRelease"));
+    events.push_back(LuaEvent("ClientDropItem"));
 
     lua_register(L, "registerEventListener", registerEventListener);
     lua_register(L, "unregisterEventListener", unregisterEventListener);

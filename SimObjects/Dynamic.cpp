@@ -209,6 +209,44 @@ void Dynamic::activate() const
 	body->activate();
 }
 
+void Dynamic::removeFromWorld()
+{
+	if (!inWorld)
+		return;
+
+	unsnapFromCursor();
+	outOfWorldGravity = body->getGravity();
+	world->removeBody(body);
+	body->setLinearVelocity(btVector3(0, 0, 0));
+	body->setAngularVelocity(btVector3(0, 0, 0));
+	inWorld = false;
+}
+
+void Dynamic::returnToWorld(const btTransform& transform)
+{
+	if (inWorld)
+		return;
+
+	body->setWorldTransform(transform);
+	body->setLinearVelocity(btVector3(0, 0, 0));
+	body->setAngularVelocity(btVector3(0, 0, 0));
+	world->addBody(body);
+	//Adding a body gives it the world's gravity
+	body->setGravity(outOfWorldGravity);
+	body->activate(true);
+	inWorld = true;
+	forceUpdateAll = true;
+}
+
+void Dynamic::setDrawnTransform(const glm::vec3& position, const glm::quat& rotation)
+{
+	renderedPosition = position;
+	renderedRotation = rotation;
+	renderedTilt = glm::quat(1, 0, 0, 0);
+	renderedTransformInitialized = true;
+	modelInstance->setModelTransform(glm::translate(position) * glm::toMat4(rotation));
+}
+
 void Dynamic::setVelocity(const btVector3& vel)
 {
 	body->setLinearVelocity(vel);
@@ -335,6 +373,13 @@ static bool sendsLook(const Dynamic& dynamic)
 
 bool Dynamic::requiresNetUpdate() //const
 {
+	//Carried items have no position of their own to send, see Item
+	if (!inWorld)
+	{
+		flaggedForUpdate = false;
+		return false;
+	}
+
 	if (getTicksMS() - lastSentTime < 25)
 	{
 		flaggedForUpdate = false;
@@ -713,8 +758,8 @@ unsigned int Dynamic::getCreationPacketBytes() const
 	for (const auto& [meshIdx, decalName] : meshDecals)
 		decalsSize += 2 + (int)decalName.length();
 
-	//Buoyancy and then decals go last
-	return meshColorsSize + highlightSize + decalsSize + PositionBytes + QuaternionBytes + sizeof(netIDType) * 2 + sizeof(float);
+	//Buoyancy and then decals go last, then a DynamicKind byte and whatever that kind adds
+	return meshColorsSize + highlightSize + decalsSize + PositionBytes + QuaternionBytes + sizeof(netIDType) * 2 + sizeof(float) + 1 + getKindCreationBytes();
 }
 
 void Dynamic::addToCreationPacket(enet_uint8* dest) const
@@ -795,6 +840,10 @@ void Dynamic::addToCreationPacket(enet_uint8* dest) const
 		memcpy(dest + byteIterator + 2, decalName.data(), decalName.length());
 		byteIterator += 2 + decalName.length();
 	}
+
+	dest[byteIterator] = (unsigned char)getKind();
+	byteIterator++;
+	addKindCreationData(dest + byteIterator);
 }
 
 void Dynamic::requestDestruction()
@@ -814,7 +863,8 @@ Dynamic::~Dynamic()
 			std::shared_ptr<SimObject>* userDataPtr = (std::shared_ptr<SimObject>*)body->getUserPointer();
 			delete userDataPtr;
 		}
-		world->removeBody(body);
+		if (inWorld)
+			world->removeBody(body);
 		delete body;
 	}
 }

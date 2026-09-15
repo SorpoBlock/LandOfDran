@@ -1,0 +1,4 @@
+albedo	BrickTools_Spraycan_BaseColor.png
+normal	BrickTools_Spraycan_Normal.png
+roughness	BrickTools_Spraycan_Roughness.png
+metalness	BrickTools_Spraycan_Metallic.png

@@ -626,3 +626,30 @@ addEmitterType("rainbowPaintEmitter", {
 	thetaMax = 180,
 	phiVariance = 360
 })
+
+--The paint can's spray, white so Inventory.lua's emitter:setColor makes it the player's paint, and aimed with emitter:aimWith at what they look at, where it stops
+addParticleType("paintParticle", {
+	texture = "Assets/particles/cloud.png",
+	color0 = {1, 1, 1, 0.9},
+	color1 = {1, 1, 1, 0.8},
+	color2 = {1, 1, 1, 0.6},
+	color3 = {1, 1, 1, 0.2},
+	size0 = 0.15, size1 = 0.4, size2 = 0.7, size3 = 1.0,
+	time0 = 0, time1 = 0.3, time2 = 0.7, time3 = 1,
+	spinSpeed = 120,
+	lifetimeMS = 1500,
+	useInvAlpha = true
+})
+
+--Aimed, theta spreads particles around the way to the target, so this is a narrow stream
+addEmitterType("paintEmitter", {
+	particles = "paintParticle",
+	ejectionPeriodMS = 12,
+	periodVarianceMS = 3,
+	ejectionVelocity = 25,
+	velocityVariance = 3,
+	ejectionOffset = 0.3,
+	thetaMin = 0,
+	thetaMax = 4,
+	phiVariance = 360
+})

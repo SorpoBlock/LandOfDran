@@ -84,6 +84,14 @@ static int LUA_dynamicDestroy(lua_State* L)
 			break;
 	}
 
+	//Out of the inventory it's in
+	if (dynamic->getKind() == DynamicKind_Item)
+	{
+		std::shared_ptr<Item> item = std::static_pointer_cast<Item>(dynamic);
+		if (std::shared_ptr<ClientData> carrier = item->owner.lock())
+			carrier->forgetItem(*item);
+	}
+
 	LUA_pd->dynamics->destroy(dynamic);
 
 	return 0;
@@ -121,6 +129,10 @@ static int LUA_dynamicSetVelocity(lua_State* L)
 		error("Invalid dynamic object passed, was it deleted already?");
 		return 0;
 	}
+
+	//Carried items stay with whoever carries them
+	if (!dynamic->isInWorld())
+		return 0;
 
 	dynamic->setVelocity(btVector3(x, y, z));
 	dynamic->forcePlayerUpdate = true;
@@ -235,6 +247,10 @@ static int LUA_dynamicSetPosition(lua_State* L)
 		return 0;
 	}
 
+	//Carried items stay with whoever carries them
+	if (!dynamic->isInWorld())
+		return 0;
+
 	dynamic->setPosition(btVector3(x, y, z));
 	dynamic->forcePlayerUpdate = true;
 	dynamic->activate();
@@ -267,6 +283,10 @@ static int LUA_dynamicActivate(lua_State* L)
 		error("Invalid dynamic object passed, was it deleted already?");
 		return 0;
 	}
+
+	//A carried item's body is out of the world
+	if (!dynamic->isInWorld())
+		return 0;
 
 	dynamic->activate();
 
@@ -428,6 +448,10 @@ static int LUA_dynamicSetAngularVelocity(lua_State* L)
 		error("Invalid dynamic object passed, was it deleted already?");
 		return 0;
 	}
+
+	//Carried items stay with whoever carries them
+	if (!dynamic->isInWorld())
+		return 0;
 
 	dynamic->setAngularVelocity(btVector3(x, y, z));
 	dynamic->forcePlayerUpdate = true;
@@ -781,6 +805,10 @@ static int LUA_dynamicSetRotation(lua_State* L)
 			return 0;
 		}
 
+		//Carried items stay with whoever carries them
+		if (!dynamic->isInWorld())
+			return 0;
+
 		btTransform t = dynamic->body->getWorldTransform();
 		t.setRotation(btQuaternion(x,y,z));
 		dynamic->body->setWorldTransform(t);
@@ -799,6 +827,10 @@ static int LUA_dynamicSetRotation(lua_State* L)
 		error("Invalid dynamic object passed, was it deleted already?");
 		return 0;
 	}
+
+	//Carried items stay with whoever carries them
+	if (!dynamic->isInWorld())
+		return 0;
 
 	btTransform t = dynamic->body->getWorldTransform();
 	t.setRotation(btQuaternion(x, y, z, w));
@@ -1262,7 +1294,11 @@ static int LUA_raycast(lua_State* L)
 int pushRaycastHit(lua_State* L, btRigidBody* result, const btVector3& start, const btVector3& hitPosition, const btVector3& hitNormal)
 {
 	if (!pushRaycastResult(L, result))
-		return 1;
+	{
+		//The ground has no Lua object, but where it was hit still follows the nil
+		if (!result || result->getUserIndex() != groundPlane)
+			return 1;
+	}
 
 	lua_pushnumber(L, hitPosition.x());
 	lua_pushnumber(L, hitPosition.y());
@@ -1460,6 +1496,10 @@ static int LUA_dynamicSnapToCursor(lua_State* L)
 		return 0;
 	}
 
+	//Carried items stay with whoever carries them
+	if (!dynamic->isInWorld())
+		return 0;
+
 	dynamic->snapToCursor(client, glm::vec3(xOffset, yOffset, zOffset));
 
 	return 0;
@@ -1615,6 +1655,28 @@ static int LUA_dynamicGetBuoyancy(lua_State* L)
 	return 1;
 }
 
+static int LUA_dynamicIsItem(lua_State* L)
+{
+	scope("(LUA) dynamic:isItem");
+
+	if (lua_gettop(L) != 1)
+	{
+		error("Expected 1 argument dynamic:isItem()");
+		return 0;
+	}
+
+	std::shared_ptr<Dynamic> dynamic = LUA_pd->dynamics->popLua(L);
+
+	if (!dynamic)
+	{
+		error("Invalid dynamic object passed, was it deleted already?");
+		return 0;
+	}
+
+	lua_pushboolean(L, dynamic->getKind() == DynamicKind_Item);
+	return 1;
+}
+
 luaL_Reg* getDynamicFunctions(lua_State *L)
 {
 	//Register dynamic global functions:
@@ -1628,7 +1690,7 @@ luaL_Reg* getDynamicFunctions(lua_State *L)
 	lua_register(L, "raycast", LUA_raycast);
 
 	//Create table of dynamic metatable functions:
-	luaL_Reg* regs = new luaL_Reg[35];
+	luaL_Reg* regs = new luaL_Reg[36];
 
 	int iter = 0;
 	regs[iter++] = { "destroy",     LUA_dynamicDestroy };
@@ -1665,6 +1727,7 @@ luaL_Reg* getDynamicFunctions(lua_State *L)
 	regs[iter++] = { "startSoundLoop", LUA_dynamicStartSoundLoop };
 	regs[iter++] = { "setBuoyancy", LUA_dynamicSetBuoyancy };
 	regs[iter++] = { "getBuoyancy", LUA_dynamicGetBuoyancy };
+	regs[iter++] = { "isItem", LUA_dynamicIsItem };
 	regs[iter++] = { NULL, NULL };
 
 	return regs;

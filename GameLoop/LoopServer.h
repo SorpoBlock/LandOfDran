@@ -58,6 +58,9 @@ class LoopServer
 	//Ends talking for clients whose voice stopped arriving without them saying they let go of push to talk, like a lost last packet or being muted mid-sentence
 	void endQuietTalkers();
 
+	//Keeps carried items with their holders, and sends everyone the state of items that changed, after dynamics' creations go out
+	void updateItems();
+
 public:
 
 	//Constructor have any issues?

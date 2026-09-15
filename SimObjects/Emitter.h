@@ -32,6 +32,11 @@ class Emitter : public SimObject
 	netIDType dynamicID = 0;
 	//Which of the dynamic's meshes it follows the middle of, -1 for the dynamic itself
 	int meshIndex = -1;
+	//Multiplied into its particles' colors
+	glm::u8vec4 color = glm::u8vec4(255, 255, 255, 255);
+	//The dynamic whose aim its particles go toward, NO_ID for none, and how far that aim reaches, see aimWith
+	netIDType aimDynamicID = NO_ID;
+	float aimRange = 0;
 
 	void writeState(enet_uint8* dest) const;
 
@@ -46,7 +51,7 @@ class Emitter : public SimObject
 	public:
 
 	//State written by both creation and update packets, after the net ID, creation packets put how old it is in between
-	static constexpr unsigned int packetBytes = sizeof(uint16_t) + 2 + sizeof(netIDType) + sizeof(float) * 3;
+	static constexpr unsigned int packetBytes = sizeof(uint16_t) + 2 + sizeof(netIDType) + sizeof(float) * 3 + 4 + sizeof(netIDType) + sizeof(float);
 
 	//Server: what it follows, it's removed along with it, see LoopServer::updateEmitters
 	//Client: the dynamic with dynamicID, found again whenever that isn't it
@@ -65,6 +70,14 @@ class Emitter : public SimObject
 	EmitterAttachKind getAttachKind() const { return attachKind; }
 	netIDType getDynamicID() const { return dynamicID; }
 	int getMeshIndex() const { return meshIndex; }
+	netIDType getAimDynamicID() const { return aimDynamicID; }
+	float getAimRange() const { return aimRange; }
+
+	//Its color as 0-1 floats
+	glm::vec4 getTint() const { return glm::vec4(color) / 255.0f; }
+
+	//Client only: the dynamic with aimDynamicID, found again whenever that isn't it
+	std::weak_ptr<Dynamic> aimer;
 
 	//Server: its fixed position, or where the dynamic it follows is
 	glm::vec3 getPosition() const;
@@ -81,6 +94,15 @@ class Emitter : public SimObject
 
 	//Stays put at the brick's position, removed along with the brick, and never for its type's lifetime
 	void attachToBrick(netIDType _brickID, const glm::vec3& brickPosition);
+
+	//Only sent if it's different
+	void setColor(const glm::u8vec4& _color);
+
+	/*
+		Particles go toward what the aiming dynamic looks at, up to range studs from its eyes, and stop there
+		Its type's thetaMin and thetaMax spread them around that direction instead of around up. nullptr aims it normally again
+	*/
+	void aimWith(std::shared_ptr<Dynamic> aiming, float range);
 
 	//Client: applies packetBytes of state written by the server
 	void readFromPacket(const enet_uint8* src);

@@ -222,6 +222,14 @@ KickReason Client::handleEvent(ENetEvent& event)
 					packets.push_back(new SkyboxPathsPacket(packetHoldTime, event.packet));
 					return NotKicked;
 
+				case ItemState:
+					packets.push_back(new ItemStatePacket(packetHoldTime, event.packet));
+					return NotKicked;
+
+				case InventoryContents:
+					packets.push_back(new InventoryContentsPacket(packetHoldTime, event.packet));
+					return NotKicked;
+
 				//Can't process packet
 				case InvalidServer:
 				default:

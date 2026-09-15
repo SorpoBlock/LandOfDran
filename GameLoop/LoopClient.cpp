@@ -74,6 +74,9 @@ void LoopClient::leaveServer(ExecutableArguments& cmdArgs)
 	pd.ghostBrick.hide();
 	pd.brickHotbar->putAway();
 	pd.brickHotbar->takeChange();
+	pd.itemHotbar->putAway();
+	pd.itemHotbar->takeChange();
+	std::fill(std::begin(simulation.inventory), std::end(simulation.inventory), NO_ID);
 	simulation.jetsEnabled = true;
 	simulation.flashlightEnabled = true;
 	flashlightOn = false;
@@ -140,6 +143,9 @@ void LoopClient::connectToServer(std::string ip, unsigned int port, std::string 
 
 	//How we look, which the server keeps until its Lua puts it on our player with client:applyAppearance
 	client->send(makeAppearanceChoicePacket(AppearanceEditor::loadAppearance(settings)), JoinNegotiation);
+
+	//And our paint, which the server's Lua paints bricks with
+	client->send(makePaintChoicePacket(pd.paintMenu->getColor(), pd.paintMenu->getMaterial()), JoinNegotiation);
 
 	//From here, further initalization will actually take place in Networking/PacketsFromServer/AcceptConnection.cpp
 	//Assuming the server lets us join, of course
@@ -324,6 +330,123 @@ bool LoopClient::placeHeldLight(Light& light, glm::vec3& position, glm::vec3& di
 	return true;
 }
 
+Texture* LoopClient::findItemIcon(const std::string& path)
+{
+	auto found = itemIcons.find(path);
+	if (found != itemIcons.end())
+		return found->second;
+
+	//From our own copy of the game folder, like skyboxes
+	Texture* icon = nullptr;
+	if (!path.empty() && isPathInsideGameFolder(path) && std::filesystem::is_regular_file(path))
+	{
+		icon = pd.textures->createTexture(path);
+		if (icon && !icon->isValid())
+			icon = nullptr;
+	}
+
+	itemIcons[path] = icon;
+	return icon;
+}
+
+void LoopClient::updateItemHotbar()
+{
+	static_assert(ItemHotbar::slotCount == inventorySize, "The item bar needs a slot for each inventory slot");
+
+	for (int slot = 0; slot < inventorySize; slot++)
+	{
+		std::shared_ptr<Dynamic> dynamic = simulation.dynamics && simulation.inventory[slot] != NO_ID ? simulation.dynamics->find(simulation.inventory[slot]) : nullptr;
+		if (!dynamic || dynamic->getKind() != DynamicKind_Item)
+		{
+			pd.itemHotbar->setSlot(slot, false, "", nullptr);
+			continue;
+		}
+
+		const std::shared_ptr<DynamicType>& type = dynamic->getType();
+		pd.itemHotbar->setSlot(slot, true, type->itemName, findItemIcon(type->itemIconPath));
+	}
+}
+
+void LoopClient::placeHeldItems(float deltaT)
+{
+	//Where our own item sits in first person, where our hand is hidden: right, up, and back from the camera, negative back is in front of it
+	static const glm::vec3 firstPersonGrip = glm::vec3(1.5f, -1.6f, -2.6f);
+
+	if (!simulation.dynamics)
+		return;
+
+	for (unsigned int a = 0; a < simulation.dynamics->size(); a++)
+	{
+		std::shared_ptr<Dynamic> dynamic = simulation.dynamics->get(a);
+		if (dynamic->getKind() != DynamicKind_Item)
+			continue;
+
+		std::shared_ptr<Item> item = std::static_pointer_cast<Item>(dynamic);
+		item->updateSwing(deltaT);
+
+		if (!item->held)
+		{
+			if (item->getHidden())
+				item->setHidden(false);
+			continue;
+		}
+
+		std::shared_ptr<Dynamic> holder = item->holder.lock();
+		if (item->holderID == NO_ID)
+			holder = nullptr;
+		else if (!holder || holder->getID() != item->holderID)
+		{
+			holder = simulation.dynamics->find(item->holderID);
+			item->holder = holder;
+		}
+
+		//One of ours is in hand as soon as we pick its slot, rather than once the server hears about it
+		bool equipped = item->equipped;
+		for (int slot = 0; slot < inventorySize; slot++)
+		{
+			if (simulation.inventory[slot] == item->getID())
+				equipped = pd.itemHotbar->isUp() && pd.itemHotbar->getSelected() == slot;
+		}
+
+		if (!equipped || !holder || !holder->renderedTransformInitialized)
+		{
+			if (!item->getHidden())
+				item->setHidden(true);
+			continue;
+		}
+
+		if (item->getHidden())
+			item->setHidden(false);
+
+		std::shared_ptr<Model> holderModel = holder->getType()->getModel();
+		glm::vec3 grip;
+		glm::quat facing;
+
+		if (simulation.camera->getFirstPerson() && simulation.camera->target.lock() == holder)
+		{
+			//In view and turning with the camera, facing the way it looks
+			glm::vec3 forward = glm::normalize(simulation.camera->getDirection());
+			glm::vec3 right = glm::cross(forward, glm::vec3(0, 1, 0));
+			right = glm::length(right) > 0.001f ? glm::normalize(right) : glm::vec3(1, 0, 0);
+			glm::vec3 up = glm::cross(right, forward);
+			facing = glm::quat_cast(glm::mat3(right, up, -forward));
+			grip = simulation.camera->getPosition() + facing * firstPersonGrip;
+		}
+		else
+		{
+			//In the right hand as it's drawn, facing the way the holder does
+			facing = holder->renderedTilt * holder->renderedRotation;
+			int hand = holderModel->getMeshIdx("Right_Hand");
+			grip = hand != -1 ? holder->getMeshCenter(hand) : holder->renderedPosition + facing * holderModel->getColOffset();
+		}
+
+		//The swing tips it forward around the grip, which is its type's hand offset on the model
+		const std::shared_ptr<DynamicType>& type = item->getType();
+		glm::quat rotation = facing * glm::angleAxis(item->getSwingAngle(), glm::vec3(1, 0, 0)) * type->handRotation;
+		item->setDrawnTransform(grip - rotation * type->handOffset, rotation);
+	}
+}
+
 void LoopClient::handleInput(float deltaT, ExecutableArguments& cmdArgs, std::shared_ptr<SettingManager> settings)
 {
 	pd.input->keystates = SDL_GetKeyboardState(NULL);
@@ -394,9 +517,9 @@ void LoopClient::handleInput(float deltaT, ExecutableArguments& cmdArgs, std::sh
 		}
 		else if (e.type == SDL_MOUSEWHEEL && pd.context->getMouseLocked() && !pd.gui->shouldUnlockMouse())
 		{
-			//Moves through the paint palette while it shows, otherwise hot bar slots while building, like the old game
+			//Moves through the paint palette while it shows, then item slots while the item bar is out, otherwise hot bar slots while building, like the old game
 			int amount = e.wheel.direction == SDL_MOUSEWHEEL_FLIPPED ? -e.wheel.y : e.wheel.y;
-			if (!pd.paintMenu->scroll(amount))
+			if (!pd.paintMenu->scroll(amount) && !pd.itemHotbar->scroll(amount))
 				pd.brickHotbar->scroll(amount);
 		}
 		else if (e.type == SDL_MOUSEBUTTONDOWN && simulation.camera && !pd.gui->shouldUnlockMouse() && cmdArgs.gameState == InGame && !pd.appearanceEditor->isOpen())
@@ -433,6 +556,17 @@ void LoopClient::handleInput(float deltaT, ExecutableArguments& cmdArgs, std::sh
 				if ((mask & SDL_BUTTON_LMASK) && pd.brickHotbar->isBuilding())
 					spawnGhostFromCamera(pd, simulation);
 			}
+		}
+		else if (e.type == SDL_MOUSEBUTTONUP && simulation.camera && client && cmdArgs.gameState == InGame)
+		{
+			//Every release goes to the server, even over a window, so whatever holding the button started, like a swing, always ends
+			int mx, my;
+			SDL_GetMouseState(&mx, &my);
+			float x = (float)mx / pd.context->getResolution().x * 2 - 1;
+			float y = (float)my / pd.context->getResolution().y * 2 - 1;
+
+			glm::vec3 worldPos = simulation.camera->mouseCoordsToWorldSpace(glm::vec2(x, y));
+			client->send(makeMouseClickPacket(worldPos, simulation.camera->getDirection(), (unsigned char)SDL_BUTTON(e.button.button), true), OtherReliable);
 		}
 	}
 
@@ -612,8 +746,7 @@ void LoopClient::handleInput(float deltaT, ExecutableArguments& cmdArgs, std::sh
 		pd.context->setMouseLock(false);
 	}
 
-	if (pd.input->pollCommand(OpenPaintMenu))
-		pd.paintMenu->pressNextColumn();
+	pd.paintMenu->updatePaintKey(pd.input->pollCommand(OpenPaintMenu));
 
 	if (pd.input->pollCommand(CustomColor))
 	{
@@ -631,6 +764,8 @@ void LoopClient::handleInput(float deltaT, ExecutableArguments& cmdArgs, std::sh
 	}
 
 	bool colorChanged = pd.paintMenu->takeChange();
+	if (colorChanged && client)
+		client->send(makePaintChoicePacket(pd.paintMenu->getColor(), pd.paintMenu->getMaterial()), OtherReliable);
 	if (slotsChanged || colorChanged)
 	{
 		pd.brickHotbar->save(pd.state);
@@ -641,13 +776,27 @@ void LoopClient::handleInput(float deltaT, ExecutableArguments& cmdArgs, std::sh
 	}
 	pd.brickHotbar->peek = pd.brickSelector->isOpen();
 
+	//The item bar slides out with the picked item in hand, and building puts it away, like the old game only had one out at a time
+	if (pd.input->pollCommand(OpenInventory))
+	{
+		pd.itemHotbar->toggle();
+		if (pd.itemHotbar->isUp())
+			pd.brickHotbar->putAway();
+	}
+
 	for (int a = 0; a < BrickHotbar::slotCount; a++)
 	{
 		if (pd.input->pollCommand((InputCommand)(UseBrick1 + a)))
+		{
 			pd.brickHotbar->pressSlot(a);
+			pd.itemHotbar->putAway();
+		}
 	}
 	if (pd.input->pollCommand(HideGhostBrick))
 		pd.brickHotbar->putAway();
+
+	if (pd.itemHotbar->takeChange() && client)
+		client->send(makeInventorySelectPacket(pd.itemHotbar->isUp(), pd.itemHotbar->getSelected()), OtherReliable);
 
 	if (pd.brickHotbar->takeChange())
 	{
@@ -733,6 +882,10 @@ void LoopClient::handleInput(float deltaT, ExecutableArguments& cmdArgs, std::sh
 	}
 	else
 		undoHeldMS = 0;
+
+	//Like undo, Ctrl plus the bound key, which is W by default, so walking doesn't drop anything
+	if (pd.input->pollCommand(DropItem) && ctrlDown && client)
+		client->send(makeDropItemPacket(pd.itemHotbar->getSelected()), OtherReliable);
 }
 
 void LoopClient::predictLocalCollisions()
@@ -993,7 +1146,7 @@ void LoopClient::makeWaterRipples(float deltaT)
 	{
 		std::shared_ptr<Dynamic> d = simulation.dynamics->get(a);
 
-		if (!simulation.waterEnabled || !d->renderedTransformInitialized)
+		if (!simulation.waterEnabled || !d->renderedTransformInitialized || !d->isInWorld())
 		{
 			d->rippleStateKnown = false;
 			continue;
@@ -1058,6 +1211,45 @@ void LoopClient::updateParticles()
 	glm::vec3 cameraPosition = simulation.camera->getPosition();
 	float ejectDistance = pd.environment.fogDistanceMax + ejectPastFog;
 
+	//Where an aimed emitter's particles go: what the dynamic aiming it looks at within the emitter's range, or the end of that
+	//For our own player that's what our crosshair is on, otherwise what's in front of the dynamic's eyes the way it looks
+	auto findAimTarget = [this](Emitter& emitter, glm::vec3& target) -> bool
+	{
+		std::shared_ptr<Dynamic> aimer = emitter.aimer.lock();
+		if (!aimer || aimer->getID() != emitter.getAimDynamicID())
+		{
+			aimer = simulation.dynamics ? simulation.dynamics->find(emitter.getAimDynamicID()) : nullptr;
+			emitter.aimer = aimer;
+		}
+
+		if (!aimer || !pd.physicsWorld)
+			return false;
+
+		glm::vec3 drawnAt = aimer->renderedTransformInitialized ? aimer->renderedPosition : b2g3(aimer->getPosition());
+		glm::vec3 start = drawnAt + aimer->renderedRotation * aimer->getType()->getModel()->getEyePosition();
+		glm::vec3 direction = aimer->hasLook ? aimer->lookDirection : aimer->renderedRotation * glm::vec3(0, 0, -1);
+		float range = emitter.getAimRange();
+
+		if (simulation.camera->target.lock() == aimer)
+		{
+			//A third person camera starts behind the player, so it reaches that much further
+			range += glm::distance(simulation.camera->getPosition(), start);
+			start = simulation.camera->getPosition();
+			direction = simulation.camera->getDirection();
+		}
+
+		if (glm::length(direction) < 0.0001f)
+			return false;
+		direction = glm::normalize(direction);
+
+		btVector3 hitPosition, hitNormal;
+		if (pd.physicsWorld->doRaycast(g2b3(start), g2b3(start + direction * range), aimer->body, hitPosition, hitNormal))
+			target = b2g3(hitPosition);
+		else
+			target = start + direction * range;
+		return true;
+	};
+
 	if (simulation.emitters)
 	{
 		int64_t ticks = SDL_GetTicks();
@@ -1097,7 +1289,11 @@ void LoopClient::updateParticles()
 			if (expired || glm::distance(position, cameraPosition) > ejectDistance)
 				ParticleSystem::skipEmission(emitter->clock, position, rotation, nowMS);
 			else
-				pd.particles->emit(emitter->clock, emitter->getTypeID(), position, rotation, velocity, nowMS);
+			{
+				glm::vec3 aimTarget;
+				bool aimed = emitter->getAimDynamicID() != NO_ID && findAimTarget(*emitter, aimTarget);
+				pd.particles->emit(emitter->clock, emitter->getTypeID(), position, rotation, velocity, nowMS, emitter->getTint(), aimed ? &aimTarget : nullptr);
+			}
 		}
 	}
 
@@ -1112,6 +1308,11 @@ void LoopClient::renderEverything(float deltaT)
 		for (unsigned a = 0; a < simulation.dynamics->size(); a++)
 		{
 			std::shared_ptr<Dynamic> d = simulation.dynamics->get(a);
+
+			//Carried items are drawn in hand by placeHeldItems
+			if (!d->isInWorld())
+				continue;
+
 			bool predictingLocally = getTicksMS() < d->predictLocallyUntil;
 
 			if (d->wasPredictingLocally && !predictingLocally)
@@ -1124,11 +1325,15 @@ void LoopClient::renderEverything(float deltaT)
 
 	makeWaterRipples(deltaT);
 
+	//Before carried items are placed, so ours in first person keep up with the camera instead of trailing a frame behind
+	simulation.camera->render(pd.shaders, deltaT, pd.physicsWorld);
+
+	placeHeldItems(deltaT);
+	updateItemHotbar();
+
 	//Technically rendering related calculations based on previously inputted transform data
 	for (unsigned int a = 0; a < simulation.dynamicTypes.size(); a++)
 		simulation.dynamicTypes[a]->getModel()->updateAll(deltaT);
-
-	simulation.camera->render(pd.shaders, deltaT, pd.physicsWorld);
 
 	pd.environment.cycle = simulation.dayCycle;
 	pd.environment.calc(simulation.worldTimeSeconds);
@@ -1273,6 +1478,10 @@ void LoopClient::renderEverything(float deltaT)
 
 		for (unsigned int a = 0; a < simulation.dynamics->size(); a++)
 		{
+			//A carried item is where its holder is, who counts already
+			if (!simulation.dynamics->get(a)->isInWorld())
+				continue;
+
 			btVector3 aabbMin, aabbMax;
 			simulation.dynamics->get(a)->body->getAabb(aabbMin, aabbMax);
 			glm::vec3 closest = glm::clamp(position, b2g3(aabbMin), b2g3(aabbMax));
@@ -1540,6 +1749,7 @@ void LoopClient::updateControllers(float deltaT)
 {
 	//Jets while right mouse is held, only while the mouse is captured for playing rather than clicking around a window
 	bool jet = simulation.jetsEnabled && pd.context->getMouseLocked() && !pd.input->supressed && (SDL_GetMouseState(nullptr, nullptr) & SDL_BUTTON_RMASK);
+	bool firing = pd.context->getMouseLocked() && !pd.input->supressed && (SDL_GetMouseState(nullptr, nullptr) & SDL_BUTTON_LMASK);
 
 	//Go through player controllers, remove any that are bound to now deleted dynamics
 	auto ctrlIter = simulation.controllers.begin();
@@ -1547,6 +1757,7 @@ void LoopClient::updateControllers(float deltaT)
 	{
 		//Apply movement inputs client side 
 		float waterLevel = simulation.waterEnabled ? simulation.waterLevel : PlayerController::noWater;
+		(*ctrlIter)->sendQuickly = firing;
 		if ((*ctrlIter)->control(pd.input, simulation.camera, deltaT, pd.physicsWorld, jet, waterLevel))
 		{
 			ctrlIter = simulation.controllers.erase(ctrlIter);
@@ -1692,7 +1903,10 @@ void LoopClient::run(float deltaT,ExecutableArguments& cmdArgs, std::shared_ptr<
 	if (pd.physicsWorld && simulation.dynamics && simulation.waterEnabled)
 	{
 		for (unsigned int a = 0; a < simulation.dynamics->size(); a++)
-			simulation.dynamics->get(a)->applyWaterForces(simulation.waterLevel, deltaT);
+		{
+			if (simulation.dynamics->get(a)->isInWorld())
+				simulation.dynamics->get(a)->applyWaterForces(simulation.waterLevel, deltaT);
+		}
 	}
 
 	if (pd.physicsWorld)
@@ -1813,6 +2027,7 @@ LoopClient::LoopClient(ExecutableArguments& cmdArgs, std::shared_ptr<SettingMana
 	pd.brickSelector = pd.gui->createWindow<BrickSelector>(&pd.brickTypes, pd.textures);
 	pd.brickHotbar = pd.gui->createWindow<BrickHotbar>();
 	pd.paintMenu = pd.gui->createWindow<PaintMenu>(pd.input);
+	pd.itemHotbar = pd.gui->createWindow<ItemHotbar>();
 	pd.appearanceEditor = pd.gui->createWindow<AppearanceEditor>(settings, pd.textures, &pd.faceNames);
 	pd.wrenchDialog = pd.gui->createWindow<WrenchDialog>();
 	//Builds from before the state file kept the hot bar in settings.txt

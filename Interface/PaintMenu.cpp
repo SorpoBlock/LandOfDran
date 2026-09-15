@@ -88,8 +88,53 @@ void PaintMenu::pressNextColumn()
 	}
 }
 
+void PaintMenu::updatePaintKey(bool pressed)
+{
+	//The first press only shows the palette, later ones move a column once the key comes back up
+	if (pressed)
+	{
+		if (!shown)
+			pressNextColumn();
+		else
+			advanceOnRelease = true;
+		keyHeld = true;
+	}
+
+	if (!keyHeld)
+		return;
+
+	//Stays up while the key is held
+	if (shown)
+		lastUsedMS = SDL_GetTicks();
+
+	if (input->isCommandKeydown(OpenPaintMenu))
+		return;
+
+	//Scrolling through materials while it was held doesn't move a column, so the color stays
+	if (advanceOnRelease && !scrolledWhileHeld)
+		pressNextColumn();
+
+	keyHeld = false;
+	advanceOnRelease = false;
+	scrolledWhileHeld = false;
+}
+
 bool PaintMenu::scroll(int amount)
 {
+	//Holding the palette's key, the wheel goes through materials without touching the color
+	if (input->isCommandKeydown(OpenPaintMenu))
+	{
+		shown = true;
+		lastUsedMS = SDL_GetTicks();
+		if (amount != 0)
+		{
+			material = wrap(material - amount, BrickMaterialCount);
+			changed = true;
+			scrolledWhileHeld = true;
+		}
+		return true;
+	}
+
 	if (!shown)
 		return false;
 
@@ -146,8 +191,8 @@ void PaintMenu::load(std::shared_ptr<SettingManager> settings)
 
 std::string PaintMenu::hintText() const
 {
-	return std::string(SDL_GetScancodeName(input->getKeyBind(OpenPaintMenu))) + " column, wheel row, " +
-		SDL_GetScancodeName(input->getKeyBind(CustomColor)) + " custom";
+	std::string paintKey = SDL_GetScancodeName(input->getKeyBind(OpenPaintMenu));
+	return "Hold " + paintKey + " + scroll material, " + SDL_GetScancodeName(input->getKeyBind(CustomColor)) + " custom";
 }
 
 ImVec2 PaintMenu::paletteSize() const
@@ -219,10 +264,12 @@ void PaintMenu::renderPalette(ImGuiIO* io)
 		ImVec2 rowMin(materialX, y + a * (cell + gap));
 		ImVec2 rowMax(rowMin.x + materialWidth, rowMin.y + cell);
 
+		//Highlighted like the palette's cursor while it's what the wheel changes
 		bool current = index == material;
+		bool scrolling = column == paletteColumns || input->isCommandKeydown(OpenPaintMenu);
 		draw->AddRectFilled(rowMin, rowMax, current ? IM_COL32(70, 70, 85, 230) : IM_COL32(40, 40, 48, 200), 3.0f);
 		if (current)
-			draw->AddRect(ImVec2(rowMin.x - 1, rowMin.y - 1), ImVec2(rowMax.x + 1, rowMax.y + 1), column == paletteColumns ? highlightColor : IM_COL32_WHITE, 3.0f, 0, column == paletteColumns ? 3.0f : 2.0f);
+			draw->AddRect(ImVec2(rowMin.x - 1, rowMin.y - 1), ImVec2(rowMax.x + 1, rowMax.y + 1), scrolling ? highlightColor : IM_COL32_WHITE, 3.0f, 0, scrolling ? 3.0f : 2.0f);
 
 		ImVec2 textSize = ImGui::CalcTextSize(brickMaterialNames[index]);
 		draw->AddText(ImVec2(rowMin.x + 6.0f, rowMin.y + (cell - textSize.y) / 2.0f), current ? IM_COL32_WHITE : IM_COL32(170, 170, 170, 255), brickMaterialNames[index]);

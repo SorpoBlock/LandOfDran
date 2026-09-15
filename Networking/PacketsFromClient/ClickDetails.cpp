@@ -29,6 +29,8 @@ void clickDetails(JoinedClient* source, Server const* const server, ENetPacket c
 	unsigned char mask = packet->data[byteIteartor];
 	byteIteartor++;
 
+	bool release = byteIteartor < packet->dataLength && (packet->data[byteIteartor] & ClickFlag_Release);
+
 	pushClientLua(pd->luaState, source->me);
 	lua_pushnumber(pd->luaState, pos.x);
 	lua_pushnumber(pd->luaState, pos.y);
@@ -37,7 +39,7 @@ void clickDetails(JoinedClient* source, Server const* const server, ENetPacket c
 	lua_pushnumber(pd->luaState, dir.y);
 	lua_pushnumber(pd->luaState, dir.z);
 	lua_pushnumber(pd->luaState, mask);
-	pd->eventManager->callEvent(pd->luaState, "ClientClick", 8);
+	pd->eventManager->callEvent(pd->luaState, release ? "ClientClickRelease" : "ClientClick", 8);
 
 	//Either return values will be correct, or they will be zero, do nothing special if lua functions messed up the event
 	if (lua_gettop(pd->luaState) != 0)

@@ -118,6 +118,19 @@ struct ServerProgramData
 	//All clients:
 	std::vector<std::shared_ptr<ClientData>> clients;
 
+	//Items whose state changed since it was last sent, see LoopServer::updateItems
+	mutable std::vector<std::weak_ptr<Item>> changedItems;
+
+	//Sends an item's state to everyone on the next tick, once however many times it changes before then
+	void markItemChanged(const std::shared_ptr<Item>& item) const
+	{
+		if (item->stateChanged)
+			return;
+
+		item->stateChanged = true;
+		changedItems.push_back(item);
+	}
+
 	//Basically JoinedClient is lower level and used by the server for networking, ClientData is passed to server-side packet functions
 	//ClientData contains references to a JoinedClient but also anything else that client 'owns' like a player, a camera, bricks, etc.
 	//Called in Server::run
@@ -158,6 +171,9 @@ struct ServerProgramData
 				//These objects don't have to dissapear if Lua modders don't want them to
 				//But we need to clarify all of these objects are *only* owned by Lua now
 				c->at(a)->controlledObjects.clear();
+
+				//Whatever Lua left in their inventory goes back into the world
+				c->at(a)->dropAllItems(this);
 
 				//Their flashlight and jet flames go with them though, even if their player stays
 				c->at(a)->removeEffects(this);

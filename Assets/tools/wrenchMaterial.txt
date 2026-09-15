@@ -1,0 +1,4 @@
+albedo	BrickTools_Wrench_BaseColor.png
+normal	BrickTools_Wrench_Normal.png
+roughness	BrickTools_Wrench_Roughness.png
+metalness	BrickTools_Wrench_Metallic.png

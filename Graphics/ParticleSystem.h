@@ -21,6 +21,8 @@ class ParticleSystem
 		//getNowMS when it was ejected
 		double startMS = 0;
 		float lifetimeMS = 1;
+		//Its emitter's color, multiplied into its type's
+		glm::vec4 tint = glm::vec4(1);
 	};
 
 	struct ParticleTypeSlot
@@ -94,8 +96,10 @@ class ParticleSystem
 	/*
 		Ejects every particle an emitter of this type owes since it last did, spread along the way it moved and turned since its last position and rotation
 		Ejection directions are turned by rotation, velocity is that of what the emitter follows, for particle types with an inheritedVelFactor
+		tint multiplies particle colors. With a target, particles spread around the way to it instead of the emitter's up, and only last until they get there
 	*/
-	void emit(EmitterClock& clock, uint16_t emitterTypeID, const glm::vec3& position, const glm::quat& rotation, const glm::vec3& velocity, double nowMS);
+	void emit(EmitterClock& clock, uint16_t emitterTypeID, const glm::vec3& position, const glm::quat& rotation, const glm::vec3& velocity, double nowMS,
+		const glm::vec4& tint = glm::vec4(1), const glm::vec3* target = nullptr);
 
 	//For an emitter that isn't ejecting right now: forgets the particles it owes, so it doesn't make up for them in one burst later
 	static void skipEmission(EmitterClock& clock, const glm::vec3& position, const glm::quat& rotation, double nowMS);

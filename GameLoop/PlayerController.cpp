@@ -142,7 +142,8 @@ static void swim(const std::shared_ptr<Dynamic>& player, float deltaT, glm::vec3
 ENetPacket* PlayerController::makeMovementInputsPacket()
 {
 	//Jets starting or stopping go out right away, so the flames under the player don't lag behind
-	if (getTicksMS() - lastSentControls < 100 && lastJet == lastSentJet)
+	//While left mouse is held they go out more often, so scripts following the crosshair, like the paint can, keep up with it
+	if (getTicksMS() - lastSentControls < (sendQuickly ? 30u : 100u) && lastJet == lastSentJet)
 		return nullptr;
 
 	lastSentControls = getTicksMS();
@@ -363,5 +364,10 @@ bool PlayerController::control(const std::shared_ptr<InputMap> input, const std:
 {
 	serverSide = false;
 	faceCamera = camera->getFirstPerson() && camera->target.lock() == target.lock();
-	return control(world, deltaT, camera->getDirection(), camera->getPosition(), input->pollCommand(Jump), input->isCommandKeydown(Jump), input->isCommandKeydown(WalkForward), input->isCommandKeydown(WalkBackward), input->isCommandKeydown(WalkLeft), input->isCommandKeydown(WalkRight), jet, waterLevel);
+
+	//Dropping an item is Ctrl plus a key that walks forward by default, which shouldn't walk as well
+	bool ctrlDown = SDL_GetModState() & KMOD_CTRL;
+	bool forward = input->isCommandKeydown(WalkForward) && !(ctrlDown && input->getKeyBind(DropItem) == input->getKeyBind(WalkForward));
+
+	return control(world, deltaT, camera->getDirection(), camera->getPosition(), input->pollCommand(Jump), input->isCommandKeydown(Jump), forward, input->isCommandKeydown(WalkBackward), input->isCommandKeydown(WalkLeft), input->isCommandKeydown(WalkRight), jet, waterLevel);
 }

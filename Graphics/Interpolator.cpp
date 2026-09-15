@@ -1,5 +1,11 @@
 #include "Interpolator.h"
 
+void Interpolator::reset()
+{
+	snapshots.clear();
+	snapshotsEverAdded = 0;
+}
+
 void Interpolator::addSnapshot(const glm::vec3& pos, const glm::quat& rot,float idealBufferSize,unsigned int msSinceLastSend)
 {
 	//Discard all obsolete snapshots before the current interpolation start point

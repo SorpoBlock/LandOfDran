@@ -33,6 +33,8 @@
 #include "PacketsFromServer/MeshDecal.h"
 #include "PacketsFromServer/OpenWrenchDialog.h"
 #include "PacketsFromServer/SkyboxPaths.h"
+#include "PacketsFromServer/ItemState.h"
+#include "PacketsFromServer/InventoryContents.h"
 #include "../GameLoop/ClientProgramData.h"
 #include "../GameLoop/Simulation.h"
 

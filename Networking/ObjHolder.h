@@ -159,9 +159,10 @@ class ObjHolder
 			return;
 		}
 
-		//Set class metatable
+		//Set class metatable, or the object's own, like an item's, which has every dynamic function and more
+		const char* objectMetatable = obj->getLuaMetatable();
 		lua_newtable(L);
-		lua_getglobal(L, metatableName.c_str());
+		lua_getglobal(L, objectMetatable ? objectMetatable : metatableName.c_str());
 		lua_setmetatable(L, -2);
 
 		//Push class-unique server ID
@@ -186,15 +187,34 @@ class ObjHolder
 	std::shared_ptr<T> create(Args... args)
 	{
 		std::shared_ptr<T> tmp(new T(args...));
-		tmp->me = tmp;
-		allObjects.push_back(std::move(tmp));
-		allObjects.back()->netID = lastNetID++;
-		allObjects.back()->creationTime = SDL_GetTicks();
-		allObjects.back()->onCreation();
-		if(server)
-			recentCreations.push_back(allObjects.back());
-		return allObjects.back();
+		adopt(tmp);
+		return tmp;
 	}
+
+	//Same as create, for a class derived from the one this holds, like an Item in the dynamics holder
+	template <typename U, typename... Args>
+	std::shared_ptr<U> createDerived(Args... args)
+	{
+		std::shared_ptr<U> tmp(new U(args...));
+		adopt(tmp);
+		return tmp;
+	}
+
+	private:
+
+	//The rest of create, for an object that was just constructed
+	void adopt(const std::shared_ptr<T>& object)
+	{
+		object->me = object;
+		allObjects.push_back(object);
+		object->netID = lastNetID++;
+		object->creationTime = SDL_GetTicks();
+		object->onCreation();
+		if(server)
+			recentCreations.push_back(object);
+	}
+
+	public:
 
 	//Force the ID of the next created object to be a certain ID
 	//This is used because the client gets object ids from the server

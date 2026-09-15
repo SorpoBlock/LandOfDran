@@ -74,3 +74,100 @@ void ClientData::removeEffects(const ServerProgramData* pd)
 		}
 	}
 }
+
+int ClientData::addItem(const ServerProgramData* pd, const std::shared_ptr<Item>& item, int slot)
+{
+	if (item->isHeld())
+		return -1;
+
+	if (slot == -1)
+	{
+		for (int a = 0; a < inventorySize && slot == -1; a++)
+		{
+			if (inventory[a].expired())
+				slot = a;
+		}
+	}
+
+	if (slot < 0 || slot >= inventorySize || !inventory[slot].expired())
+		return -1;
+
+	item->removeFromWorld();
+	item->owner = me;
+	item->slot = slot;
+	inventory[slot] = item;
+
+	pd->markItemChanged(item);
+	sendInventory();
+	return slot;
+}
+
+std::shared_ptr<Item> ClientData::removeItem(const ServerProgramData* pd, int slot)
+{
+	if (slot < 0 || slot >= inventorySize)
+		return nullptr;
+
+	std::shared_ptr<Item> item = inventory[slot].lock();
+	inventory[slot].reset();
+	if (!item)
+		return nullptr;
+
+	//Where LoopServer::updateItems last moved it along with its holder, or out in front of them so it doesn't land inside them
+	btTransform transform = item->body->getWorldTransform();
+	if (std::shared_ptr<Dynamic> holder = item->getHolder())
+	{
+		std::shared_ptr<Model> model = holder->getType()->getModel();
+		glm::vec3 halfExtents = model->getColHalfExtents();
+
+		glm::vec3 ahead = controllers[0].lastCameraDirection;
+		ahead.y = 0;
+		ahead = glm::length(ahead) > 0.001f ? glm::normalize(ahead) : glm::vec3(0, 0, -1);
+
+		float reach = std::max(halfExtents.x, halfExtents.z) + glm::length(item->getType()->getModel()->getColHalfExtents()) + 0.25f;
+		transform.setOrigin(g2b3(b2g3(holder->getPosition()) + model->getColOffset() + ahead * reach));
+	}
+
+	item->owner.reset();
+	item->slot = -1;
+	item->returnToWorld(transform);
+
+	pd->markItemChanged(item);
+	sendInventory();
+	return item;
+}
+
+void ClientData::forgetItem(const Item& item)
+{
+	if (item.slot < 0 || item.slot >= inventorySize || inventory[item.slot].lock().get() != &item)
+		return;
+
+	inventory[item.slot].reset();
+	sendInventory();
+}
+
+void ClientData::dropAllItems(const ServerProgramData* pd)
+{
+	for (int a = 0; a < inventorySize; a++)
+		removeItem(pd, a);
+}
+
+/*
+	1 byte					-	packet type
+	4 bytes per slot		-	net ID of the item in each slot, NO_ID for an empty one
+*/
+void ClientData::sendInventory() const
+{
+	if (!client)
+		return;
+
+	ENetPacket* packet = enet_packet_create(NULL, 1 + sizeof(netIDType) * inventorySize, getFlagsFromChannel(OtherReliable));
+	packet->data[0] = (unsigned char)InventoryContents;
+	for (int a = 0; a < inventorySize; a++)
+	{
+		std::shared_ptr<Item> item = inventory[a].lock();
+		netIDType id = item ? item->getID() : NO_ID;
+		memcpy(packet->data + 1 + sizeof(netIDType) * a, &id, sizeof(netIDType));
+	}
+
+	client->send(packet, OtherReliable);
+}

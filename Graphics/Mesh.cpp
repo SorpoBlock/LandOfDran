@@ -1105,6 +1105,30 @@ bool getCollisionTransformMatrix(const aiScene* scene,const aiNode* node, aiMatr
 	return false;
 }
 
+//Grows minPos and maxPos to hold every vertex of every mesh under node, moved into model space by the node transforms above them
+static void growToMeshes(const aiScene* scene, const aiNode* node, aiMatrix4x4 transform, aiVector3D& minPos, aiVector3D& maxPos)
+{
+	transform = transform * node->mTransformation;
+
+	for (unsigned int a = 0; a < node->mNumMeshes; a++)
+	{
+		const aiMesh* mesh = scene->mMeshes[node->mMeshes[a]];
+		for (unsigned int v = 0; v < mesh->mNumVertices; v++)
+		{
+			aiVector3D position = transform * mesh->mVertices[v];
+			minPos.x = std::min(position.x, minPos.x);
+			minPos.y = std::min(position.y, minPos.y);
+			minPos.z = std::min(position.z, minPos.z);
+			maxPos.x = std::max(position.x, maxPos.x);
+			maxPos.y = std::max(position.y, maxPos.y);
+			maxPos.z = std::max(position.z, maxPos.z);
+		}
+	}
+
+	for (unsigned int a = 0; a < node->mNumChildren; a++)
+		growToMeshes(scene, node->mChildren[a], transform, minPos, maxPos);
+}
+
 void Model::calculateCollisionBox(const aiScene* scene)
 {
 	//Find the collision mesh, kinda redundant since we do it in getCollisionTransformMatrix
@@ -1122,8 +1146,22 @@ void Model::calculateCollisionBox(const aiScene* scene)
 
 	if (!colMesh)
 	{
-		//No collision mesh, give it a tiny box by default
-		error("No collision mesh found.");
+		//No collision mesh, a box around everything the model has instead
+		aiVector3D maxPos = aiVector3D(-9999, -9999, -9999);
+		aiVector3D minPos = aiVector3D(9999, 9999, 9999);
+		growToMeshes(scene, scene->mRootNode, aiMatrix4x4(), minPos, maxPos);
+
+		if (maxPos.x < minPos.x)
+		{
+			error("No collision mesh found, and no vertices to put a box around.");
+			return;
+		}
+
+		aiVector3D halfSize = maxPos - minPos;
+		halfSize /= 2.0;
+		collisionHalfExtents = glm::vec3(halfSize.x, halfSize.y, halfSize.z);
+		collisionOffset = glm::vec3(halfSize.x + minPos.x, halfSize.y + minPos.y, halfSize.z + minPos.z);
+		eyePosition = glm::vec3(0, halfSize.y * 1.85, 0);
 		return;
 	}
 

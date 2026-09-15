@@ -57,6 +57,9 @@ struct PlayerController
 	//getTicksMS of the last jump out of the water, swimming waits a moment after it so it doesn't slow the jump down
 	unsigned int lastWaterJump = 0;
 
+	//Client only, set each frame while left mouse is held, so the camera goes to the server more often for scripts following the crosshair
+	bool sendQuickly = false;
+
 	//Client only, send last inputs to server for caching and reflection
 	//Can return nullptr if object was deleted or packet was recently sent
 	ENetPacket* makeMovementInputsPacket();

@@ -67,6 +67,9 @@ class SimObject
 	//Called after this object has an id, type, me pointer, and vector index assigned by ObjHolder
 	virtual void onCreation() = 0;
 
+	//Server: the Lua metatable ObjHolder::pushLua gives this object instead of its holder's, nullptr for the holder's
+	virtual const char* getLuaMetatable() const { return nullptr; }
+
 	//How many bytes would this add to a packet creating objects if it was added to it
 	virtual unsigned int getCreationPacketBytes() const = 0;
 

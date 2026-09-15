@@ -125,6 +125,21 @@ void Server::switchPacketType(JoinedClient * source, ENetPacket* packet, const v
 			playerGrab(source, this, packet, pd);
 			return;
 		}
+		case InventorySelect:
+		{
+			inventorySelect(source, this, packet, pd);
+			return;
+		}
+		case DropItemRequest:
+		{
+			dropItemRequest(source, this, packet, pd);
+			return;
+		}
+		case PaintChoice:
+		{
+			paintChoice(source, this, packet, pd);
+			return;
+		}
 
 		case InvalidClient:
 		default:

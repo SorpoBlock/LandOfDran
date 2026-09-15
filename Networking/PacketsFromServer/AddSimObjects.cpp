@@ -288,6 +288,24 @@ bool AddSimObjectsPacket::applyPacket(const ClientProgramData& pd, Simulation& s
 					byteIterator += nameLength;
 				}
 
+				//Items are followed by who carries them and what they play, see Item::writeState
+				unsigned char kind = DynamicKind_Plain;
+				enet_uint8* itemState = nullptr;
+				if (byteIterator < packet->dataLength)
+				{
+					kind = packet->data[byteIterator];
+					byteIterator++;
+
+					if (kind == DynamicKind_Item)
+					{
+						if (byteIterator + Item::stateBytes > packet->dataLength)
+							break;
+
+						itemState = packet->data + byteIterator;
+						byteIterator += Item::stateBytes;
+					}
+				}
+
 				//TODO: Actually return false if we can't find a type with the type ID given
 				if (!foundType)
 				{
@@ -303,7 +321,11 @@ bool AddSimObjectsPacket::applyPacket(const ClientProgramData& pd, Simulation& s
 					continue;
 
 				simulation.dynamics->clientSetNextId(id);
-				std::shared_ptr<Dynamic> newDynamic = simulation.dynamics->create(foundType, btVector3(pos.x,pos.y,pos.z), btQuaternion(rot.x,rot.y,rot.z,rot.w));
+				std::shared_ptr<Dynamic> newDynamic;
+				if (kind == DynamicKind_Item)
+					newDynamic = simulation.dynamics->createDerived<Item>(foundType, btVector3(pos.x, pos.y, pos.z), btQuaternion(rot.x, rot.y, rot.z, rot.w));
+				else
+					newDynamic = simulation.dynamics->create(foundType, btVector3(pos.x,pos.y,pos.z), btQuaternion(rot.x,rot.y,rot.z,rot.w));
 
 				//Set the mesh colors we read earlier
 				for(int i = 0; i < meshIdxs.size(); i++)
@@ -316,6 +338,9 @@ bool AddSimObjectsPacket::applyPacket(const ClientProgramData& pd, Simulation& s
 
 				for (const auto& [meshIdx, decalId] : meshDecals)
 					newDynamic->setMeshDecal(meshIdx, decalId);
+
+				if (itemState)
+					std::static_pointer_cast<Item>(newDynamic)->readState(itemState, true, simulation.idealBufferSize);
 
 				if (byteIterator >= packet->dataLength)
 					break;

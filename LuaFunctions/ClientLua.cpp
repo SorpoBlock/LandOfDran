@@ -998,6 +998,48 @@ static int LUA_clientOpenWrenchDialog(lua_State* L)
 	return 0;
 }
 
+//Shared by getPaintColor and getPaintMaterial, logs an error with usage for anything that isn't a client
+static std::shared_ptr<ClientData> popPaintingClient(lua_State* L, const std::string& usage)
+{
+	if (lua_gettop(L) != 1)
+	{
+		error("Expected 1 argument " + usage);
+		lua_settop(L, 0);
+		return nullptr;
+	}
+
+	std::shared_ptr<JoinedClient> jc = popClientLua(L);
+	std::shared_ptr<ClientData> client = jc ? LUA_pd->getClient(jc) : nullptr;
+	if (!client)
+		error("Invalid client passed to " + usage);
+	return client;
+}
+
+static int LUA_clientGetPaintColor(lua_State* L)
+{
+	scope("(LUA) client:getPaintColor");
+
+	std::shared_ptr<ClientData> client = popPaintingClient(L, "client:getPaintColor()");
+	if (!client)
+		return 0;
+
+	for (int channel = 0; channel < 4; channel++)
+		lua_pushnumber(L, client->paintColor[channel] / 255.0);
+	return 4;
+}
+
+static int LUA_clientGetPaintMaterial(lua_State* L)
+{
+	scope("(LUA) client:getPaintMaterial");
+
+	std::shared_ptr<ClientData> client = popPaintingClient(L, "client:getPaintMaterial()");
+	if (!client)
+		return 0;
+
+	lua_pushstring(L, brickMaterialNames[client->paintMaterial]);
+	return 1;
+}
+
 void registerClientFunctions(lua_State* L)
 {
 	//Register client global functions:
@@ -1035,6 +1077,8 @@ void registerClientFunctions(lua_State* L)
 		{ "getFlashlightEnabled", LUA_clientGetFlashlightEnabled },
 		{ "applyAppearance", LUA_clientApplyAppearance },
 		{ "openWrenchDialog", LUA_clientOpenWrenchDialog },
+		{ "getPaintColor", LUA_clientGetPaintColor },
+		{ "getPaintMaterial", LUA_clientGetPaintMaterial },
 		{ NULL, NULL }
 	};
 

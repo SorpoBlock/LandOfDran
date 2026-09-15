@@ -3,6 +3,7 @@
 #include "../Networking/JoinedClient.h"
 #include "../SimObjects/Dynamic.h"
 #include "../SimObjects/Light.h"
+#include "../SimObjects/Item.h"
 #include "PlayerController.h"
 #include "PlayerAppearance.h"
 
@@ -55,6 +56,32 @@ struct ClientData
 
 	//The last dynamic Lua's client:applyAppearance put it on, which gets their changes if they save new ones while playing
 	std::weak_ptr<Dynamic> appearanceTarget;
+
+	//The items they carry by slot, an expired one is an empty slot, see Item
+	std::weak_ptr<Item> inventory[inventorySize];
+
+	//The slot their item bar has picked and whether it's out, which puts that slot's item in their player's hand, from InventorySelect packets
+	int selectedSlot = 0;
+	bool inventoryOpen = false;
+
+	//The color and material their paint palette has picked, from PaintChoice packets, see Lua's client:getPaintColor
+	glm::u8vec4 paintColor = glm::u8vec4(255, 255, 255, 255);
+	unsigned char paintMaterial = 0;
+
+	//Puts an item that's on the ground into a slot, or the first empty one for -1. Returns the slot, or -1 if that slot is taken or none are free
+	int addItem(const ServerProgramData* pd, const std::shared_ptr<Item>& item, int slot = -1);
+
+	//Takes the item out of a slot and back into the world just in front of their player, or where it last was without one. nullptr for an empty slot
+	std::shared_ptr<Item> removeItem(const ServerProgramData* pd, int slot);
+
+	//Empties the slot an item is in without putting it anywhere, for an item being destroyed
+	void forgetItem(const Item& item);
+
+	//Everything they carry goes back into the world, for when they leave
+	void dropAllItems(const ServerProgramData* pd);
+
+	//Tells their game which items are in which of their slots
+	void sendInventory() const;
 
 	//Turns their flashlight on in color (or just recolors it), or off, playing LightOn or LightOff from their player for anyone nearby
 	//Won't turn it on while flashlightEnabled is off, or without a player from setDefaultController to hold it

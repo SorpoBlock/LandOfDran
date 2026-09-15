@@ -804,6 +804,95 @@ static int LUA_emitterSetType(lua_State* L)
 	return 0;
 }
 
+static int LUA_emitterSetColor(lua_State* L)
+{
+	scope("(LUA) emitter:setColor");
+
+	const std::string usage = "emitter:setColor(r, g, b[, a])";
+
+	int args = lua_gettop(L);
+	if (args != 4 && args != 5)
+	{
+		error("Expected " + usage);
+		lua_settop(L, 0);
+		return 0;
+	}
+
+	float v[4] = { 1, 1, 1, 1 };
+	std::shared_ptr<Emitter> emitter = popEmitterAndNumbers(L, args - 1, v, usage);
+	if (!emitter)
+		return 0;
+
+	glm::vec4 color = glm::clamp(glm::vec4(v[0], v[1], v[2], v[3]), 0.0f, 1.0f);
+	emitter->setColor(glm::u8vec4(color * 255.0f + 0.5f));
+	return 0;
+}
+
+static int LUA_emitterGetColor(lua_State* L)
+{
+	scope("(LUA) emitter:getColor");
+
+	std::shared_ptr<Emitter> emitter = popEmitterAndNumbers(L, 0, nullptr, "emitter:getColor()");
+	if (!emitter)
+		return 0;
+
+	glm::vec4 color = emitter->getTint();
+	for (int channel = 0; channel < 4; channel++)
+		lua_pushnumber(L, color[channel]);
+	return 4;
+}
+
+static int LUA_emitterAimWith(lua_State* L)
+{
+	scope("(LUA) emitter:aimWith");
+
+	const std::string usage = "emitter:aimWith(dynamic, range) or emitter:aimWith(nil)";
+
+	int args = lua_gettop(L);
+	if (!LUA_pd->emitters || !LUA_pd->dynamics)
+	{
+		error("emitters or dynamics ObjHolder is null");
+		lua_settop(L, 0);
+		return 0;
+	}
+
+	if (args == 2 && lua_isnil(L, 2))
+	{
+		lua_settop(L, 1);
+		std::shared_ptr<Emitter> emitter = LUA_pd->emitters->popLua(L);
+		lua_settop(L, 0);
+
+		if (emitter)
+			emitter->aimWith(nullptr, 0);
+		else
+			error("Invalid emitter passed to " + usage);
+		return 0;
+	}
+
+	if (args != 3 || !lua_isnumber(L, 3) || !std::isfinite(lua_tonumber(L, 3)))
+	{
+		error("Expected " + usage);
+		lua_settop(L, 0);
+		return 0;
+	}
+
+	float range = std::clamp((float)lua_tonumber(L, 3), 0.0f, 1000.0f);
+
+	lua_settop(L, 2);
+	std::shared_ptr<Dynamic> dynamic = LUA_pd->dynamics->popLua(L);
+	std::shared_ptr<Emitter> emitter = LUA_pd->emitters->popLua(L);
+	lua_settop(L, 0);
+
+	if (!dynamic || !emitter)
+	{
+		error("Invalid emitter or dynamic passed to " + usage);
+		return 0;
+	}
+
+	emitter->aimWith(dynamic, range);
+	return 0;
+}
+
 static int LUA_emitterAttachToDynamic(lua_State* L)
 {
 	scope("(LUA) emitter:attachToDynamic");
@@ -992,7 +1081,7 @@ luaL_Reg* getEmitterFunctions(lua_State* L)
 	lua_register(L, "getEmitterIdx", LUA_getEmitterIdx);
 	lua_register(L, "getNumEmitters", LUA_getNumEmitters);
 
-	luaL_Reg* regs = new luaL_Reg[10];
+	luaL_Reg* regs = new luaL_Reg[13];
 
 	int iter = 0;
 	regs[iter++] = { "destroy",			LUA_emitterDestroy };
@@ -1004,6 +1093,9 @@ luaL_Reg* getEmitterFunctions(lua_State* L)
 	regs[iter++] = { "setType",			LUA_emitterSetType };
 	regs[iter++] = { "attachToDynamic",	LUA_emitterAttachToDynamic };
 	regs[iter++] = { "attachToBrick",	LUA_emitterAttachToBrick };
+	regs[iter++] = { "setColor",		LUA_emitterSetColor };
+	regs[iter++] = { "getColor",		LUA_emitterGetColor };
+	regs[iter++] = { "aimWith",			LUA_emitterAimWith };
 	regs[iter++] = { NULL, NULL };
 
 	return regs;

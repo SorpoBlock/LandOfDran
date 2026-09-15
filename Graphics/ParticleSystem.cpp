@@ -94,7 +94,8 @@ void ParticleSystem::skipEmission(EmitterClock& clock, const glm::vec3& position
 	clock.lastRotation = rotation;
 }
 
-void ParticleSystem::emit(EmitterClock& clock, uint16_t emitterTypeID, const glm::vec3& position, const glm::quat& rotation, const glm::vec3& velocity, double nowMS)
+void ParticleSystem::emit(EmitterClock& clock, uint16_t emitterTypeID, const glm::vec3& position, const glm::quat& rotation, const glm::vec3& velocity, double nowMS,
+	const glm::vec4& tint, const glm::vec3* target)
 {
 	const EmitterTypeData* type = getEmitterType(emitterTypeID);
 	if (!type || type->particleTypes.empty())
@@ -141,7 +142,8 @@ void ParticleSystem::emit(EmitterClock& clock, uint16_t emitterTypeID, const glm
 		double referencePhi = std::fmod(type->phiReferenceVel * (ejectedMS - clock.startMS) / 1000.0, 360.0);
 		float phi = glm::radians((float)referencePhi + randomRange(0.0f, type->phiVariance));
 		float theta = glm::radians(randomRange(type->thetaMin, type->thetaMax));
-		glm::vec3 direction = turned * glm::vec3(std::cos(phi) * std::sin(theta), std::cos(theta), std::sin(phi) * std::sin(theta));
+		glm::vec3 spread = glm::vec3(std::cos(phi) * std::sin(theta), std::cos(theta), std::sin(phi) * std::sin(theta));
+		glm::vec3 direction = turned * spread;
 
 		size_t pick = type->particleTypes.size() > 1 ? std::uniform_int_distribution<size_t>(0, type->particleTypes.size() - 1)(random) : 0;
 		uint16_t particleTypeID = type->particleTypes[pick];
@@ -151,11 +153,31 @@ void ParticleSystem::emit(EmitterClock& clock, uint16_t emitterTypeID, const glm
 		ParticleTypeSlot& particleType = particleTypes[particleTypeID];
 		const ParticleTypeData& data = particleType.data;
 
+		float speed = type->ejectionVelocity + randomRange(-type->velocityVariance, type->velocityVariance);
+		float lifetimeMS = std::max(1.0f, data.lifetimeMS + randomRange(-data.lifetimeVarianceMS, data.lifetimeVarianceMS));
+
+		//Aimed, the way to the target stands in for the emitter's up, and particles are gone by the time they get there
+		if (target)
+		{
+			glm::vec3 toTarget = *target - from;
+			float distance = glm::length(toTarget);
+			if (distance > 0.001f)
+			{
+				glm::vec3 aim = toTarget / distance;
+				direction = glm::rotation(glm::vec3(0, 1, 0), aim) * spread;
+
+				float closing = speed * glm::dot(direction, aim);
+				if (closing > 0.001f)
+					lifetimeMS = std::clamp((distance - type->ejectionOffset) / closing * 1000.0f, 1.0f, lifetimeMS);
+			}
+		}
+
 		Particle particle;
 		particle.position = from + direction * type->ejectionOffset;
-		particle.velocity = direction * (type->ejectionVelocity + randomRange(-type->velocityVariance, type->velocityVariance)) + velocity * data.inheritedVelFactor;
+		particle.velocity = direction * speed + velocity * data.inheritedVelFactor;
 		particle.startMS = ejectedMS;
-		particle.lifetimeMS = std::max(1.0f, data.lifetimeMS + randomRange(-data.lifetimeVarianceMS, data.lifetimeVarianceMS));
+		particle.lifetimeMS = lifetimeMS;
+		particle.tint = tint;
 		particleType.particles.push_back(particle);
 		liveParticles++;
 	}
@@ -207,6 +229,7 @@ void ParticleSystem::update(double nowMS, const glm::vec3& cameraPosition, float
 			glm::vec4 color;
 			float size;
 			data.getKeys(ageMS / particle.lifetimeMS, color, size);
+			color *= particle.tint;
 			if (size <= 0.0f || color.a <= 0.0f)
 				continue;
 
