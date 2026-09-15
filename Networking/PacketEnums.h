@@ -98,7 +98,9 @@ enum FromClientPacketType : unsigned char
 enum DynamicKind : unsigned char
 {
 	DynamicKind_Plain = 0,		//Nothing follows
-	DynamicKind_Item = 1		//Item::stateBytes follow, see SimObjects/Item.h
+	DynamicKind_Item = 1,		//Item::stateBytes follow, see SimObjects/Item.h
+	DynamicKind_Projectile = 2	//Nothing follows, made by Lua's addProjectile, clients only draw it where the server says
+
 };
 
 //Flags byte of an item's state, see Item::writeState

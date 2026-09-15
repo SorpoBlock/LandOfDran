@@ -63,7 +63,7 @@ class Dynamic : public SimObject
 	bool forcePlayerUpdate = false;
 
 	//What kind of dynamic this is, and what its creation packet carries after a plain dynamic's, see DynamicKind
-	virtual DynamicKind getKind() const { return DynamicKind_Plain; }
+	virtual DynamicKind getKind() const { return isProjectile ? DynamicKind_Projectile : DynamicKind_Plain; }
 	virtual unsigned int getKindCreationBytes() const { return 0; }
 	virtual void addKindCreationData(enet_uint8* dest) const {}
 
@@ -257,8 +257,9 @@ class Dynamic : public SimObject
 	void updateCursorSnapPosition(const glm::vec3& cameraPosition, const glm::vec3& cameraDirection);
 
 	/*
-		Server only: set by Lua's addProjectile. The first time it touches anything that collides, LoopServer::updateProjectiles
+		Set by Lua's addProjectile. The first time it touches anything that collides, LoopServer::updateProjectiles
 		fires ProjectileHit with its tag and removes it. Until then it's turned every tick to point its model's +Y the way it's going
+		Clients learn it from the creation packet, and their copy never pushes or gets pushed by anything, see AddSimObjects
 	*/
 	bool isProjectile = false;
 	std::string projectileTag = "";

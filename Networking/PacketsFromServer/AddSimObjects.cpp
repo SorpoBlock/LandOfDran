@@ -371,6 +371,14 @@ bool AddSimObjectsPacket::applyPacket(const ClientProgramData& pd, Simulation& s
 				if (itemState)
 					std::static_pointer_cast<Item>(newDynamic)->readState(itemState, true, simulation.idealBufferSize);
 
+				//The server has projectiles pass through whoever fired them and hit things itself, so ours is only ever drawn where the server says
+				//Otherwise one fired from inside our own player gets stuck on us by collision prediction, see LoopClient::predictLocalCollisions
+				if (kind == DynamicKind_Projectile)
+				{
+					newDynamic->isProjectile = true;
+					newDynamic->body->setCollisionFlags(newDynamic->body->getCollisionFlags() | btCollisionObject::CF_NO_CONTACT_RESPONSE);
+				}
+
 				if (byteIterator >= packet->dataLength)
 					break;
 			}

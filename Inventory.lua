@@ -44,10 +44,14 @@ local THROW_HEIGHT = 1.5
 --How fast a launcher shell leaves in studs per second, and how long until the launcher can fire again in milliseconds, about its fire animation's length
 local SHELL_SPEED = 90
 local LAUNCHER_RELOAD_MS = 650
---How far the crosshair aims a shell, and how far in front of the player and above their position it starts
+--How far the crosshair aims a shell
 local LAUNCHER_AIM_RANGE = 250
-local SHELL_START = 3
-local SHELL_HEIGHT = 1.5
+--Where a shell starts: the end of the launcher's barrel as it's drawn in first person, which is SHELL_RIGHT to the right, SHELL_DOWN down,
+--and SHELL_AHEAD ahead of the player's eyes (EYE_HEIGHT above their position) along the way their camera looks
+local EYE_HEIGHT = 4.8
+local SHELL_RIGHT = 1.5
+local SHELL_DOWN = 0.75
+local SHELL_AHEAD = 4.6
 --The end of the launcher's barrel, from the middle of its Gun mesh along the launcher's own up and forward (-z), in studs
 local MUZZLE_UP = 0.39
 local MUZZLE_FORWARD = -1.15
@@ -284,8 +288,20 @@ local function fireLauncher(client, launcher)
 		aimX, aimY, aimZ = camX + dirX * LAUNCHER_AIM_RANGE, camY + dirY * LAUNCHER_AIM_RANGE, camZ + dirZ * LAUNCHER_AIM_RANGE
 	end
 
+	--The camera's right and up, level right when looking straight up or down
+	local rightX, rightZ = -dirZ, dirX
+	local rightLength = math.sqrt(rightX * rightX + rightZ * rightZ)
+	if rightLength < 0.001 then
+		rightX, rightZ, rightLength = 1, 0, 1
+	end
+	rightX, rightZ = rightX / rightLength, rightZ / rightLength
+	local upX, upY, upZ = -rightZ * dirY, rightZ * dirX - rightX * dirZ, rightX * dirY
+
+	--Out of the end of the barrel
 	local px, py, pz = player:getPosition()
-	local x, y, z = px + dirX * SHELL_START, py + SHELL_HEIGHT + dirY * SHELL_START, pz + dirZ * SHELL_START
+	local x = px + rightX * SHELL_RIGHT - upX * SHELL_DOWN + dirX * SHELL_AHEAD
+	local y = py + EYE_HEIGHT - upY * SHELL_DOWN + dirY * SHELL_AHEAD
+	local z = pz + rightZ * SHELL_RIGHT - upZ * SHELL_DOWN + dirZ * SHELL_AHEAD
 
 	local toX, toY, toZ = aimX - x, aimY - y, aimZ - z
 	local distance = math.sqrt(toX * toX + toY * toY + toZ * toZ)

@@ -1242,7 +1242,7 @@ void LoopClient::predictLocalCollisions()
 				continue;
 
 			std::shared_ptr<Dynamic> touched = dynamicFromBody(other);
-			if (touched && !touched->clientControlled && !touchingOtherDynamics(touched))
+			if (touched && !touched->clientControlled && !touched->isProjectile && !touchingOtherDynamics(touched))
 			{
 				//Refreshed every frame we're actually touching it, so continuous pushing never runs into the cap
 				//below - it only starts counting once contact actually ends, which is the point it's meant to bound
