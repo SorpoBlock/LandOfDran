@@ -78,7 +78,12 @@ enum FromClientPacketType : unsigned char
 	AppearanceChoice = 13,	//How the client wants their player to look, sent as they connect and whenever they save a change, see PlayerAppearance
 	WrenchRequest = 14,		//Wrench whatever brick is under the crosshair, see Networking/PacketsFromClient/Wrench.cpp
 	WrenchSubmit = 15,		//What the client changed in the wrench dialog the server last sent them
+	PlayerGrab = 16,		//The client left clicked in game, so their player plays its grab animation for everyone else
 };
+
+//Second flags byte of a dynamic in UpdateSimObjects and ControlledPhysics packets
+#define DynamicExtra_Look 1			//2 bytes follow: where a player looks, see Dynamic::lookDirection
+#define DynamicExtra_OneShot 2		//2 bytes follow: an animation ID played once and a count that changes each time it plays
 
 //Movement flags byte of MovementInputs packets
 #define MovementFlag_Jump 1			//Jump was just pressed

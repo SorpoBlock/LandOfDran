@@ -113,6 +113,60 @@ void Dynamic::updateSnapshot(float deltaT, bool forceUsePhysicsTransform, float 
 	//Tilts around the middle of the collision box instead of the model's origin
 	glm::vec3 pivot = renderedPosition + renderedRotation * type->getModel()->getColOffset();
 	modelInstance->setModelTransform(glm::translate(pivot) * glm::toMat4(renderedTilt) * glm::translate(renderedPosition - pivot) * glm::toMat4(renderedRotation));
+
+	turnHead(deltaT);
+}
+
+//Per second, how quickly other players' heads catch up to where the server says they look, evens out its updates
+static constexpr float lookSmoothing = 15.0f;
+
+//How far a head turns from facing the way the body does, radians
+static const float maxHeadYaw = glm::radians(70.0f);
+static const float maxHeadPitchUp = glm::radians(50.0f);
+static const float maxHeadPitchDown = glm::radians(35.0f);
+
+//Looking further behind the body than this, the head turns back toward the front, so it doesn't snap side to side looking straight back
+static const float headYawFadeStart = glm::radians(100.0f);
+
+void Dynamic::turnHead(float deltaT)
+{
+	int head = type->getModel()->getHeadNodeIdx();
+	if (!hasLook || head == -1 || glm::any(glm::isnan(lookDirection)) || glm::length(lookDirection) < 0.0001f)
+		return;
+
+	glm::vec3 target = glm::normalize(lookDirection);
+	if (clientControlled || !renderedLookInitialized || glm::any(glm::isnan(renderedLook)))
+		renderedLook = target;
+	else
+	{
+		glm::vec3 mixed = glm::mix(renderedLook, target, 1.0f - std::exp(-lookSmoothing * (deltaT / 1000.0f)));
+		renderedLook = glm::length(mixed) > 0.0001f ? glm::normalize(mixed) : target;
+	}
+	renderedLookInitialized = true;
+
+	//The player model faces -Z, the same way PlayerController walks it
+	glm::vec3 local = glm::inverse(renderedTilt * renderedRotation) * renderedLook;
+	float pitch = std::asin(std::clamp(local.y, -1.0f, 1.0f));
+	float yaw = std::atan2(-local.x, -local.z);
+
+	float fade = 1.0f - std::clamp((std::abs(yaw) - headYawFadeStart) / (glm::pi<float>() - headYawFadeStart), 0.0f, 1.0f);
+	yaw = std::clamp(yaw, -maxHeadYaw, maxHeadYaw) * fade;
+	pitch = std::clamp(pitch, -maxHeadPitchDown, maxHeadPitchUp);
+
+	modelInstance->setNodeRotation(head, glm::angleAxis(yaw, glm::vec3(0, 1, 0)) * glm::angleAxis(pitch, glm::vec3(1, 0, 0)));
+}
+
+void Dynamic::playOneShot(int id)
+{
+	if (!type->getModel()->isServerSide())
+	{
+		modelInstance->restartAnimation(id);
+		return;
+	}
+
+	oneShotAnimation = id;
+	oneShotCount++;
+	oneShotResends = 4;
 }
 
 glm::vec3 Dynamic::getMeshCenter(int meshIndex) const
@@ -269,6 +323,16 @@ void Dynamic::updateCursorSnapPosition(const glm::vec3& cameraPosition, const gl
 
 const bool noVelUpdates = false;
 
+//A player's look direction has to turn this far before it's sent again, the head follows it smoothly on clients
+static const float lookResendCosine = std::cos(glm::radians(2.0f));
+
+//Server only, whether an update would carry a look direction, see DynamicExtra_Look
+static bool sendsLook(const Dynamic& dynamic)
+{
+	//A client's own player turns its head from its camera, and the server has no use for it
+	return dynamic.hasLook && !dynamic.clientControlled;
+}
+
 bool Dynamic::requiresNetUpdate() //const
 {
 	if (getTicksMS() - lastSentTime < 25)
@@ -277,8 +341,10 @@ bool Dynamic::requiresNetUpdate() //const
 		return false;
 	}
 
+	bool lookChanged = sendsLook(*this) && glm::dot(lookDirection, lastSentLook) < lookResendCosine;
+
 	//For dynamics requiresUpdate means a change to something like a decal, or a node color
-	if (requiresUpdate || gravityUpdated || frictionUpdated || restitutionUpdated)
+	if (requiresUpdate || gravityUpdated || frictionUpdated || restitutionUpdated || lookChanged || oneShotResends > 0)
 	{
 		flaggedForUpdate = true;
 		return true;
@@ -342,7 +408,14 @@ unsigned int Dynamic::getUpdatePacketBytes() const
 		angular velocity
 	*/
 
-	unsigned int ret = 2;
+	//Plus a second flags byte, see DynamicExtra flags
+	unsigned int ret = 3;
+
+	if (sendsLook(*this))
+		ret += LookDirectionBytes;
+
+	if (oneShotResends > 0)
+		ret += 2;
 
 	const btTransform& t = body->getWorldTransform();
 
@@ -527,7 +600,15 @@ void Dynamic::addToUpdatePacket(enet_uint8 * dest)
 
 	forcePlayerUpdate = false;
 
-	int byteIterator = 2;
+	bool needLook = sendsLook(*this);
+	bool needOneShot = oneShotResends > 0;
+
+	unsigned char extraFlags = 0;
+	extraFlags |= needLook ? DynamicExtra_Look : 0;
+	extraFlags |= needOneShot ? DynamicExtra_OneShot : 0;
+	dest[2] = extraFlags;
+
+	int byteIterator = 3;
 
 	if (needPosRot)
 	{
@@ -582,6 +663,21 @@ void Dynamic::addToUpdatePacket(enet_uint8 * dest)
 		memcpy(dest + byteIterator, &friction, sizeof(float));
 		byteIterator += sizeof(float);
 		frictionUpdated = false;
+	}
+
+	if (needLook)
+	{
+		lastSentLook = lookDirection;
+		addLookDirection(dest + byteIterator, lookDirection);
+		byteIterator += LookDirectionBytes;
+	}
+
+	if (needOneShot)
+	{
+		oneShotResends--;
+		dest[byteIterator] = (unsigned char)std::clamp(oneShotAnimation, 0, 255);
+		dest[byteIterator + 1] = oneShotCount;
+		byteIterator += 2;
 	}
 }
 

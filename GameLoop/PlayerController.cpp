@@ -196,6 +196,13 @@ bool PlayerController::control(std::shared_ptr<PhysicsWorld> world, float deltaT
 
 	targetLock->body->activate();
 
+	//Turns the player's head, see Dynamic::lookDirection
+	if (glm::length(cameraDirection) > 0.0001f && !glm::any(glm::isnan(cameraDirection)))
+	{
+		targetLock->lookDirection = glm::normalize(cameraDirection);
+		targetLock->hasLook = true;
+	}
+
 	btScalar submerged = targetLock->getSubmergedFraction(waterLevel);
 
 	if (jump)

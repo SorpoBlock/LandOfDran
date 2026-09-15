@@ -62,6 +62,35 @@ class Dynamic : public SimObject
 
 	void stop(int id) { if (!modelInstance) return;  modelInstance->stopAnimation(id); }
 
+	/*
+		Plays an animation once from the start, like a player's grab
+		Client: right away. Server: sends it to clients in the next few updates, see oneShotResends
+	*/
+	void playOneShot(int id);
+
+	//Server: the last animation playOneShot sent, and a count that changes each time so a repeat plays again
+	//Client: the last count we got from the server, so resent updates don't play it again
+	int oneShotAnimation = -1;
+	unsigned char oneShotCount = 0;
+
+	//Server only, how many more updates carry the one shot animation, updates are unreliable so it goes out a few times
+	int oneShotResends = 0;
+
+	/*
+		Unit world direction a player looks, which turns the model's Head node, see updateSnapshot
+		Set by PlayerController from the camera on the server and for our own player, from updates for everyone else's
+	*/
+	glm::vec3 lookDirection = glm::vec3(0, 0, -1);
+	//Whether anything has set lookDirection, dynamics nobody controls keep their heads still
+	bool hasLook = false;
+
+	//Server only, the look direction in the last update we sent
+	glm::vec3 lastSentLook = glm::vec3(0, 0, 0);
+
+	//Client only, the look direction the head is drawn with, following lookDirection smoothly for other players
+	glm::vec3 renderedLook = glm::vec3(0, 0, -1);
+	bool renderedLookInitialized = false;
+
 	bool getHidden() const { return modelInstance->getHidden(); };
 
 	//See ModelInstance::setHidden
@@ -105,6 +134,9 @@ class Dynamic : public SimObject
 
 	//waterLevel is PlayerController::noWater if there's no water, it's for tilting swimming players
 	void updateSnapshot(float deltaT, bool forceUsePhysicsTransform, float waterLevel);
+
+	//Client only, turns the model's Head node toward lookDirection, called by updateSnapshot
+	void turnHead(float deltaT);
 
 	//Client only
 	Interpolator interpolator;

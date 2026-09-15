@@ -410,6 +410,17 @@ void LoopClient::handleInput(float deltaT, ExecutableArguments& cmdArgs, std::sh
 			glm::vec3 worldPos = simulation.camera->mouseCoordsToWorldSpace(glm::vec2(x, y));
 			glm::vec3 dir = simulation.camera->getDirection();
 
+			//Our player reaches out on every left click while playing, whether or not it hits anything, and the server shows everyone else
+			if (e.button.button == SDL_BUTTON_LEFT && pd.context->getMouseLocked() && !simulation.controllers.empty())
+			{
+				std::shared_ptr<Dynamic> player = simulation.controllers[0]->target.lock();
+				if (player && player->getType()->getModel()->getAnimationID("grab") != -1)
+				{
+					player->playOneShot(player->getType()->getModel()->getAnimationID("grab"));
+					client->send(makePlayerGrabPacket(), Unreliable);
+				}
+			}
+
 			//Holding the wrench key, a left click wrenches the brick under the crosshair instead, until there's a wrench item
 			if (e.button.button == SDL_BUTTON_LEFT && pd.input->isCommandKeydown(Wrench))
 				client->send(makeWrenchRequestPacket(simulation.camera->getPosition(), dir), OtherReliable);

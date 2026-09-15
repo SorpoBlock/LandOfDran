@@ -74,6 +74,13 @@ struct Animation
 	float fadeInMS = 0;
 	//How fast do we interpolate from the last frames of the animation back to idle pose
 	float fadeOutMS = 0;
+
+	/*
+		Client only, by node index: whether this slice moves the node or holds it away from its rest pose
+		Nodes an animation leaves alone keep whatever animations under it are doing, i.e. walking legs while the arm grabs
+		Filled in by Model::addAnimation
+	*/
+	std::vector<bool> affectedNodes;
 };
 
 /*
@@ -268,6 +275,8 @@ class ModelInstance
 	bool isPlaying(int id) const;
 	//Will do nothing if animation with that id is already playing
 	void playAnimation(int id,bool loop);
+	//Plays an animation once from its start, even if it was already partway through
+	void restartAnimation(int id);
 	/*
 		Does nothing if animation with id is not playing
 		Otherwise will fade out over 200Ms or so then be removed from playing anims list
@@ -326,6 +335,9 @@ class Mesh
 
 	//Middle of its vertices' bounding box in model space, for emitters following one mesh of a dynamic, client only
 	glm::vec3 center = glm::vec3(0);
+
+	//Lowest corner of that bounding box, client only
+	glm::vec3 low = glm::vec3(0);
 
 	/*
 		Vertex array object that contains the mesh
@@ -389,8 +401,8 @@ class Node
 	//Animation time of associated rotation keyframe
 	std::vector<float> rotTimes;
 
-	//Gets the pos and rot that should be contributed by that animation for that node
-	void getFrame(const AnimationPlayback & anim, glm::vec3& pos, glm::mat4& rot) const;
+	//The node's pos and rot at a time in the animation reel, false if it has no keys covering that time
+	bool sample(float time, glm::vec3& pos, glm::quat& rot) const;
 	//Literally just gets a certain frame, if frame is out of bounds, rot and pos are unchanged
 	void getFrame(float frame, glm::vec3& pos, glm::mat4& rot) const;
 
@@ -420,6 +432,12 @@ class Node
 		translate(rotationPivot) * rotate(rotation) * translate(-rotationPivot) * translate(pos) * higherNode...
 	*/
 	glm::vec3 rotationPivot = glm::vec3(0, 0, 0);
+
+	/*
+		What ModelInstance::setNodeRotation turns the node around, rotationPivot unless Model's constructor knows better
+		A player's Head turns at the bottom of the head, its rotationPivot is down inside the torso and would lift it off the neck
+	*/
+	glm::vec3 fixPivot = glm::vec3(0, 0, 0);
 
 	//Undoes some of Assimps importing silliness that creates a billion extra nodes, see stripSillyAssimpNodeNames
 	void foldNodeInto(aiNode const * const src, Model * parent);
@@ -457,6 +475,9 @@ class Model
 	//What frame of animation should be displayed for an instance when we're not playing any animations on it
 	float animationDefaultTime = 0;
 
+	//See getHeadNodeIdx
+	int headNodeIdx = -1;
+
 	//For use with creating a btRigidBody box shape, calculated in calculateCollisionBox
 	glm::vec3 collisionHalfExtents = glm::vec3(1, 1, 1);
 	//The offset the visual mesh should have from the collision box, calculated in calculateCollisionBox
@@ -480,6 +501,12 @@ class Model
 
 	//Returns -1 on invalid name
 	int getMeshIdx(const std::string& name) const;
+
+	//Server ID of the animation added with that name, -1 if there isn't one
+	int getAnimationID(const std::string& name) const;
+
+	//Client only: the node named Head, which turns to show where a player is looking, -1 without one
+	int getHeadNodeIdx() const { return headNodeIdx; }
 
 	//Same, for names that might not have kept their case, like ones read back from settings
 	int getMeshIdxIgnoringCase(const std::string& name) const;

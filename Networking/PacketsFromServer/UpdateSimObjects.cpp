@@ -116,6 +116,9 @@ bool UpdateSimObjectsPacket::applyPacket(const ClientProgramData& pd, Simulation
 			unsigned char flags = packet->data[byteIterator];
 			byteIterator++;
 
+			unsigned char extraFlags = packet->data[byteIterator];
+			byteIterator++;
+
 			bool needPosRot = flags & 1;
 			bool needVel = flags & 2;
 			bool needAngVel = flags & 4;
@@ -178,6 +181,26 @@ bool UpdateSimObjectsPacket::applyPacket(const ClientProgramData& pd, Simulation
 				byteIterator += sizeof(float);
 			}
 
+			//Where a player looks, which turns their head
+			bool needLook = extraFlags & DynamicExtra_Look;
+			glm::vec3 look;
+			if (needLook)
+			{
+				getLookDirection(packet->data + byteIterator, look);
+				byteIterator += LookDirectionBytes;
+			}
+
+			//An animation played once, like a grab, resent in a few updates with the same count
+			bool needOneShot = extraFlags & DynamicExtra_OneShot;
+			int oneShotAnimation = -1;
+			unsigned char oneShotCount = 0;
+			if (needOneShot)
+			{
+				oneShotAnimation = packet->data[byteIterator];
+				oneShotCount = packet->data[byteIterator + 1];
+				byteIterator += 2;
+			}
+
 			//TODO: Friction, per-object gravity, and restitution are not actually sent on object creation yet so new joining players won't have the same values client-side
 			std::shared_ptr<Dynamic> toUpdate = simulation.dynamics->find(lastId);
 			if (toUpdate)
@@ -218,6 +241,22 @@ bool UpdateSimObjectsPacket::applyPacket(const ClientProgramData& pd, Simulation
 
 					if (glm::length(linVel) > 0.1 || glm::length(angVel) > 0.1)
 						toUpdate->body->activate();
+				}
+
+				//Our own player's head and grabs are already done locally
+				if (!toUpdate->clientControlled)
+				{
+					if (needLook)
+					{
+						toUpdate->lookDirection = look;
+						toUpdate->hasLook = true;
+					}
+
+					if (needOneShot && oneShotCount != toUpdate->oneShotCount)
+					{
+						toUpdate->oneShotCount = oneShotCount;
+						toUpdate->playOneShot(oneShotAnimation);
+					}
 				}
 
 				if (needGravity)

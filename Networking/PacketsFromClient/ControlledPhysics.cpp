@@ -30,11 +30,14 @@ void applyPhysicsAdjustment(JoinedClient* source, Server const* const server, EN
 	unsigned char flags = packet->data[byteIterator];
 	byteIterator++;
 
+	//Second flags byte, a client never sends anything in it for its own dynamics, see Dynamic::addToUpdatePacket
+	byteIterator++;
+
 	bool needPosRot = flags & 1;
 	bool needVel = flags & 2;
 	bool needAngVel = flags & 4;
 
-	unsigned neededSize = 1 + sizeof(netIDType);
+	unsigned neededSize = 1 + sizeof(netIDType) + 3;
 	neededSize += needPosRot ? PositionBytes + QuaternionBytes : 0;
 	neededSize += needVel ? VelocityBytes : 0;
 	neededSize += needAngVel ? AngularVelocityBytes : 0;

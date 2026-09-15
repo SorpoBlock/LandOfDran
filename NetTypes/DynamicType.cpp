@@ -93,15 +93,26 @@ bool DynamicType::loadFromPacket(ENetPacket const* const packet, const ClientPro
 		memcpy(&fadeOutMS, packet->data + byteIterator, sizeof(float));
 		byteIterator += sizeof(float);
 
+		if (byteIterator >= packet->dataLength)
+			break;
+
+		unsigned int nameLength = packet->data[byteIterator];
+		byteIterator++;
+
+		if (byteIterator + nameLength > packet->dataLength)
+			break;
+
 		Animation anim;
 		anim.startTime = startTime;
 		anim.endTime = endTime;
 		anim.defaultSpeed = defaultSpeed;
 		anim.fadeInMS = fadeInMS;
 		anim.fadeOutMS = fadeOutMS;
-		anim.serverID = animID;
+		anim.name = std::string((char*)packet->data + byteIterator, nameLength);
+		byteIterator += nameLength;
 
-		model->animations.push_back(anim);
+		//Also works out which nodes it moves
+		model->addAnimation(anim, animID);
 	}
 
 	loaded = true;
@@ -164,9 +175,10 @@ btRigidBody* DynamicType::createBodyStatic(const btTransform& t) const
 */
 ENetPacket* DynamicType::createTypePacket() const
 {
-	//How many byte each animation takes up
-	unsigned int animationSize = 5 * sizeof(float) + sizeof(int);
-	animationSize *= model->animations.size();
+	//How many byte each animation takes up, plus its name and name length byte
+	unsigned int animationSize = 0;
+	for (const Animation& animation : model->animations)
+		animationSize += 5 * sizeof(float) + sizeof(int) + 1 + std::min(animation.name.length(), (size_t)255);
 	animationSize++; //Extra byte for number of animations
 
 	//unsigned int packetSize = model->loadedPath.length() + sizeof(netIDType) + 3 + PositionBytes + animationSize;
@@ -220,6 +232,13 @@ ENetPacket* DynamicType::createTypePacket() const
 
 		memcpy(ret->data + byteIterator, &model->animations[a].fadeOutMS, sizeof(float));
 		byteIterator += sizeof(float);
+
+		//So clients can find animations the game plays by name, like grab
+		size_t nameLength = std::min(model->animations[a].name.length(), (size_t)255);
+		ret->data[byteIterator] = (unsigned char)nameLength;
+		byteIterator++;
+		memcpy(ret->data + byteIterator, model->animations[a].name.data(), nameLength);
+		byteIterator += nameLength;
 	}
 
 	return ret; 

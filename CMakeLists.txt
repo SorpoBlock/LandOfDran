@@ -343,6 +343,7 @@ add_executable (LandOfDran
 "Bricks/BrickAttachments.h"
 "Bricks/BrickAttachments.cpp"
 "Networking/PacketsFromClient/Wrench.cpp"
+"Networking/PacketsFromClient/PlayerGrab.cpp"
 "Networking/PacketsFromServer/OpenWrenchDialog.h"
 "Networking/PacketsFromServer/OpenWrenchDialog.cpp"
 "Interface/WrenchDialog.h"

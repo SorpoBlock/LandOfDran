@@ -184,6 +184,16 @@ inline ENetPacket* makeFlashlightPacket(bool on, glm::vec3 color)
 
 /*
 	1 byte		-	packet type
+*/
+inline ENetPacket* makePlayerGrabPacket()
+{
+	ENetPacket* ret = enet_packet_create(NULL, 1, getFlagsFromChannel(Unreliable));
+	ret->data[0] = (unsigned char)PlayerGrab;
+	return ret;
+}
+
+/*
+	1 byte		-	packet type
 	12 bytes	-	camera position
 	12 bytes	-	camera direction
 */

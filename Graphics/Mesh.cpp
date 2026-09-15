@@ -84,7 +84,42 @@ int Model::getFaceMeshIdx() const
 void Model::addAnimation(Animation& animation,int id)
 {
 	animation.serverID = (id < 0) ? animations.size() : id;
+
+	//Server side models have no nodes, so this stays empty there
+	animation.affectedNodes.assign(allNodes.size(), false);
+	for (Node* node : allNodes)
+	{
+		std::vector<float> times = { animation.startTime, animation.endTime };
+		for (float time : node->posTimes)
+			if (time > animation.startTime && time < animation.endTime)
+				times.push_back(time);
+		for (float time : node->rotTimes)
+			if (time > animation.startTime && time < animation.endTime)
+				times.push_back(time);
+
+		//Rest pose is no translation or rotation, see ModelInstance::calculateNodeTransform
+		for (float time : times)
+		{
+			glm::vec3 pos;
+			glm::quat rot;
+			if (node->sample(time, pos, rot) && (glm::length(pos) > 0.01f || std::abs(rot.w) < 0.99999f))
+			{
+				animation.affectedNodes[node->nodeIndex] = true;
+				break;
+			}
+		}
+	}
+
 	animations.push_back(std::move(animation));
+}
+
+int Model::getAnimationID(const std::string& name) const
+{
+	std::string lowerName = lowercase(name);
+	for (const Animation& animation : animations)
+		if (lowercase(animation.name) == lowerName)
+			return animation.serverID;
+	return -1;
 }
 
 void Model::printHierarchy(Node * node,int layer) const
@@ -330,64 +365,47 @@ void ModelInstance::renderSelfOutline() const
 	type->renderSingleInstance((unsigned int)(pos - liveInstances.begin()));
 }
 
-void Node::getFrame(const AnimationPlayback& anim, glm::vec3& pos, glm::mat4& rot) const
+//The first key at or after time, and how far time is past the key before it, holding the first or last key outside the keys' range
+static void findKeys(const std::vector<float>& times, float time, size_t& next, float& progress)
 {
-	//Get the key frame after and before our current time
-	for (int a = 1; a < (int)posFrames.size(); a++)
+	next = times.size() - 1;
+	progress = 1;
+
+	for (size_t a = 0; a < times.size(); a++)
 	{
-		//Find the first frame with a time greater than our own
-		if (posTimes[a] >= anim.animationTime)
+		if (times[a] >= time)
 		{
-			float nextTime = posTimes[a];
-			glm::vec3 nextFrame = posFrames[a];
-
-			int prev = a - 1; //Just needed to suppress a warning, really
-			if (prev < 0)
-				break;
-
-			//Figure out what the previous frame is...
-			//We start by assuming it was literally the previous frame, but...
-			float prevTime = posTimes[prev];
-			glm::vec3 prevFrame = posFrames[prev];
-
-			//How far are we between frames: for interpolation
-			float totalTimeBetween = nextTime - prevTime;
-			float timeProgress = anim.animationTime - prevTime;
-
-			pos += anim.animationFadeOut * lerp(prevFrame, nextFrame, timeProgress / totalTimeBetween);
-
-			break;
+			next = a;
+			float span = a > 0 ? times[a] - times[a - 1] : 0;
+			progress = span > 0 ? (time - times[a - 1]) / span : 1;
+			return;
 		}
 	}
+}
 
-	//Get the key frame after and before our current time
-	for (int a = 1; a < (int)rotFrames.size(); a++)
+bool Node::sample(float time, glm::vec3& pos, glm::quat& rot) const
+{
+	if (posFrames.empty() && rotFrames.empty())
+		return false;
+
+	size_t next;
+	float progress;
+
+	pos = glm::vec3(0, 0, 0);
+	if (!posFrames.empty())
 	{
-		//Find the first frame with a time greater than our own
-		if (rotTimes[a] >= anim.animationTime)
-		{
-			float nextTime = rotTimes[a];
-			glm::quat nextFrame = rotFrames[a];
-
-			int prev = a - 1; //Just needed to suppress a warning, really
-			if (prev < 0)
-				break;
-
-			//Figure out what the previous frame is...
-			//We start by assuming it was literally the previous frame, but...
-			float prevTime = rotTimes[prev];
-			glm::quat prevFrame = rotFrames[prev];
-
-			//How far are we between frames: for interpolation
-			float totalTimeBetween = nextTime - prevTime;
-			float timeProgress = anim.animationTime - prevTime;
-
-			glm::quat animationRotation = glm::slerp(prevFrame, nextFrame, timeProgress / totalTimeBetween);
-			rot = glm::toMat4(glm::slerp(glm::quat(1,0,0,0), animationRotation, anim.animationFadeOut)) * rot;
-
-			break;
-		}
+		findKeys(posTimes, time, next, progress);
+		pos = next > 0 ? glm::mix(posFrames[next - 1], posFrames[next], progress) : posFrames[next];
 	}
+
+	rot = glm::quat(1, 0, 0, 0);
+	if (!rotFrames.empty())
+	{
+		findKeys(rotTimes, time, next, progress);
+		rot = next > 0 ? glm::slerp(rotFrames[next - 1], rotFrames[next], progress) : rotFrames[next];
+	}
+
+	return true;
 }
 
 void ModelInstance::progressAnimations(float deltaT)
@@ -461,38 +479,45 @@ glm::mat4 ModelInstance::calculateNodeTransform(Node const * const node)
 	glm::mat4 ret = glm::mat4(1.0);
 
 	//Default transform if no animation data available at all
-	if (node->posFrames.size() < 1 || node->rotFrames.size() < 1)
+	if (node->posFrames.size() < 1 && node->rotFrames.size() < 1)
 	{
 		ret = node->defaultTransform;
 	}
 	else
 	{
-		glm::vec3 pos = glm::vec3(0, 0, 0);
-		glm::mat4 rot = glm::mat4(1.0);
+		//Also what's used when no animations are playing
+		glm::vec3 pos = node->defaultPos;
+		glm::quat rot = node->defaultRot;
 
-		//There's one or more playing animations
-		if (playingAnimations.size() > 0)
+		//playingAnimations is kept in server ID order, so animations added later in Lua play over earlier ones, like a grab over the walk cycle
+		//Each one mixes over what's under it as it fades in and out, but only on the nodes it actually moves
+		for (const AnimationPlayback& anim : playingAnimations)
 		{
-			for (unsigned int a = 0; a < playingAnimations.size(); a++)
-				node->getFrame(playingAnimations[a], pos, rot);
-		}
-		//There are animations but we aren't playing any, use default frame
-		else
-		{
-			pos = node->defaultPos;
-			rot = glm::toMat4(node->defaultRot);
+			const std::vector<bool>& affected = anim.animation->affectedNodes;
+			if (node->nodeIndex >= affected.size() || !affected[node->nodeIndex])
+				continue;
+
+			glm::vec3 animPos;
+			glm::quat animRot;
+			float time = std::clamp(anim.animationTime, anim.animation->startTime, anim.animation->endTime);
+			if (!node->sample(time, animPos, animRot))
+				continue;
+
+			float weight = std::clamp(anim.animationFadeOut, 0.0f, 1.0f);
+			pos = glm::mix(pos, animPos, weight);
+			rot = glm::slerp(rot, animRot, weight);
 		}
 
 		if(type->rotationPivotsApplied)
-			ret = glm::translate(node->rotationPivot) * rot * glm::translate(-node->rotationPivot) * glm::translate(pos);
+			ret = glm::translate(node->rotationPivot) * glm::toMat4(rot) * glm::translate(-node->rotationPivot) * glm::translate(pos);
 		else
-			ret = glm::translate(pos) * rot;
+			ret = glm::translate(pos) * glm::toMat4(rot);
 	}
 
 	//Apply node rotation fixes, for example the tilt of a player's head when they look up or down
 	if (UseNodeRotationFix[node->nodeIndex])
 	{
-		ret = ret * glm::translate(node->rotationPivot) * glm::toMat4(NodeRotationFixes[node->nodeIndex]) * glm::translate(-node->rotationPivot);
+		ret = ret * glm::translate(node->fixPivot) * glm::toMat4(NodeRotationFixes[node->nodeIndex]) * glm::translate(-node->fixPivot);
 	}
 
 	return ret;
@@ -674,7 +699,26 @@ void ModelInstance::playAnimation(int id,bool loop)
 	play.animationFadeOut = 0.0;
 	play.animationTime = play.animation->startTime;
 
-	playingAnimations.push_back(std::move(play));
+	//In server ID order, see calculateNodeTransform
+	auto pos = std::find_if(playingAnimations.begin(), playingAnimations.end(), [id](const AnimationPlayback& playing) { return playing.animation->serverID > id; });
+	playingAnimations.insert(pos, std::move(play));
+}
+
+void ModelInstance::restartAnimation(int id)
+{
+	for (AnimationPlayback& playing : playingAnimations)
+	{
+		if (playing.animation->serverID == id)
+		{
+			playing.animationTime = playing.animation->startTime;
+			playing.animationStarting = true;
+			playing.animationEnding = false;
+			playing.animationLooping = false;
+			return;
+		}
+	}
+
+	playAnimation(id, false);
 }
 
 bool ModelInstance::isPlaying(int id) const
@@ -798,6 +842,7 @@ Mesh::Mesh(aiMesh const* const src, Model const* const parent,bool serverSide)
 			high = glm::max(high, vertex);
 		}
 		center = (low + high) * 0.5f;
+		this->low = low;
 	}
 
 	fillBuffer(ModelSpace, src->mVertices, src->mNumVertices * sizeof(aiVector3D), 3);
@@ -1494,7 +1539,18 @@ Model::Model(std::string filePath, std::shared_ptr<TextureManager> textures,glm:
 			//Find the node by name
 			//Keeping in mind we've collapsed the hierarchy ourselves quite a bit
 			aiNodeAnim* nodeAnim = anim->mChannels[a];
-			std::string targetName = stripSillyAssimpNodeNames(nodeAnim->mNodeName.C_Str());
+			std::string channelName = nodeAnim->mNodeName.C_Str();
+			std::string targetName = stripSillyAssimpNodeNames(channelName);
+
+			//Assimp splits a pivoted FBX node's keys into Translation, Rotation, and Scaling channels, each with a filler key for the parts it isn't
+			//Folded into one node those filler keys would land among the real ones, so only take the part each channel is named for
+			static const std::string assimpMarker = "_$AssimpFbx$_";
+			size_t markerPos = channelName.find(assimpMarker);
+			std::string part = markerPos == std::string::npos ? "" : channelName.substr(markerPos + assimpMarker.length());
+			bool usePositions = part.empty() || part == "Translation";
+			bool useRotations = part.empty() || part == "Rotation";
+			if (!usePositions && !useRotations)
+				continue;
 			Node* target = nullptr;
 			for (unsigned int b = 0; b < allNodes.size(); b++)
 			{
@@ -1512,7 +1568,7 @@ Model::Model(std::string filePath, std::shared_ptr<TextureManager> textures,glm:
 			}
 
 			//Copy position keys for all possible animations to the given node
-			for (unsigned int b = 0; b < nodeAnim->mNumPositionKeys; b++)
+			for (unsigned int b = 0; usePositions && b < nodeAnim->mNumPositionKeys; b++)
 			{
 				glm::vec3 pos(nodeAnim->mPositionKeys[b].mValue.x, nodeAnim->mPositionKeys[b].mValue.y, nodeAnim->mPositionKeys[b].mValue.z);
 
@@ -1528,7 +1584,7 @@ Model::Model(std::string filePath, std::shared_ptr<TextureManager> textures,glm:
 			}
 
 			//Copy rotation keys for all possible animations to the given node
-			for (unsigned int b = 0; b < nodeAnim->mNumRotationKeys; b++)
+			for (unsigned int b = 0; useRotations && b < nodeAnim->mNumRotationKeys; b++)
 			{
 				glm::quat rot(nodeAnim->mRotationKeys[b].mValue.w, nodeAnim->mRotationKeys[b].mValue.x, nodeAnim->mRotationKeys[b].mValue.y, nodeAnim->mRotationKeys[b].mValue.z);
 
@@ -1542,6 +1598,26 @@ Model::Model(std::string filePath, std::shared_ptr<TextureManager> textures,glm:
 		error("More than one animation imported by Assimp for model " + filePath);
 		error("For now animations should all be on the same track, but LoD animations are then");
 		error("defined in script as being certain time slices of the original animation track.");
+	}
+
+	for (Node* node : allNodes)
+	{
+		node->fixPivot = node->rotationPivot;
+
+		if (headNodeIdx == -1 && lowercase(node->name) == "head")
+		{
+			headNodeIdx = (int)node->nodeIndex;
+
+			//The bottom middle of the head, where it sits on the neck, its vertices are in the same space as the pivot
+			for (const Mesh* mesh : node->meshes)
+			{
+				if (lowercase(mesh->name) == "head")
+				{
+					node->fixPivot = glm::vec3(mesh->center.x, mesh->low.y, mesh->center.z);
+					break;
+				}
+			}
+		}
 	}
 
 	calculateCollisionBox(scene);

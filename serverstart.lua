@@ -3,6 +3,7 @@
 --The player
 brickhead = newDynamicType("brickhead","Assets/brickhead/brickhead.txt",0.02,0.02,0.02)
 addAnimation(brickhead,"walk",0,30,0.04,200,400) --For now it just uses the first added animation as the walk cycle
+addAnimation(brickhead,"grab",56,65,0.03,0,0) --Played on every left click, over the walk cycle
 
 --Different floor tile types
 smallPlate = newDynamicType("small","Assets/cube/cube.txt",0.01,0.01,0.01)
