@@ -498,3 +498,9 @@ function emitterBursts()
 	schedule(1500, "emitterBursts")
 end
 
+function darkMode()
+	setTimeScale(0)
+	setTimeOfDay(0)
+	setSunColor("night" , 0.17, 0.2, 0.33)
+	setAmbientColor("night", 0.003, 0.006, 0.01)
+end
