@@ -5,6 +5,9 @@
 #define DR_WAV_IMPLEMENTATION
 #include "../External/dr_wav.h"
 
+#define DR_MP3_IMPLEMENTATION
+#include "../External/dr_mp3.h"
+
 //Just the declarations, the implementation is compiled in StbVorbis.cpp
 #define STB_VORBIS_HEADER_ONLY
 #include "../External/stb_vorbis.c"
@@ -47,9 +50,25 @@ bool decodeSoundFile(const std::string& filePath, std::vector<int16_t>& samples,
 		samples.assign(data, data + (size_t)frames * channels);
 		free(data);
 	}
+	else if (extension == "mp3")
+	{
+		drmp3_config config;
+		drmp3_uint64 frames = 0;
+		drmp3_int16* data = drmp3_open_file_and_read_pcm_frames_s16(filePath.c_str(), &config, &frames, nullptr);
+		if (!data)
+		{
+			error("Could not read mp3 file " + filePath);
+			return false;
+		}
+
+		channels = (int)config.channels;
+		sampleRate = (int)config.sampleRate;
+		samples.assign(data, data + frames * config.channels);
+		drmp3_free(data, nullptr);
+	}
 	else
 	{
-		error(filePath + ": unsupported audio format, use .wav or .ogg");
+		error(filePath + ": unsupported audio format, use .wav, .ogg, or .mp3");
 		return false;
 	}
 

@@ -95,6 +95,7 @@ add_executable (LandOfDran
 "External/stb_image.h" 
 "External/RTree.h"
 "External/dr_wav.h"
+"External/dr_mp3.h"
 
 "External/Imgui/imgui.h"
 "External/Imgui/imgui.cpp"

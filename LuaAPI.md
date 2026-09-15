@@ -684,8 +684,8 @@ Vehicles also come back from `raycast()` and `client:getCursorItem`, with `type`
 
 Sounds are registered by name with `newSoundType`, then played by that name. Clients load the
 file from their own copy of the game folder when they join (or right away if they're already
-connected), so the file has to exist on the clients too. `.wav` (any bit depth) and `.ogg`
-(Vorbis) files work, mono or stereo.
+connected), so the file has to exist on the clients too. `.wav` (any bit depth), `.ogg`
+(Vorbis), and `.mp3` files work, mono or stereo.
 
 Sounds with no position play at the same volume wherever the listener is. Sounds with a position
 pan left and right, are at full volume within 5 studs, and past that lose about 10 dB every time

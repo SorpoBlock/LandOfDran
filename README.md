@@ -29,7 +29,7 @@ About half the dependencies are used on the client only, but at the moment they 
 
 ### Windows
 
-The project is an MSVC CMake project using vcpkg (manifest mode) to manage libraries, including ENet — every dependency in `vcpkg.json` is fetched and built by vcpkg, so there's nothing to download or configure by hand. ImGui, stb_image, dr_wav, stb_vorbis, and CRC++ are included with the project code itself.
+The project is an MSVC CMake project using vcpkg (manifest mode) to manage libraries, including ENet — every dependency in `vcpkg.json` is fetched and built by vcpkg, so there's nothing to download or configure by hand. ImGui, stb_image, dr_wav, dr_mp3, stb_vorbis, and CRC++ are included with the project code itself.
 
 1. Install Visual Studio 2022 (or the standalone Build Tools) with the "Desktop development with C++" workload — this brings MSVC and CMake.
 2. Install [vcpkg](https://github.com/microsoft/vcpkg) somewhere (`git clone https://github.com/microsoft/vcpkg && .\vcpkg\bootstrap-vcpkg.bat`), then set a `VCPKG_ROOT` environment variable pointing at that folder.

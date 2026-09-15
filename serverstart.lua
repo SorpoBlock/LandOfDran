@@ -78,6 +78,9 @@ newSoundType("Piano Bass","Assets/music/Piano_Bass.ogg",true)
 newSoundType("Rock","Assets/music/Rock.ogg",true)
 newSoundType("Stress","Assets/music/Stress_.ogg",true)
 newSoundType("Vartan - Death","Assets/music/Vartan_-_Death.ogg",true)
+newSoundType("Fire","Assets/music/fire.wav",true)
+newSoundType("Rain","Assets/music/dragon-studio-calming-rain-loop-398653.mp3",true)
+newSoundType("Rain2","Assets/music/dragon-studio-gentle-rain-01-437305.mp3",true)
 
 --Particle and emitter types, including the splash the server makes where dynamics fall into the water
 dofile("EmitterDefaults.lua")
