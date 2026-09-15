@@ -171,6 +171,31 @@ static int LUA_lightSetFlicker(lua_State* L)
 	return 0;
 }
 
+static int LUA_lightGetBlink(lua_State* L)
+{
+	scope("(LUA) light:getBlink");
+
+	std::shared_ptr<Light> light = popLightAndNumbers(L, 0, nullptr, "light:getBlink()");
+	if (!light)
+		return 0;
+
+	lua_pushnumber(L, light->getBlinkSpeed());
+	lua_pushnumber(L, light->getBlinkStrength());
+	return 2;
+}
+
+static int LUA_lightSetBlink(lua_State* L)
+{
+	scope("(LUA) light:setBlink");
+
+	float v[2];
+	std::shared_ptr<Light> light = popLightAndNumbers(L, 2, v, "light:setBlink(speed, strength)");
+	if (light)
+		light->setBlink(v[0], v[1]);
+
+	return 0;
+}
+
 static int LUA_lightGetCoronaWidth(lua_State* L)
 {
 	scope("(LUA) light:getCoronaWidth");
@@ -400,7 +425,7 @@ luaL_Reg* getLightFunctions(lua_State* L)
 	lua_register(L, "getLightIdx", LUA_getLightIdx);
 	lua_register(L, "getNumLights", LUA_getNumLights);
 
-	luaL_Reg* regs = new luaL_Reg[19];
+	luaL_Reg* regs = new luaL_Reg[21];
 
 	int iter = 0;
 	regs[iter++] = { "destroy",			LUA_lightDestroy };
@@ -412,6 +437,8 @@ luaL_Reg* getLightFunctions(lua_State* L)
 	regs[iter++] = { "setBrightness",	LUA_lightSetBrightness };
 	regs[iter++] = { "getFlicker",		LUA_lightGetFlicker };
 	regs[iter++] = { "setFlicker",		LUA_lightSetFlicker };
+	regs[iter++] = { "getBlink",		LUA_lightGetBlink };
+	regs[iter++] = { "setBlink",		LUA_lightSetBlink };
 	regs[iter++] = { "getCoronaWidth",	LUA_lightGetCoronaWidth };
 	regs[iter++] = { "setCoronaWidth",	LUA_lightSetCoronaWidth };
 	regs[iter++] = { "getRange",		LUA_lightGetRange };

@@ -55,6 +55,8 @@ void BrickAttachments::clampValues()
 
 	lightBrightness = std::clamp(finiteOr(lightBrightness, 0.0f), 0.0f, Light::maxBrightness);
 	lightFlicker = std::clamp(finiteOr(lightFlicker, 0.0f), 0.0f, Light::maxFlicker);
+	lightBlinkSpeed = std::clamp(finiteOr(lightBlinkSpeed, 0.0f), 0.0f, Light::maxBlinkSpeed);
+	lightBlinkStrength = std::clamp(finiteOr(lightBlinkStrength, 1.0f), 0.0f, 1.0f);
 	lightCoronaWidth = std::clamp(finiteOr(lightCoronaWidth, 0.0f), 0.0f, Light::maxCoronaWidth);
 	lightSpin = std::clamp(finiteOr(lightSpin, 0.0f), -Light::maxSpin, Light::maxSpin);
 
@@ -74,6 +76,8 @@ void BrickAttachments::resetLight()
 	lightColor = defaults.lightColor;
 	lightBrightness = defaults.lightBrightness;
 	lightFlicker = defaults.lightFlicker;
+	lightBlinkSpeed = defaults.lightBlinkSpeed;
+	lightBlinkStrength = defaults.lightBlinkStrength;
 	lightCoronaWidth = defaults.lightCoronaWidth;
 	lightConeAngle = defaults.lightConeAngle;
 	lightDirection = defaults.lightDirection;
@@ -99,8 +103,8 @@ void BrickAttachments::writeParts(const std::function<void(const void*, size_t)>
 
 	if (hasLight)
 	{
-		const float light[15] = { lightColor.r, lightColor.g, lightColor.b, lightBrightness, lightFlicker, lightCoronaWidth, lightConeAngle,
-			lightDirection.x, lightDirection.y, lightDirection.z, lightSpin, lightOffset.x, lightOffset.y, lightOffset.z };
+		const float light[lightFloatCount] = { lightColor.r, lightColor.g, lightColor.b, lightBrightness, lightFlicker, lightCoronaWidth, lightConeAngle,
+			lightDirection.x, lightDirection.y, lightDirection.z, lightSpin, lightOffset.x, lightOffset.y, lightOffset.z, lightBlinkSpeed, lightBlinkStrength };
 		writeBytes(light, sizeof(light));
 	}
 
@@ -123,7 +127,7 @@ void BrickAttachments::writeParts(const std::function<void(const void*, size_t)>
 	}
 }
 
-bool BrickAttachments::readParts(unsigned char flags, const std::function<bool(void*, size_t)>& readBytes)
+bool BrickAttachments::readParts(unsigned char flags, const std::function<bool(void*, size_t)>& readBytes, size_t lightFloats)
 {
 	auto readName = [&](std::string& name) -> bool
 	{
@@ -146,8 +150,10 @@ bool BrickAttachments::readParts(unsigned char flags, const std::function<bool(v
 
 	if (hasLight)
 	{
-		float light[15];
-		if (!readBytes(light, sizeof(light)))
+		//Older saves wrote 15 floats with the last always 0, which reads as no blinking, and strength gets its default
+		float light[lightFloatCount] = {};
+		light[15] = BrickAttachments().lightBlinkStrength;
+		if (lightFloats > lightFloatCount || !readBytes(light, sizeof(float) * lightFloats))
 			return false;
 
 		lightColor = glm::vec3(light[0], light[1], light[2]);
@@ -158,6 +164,8 @@ bool BrickAttachments::readParts(unsigned char flags, const std::function<bool(v
 		lightDirection = glm::vec3(light[7], light[8], light[9]);
 		lightSpin = light[10];
 		lightOffset = glm::vec3(light[11], light[12], light[13]);
+		lightBlinkSpeed = light[14];
+		lightBlinkStrength = light[15];
 	}
 
 	if ((flags & BrickAttachment_Emitter) && !readName(emitterName))

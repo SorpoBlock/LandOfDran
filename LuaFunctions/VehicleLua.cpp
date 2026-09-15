@@ -274,6 +274,7 @@ static std::shared_ptr<Vehicle> buildVehicle(ClientData* builder, const std::vec
 			light->setConeAngle(settings.lightConeAngle);
 			light->setDirection(settings.lightDirection);
 			light->setSpin(settings.lightSpin);
+			light->setBlink(settings.lightBlinkSpeed, settings.lightBlinkStrength);
 			light->attachToVehicle(vehicle, center + settings.lightOffset - origin);
 			vehicle->lightIDs.push_back(light->getID());
 			if (kept)

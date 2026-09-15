@@ -481,7 +481,7 @@ end
 function resetCubePositions()
 	for i=0, getNumDynamics()-1, 1 do
 		d = getDynamicIdx(i)
-		if d:getNumControllers() == 0 then
+		if d:getNumControllers() == 0 and not d:isItem() then
 			d:setPosition(0,50,0)
 		end
 	end
@@ -494,7 +494,7 @@ function spawnNewCubes(numCubes, spread)
 	--Iterate backwards since destroying shifts later indices down
 	for i=getNumDynamics()-1, 0, -1 do
 		d = getDynamicIdx(i)
-		if d:getNumControllers() == 0 then
+		if d:getNumControllers() == 0 and not d:isItem() then
 			d:destroy()
 		end
 	end

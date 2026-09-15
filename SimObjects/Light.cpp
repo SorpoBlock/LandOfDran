@@ -11,7 +11,7 @@ static constexpr float rangeCutoff = 0.02f;
 //Also the far plane of the light's shadow cube, so it can't be too far
 static constexpr float maxRange = 500.0f;
 
-//How long a flickering light stays in one spot before jumping to the next
+//How long a flickering light takes to glide from one spot to the next
 static constexpr uint32_t minFlickerHoldMS = 40;
 static constexpr uint32_t maxFlickerHoldMS = 160;
 
@@ -92,6 +92,13 @@ void Light::setFlicker(float _flicker)
 	updatesLeft = resendCount;
 }
 
+void Light::setBlink(float speed, float strength)
+{
+	blinkSpeed = std::clamp(speed, 0.0f, maxBlinkSpeed);
+	blinkStrength = std::clamp(strength, 0.0f, 1.0f);
+	updatesLeft = resendCount;
+}
+
 void Light::setCoronaWidth(float _coronaWidth)
 {
 	coronaWidth = std::clamp(_coronaWidth, 0.0f, maxCoronaWidth);
@@ -147,15 +154,36 @@ glm::vec3 Light::getRenderedPosition(uint32_t nowMS) const
 		std::uniform_real_distribution<float> unit(-1.0f, 1.0f);
 		std::uniform_int_distribution<uint32_t> hold(minFlickerHoldMS, maxFlickerHoldMS);
 
+		//Starts from the spot it just reached, even if frames were missed getting there
+		flickerFrom = flickerTo;
+
 		//Anywhere in a ball rather than a cube, so it never reaches further along a diagonal
 		do
-			flickerOffset = glm::vec3(unit(random), unit(random), unit(random));
-		while (glm::dot(flickerOffset, flickerOffset) > 1.0f);
+			flickerTo = glm::vec3(unit(random), unit(random), unit(random));
+		while (glm::dot(flickerTo, flickerTo) > 1.0f);
 
+		flickerStartMS = nowMS;
 		nextFlickerMS = nowMS + hold(random);
 	}
 
-	return position + flickerOffset * flicker;
+	//Eases in and out of each spot rather than turning sharply at it
+	float progress = std::clamp((float)(nowMS - flickerStartMS) / (float)(nextFlickerMS - flickerStartMS), 0.0f, 1.0f);
+	progress = progress * progress * (3.0f - 2.0f * progress);
+
+	return position + glm::mix(flickerFrom, flickerTo, progress) * flicker;
+}
+
+float Light::getRenderedBrightness(uint32_t nowMS) const
+{
+	if (blinkSpeed <= 0.0f || blinkStrength <= 0.0f)
+		return brightness;
+
+	//Doubles so hours of ticks don't round the cycle off
+	double cycle = std::fmod(nowMS / 1000.0, (double)blinkSpeed) / blinkSpeed;
+
+	//Full brightness at the start of each cycle, dimmest halfway through
+	float dim = (1.0f - (float)std::cos(cycle * glm::two_pi<double>())) * 0.5f;
+	return brightness * (1.0f - blinkStrength * dim);
 }
 
 glm::vec3 Light::getRenderedDirection(uint32_t nowMS) const
@@ -190,8 +218,8 @@ glm::vec3 Light::getRenderedDirection(uint32_t nowMS) const
 
 void Light::writeState(enet_uint8* dest) const
 {
-	const float state[14] = { position.x, position.y, position.z, color.r, color.g, color.b, brightness, flicker, coronaWidth,
-		direction.x, direction.y, direction.z, coneAngle, spin };
+	const float state[16] = { position.x, position.y, position.z, color.r, color.g, color.b, brightness, flicker, coronaWidth,
+		direction.x, direction.y, direction.z, coneAngle, spin, blinkSpeed, blinkStrength };
 	memcpy(dest, state, sizeof(state));
 	memcpy(dest + sizeof(state), &holderID, sizeof(netIDType));
 	memcpy(dest + sizeof(state) + sizeof(netIDType), &vehicleID, sizeof(netIDType));
@@ -199,7 +227,7 @@ void Light::writeState(enet_uint8* dest) const
 
 void Light::readFromPacket(const enet_uint8* src)
 {
-	float state[14];
+	float state[16];
 	memcpy(state, src, sizeof(state));
 
 	netIDType newHolderID;
@@ -231,6 +259,8 @@ void Light::readFromPacket(const enet_uint8* src)
 
 	coneAngle = state[12];
 	spin = state[13];
+	blinkSpeed = state[14];
+	blinkStrength = state[15];
 }
 
 bool Light::requiresNetUpdate()

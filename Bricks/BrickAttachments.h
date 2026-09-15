@@ -54,6 +54,8 @@ struct BrickAttachments
 {
 	//Longest music or emitter type name
 	static constexpr size_t maxNameLength = 255;
+	//Floats a light part has, saves from before blinking have one less
+	static constexpr size_t lightFloatCount = 16;
 	//Furthest a light can be from the middle of its brick along each axis, in world units
 	static constexpr float maxLightOffset = 32.0f;
 
@@ -66,6 +68,9 @@ struct BrickAttachments
 	glm::vec3 lightColor = glm::vec3(1);
 	float lightBrightness = 50.0f;
 	float lightFlicker = 0.0f;
+	//Seconds per blink cycle, 0 for none, and how much it dims at the low point, see Light
+	float lightBlinkSpeed = 0.0f;
+	float lightBlinkStrength = 1.0f;
 	float lightCoronaWidth = 0.0f;
 	//0 shines every way, otherwise a spotlight's full width in degrees
 	float lightConeAngle = 0.0f;
@@ -103,13 +108,13 @@ struct BrickAttachments
 	/*
 		Only the parts in getFlags, passed to writeBytes as they go
 		Music: name length byte, name, volume and pitch floats
-		Light: 15 floats, color, brightness, flicker, corona width, cone angle, direction, spin, offset
+		Light: lightFloatCount floats, color, brightness, flicker, corona width, cone angle, direction, spin, offset, blink speed, blink strength
 		Emitter: name length byte, name
 	*/
 	void writeParts(const std::function<void(const void*, size_t)>& writeBytes) const;
 
-	//Reads the parts flags says follow, false if readBytes runs out
-	bool readParts(unsigned char flags, const std::function<bool(void*, size_t)>& readBytes);
+	//Reads the parts flags says follow, false if readBytes runs out. lightFloats is how many floats the light part has, older saves have fewer
+	bool readParts(unsigned char flags, const std::function<bool(void*, size_t)>& readBytes, size_t lightFloats = lightFloatCount);
 
 	//For packets: the flags byte then writeParts
 	void write(std::vector<unsigned char>& bytes) const;

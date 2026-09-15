@@ -262,7 +262,16 @@ void WrenchDialog::render(ImGuiIO* io)
 			tooltip("A lamp is around 20 to 100, a floodlight a few thousand. How far it reaches follows from this");
 
 			ImGui::SliderFloat("Flicker", &settings.lightFlicker, 0.0f, 2.0f, "%.2f studs", ImGuiSliderFlags_Logarithmic);
-			tooltip("How far the light jumps around, like a flame");
+			tooltip("How far the light wanders around, like a flame");
+
+			ImGui::SliderFloat("Blink speed", &settings.lightBlinkSpeed, 0.0f, 10.0f, "%.2f s", ImGuiSliderFlags_Logarithmic);
+			tooltip("Seconds for one full cycle of dimming and brightening again, 0 for no blinking. Ctrl+click to type up to 60");
+
+			if (settings.lightBlinkSpeed > 0.0f)
+			{
+				ImGui::SliderFloat("Blink strength", &settings.lightBlinkStrength, 0.0f, 1.0f, "%.2f", ImGuiSliderFlags_AlwaysClamp);
+				tooltip("How much it dims at the low point of each cycle, 1 goes fully dark");
+			}
 
 			ImGui::SliderFloat("Corona", &settings.lightCoronaWidth, 0.0f, 30.0f, "%.2f studs", ImGuiSliderFlags_Logarithmic);
 			tooltip("Width of the glow drawn at the light, 0 for none");

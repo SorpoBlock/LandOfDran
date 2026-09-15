@@ -334,7 +334,7 @@ switches it off without the `LightOff` sound.
 
 | Function | Arguments | Returns | Description |
 |---|---|---|---|
-| `createLight(x, y, z, r, g, b, brightness, flicker, coronaWidth)` | position; color 0-1 per channel; `brightness` 0 or more (clamped to 100000); `flicker` in world units (0-16); `coronaWidth` in world units (0-256, 0 for no corona) | Light | Places a point light. `flicker` is how far the light jumps around its position: every 40-160 ms it snaps to a new random spot within that distance, which makes its lighting and shadows jitter like a flame. Each client picks its own spots. |
+| `createLight(x, y, z, r, g, b, brightness, flicker, coronaWidth)` | position; color 0-1 per channel; `brightness` 0 or more (clamped to 100000); `flicker` in world units (0-16); `coronaWidth` in world units (0-256, 0 for no corona) | Light | Places a point light. `flicker` is how far the light wanders around its position: every 40-160 ms it picks a new random spot within that distance and glides there, easing in and out, which makes its lighting and shadows waver like a flame. Each client picks its own spots. A flickering light with shadows redraws them every frame. |
 | `getLightId(netId)` | net ID | Light | Looks up a light by its net ID. |
 | `getLightIdx(index)` | 0-based index | Light | Looks up a light by its position in the internal list. |
 | `getNumLights()` | none | count | How many lights currently exist. |
@@ -355,6 +355,8 @@ argument isn't a finite number.
 | `light:setBrightness(brightness)` | 0-100000, clamped | none | Sets the brightness. `0` turns the light and its corona off. |
 | `light:getFlicker()` | none | number | Flicker distance. |
 | `light:setFlicker(distance)` | world units, 0-16, clamped | none | How far the light wanders around its position. |
+| `light:getBlink()` | none | speed, strength | Blink cycle time and strength. A new light has speed `0` and strength `1`. |
+| `light:setBlink(speed, strength)` | `speed` seconds, 0-60, clamped; `strength` 0-1, clamped | none | Makes the light and its corona dim and brighten again smoothly. `speed` is how long one whole cycle takes, `0` for no blinking. `strength` is how much of its brightness it loses at the dimmest point, halfway through each cycle: `1` goes fully dark, `0.5` drops to half. How far it reaches (`getRange`) doesn't change. Each client runs the cycle on its own clock, so players see it at different points, but lights with the same speed stay in step for any one player. |
 | `light:getCoronaWidth()` | none | number | Corona width. |
 | `light:setCoronaWidth(width)` | world units, 0-256, clamped | none | Width of the glow drawn at the light, `0` for none. |
 | `light:getRange()` | none | number | How far the light reaches, from its brightness and color. |
@@ -566,6 +568,8 @@ Light fields for `brick:setLight` and `brick:getLight` (see [Lights](#lights) fo
 | `color` | `{1, 1, 1}` | RGB, 0-1. |
 | `brightness` | `50` | 0-100000. |
 | `flicker` | `0` | World units, 0-16. |
+| `blinkSpeed` | `0` | Seconds for one full blink cycle, 0-60, `0` for no blinking. |
+| `blinkStrength` | `1` | 0-1, how much it dims at the low point of each blink. |
 | `coronaWidth` | `0` | World units, 0-256. |
 | `coneAngle` | `0` | 0 shines every way, 1-179 makes a spotlight this many degrees wide. |
 | `direction` | `{0, -1, 0}` | Which way a spotlight points, any length but zero. |

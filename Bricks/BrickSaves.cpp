@@ -4,9 +4,11 @@
 	The "next version" (16483535) adds owner, name, and flag fields to every brick record
 	Our own version after that (16483536) swaps its music track and light color for BrickAttachments' music loop, whole light, and emitter,
 	and its material byte is a BrickMaterial (saves from before materials wrote 0 there, which is none)
+	The one after (16483537) adds blink speed and strength to the end of the light, see BrickAttachments::lightFloatCount
 */
 static constexpr unsigned int lodMagic = 16483534;
 static constexpr unsigned int lodMagicAttachments = lodMagic + 2;
+static constexpr unsigned int lodMagicBlinkingLights = lodMagic + 3;
 
 /*
 	The old game's material byte: 2-9 were pearl, chrome, glow, blink, swirl, rainbow (from Blockland saves, never drawn), slippery, and foil,
@@ -97,7 +99,7 @@ bool writeLodBricks(std::ostream& file, const std::vector<const Brick*>& bricks,
 	}
 
 	unsigned int count = bricks.size();
-	writeValue(file, lodMagicAttachments);
+	writeValue(file, lodMagicBlinkingLights);
 	writeValue(file, count);
 
 	writeValue(file, (unsigned int)typeNames.size());
@@ -190,9 +192,9 @@ bool saveLodBuild(const BrickHolder& bricks, const std::string& path, bool omitO
 
 /*
 	Reads the owner, name, and flags at the end of a next version record, then either our attachments or the old game's music/light/print data, which is skipped
-	Returns false if the file ran out
+	Returns false if the file ran out. lightFloats is how many floats the save's lights have, see BrickAttachments::readParts
 */
-static bool readRecordExtras(std::istream& file, bool hasAttachments, bool& collides, std::string& name, std::shared_ptr<BrickAttachments>& attachments)
+static bool readRecordExtras(std::istream& file, bool hasAttachments, size_t lightFloats, bool& collides, std::string& name, std::shared_ptr<BrickAttachments>& attachments)
 {
 	int ownerID;
 	unsigned char nameLength, flags;
@@ -214,7 +216,7 @@ static bool readRecordExtras(std::istream& file, bool hasAttachments, bool& coll
 			return true;
 
 		auto read = std::make_shared<BrickAttachments>();
-		if (!read->readParts(flags, [&file](void* data, size_t count) { return (bool)file.read((char*)data, count); }))
+		if (!read->readParts(flags, [&file](void* data, size_t count) { return (bool)file.read((char*)data, count); }, lightFloats))
 			return false;
 
 		read->clampValues();
@@ -248,12 +250,13 @@ LodReadResult readLodBricks(std::istream& file, const BrickTypes* types, const s
 	LodReadResult result;
 
 	unsigned int magic, brickCount, typeCount;
-	if (!readValue(file, magic) || magic < lodMagic || magic > lodMagicAttachments)
+	if (!readValue(file, magic) || magic < lodMagic || magic > lodMagicBlinkingLights)
 		return result;
 
 	result.valid = true;
 	bool hasExtras = magic != lodMagic;
-	bool hasAttachments = magic == lodMagicAttachments;
+	bool hasAttachments = magic >= lodMagicAttachments;
+	size_t lightFloats = magic >= lodMagicBlinkingLights ? BrickAttachments::lightFloatCount : BrickAttachments::lightFloatCount - 1;
 
 	if (!readValue(file, brickCount) || !readValue(file, typeCount))
 		return result;
@@ -303,7 +306,7 @@ LodReadResult readLodBricks(std::istream& file, const BrickTypes* types, const s
 			std::string name = "";
 			std::shared_ptr<BrickAttachments> attachments = nullptr;
 			if (ok && hasExtras)
-				ok = readRecordExtras(file, hasAttachments, collides, name, attachments);
+				ok = readRecordExtras(file, hasAttachments, lightFloats, collides, name, attachments);
 
 			if (!ok)
 				return result;

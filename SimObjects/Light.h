@@ -23,8 +23,12 @@ class Light : public SimObject
 	glm::vec3 color = glm::vec3(1);
 	//Multiplies color, how far the light reaches follows from it, see getRange
 	float brightness = 0;
-	//How far, in world units, the light jumps around its position
+	//How far, in world units, the light wanders around its position
 	float flicker = 0;
+	//Seconds for one full cycle of dimming and brightening again, 0 for no blinking
+	float blinkSpeed = 0;
+	//0 to 1, how much of its brightness the light loses at the dimmest point of a blink
+	float blinkStrength = 1;
 	//Width in world units of the glow drawn around the light, 0 for none
 	float coronaWidth = 0;
 	//Which way a spotlight points, always normalized, in the vehicle body's space for a light on a vehicle
@@ -39,7 +43,9 @@ class Light : public SimObject
 	netIDType vehicleID = NO_ID;
 
 	//Client only, see getRenderedPosition and getRenderedDirection
-	mutable glm::vec3 flickerOffset = glm::vec3(0);
+	mutable glm::vec3 flickerFrom = glm::vec3(0);
+	mutable glm::vec3 flickerTo = glm::vec3(0);
+	mutable uint32_t flickerStartMS = 0;
 	mutable uint32_t nextFlickerMS = 0;
 	mutable float spinAngle = 0;
 	mutable uint32_t lastSpinMS = 0;
@@ -64,9 +70,10 @@ class Light : public SimObject
 	static constexpr float maxCoronaWidth = 256.0f;
 	static constexpr float maxConeAngle = 179.0f;
 	static constexpr float maxSpin = 3600.0f;
+	static constexpr float maxBlinkSpeed = 60.0f;
 
 	//State written by both creation and update packets, after the net ID
-	static constexpr unsigned int packetBytes = sizeof(float) * 14 + sizeof(netIDType) * 2;
+	static constexpr unsigned int packetBytes = sizeof(float) * 16 + sizeof(netIDType) * 2;
 
 	//Server: the dynamic holding it. Client: the dynamic with getHolderID, found again whenever that isn't it
 	std::weak_ptr<Dynamic> holder;
@@ -81,6 +88,8 @@ class Light : public SimObject
 	const glm::vec3& getColor() const { return color; }
 	float getBrightness() const { return brightness; }
 	float getFlicker() const { return flicker; }
+	float getBlinkSpeed() const { return blinkSpeed; }
+	float getBlinkStrength() const { return blinkStrength; }
 	float getCoronaWidth() const { return coronaWidth; }
 	const glm::vec3& getDirection() const { return direction; }
 	float getConeAngle() const { return coneAngle; }
@@ -92,6 +101,8 @@ class Light : public SimObject
 	void setColor(const glm::vec3& _color);
 	void setBrightness(float _brightness);
 	void setFlicker(float _flicker);
+	//Speed is seconds per cycle from 0 to maxBlinkSpeed, strength 0 to 1
+	void setBlink(float speed, float strength);
 	void setCoronaWidth(float _coronaWidth);
 	//0 makes it shine every way, anything else is clamped to 1 to maxConeAngle degrees
 	void setConeAngle(float degrees);
@@ -112,9 +123,12 @@ class Light : public SimObject
 	//Cosine of half the cone angle, or -2 for a light that shines every way
 	float getConeCosine() const;
 
-	//Client: where the light is drawn, jumping to a new random spot within flicker of its position every so often
+	//Client: where the light is drawn, gliding toward a new random spot within flicker of its position every so often
 	//For a light on a vehicle, that's in the vehicle's space
 	glm::vec3 getRenderedPosition(uint32_t nowMS) const;
+
+	//Client: brightness dimmed by however far into its blink cycle it is
+	float getRenderedBrightness(uint32_t nowMS) const;
 
 	//Client: direction turned by however far it has spun, call once a frame. A held light glides toward a new direction instead of jumping
 	glm::vec3 getRenderedDirection(uint32_t nowMS) const;

@@ -1875,7 +1875,7 @@ void LoopClient::renderEverything(float deltaT)
 				direction = vehicle->renderedRotation * direction;
 			}
 
-			lightSources.push_back({ light->getID(), position, light->getColor(), light->getBrightness(), light->getCoronaWidth(), light->getRange(),
+			lightSources.push_back({ light->getID(), position, light->getColor(), light->getRenderedBrightness(now), light->getCoronaWidth(), light->getRange(),
 				direction, light->getConeCosine() });
 		}
 	}

@@ -63,6 +63,7 @@ void updateBrickAttachments(Brick* brick)
 			light->setConeAngle(settings.lightConeAngle);
 			light->setDirection(settings.lightDirection);
 			light->setSpin(settings.lightSpin);
+			light->setBlink(settings.lightBlinkSpeed, settings.lightBlinkStrength);
 		}
 	}
 
@@ -420,6 +421,8 @@ static bool setBlocklandLight(const std::string& uiName, BrickAttachments& attac
 	attachments.lightColor = light.lightColor;
 	attachments.lightBrightness = light.lightBrightness;
 	attachments.lightFlicker = light.lightFlicker;
+	attachments.lightBlinkSpeed = light.lightBlinkSpeed;
+	attachments.lightBlinkStrength = light.lightBlinkStrength;
 	attachments.lightCoronaWidth = light.lightCoronaWidth;
 	attachments.lightConeAngle = light.lightConeAngle;
 	attachments.lightDirection = light.lightDirection;
@@ -841,6 +844,8 @@ static int LUA_brickGetLight(lua_State* L)
 	const std::pair<const char*, float> numberFields[] = {
 		{ "brightness", settings.lightBrightness },
 		{ "flicker", settings.lightFlicker },
+		{ "blinkSpeed", settings.lightBlinkSpeed },
+		{ "blinkStrength", settings.lightBlinkStrength },
 		{ "coronaWidth", settings.lightCoronaWidth },
 		{ "coneAngle", settings.lightConeAngle },
 		{ "spin", settings.lightSpin } };
@@ -888,6 +893,8 @@ static bool readLightTable(lua_State* L, int index, BrickAttachments& settings)
 	const std::pair<const char*, float*> numberFields[] = {
 		{ "brightness", &settings.lightBrightness },
 		{ "flicker", &settings.lightFlicker },
+		{ "blinkSpeed", &settings.lightBlinkSpeed },
+		{ "blinkStrength", &settings.lightBlinkStrength },
 		{ "coronaWidth", &settings.lightCoronaWidth },
 		{ "coneAngle", &settings.lightConeAngle },
 		{ "spin", &settings.lightSpin } };
