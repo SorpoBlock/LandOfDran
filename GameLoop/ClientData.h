@@ -72,8 +72,10 @@ struct ClientData
 	glm::u8vec4 paintColor = glm::u8vec4(255, 255, 255, 255);
 	unsigned char paintMaterial = 0;
 
-	//The vehicle their player is driving, see LuaFunctions/VehicleLua.h
+	//The vehicle their player is driving or riding on, see LuaFunctions/VehicleLua.h
 	std::weak_ptr<Vehicle> vehicle;
+	//Which of its passenger seats they ride on, Vehicle::driverSeat while driving it
+	int vehicleSeat = -1;
 
 	//SDL_GetTicks of the last time they honked while driving, and sliced bricks into a vehicle
 	unsigned int lastHonkMS = 0;

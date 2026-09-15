@@ -1,6 +1,17 @@
 //Vehicle parts, see SimObjects/Vehicle.h
 //test.cs names the steering wheel and the 1x2 wheels for old saves, and those names win, the same ones are used here
 //vehiclePart is our own field: "wheel" bricks turn into wheels and each vehicle needs one "steering" brick when bricks are sliced into a vehicle
+//"seat" bricks are part of the body, and someone right clicking a vehicle that already has a driver stands on one
+
+datablock fxDTSBrickData(brick2x4SeatData)
+{
+	brickFile = "./2x4_Seat.blb";
+	category = "Special";
+	subCategory = "Vehicle";
+	uiName = "2x4 Seat";
+	iconName = "./2x4_Seat";
+	vehiclePart = "seat";
+};
 
 datablock fxDTSBrickData(brick1x2SteeringWheelData)
 {

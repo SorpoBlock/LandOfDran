@@ -23,6 +23,16 @@ void BrickDebris::setLifetime(float seconds)
 
 void BrickDebris::spawn(const Brick& brick)
 {
+	std::uniform_real_distribution<float> sideways(-4.5f, 4.5f);
+	std::uniform_real_distribution<float> upward(9.0f, 13.5f);
+	float x = sideways(random);
+	float y = upward(random);
+	float z = sideways(random);
+	spawn(brick, btTransform(btQuaternion::getIdentity(), g2b3(brick.getWorldCenter())), btVector3(x, y, z));
+}
+
+void BrickDebris::spawn(const Brick& brick, const btTransform& placement, const btVector3& velocity)
+{
 	if (lifetimeMS <= 0 || pieces.size() >= maxPieces)
 		return;
 
@@ -46,10 +56,9 @@ void BrickDebris::spawn(const Brick& brick)
 	piece.shape->calculateLocalInertia(mass, inertia);
 
 	btRigidBody::btRigidBodyConstructionInfo info(mass, nullptr, piece.shape, inertia);
-	info.m_startWorldTransform.setIdentity();
-	info.m_startWorldTransform.setOrigin(g2b3(brick.getWorldCenter()));
+	info.m_startWorldTransform = placement;
 	if (!piece.ownsShape)
-		info.m_startWorldTransform.setRotation(btQuaternion(btVector3(0, 1, 0), brick.getAngle()));
+		info.m_startWorldTransform.setRotation(placement.getRotation() * btQuaternion(btVector3(0, 1, 0), brick.getAngle()));
 
 	piece.body = new btRigidBody(info);
 	piece.body->setActivationState(DISABLE_DEACTIVATION);
@@ -59,10 +68,8 @@ void BrickDebris::spawn(const Brick& brick)
 		btBroadphaseProxy::StaticFilter | btBroadphaseProxy::DebrisFilter | btBroadphaseProxy::DefaultFilter);
 	piece.body->setGravity(debrisGravity);
 
-	std::uniform_real_distribution<float> sideways(-4.5f, 4.5f);
-	std::uniform_real_distribution<float> upward(9.0f, 13.5f);
 	std::uniform_real_distribution<float> spin(-5.0f, 5.0f);
-	piece.body->setLinearVelocity(btVector3(sideways(random), upward(random), sideways(random)));
+	piece.body->setLinearVelocity(velocity);
 	piece.body->setAngularVelocity(btVector3(spin(random), spin(random), spin(random)));
 
 	pieces.push_back(piece);

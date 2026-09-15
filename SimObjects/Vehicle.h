@@ -33,6 +33,25 @@ struct VehicleWheel
 	ModelInstance* tire = nullptr;
 };
 
+//One of a Vehicle's seat bricks, where a passenger stands while someone else drives
+struct PassengerSeat
+{
+	//Middle of the seat brick's top in the vehicle body's space, where a passenger's feet go
+	glm::vec3 top = glm::vec3(0);
+
+	//Net ID of the dynamic standing on it, NO_ID for none
+	netIDType riderID = NO_ID;
+
+	//Server: the client riding on it
+	std::weak_ptr<ClientData> rider;
+
+	//Client: the dynamic standing on it as of the last LoopClient::placeVehicleDrivers
+	std::weak_ptr<Dynamic> seated;
+
+	//Server: its seat brick was broken off, so nobody can ride on it anymore, see Lua's radiusImpulse
+	bool broken = false;
+};
+
 /*
 	Bricks sliced out of the world into one body that drives on wheels, like the old game's brick cars
 	The server simulates it with Bullet's raycast vehicle, a player who right clicks it drives it from behind its steering wheel,
@@ -64,6 +83,9 @@ class Vehicle : public SimObject
 	//Makes shape from its colliding bricks, false if none of them collide
 	bool buildShape(const BrickTypes* types);
 
+	//Where its body is, from the physics on the server or where it's drawn on a client
+	void getBodyTransform(bool drawn, glm::vec3& origin, glm::quat& rotation) const;
+
 	protected:
 
 	Vehicle();
@@ -77,6 +99,13 @@ class Vehicle : public SimObject
 	//Like the old game
 	static constexpr size_t maxBricks = 10000;
 	static constexpr size_t maxWheels = 24;
+	static constexpr size_t maxSeats = 32;
+
+	//The seat number meaning the driver's seat rather than a passenger seat, see ClientData::vehicleSeat
+	static constexpr int driverSeat = -1;
+
+	//How far above where they stood a passenger is let out, world units
+	static constexpr float passengerExitLift = 0.2f;
 	//Longest its bricks can reach along any axis, world units
 	static constexpr float maxSize = 40.0f;
 
@@ -84,6 +113,8 @@ class Vehicle : public SimObject
 	static constexpr unsigned int wheelCreationBytes = sizeof(float) * 6;
 	//Update packet bytes per wheel: steering, suspension, contact and dirt flags
 	static constexpr unsigned int wheelUpdateBytes = 3;
+	//Creation packet bytes per passenger seat: its top, who rides on it
+	static constexpr unsigned int seatCreationBytes = sizeof(float) * 3 + sizeof(netIDType);
 
 	/*
 		Its bricks, with positions from the min corner of the box their grid boxes fill, so every coordinate is 0 or more
@@ -110,6 +141,9 @@ class Vehicle : public SimObject
 
 	std::vector<VehicleWheel> wheels;
 
+	//One per seat brick, in the order they were found
+	std::vector<PassengerSeat> passengerSeats;
+
 	//Its steering wheel brick's settings
 	SteeringSettings steering;
 
@@ -127,6 +161,9 @@ class Vehicle : public SimObject
 
 	//Server: net ID of the client that sliced it, NO_ID if Lua did
 	netIDType builderID = NO_ID;
+
+	//Server: whether Lua's radiusImpulse breaks its bricks off, see vehicle:setDestructable
+	bool destructable = false;
 
 	//Server: music from its wrench dialog, and the loop playing it, NO_ID for none
 	std::string musicName = "";
@@ -175,9 +212,21 @@ class Vehicle : public SimObject
 	//Where its driver stands in the world, facing the way it drives, from its body on the server or where it's drawn on a client
 	btTransform getSeatTransform(bool drawn) const;
 
+	//Where a passenger stands on one of its passenger seats in the world, feet on its top, turned around its up to face the way look points
+	btTransform getPassengerTransform(int seat, const Dynamic& rider, const glm::vec3& look, bool drawn) const;
+
+	//Server: the free passenger seat nearest a world position, -1 if they're all taken or it has none
+	int findFreeSeat(const glm::vec3& near) const;
+
 	//Client: once every brick has arrived, makes its body, has renderer draw its bricks, and gives each wheel an instance of tireModel (which can be nullptr)
 	void finishClient(const BrickTypes* types, InstancedBrickRenderer* _renderer, Model* tireModel);
 	bool hasAllBricks() const { return bricks.size() >= expectedBricks; }
+
+	/*
+		Takes some of its bricks out by index (in any order, repeats and ones past the end ignored), rebuilding its body's shape around the rest and on the server its weight,
+		and on a client drawing what's left. Its body keeps its old shape if none of the rest collide
+	*/
+	void removeBricks(std::vector<uint16_t> indices, const BrickTypes* types);
 	int getBrickGroup() const { return brickGroup; }
 
 	//Client: moves where it's drawn toward the latest snapshot and puts its body there, and rolls its wheels, before the physics step
@@ -190,8 +239,11 @@ class Vehicle : public SimObject
 	//Client: a wheel's middle and turn as it's drawn, without its tire's scale
 	glm::mat4 getDrawnWheelTransform(int wheel) const;
 
-	//Client: puts whoever is in its seat back into the physics world just above it
-	void releaseSeated(float idealBufferSize);
+	//Client: puts whoever is in a seat (driverSeat for the driver's) back into the physics world just above where they were
+	void releaseSeated(int seat, float idealBufferSize);
+
+	//Client: releaseSeated for the driver and every passenger
+	void releaseEveryone(float idealBufferSize);
 
 	//Client: bytes of a creation packet starting at src, 0 if available is too few
 	static unsigned int readCreationBytes(const enet_uint8* src, size_t available);
@@ -205,7 +257,10 @@ class Vehicle : public SimObject
 	//Server: VehicleBricks packets with all of its bricks
 	std::vector<ENetPacket*> makeBrickPackets() const;
 
-	//Server: a VehicleDriver packet saying who's driving it
+	//Server: a VehicleBricksBroken packet for bricks an impulse broke off, with how many it had before removeBricks took them out
+	ENetPacket* makeBricksBrokenPacket(uint16_t bricksBefore, const std::vector<uint16_t>& indices, const glm::vec3& center, float strength) const;
+
+	//Server: a VehicleDriver packet saying who's driving it and riding on each of its seats
 	ENetPacket* makeDriverPacket() const;
 
 	virtual bool requiresNetUpdate() override;

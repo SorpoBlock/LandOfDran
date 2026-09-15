@@ -89,7 +89,10 @@ class LoopClient
 	//The vehicle our player is driving, nullptr if they aren't
 	std::shared_ptr<Vehicle> getDrivenVehicle() const;
 
-	//Takes drivers out of the physics world and stands them in their vehicles' seats, and lets out anyone who stopped driving, before the camera moves
+	//The vehicle our player is driving or riding on as a passenger, nullptr if neither
+	std::shared_ptr<Vehicle> getRiddenVehicle() const;
+
+	//Takes drivers and passengers out of the physics world and stands them in their vehicles' seats, and lets out anyone who got out, before the camera moves
 	void placeVehicleDrivers(float deltaT);
 
 	//Puts each vehicle wheel's tire where it's drawn, before models update

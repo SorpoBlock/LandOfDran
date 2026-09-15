@@ -77,12 +77,12 @@ bool DeleteSimObjectsPacket::applyPacket(const ClientProgramData& pd, Simulation
 				netIDType id;
 				memcpy(&id, packet->data + 3 + a * sizeof(netIDType), sizeof(netIDType));
 
-				//Whoever was driving it gets out right where they were
+				//Whoever was driving or riding it gets out right where they were
 				std::shared_ptr<Vehicle> vehicle = simulation.vehicles->find(id);
 				if (!vehicle)
 					continue;
 
-				vehicle->releaseSeated(simulation.idealBufferSize);
+				vehicle->releaseEveryone(simulation.idealBufferSize);
 				vehicle.reset();
 				simulation.vehicles->destroyByID(id);
 			}

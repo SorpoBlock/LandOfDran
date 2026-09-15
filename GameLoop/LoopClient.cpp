@@ -479,6 +479,31 @@ std::shared_ptr<Vehicle> LoopClient::getDrivenVehicle() const
 	return nullptr;
 }
 
+std::shared_ptr<Vehicle> LoopClient::getRiddenVehicle() const
+{
+	if (!simulation.vehicles || simulation.controllers.empty())
+		return nullptr;
+
+	std::shared_ptr<Dynamic> player = simulation.controllers[0]->target.lock();
+	if (!player)
+		return nullptr;
+
+	for (unsigned int a = 0; a < simulation.vehicles->size(); a++)
+	{
+		std::shared_ptr<Vehicle> vehicle = simulation.vehicles->get(a);
+		if (vehicle->driverID == player->getID())
+			return vehicle;
+
+		for (const PassengerSeat& seat : vehicle->passengerSeats)
+		{
+			if (seat.riderID == player->getID())
+				return vehicle;
+		}
+	}
+
+	return nullptr;
+}
+
 void LoopClient::placeVehicleDrivers(float deltaT)
 {
 	simulation.camera->alsoIgnore = nullptr;
@@ -488,36 +513,68 @@ void LoopClient::placeVehicleDrivers(float deltaT)
 
 	std::shared_ptr<Dynamic> followed = simulation.camera->target.lock();
 
+	auto riderOf = [&](netIDType id)
+	{
+		std::shared_ptr<Dynamic> rider = id != NO_ID ? simulation.dynamics->find(id) : nullptr;
+		return rider && rider->getKind() == DynamicKind_Plain ? rider : nullptr;
+	};
+
 	for (unsigned int a = 0; a < simulation.vehicles->size(); a++)
 	{
 		std::shared_ptr<Vehicle> vehicle = simulation.vehicles->get(a);
-		std::shared_ptr<Dynamic> driver = vehicle->driverID != NO_ID ? simulation.dynamics->find(vehicle->driverID) : nullptr;
-		if (driver && driver->getKind() != DynamicKind_Plain)
-			driver = nullptr;
 
-		//Got out, or someone else got in
+		//Got out, or someone else got in, before anyone is seated so someone moving seats isn't let out again after
+		std::shared_ptr<Dynamic> driver = riderOf(vehicle->driverID);
 		if (vehicle->seated.lock() != driver)
-			vehicle->releaseSeated(simulation.idealBufferSize);
+			vehicle->releaseSeated(Vehicle::driverSeat, simulation.idealBufferSize);
 
-		if (!driver)
-			continue;
+		std::vector<std::shared_ptr<Dynamic>> passengers(vehicle->passengerSeats.size());
+		for (size_t s = 0; s < passengers.size(); s++)
+		{
+			passengers[s] = riderOf(vehicle->passengerSeats[s].riderID);
+			if (vehicle->passengerSeats[s].seated.lock() != passengers[s])
+				vehicle->releaseSeated((int)s, simulation.idealBufferSize);
+		}
 
-		//Out of the physics world while seated, like a carried item, so it doesn't bump into the vehicle
-		vehicle->seated = driver;
-		if (driver->isInWorld())
-			driver->removeFromWorld();
+		//Out of the physics world while seated, like a carried item, so they don't bump into the vehicle
+		auto place = [&](const std::shared_ptr<Dynamic>& rider, const btTransform& transform)
+		{
+			if (rider->isInWorld())
+				rider->removeFromWorld();
 
-		btTransform seat = vehicle->getSeatTransform(true);
-		btQuaternion turn = seat.getRotation();
-		driver->body->setWorldTransform(seat);
-		driver->setDrawnTransform(b2g3(seat.getOrigin()), glm::quat(turn.w(), turn.x(), turn.y(), turn.z()));
-		driver->playWalkingAnimation = false;
-		driver->stop(0);
-		driver->turnHead(deltaT);
+			btQuaternion turn = transform.getRotation();
+			rider->body->setWorldTransform(transform);
+			rider->setDrawnTransform(b2g3(transform.getOrigin()), glm::quat(turn.w(), turn.x(), turn.y(), turn.z()));
+			rider->playWalkingAnimation = false;
+			rider->stop(0);
+			rider->turnHead(deltaT);
 
-		//A third person camera sees through the vehicle it rides in
-		if (driver == followed)
-			simulation.camera->alsoIgnore = vehicle->body;
+			//A third person camera sees through the vehicle it rides in
+			if (rider == followed)
+				simulation.camera->alsoIgnore = vehicle->body;
+		};
+
+		if (driver)
+		{
+			vehicle->seated = driver;
+			place(driver, vehicle->getSeatTransform(true));
+		}
+
+		for (size_t s = 0; s < passengers.size(); s++)
+		{
+			const std::shared_ptr<Dynamic>& passenger = passengers[s];
+			if (!passenger)
+				continue;
+
+			vehicle->passengerSeats[s].seated = passenger;
+
+			//Our own player faces where the camera looks right away, others follow their smoothed look, and anyone who hasn't looked anywhere faces the way it drives
+			glm::vec3 look = vehicle->renderedRotation * vehicle->forward;
+			if (passenger->hasLook)
+				look = passenger->clientControlled || !passenger->renderedLookInitialized ? passenger->lookDirection : passenger->renderedLook;
+
+			place(passenger, vehicle->getPassengerTransform((int)s, *passenger, look, true));
+		}
 	}
 }
 
@@ -669,7 +726,7 @@ void LoopClient::handleInput(float deltaT, ExecutableArguments& cmdArgs, std::sh
 			//Right mouse getting into or out of a vehicle doesn't jet until it's let go
 			if (e.button.button == SDL_BUTTON_RIGHT)
 			{
-				jetSuppressed = getDrivenVehicle() != nullptr;
+				jetSuppressed = getRiddenVehicle() != nullptr;
 				if (!jetSuppressed && pd.physicsWorld)
 				{
 					btRigidBody* ignore = simulation.controlledDynamics.empty() ? nullptr : simulation.controlledDynamics[0]->body;
@@ -973,7 +1030,7 @@ void LoopClient::handleInput(float deltaT, ExecutableArguments& cmdArgs, std::sh
 	if (pd.vehicleGhost.isActive() && pd.physicsWorld)
 	{
 		btRigidBody* ignore = simulation.controlledDynamics.empty() ? nullptr : simulation.controlledDynamics[0]->body;
-		std::shared_ptr<Vehicle> driven = getDrivenVehicle();
+		std::shared_ptr<Vehicle> driven = getRiddenVehicle();
 		pd.vehicleGhost.update(simulation.camera->getPosition(), simulation.camera->getDirection(), *pd.physicsWorld, ignore, driven ? driven->body : nullptr);
 	}
 
@@ -2088,6 +2145,8 @@ void LoopClient::renderEverything(float deltaT)
 		hudLines.push_back("Placing " + pd.vehicleGhost.getName() + (pd.vehicleGhost.placesAsVehicle() ? " as a vehicle" : " as bricks") + ": aim with the crosshair, left click places it, Escape cancels");
 	if (getDrivenVehicle())
 		hudLines.push_back("Driving: W/S drive, A/D steer, jump brakes, left click honks, right click gets out");
+	else if (getRiddenVehicle())
+		hudLines.push_back("Riding: right click gets off");
 
 	pd.escapeMenu->showLeaveServer = client != nullptr;
 	pd.gui->superShiftIndicator = pd.ghostBrick.isVisible() ? (pd.ghostBrick.isSuperShift() ? 1 : 0) : -1;
@@ -2130,7 +2189,7 @@ void LoopClient::sendControlledObjects()
 void LoopClient::updateControllers(float deltaT)
 {
 	//Jets while right mouse is held, only while the mouse is captured for playing rather than clicking around a window
-	bool jet = simulation.jetsEnabled && pd.context->getMouseLocked() && !pd.input->supressed && (SDL_GetMouseState(nullptr, nullptr) & SDL_BUTTON_RMASK) && !jetSuppressed && !getDrivenVehicle();
+	bool jet = simulation.jetsEnabled && pd.context->getMouseLocked() && !pd.input->supressed && (SDL_GetMouseState(nullptr, nullptr) & SDL_BUTTON_RMASK) && !jetSuppressed && !getRiddenVehicle();
 	bool firing = pd.context->getMouseLocked() && !pd.input->supressed && (SDL_GetMouseState(nullptr, nullptr) & SDL_BUTTON_LMASK);
 
 	//Go through player controllers, remove any that are bound to now deleted dynamics

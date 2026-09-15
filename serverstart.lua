@@ -77,6 +77,13 @@ dofile("BlocklandImports.lua")
 --Starting tools, picking up and throwing items, and swinging the hammer and wrench
 dofile("Inventory.lua")
 
+--Every new vehicle, sliced or loaded, can have its bricks blown off by radiusImpulse
+function makeVehicleDestructable(vehicle, builder)
+	vehicle:setDestructable(true)
+	return vehicle, builder
+end
+registerEventListener("VehicleCreated", "makeVehicleDestructable")
+
 --Different arrays of kinds of plates that can be made to dissapear with their own button
 larges = {}
 mediums = {}

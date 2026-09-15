@@ -4,6 +4,7 @@
 #include "EmitterLua.h"
 #include "../Bricks/SelectionBox.h"
 #include "../Bricks/BrickSaves.h"
+#include "../Physics/RadiusImpulse.h"
 
 #include <climits>
 #include <cmath>
@@ -24,16 +25,41 @@ static VehiclePart partOf(const Brick& brick)
 	return type ? type->vehiclePart : VehiclePart_None;
 }
 
-//Calls an event taking a client and a vehicle, true if a listener returned nil instead of the vehicle
-static bool vehicleEventVetoed(const std::string& event, ClientData& client, const std::shared_ptr<Vehicle>& vehicle)
+//Calls an event taking a client, a vehicle, and which seat (nil for the driver's), true if a listener returned nil instead of the vehicle
+static bool vehicleEventVetoed(const std::string& event, ClientData& client, const std::shared_ptr<Vehicle>& vehicle, int seat)
 {
 	lua_State* L = LUA_pd->luaState;
 	pushClientLua(L, client.client);
 	LUA_pd->vehicles->pushLua(L, vehicle);
-	LUA_pd->eventManager->callEvent(L, event, 2);
-	bool vetoed = lua_gettop(L) == 2 && lua_isnil(L, 2);
+	if (seat == Vehicle::driverSeat)
+		lua_pushnil(L);
+	else
+		lua_pushinteger(L, seat);
+	LUA_pd->eventManager->callEvent(L, event, 3);
+	bool vetoed = lua_gettop(L) == 3 && lua_isnil(L, 2);
 	lua_settop(L, 0);
 	return vetoed;
+}
+
+/*
+	Fires VehicleCreated for a vehicle that's finished being made, with who made it (nil for Lua)
+	False if a listener removed it
+*/
+static bool announceVehicle(const std::shared_ptr<Vehicle>& vehicle, ClientData* builder)
+{
+	if (!LUA_pd->eventManager)
+		return true;
+
+	lua_State* L = LUA_pd->luaState;
+	LUA_pd->vehicles->pushLua(L, vehicle);
+	if (builder && builder->client)
+		pushClientLua(L, builder->client);
+	else
+		lua_pushnil(L);
+	LUA_pd->eventManager->callEvent(L, "VehicleCreated", 2);
+	lua_settop(L, 0);
+
+	return LUA_pd->vehicles->find(vehicle->getID()) != nullptr;
 }
 
 /*
@@ -44,6 +70,7 @@ static std::shared_ptr<Vehicle> buildVehicle(ClientData* builder, const std::vec
 {
 	const Brick* steeringBrick = nullptr;
 	std::vector<const Brick*> wheelBricks;
+	std::vector<const Brick*> seatBricks;
 	std::vector<const Brick*> bodyBricks;
 
 	for (const Brick& brick : bricks)
@@ -66,7 +93,10 @@ static std::shared_ptr<Vehicle> buildVehicle(ClientData* builder, const std::vec
 			steeringBrick = &brick;
 		}
 
-		//The steering wheel is part of the body too
+		if (part == VehiclePart_Seat)
+			seatBricks.push_back(&brick);
+
+		//The steering wheel and seats are part of the body too
 		bodyBricks.push_back(&brick);
 	}
 
@@ -85,6 +115,12 @@ static std::shared_ptr<Vehicle> buildVehicle(ClientData* builder, const std::vec
 	if (wheelBricks.size() > Vehicle::maxWheels)
 	{
 		failure = "A vehicle can have at most " + std::to_string(Vehicle::maxWheels) + " wheels.";
+		return nullptr;
+	}
+
+	if (seatBricks.size() > Vehicle::maxSeats)
+	{
+		failure = "A vehicle can have at most " + std::to_string(Vehicle::maxSeats) + " seats.";
 		return nullptr;
 	}
 
@@ -167,6 +203,14 @@ static std::shared_ptr<Vehicle> buildVehicle(ClientData* builder, const std::vec
 	//Standing behind the steering wheel, a little below its middle, like the old game
 	vehicle->seat = steeringBrick->getWorldCenter() - origin + glm::vec3(0, -1, 0) - forward * 2.0f;
 
+	//Passengers stand on top of seat bricks
+	for (const Brick* seatBrick : seatBricks)
+	{
+		PassengerSeat passengerSeat;
+		passengerSeat.top = seatBrick->getWorldCenter() + glm::vec3(0, seatBrick->height * PLATE_SIZE * 0.5f, 0) - origin;
+		vehicle->passengerSeats.push_back(passengerSeat);
+	}
+
 	int dirtType = findEmitterTypeIndex(LUA_pd->vehicleDirtEmitter);
 	vehicle->dirtEmitterType = dirtType == -1 ? Vehicle::noEmitterType : (uint16_t)dirtType;
 
@@ -213,13 +257,15 @@ static std::shared_ptr<Vehicle> buildVehicle(ClientData* builder, const std::vec
 		return nullptr;
 	}
 
-	//Lights and emitters on its bricks come along with it
-	for (const Brick* brick : bodyBricks)
+	//Lights and emitters on its bricks come along with it, and its copies of those bricks know which are theirs, for when they break off
+	for (size_t a = 0; a < bodyBricks.size(); a++)
 	{
+		const Brick* brick = bodyBricks[a];
 		if (!brick->attachments)
 			continue;
 
 		const BrickAttachments& settings = *brick->attachments;
+		BrickAttachments* kept = vehicle->bricks[a].attachments.get();
 		glm::vec3 center = brick->getWorldCenter();
 
 		if (settings.hasLight && LUA_pd->lights)
@@ -230,6 +276,8 @@ static std::shared_ptr<Vehicle> buildVehicle(ClientData* builder, const std::vec
 			light->setSpin(settings.lightSpin);
 			light->attachToVehicle(vehicle, center + settings.lightOffset - origin);
 			vehicle->lightIDs.push_back(light->getID());
+			if (kept)
+				kept->lightID = light->getID();
 		}
 
 		if (!settings.emitterName.empty())
@@ -238,6 +286,8 @@ static std::shared_ptr<Vehicle> buildVehicle(ClientData* builder, const std::vec
 			{
 				emitter->attachToVehicle(vehicle, center - origin);
 				vehicle->emitterIDs.push_back(emitter->getID());
+				if (kept)
+					kept->emitterID = emitter->getID();
 			}
 		}
 	}
@@ -330,12 +380,26 @@ std::shared_ptr<Vehicle> sliceVehicle(ClientData* builder, const glm::ivec3& low
 			LUA_pd->bricks->remove(brick);
 	}
 
+	if (!announceVehicle(vehicle, builder))
+	{
+		failure = "";
+		return nullptr;
+	}
+
 	return vehicle;
 }
 
-bool enterVehicle(ClientData& client, const std::shared_ptr<Vehicle>& vehicle, bool callEvent)
+bool enterVehicle(ClientData& client, const std::shared_ptr<Vehicle>& vehicle, int seat, bool callEvent)
 {
-	if (!LUA_pd || !vehicle || !vehicle->body || vehicle->driverID != NO_ID || !client.vehicle.expired())
+	if (!LUA_pd || !vehicle || !vehicle->body || !client.vehicle.expired())
+		return false;
+
+	bool driving = seat == Vehicle::driverSeat;
+	if (!driving && (seat < 0 || seat >= (int)vehicle->passengerSeats.size()))
+		return false;
+
+	auto seatTaken = [&]() { return driving ? vehicle->driverID != NO_ID : (vehicle->passengerSeats[seat].riderID != NO_ID || vehicle->passengerSeats[seat].broken); };
+	if (seatTaken())
 		return false;
 
 	std::shared_ptr<Dynamic> player = client.controllers.empty() ? nullptr : client.controllers[0].target.lock();
@@ -344,20 +408,31 @@ bool enterVehicle(ClientData& client, const std::shared_ptr<Vehicle>& vehicle, b
 
 	if (callEvent && client.client)
 	{
-		if (vehicleEventVetoed("ClientEnterVehicle", client, vehicle))
+		if (vehicleEventVetoed("ClientEnterVehicle", client, vehicle, seat))
 			return false;
 
 		//Listeners can do plenty in the meantime
-		if (vehicle->driverID != NO_ID || !client.vehicle.expired() || !player->isInWorld() || !LUA_pd->vehicles->find(vehicle->getID()))
+		if (seatTaken() || !client.vehicle.expired() || !player->isInWorld() || !LUA_pd->vehicles->find(vehicle->getID()))
 			return false;
 	}
 
 	player->removeFromWorld();
-	player->body->setWorldTransform(vehicle->getSeatTransform(false));
 
-	vehicle->driverID = player->getID();
-	vehicle->driver = client.me;
+	if (driving)
+	{
+		player->body->setWorldTransform(vehicle->getSeatTransform(false));
+		vehicle->driverID = player->getID();
+		vehicle->driver = client.me;
+	}
+	else
+	{
+		player->body->setWorldTransform(vehicle->getPassengerTransform(seat, *player, player->lookDirection, false));
+		vehicle->passengerSeats[seat].riderID = player->getID();
+		vehicle->passengerSeats[seat].rider = client.me;
+	}
+
 	client.vehicle = vehicle;
+	client.vehicleSeat = seat;
 	vehicle->body->activate();
 
 	if (LUA_server)
@@ -368,15 +443,16 @@ bool enterVehicle(ClientData& client, const std::shared_ptr<Vehicle>& vehicle, b
 	return true;
 }
 
-//Puts a player back into the world standing upright just above a vehicle's seat, going as fast as the vehicle was
-static void letOut(const Vehicle& vehicle, const std::shared_ptr<Dynamic>& player)
+//Puts a player back into the world standing upright, going as fast as the vehicle was: a driver just above the driver's seat, a passenger just above where they stood
+static void letOut(const Vehicle& vehicle, const std::shared_ptr<Dynamic>& player, int seatIndex)
 {
 	if (!player || player->isInWorld())
 		return;
 
-	btTransform seat = vehicle.getSeatTransform(false);
+	bool driving = seatIndex == Vehicle::driverSeat;
+	btTransform seat = driving ? vehicle.getSeatTransform(false) : player->body->getWorldTransform();
 	btVector3 ahead = seat.getBasis() * btVector3(0, 0, -1);
-	btTransform out(btQuaternion(btVector3(0, 1, 0), std::atan2(-ahead.x(), -ahead.z())), seat.getOrigin() + btVector3(0, vehicle.exitHeight, 0));
+	btTransform out(btQuaternion(btVector3(0, 1, 0), std::atan2(-ahead.x(), -ahead.z())), seat.getOrigin() + btVector3(0, driving ? vehicle.exitHeight : Vehicle::passengerExitLift, 0));
 
 	player->returnToWorld(out);
 	if (vehicle.body)
@@ -389,23 +465,39 @@ static void letOut(const Vehicle& vehicle, const std::shared_ptr<Dynamic>& playe
 void exitVehicle(ClientData& client, bool callEvent)
 {
 	std::shared_ptr<Vehicle> vehicle = client.vehicle.lock();
+	int seat = client.vehicleSeat;
 	client.vehicle.reset();
+	client.vehicleSeat = Vehicle::driverSeat;
 	if (!vehicle || !LUA_pd)
 		return;
 
-	std::shared_ptr<Dynamic> player = vehicle->driverID != NO_ID ? LUA_pd->dynamics->find(vehicle->driverID) : nullptr;
+	netIDType playerID = NO_ID;
+	if (seat == Vehicle::driverSeat)
+	{
+		playerID = vehicle->driverID;
+		vehicle->driverID = NO_ID;
+		vehicle->driver.reset();
+		vehicle->park();
+	}
+	else if (seat >= 0 && seat < (int)vehicle->passengerSeats.size())
+	{
+		PassengerSeat& passengerSeat = vehicle->passengerSeats[seat];
+		playerID = passengerSeat.riderID;
+		passengerSeat.riderID = NO_ID;
+		passengerSeat.rider.reset();
+	}
+	else
+		return;
 
-	vehicle->driverID = NO_ID;
-	vehicle->driver.reset();
-	vehicle->park();
+	std::shared_ptr<Dynamic> player = playerID != NO_ID ? LUA_pd->dynamics->find(playerID) : nullptr;
 
 	if (LUA_server)
 		LUA_server->broadcast(vehicle->makeDriverPacket(), OtherReliable);
 
-	letOut(*vehicle, player);
+	letOut(*vehicle, player, seat);
 
 	if (callEvent && client.client)
-		vehicleEventVetoed("ClientExitVehicle", client, vehicle);
+		vehicleEventVetoed("ClientExitVehicle", client, vehicle, seat);
 }
 
 void destroyVehicle(std::shared_ptr<Vehicle> vehicle)
@@ -417,8 +509,21 @@ void destroyVehicle(std::shared_ptr<Vehicle> vehicle)
 		exitVehicle(*driver, false);
 	else if (vehicle->driverID != NO_ID)
 	{
-		letOut(*vehicle, LUA_pd->dynamics->find(vehicle->driverID));
+		letOut(*vehicle, LUA_pd->dynamics->find(vehicle->driverID), Vehicle::driverSeat);
 		vehicle->driverID = NO_ID;
+	}
+
+	for (int a = 0; a < (int)vehicle->passengerSeats.size(); a++)
+	{
+		PassengerSeat& passengerSeat = vehicle->passengerSeats[a];
+		std::shared_ptr<ClientData> rider = passengerSeat.rider.lock();
+		if (rider && rider->vehicle.lock() == vehicle && rider->vehicleSeat == a)
+			exitVehicle(*rider, false);
+		else if (passengerSeat.riderID != NO_ID)
+		{
+			letOut(*vehicle, LUA_pd->dynamics->find(passengerSeat.riderID), a);
+			passengerSeat.riderID = NO_ID;
+		}
 	}
 
 	if (vehicle->musicLoopID != NO_ID)
@@ -615,9 +720,16 @@ bool loadVehicleSave(ClientData* builder, const std::string& data, const glm::iv
 			return false;
 		}
 
+		size_t brickCount = vehicle->bricks.size();
+		if (!announceVehicle(vehicle, builder))
+		{
+			message = "";
+			return false;
+		}
+
 		if (made)
 			*made = vehicle;
-		message = "Loaded a vehicle with " + std::to_string(vehicle->bricks.size()) + " bricks." + missing;
+		message = "Loaded a vehicle with " + std::to_string(brickCount) + " bricks." + missing;
 		return true;
 	}
 
@@ -674,6 +786,177 @@ static std::shared_ptr<Vehicle> plainVehicleMethod(lua_State* L, const std::stri
 		return nullptr;
 	}
 	return vehicleArgument(L, usage);
+}
+
+//A point's distance to a box, 0 inside it
+static float distanceToBox(const glm::vec3& point, const glm::vec3& low, const glm::vec3& high)
+{
+	return glm::distance(point, glm::clamp(point, low, high));
+}
+
+/*
+	Breaks off a destructable vehicle's bricks near enough to an impulse, as if each were hammered, see Physics/RadiusImpulse.h
+	Never its steering wheel, which keeps it a vehicle. Lights and emitters on broken bricks go with them, and anyone on a broken seat gets off
+	Returns how many broke
+*/
+static int breakVehicleBricks(const std::shared_ptr<Vehicle>& vehicle, const glm::vec3& center, float strength, float radius)
+{
+	const btTransform& transform = vehicle->body->getWorldTransform();
+	btQuaternion turn = transform.getRotation();
+	glm::quat rotation(turn.w(), turn.x(), turn.y(), turn.z());
+
+	//Where the impulse is in the space its bricks' positions are in
+	glm::vec3 local = glm::inverse(rotation) * (center - b2g3(transform.getOrigin())) - vehicle->brickOffset;
+
+	std::vector<uint16_t> broken;
+	for (size_t a = 0; a < vehicle->bricks.size(); a++)
+	{
+		const Brick& brick = vehicle->bricks[a];
+		if (partOf(brick) == VehiclePart_Steering)
+			continue;
+
+		glm::vec3 size(brick.footprintWidth() * STUD_SIZE, brick.height * PLATE_SIZE, brick.footprintLength() * STUD_SIZE);
+		glm::vec3 low = brick.getWorldCenter() - size * 0.5f;
+		float distance = distanceToBox(local, low, low + size);
+		if (distance <= radius && impulseBreaksBrick(strength, distance, size.x * size.y * size.z))
+			broken.push_back((uint16_t)a);
+	}
+
+	if (broken.empty())
+		return 0;
+
+	//Riders on broken seats get off first, ClientExitVehicle listeners can do anything, including removing the vehicle
+	for (uint16_t index : broken)
+	{
+		const Brick& brick = vehicle->bricks[index];
+		if (partOf(brick) != VehiclePart_Seat)
+			continue;
+
+		glm::vec3 top = vehicle->brickOffset + brick.getWorldCenter() + glm::vec3(0, brick.height * PLATE_SIZE * 0.5f, 0);
+		for (int s = 0; s < (int)vehicle->passengerSeats.size(); s++)
+		{
+			PassengerSeat& seat = vehicle->passengerSeats[s];
+			if (seat.broken || glm::distance(seat.top, top) > 0.01f)
+				continue;
+
+			seat.broken = true;
+			std::shared_ptr<ClientData> rider = seat.rider.lock();
+			if (rider && rider->vehicle.lock() == vehicle && rider->vehicleSeat == s)
+				exitVehicle(*rider, true);
+			break;
+		}
+	}
+
+	if (!LUA_pd->vehicles->find(vehicle->getID()) || !vehicle->body)
+		return 0;
+
+	for (uint16_t index : broken)
+	{
+		const std::shared_ptr<BrickAttachments>& attachments = vehicle->bricks[index].attachments;
+		if (!attachments)
+			continue;
+
+		if (attachments->lightID != NO_ID)
+		{
+			if (std::shared_ptr<Light> light = LUA_pd->lights->find(attachments->lightID))
+				LUA_pd->lights->destroy(light);
+		}
+
+		if (attachments->emitterID != NO_ID)
+		{
+			if (std::shared_ptr<Emitter> emitter = LUA_pd->emitters->find(attachments->emitterID))
+				LUA_pd->emitters->destroy(emitter);
+		}
+	}
+
+	uint16_t before = (uint16_t)vehicle->bricks.size();
+	vehicle->removeBricks(broken, &LUA_pd->brickTypes);
+
+	if (LUA_server)
+		LUA_server->broadcast(vehicle->makeBricksBrokenPacket(before, broken, center, strength), OtherReliable);
+
+	return (int)broken.size();
+}
+
+static int LUA_radiusImpulse(lua_State* L)
+{
+	scope("(LUA) radiusImpulse");
+
+	const std::string usage = "radiusImpulse(x, y, z, strength)";
+	float values[4];
+	if (lua_gettop(L) != 4 || !readNumbers(L, 1, 4, values, usage))
+	{
+		if (lua_gettop(L) != 4)
+			error("Expected 4 arguments " + usage);
+		lua_settop(L, 0);
+		return 0;
+	}
+	lua_settop(L, 0);
+
+	glm::vec3 center(values[0], values[1], values[2]);
+	float strength = values[3];
+	float radius = impulseRadius(strength);
+
+	int pushed = 0;
+	int brokenBricks = 0;
+
+	//Copies of the lists, since breaking seats fires events that can remove things
+	std::vector<std::shared_ptr<Dynamic>> dynamics;
+	for (unsigned int a = 0; a < LUA_pd->dynamics->size(); a++)
+		dynamics.push_back(LUA_pd->dynamics->get(a));
+
+	std::vector<std::shared_ptr<Vehicle>> vehicles;
+	for (unsigned int a = 0; a < LUA_pd->vehicles->size(); a++)
+		vehicles.push_back(LUA_pd->vehicles->get(a));
+
+	for (const std::shared_ptr<Vehicle>& vehicle : vehicles)
+	{
+		if (!vehicle->body || !LUA_pd->vehicles->find(vehicle->getID()))
+			continue;
+
+		btVector3 low, high;
+		vehicle->body->getAabb(low, high);
+		float distance = distanceToBox(center, b2g3(low), b2g3(high));
+		if (distance > radius)
+			continue;
+
+		if (vehicle->destructable)
+		{
+			brokenBricks += breakVehicleBricks(vehicle, center, strength, radius);
+			if (!vehicle->body || !LUA_pd->vehicles->find(vehicle->getID()))
+				continue;
+		}
+
+		glm::vec3 direction = impulseDirection(center, b2g3(vehicle->body->getCenterOfMassPosition()));
+		vehicle->body->applyCentralImpulse(g2b3(direction * strength * impulseFalloff(distance, radius)));
+		vehicle->body->activate();
+		pushed++;
+	}
+
+	for (const std::shared_ptr<Dynamic>& dynamic : dynamics)
+	{
+		//Carried items and players riding vehicles go wherever what they're on goes
+		if (!LUA_pd->dynamics->find(dynamic->getID()) || !dynamic->isInWorld() || dynamic->isSnappedToCursor() || dynamic->body->getInvMass() <= 0)
+			continue;
+
+		btVector3 low, high;
+		dynamic->body->getAabb(low, high);
+		float distance = distanceToBox(center, b2g3(low), b2g3(high));
+		if (distance > radius)
+			continue;
+
+		//As a velocity, so players moving themselves get it too, like dynamic:setVelocity
+		glm::vec3 direction = impulseDirection(center, b2g3(dynamic->body->getCenterOfMassPosition()));
+		glm::vec3 change = direction * strength * impulseFalloff(distance, radius) * dynamic->body->getInvMass();
+		dynamic->setVelocity(dynamic->getVelocity() + g2b3(change));
+		dynamic->forcePlayerUpdate = true;
+		dynamic->activate();
+		pushed++;
+	}
+
+	lua_pushinteger(L, pushed);
+	lua_pushinteger(L, brokenBricks);
+	return 2;
 }
 
 static int LUA_sliceBricks(lua_State* L)
@@ -1068,6 +1351,82 @@ static int LUA_vehicleGetDriver(lua_State* L)
 	return 1;
 }
 
+static int LUA_vehicleSetDestructable(lua_State* L)
+{
+	scope("(LUA) vehicle:setDestructable");
+
+	if (lua_gettop(L) != 2 || !lua_isboolean(L, 2))
+	{
+		error("Expected vehicle:setDestructable(bool)");
+		lua_settop(L, 0);
+		return 0;
+	}
+
+	bool destructable = lua_toboolean(L, 2);
+	std::shared_ptr<Vehicle> vehicle = vehicleArgument(L, "vehicle:setDestructable(bool)");
+	lua_settop(L, 0);
+	if (vehicle)
+		vehicle->destructable = destructable;
+	return 0;
+}
+
+static int LUA_vehicleIsDestructable(lua_State* L)
+{
+	scope("(LUA) vehicle:isDestructable");
+
+	std::shared_ptr<Vehicle> vehicle = plainVehicleMethod(L, "vehicle:isDestructable()");
+	lua_settop(L, 0);
+	if (!vehicle)
+		return 0;
+
+	lua_pushboolean(L, vehicle->destructable);
+	return 1;
+}
+
+static int LUA_vehicleGetNumSeats(lua_State* L)
+{
+	scope("(LUA) vehicle:getNumSeats");
+
+	std::shared_ptr<Vehicle> vehicle = plainVehicleMethod(L, "vehicle:getNumSeats()");
+	lua_settop(L, 0);
+	if (!vehicle)
+		return 0;
+
+	lua_pushinteger(L, (lua_Integer)vehicle->passengerSeats.size());
+	return 1;
+}
+
+static int LUA_vehicleGetPassenger(lua_State* L)
+{
+	scope("(LUA) vehicle:getPassenger");
+
+	if (lua_gettop(L) != 2 || !lua_isinteger(L, 2))
+	{
+		error("Expected vehicle:getPassenger(seat)");
+		lua_settop(L, 0);
+		return 0;
+	}
+
+	lua_Integer seat = lua_tointeger(L, 2);
+	std::shared_ptr<Vehicle> vehicle = vehicleArgument(L, "vehicle:getPassenger(seat)");
+	lua_settop(L, 0);
+	if (!vehicle)
+		return 0;
+
+	if (seat < 0 || seat >= (lua_Integer)vehicle->passengerSeats.size())
+	{
+		error("Seat out of range in vehicle:getPassenger(seat)");
+		return 0;
+	}
+
+	std::shared_ptr<ClientData> rider = vehicle->passengerSeats[(size_t)seat].rider.lock();
+	if (rider && rider->client)
+		pushClientLua(L, rider->client);
+	else
+		lua_pushnil(L);
+	return 1;
+}
+
 static int LUA_vehicleEjectDriver(lua_State* L)
 {
 	scope("(LUA) vehicle:ejectDriver");
@@ -1201,31 +1560,50 @@ static int LUA_clientGetVehicle(lua_State* L)
 	if (!client)
 		return 0;
 
-	if (std::shared_ptr<Vehicle> vehicle = client->vehicle.lock())
-		LUA_pd->vehicles->pushLua(L, vehicle);
-	else
+	std::shared_ptr<Vehicle> vehicle = client->vehicle.lock();
+	if (!vehicle)
+	{
 		lua_pushnil(L);
-	return 1;
+		return 1;
+	}
+
+	LUA_pd->vehicles->pushLua(L, vehicle);
+	if (client->vehicleSeat == Vehicle::driverSeat)
+		lua_pushnil(L);
+	else
+		lua_pushinteger(L, client->vehicleSeat);
+	return 2;
 }
 
 static int LUA_clientEnterVehicle(lua_State* L)
 {
 	scope("(LUA) client:enterVehicle");
 
-	if (lua_gettop(L) != 2)
+	int args = lua_gettop(L);
+	if ((args != 2 && args != 3) || (args == 3 && !lua_isinteger(L, 3)))
 	{
-		error("Expected 1 argument client:enterVehicle(vehicle)");
+		error("Expected client:enterVehicle(vehicle[, seat])");
 		lua_settop(L, 0);
 		return 0;
 	}
 
+	int seat = Vehicle::driverSeat;
+	bool badSeat = false;
+	if (args == 3)
+	{
+		lua_Integer given = lua_tointeger(L, 3);
+		badSeat = given < 0 || given > (lua_Integer)Vehicle::maxSeats;
+		seat = badSeat ? 0 : (int)given;
+		lua_pop(L, 1);
+	}
+
 	std::shared_ptr<Vehicle> vehicle = LUA_pd->vehicles->popLua(L);
-	std::shared_ptr<ClientData> client = clientOnTop(L, "client:enterVehicle(vehicle)");
+	std::shared_ptr<ClientData> client = clientOnTop(L, "client:enterVehicle(vehicle[, seat])");
 	lua_settop(L, 0);
 	if (!vehicle || !client)
 		return 0;
 
-	lua_pushboolean(L, enterVehicle(*client, vehicle, false));
+	lua_pushboolean(L, !badSeat && enterVehicle(*client, vehicle, seat, false));
 	return 1;
 }
 
@@ -1256,6 +1634,7 @@ luaL_Reg* getVehicleFunctions(lua_State* L)
 	lua_register(L, "getVehicleId", LUA_getVehicleId);
 	lua_register(L, "clearAllVehicles", LUA_clearAllVehicles);
 	lua_register(L, "setVehicleDirtEmitter", LUA_setVehicleDirtEmitter);
+	lua_register(L, "radiusImpulse", LUA_radiusImpulse);
 
 	//Added to the client metatable registerClientFunctions made
 	lua_getglobal(L, "metatable_client");
@@ -1289,6 +1668,10 @@ luaL_Reg* getVehicleFunctions(lua_State* L)
 		{ "setAngularVelocity", LUA_vehicleSetAngularVelocity },
 		{ "setGravity", LUA_vehicleSetGravity },
 		{ "getDriver", LUA_vehicleGetDriver },
+		{ "getNumSeats", LUA_vehicleGetNumSeats },
+		{ "setDestructable", LUA_vehicleSetDestructable },
+		{ "isDestructable", LUA_vehicleIsDestructable },
+		{ "getPassenger", LUA_vehicleGetPassenger },
 		{ "ejectDriver", LUA_vehicleEjectDriver },
 		{ "getBuilder", LUA_vehicleGetBuilder },
 		{ "getBuilderID", LUA_vehicleGetBuilderID },

@@ -39,6 +39,7 @@
 #include "PacketsFromServer/VehicleDriver.h"
 #include "PacketsFromServer/OpenVehicleWrench.h"
 #include "PacketsFromServer/VehicleSaveData.h"
+#include "PacketsFromServer/VehicleBricksBroken.h"
 #include "../GameLoop/ClientProgramData.h"
 #include "../GameLoop/Simulation.h"
 

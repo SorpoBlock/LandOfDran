@@ -290,6 +290,7 @@ EventManager::EventManager(lua_State* L)
     events.push_back(LuaEvent("ClientWrenchVehicle"));
     events.push_back(LuaEvent("ClientLoadVehicle"));
     events.push_back(LuaEvent("ClientRemoveVehicle"));
+    events.push_back(LuaEvent("VehicleCreated"));
 
     lua_register(L, "registerEventListener", registerEventListener);
     lua_register(L, "unregisterEventListener", unregisterEventListener);

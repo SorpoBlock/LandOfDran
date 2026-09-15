@@ -39,7 +39,11 @@ class BrickDebris
 	//From graphics/brickdebrisseconds, 0 turns the effect off and clears any debris already out
 	void setLifetime(float seconds);
 
+	//A brick in the world, popping up from where it was
 	void spawn(const Brick& brick);
+
+	//A brick whose middle is at placement's origin, turned by its rotation (and a special brick by its own angle on top of that), flying off at velocity, like one broken off a vehicle
+	void spawn(const Brick& brick, const btTransform& placement, const btVector3& velocity);
 
 	//Removes pieces that have finished fading out
 	void update(float deltaT);

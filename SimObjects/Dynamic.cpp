@@ -374,10 +374,12 @@ static bool sendsLook(const Dynamic& dynamic)
 bool Dynamic::requiresNetUpdate() //const
 {
 	//Carried items have no position of their own to send, see Item
+	//A player on a vehicle still sends where they look and their grabs, clients stand them on it themselves, see Vehicle
 	if (!inWorld)
 	{
-		flaggedForUpdate = false;
-		return false;
+		bool lookChanged = sendsLook(*this) && glm::dot(lookDirection, lastSentLook) < lookResendCosine;
+		flaggedForUpdate = getKind() == DynamicKind_Plain && getTicksMS() - lastSentTime >= 25 && (lookChanged || oneShotResends > 0);
+		return flaggedForUpdate;
 	}
 
 	if (getTicksMS() - lastSentTime < 25)

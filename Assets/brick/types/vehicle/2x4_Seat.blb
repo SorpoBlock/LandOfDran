@@ -1,0 +1,123 @@
+2 4 1
+SPECIAL
+
+1
+
+0 0 0
+2 4 1
+----------------top quads:
+1
+
+TEX:TOP
+POSITION:
+-1 -2 0.5
+-1 2 0.5
+1 2 0.5
+1 -2 0.5
+UV COORDS:
+0 0
+0 4
+-2 4
+-2 0
+NORMALS:
+0 0 1
+0 0 1
+0 0 1
+0 0 1
+----------------bottom quads:
+1
+
+TEX:BOTTOMLOOP
+POSITION:
+-1 -2 -0.5
+1 -2 -0.5
+1 2 -0.5
+-1 2 -0.5
+UV COORDS:
+0 0
+0 2
+4 2
+4 0
+NORMALS:
+0 0 -1
+0 0 -1
+0 0 -1
+0 0 -1
+----------------north quads:
+1
+
+TEX:SIDE
+POSITION:
+-1 2 0.5
+-1 2 -0.5
+1 2 -0.5
+1 2 0.5
+UV COORDS:
+1 0
+1 1
+0 1
+0 0
+NORMALS:
+0 1 0
+0 1 0
+0 1 0
+0 1 0
+----------------east quads:
+1
+
+TEX:SIDE
+POSITION:
+1 -2 0.5
+1 2 0.5
+1 2 -0.5
+1 -2 -0.5
+UV COORDS:
+0 0
+1 0
+1 1
+0 1
+NORMALS:
+1 0 0
+1 0 0
+1 0 0
+1 0 0
+----------------south quads:
+1
+
+TEX:SIDE
+POSITION:
+1 -2 0.5
+1 -2 -0.5
+-1 -2 -0.5
+-1 -2 0.5
+UV COORDS:
+1 0
+1 1
+0 1
+0 0
+NORMALS:
+0 -1 0
+0 -1 0
+0 -1 0
+0 -1 0
+----------------west quads:
+1
+
+TEX:SIDE
+POSITION:
+-1 -2 -0.5
+-1 2 -0.5
+-1 2 0.5
+-1 -2 0.5
+UV COORDS:
+1 1
+0 1
+0 0
+1 0
+NORMALS:
+-1 0 0
+-1 0 0
+-1 0 0
+-1 0 0
+----------------omni quads:
+0

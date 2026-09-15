@@ -55,18 +55,31 @@ void clickDetails(JoinedClient* source, Server const* const server, ENetPacket c
 		}
 
 		btRigidBody* ignore = client->controlledObjects.empty() ? nullptr : client->controlledObjects[0]->body;
-		btRigidBody* hit = pd->physicsWorld->doRaycast(g2b3(pos), g2b3(pos + glm::normalize(dir) * vehicleReach), ignore);
+		btVector3 hitPosition, hitNormal;
+		btRigidBody* hit = pd->physicsWorld->doRaycast(g2b3(pos), g2b3(pos + glm::normalize(dir) * vehicleReach), ignore, hitPosition, hitNormal);
 		if (std::shared_ptr<Vehicle> vehicle = vehicleFromBody(hit))
 		{
-			if (enterVehicle(*client, vehicle, true))
-				return;
+			//Nobody driving it, they drive, otherwise they stand on the free seat nearest where they clicked
+			if (vehicle->driverID == NO_ID)
+			{
+				if (enterVehicle(*client, vehicle, Vehicle::driverSeat, true))
+					return;
+			}
+			else if (!vehicle->passengerSeats.empty())
+			{
+				int seat = vehicle->findFreeSeat(b2g3(hitPosition));
+				if (seat == -1)
+					source->sendCenterPrint("Every seat on this vehicle is taken.", 2000, 1.0f, 1.0f, 1.0f);
+				else if (enterVehicle(*client, vehicle, seat, true))
+					return;
+			}
 		}
 	}
 	else if (usable && (clickFlags & ClickFlag_LeftPress))
 	{
 		//Left click honks while driving, if Lua registered the old game's Honk sound
 		std::shared_ptr<Vehicle> vehicle = client->vehicle.lock();
-		if (vehicle && vehicle->body && SDL_GetTicks() - client->lastHonkMS > honkCooldownMS)
+		if (vehicle && vehicle->body && client->vehicleSeat == Vehicle::driverSeat && SDL_GetTicks() - client->lastHonkMS > honkCooldownMS)
 		{
 			client->lastHonkMS = SDL_GetTicks();
 			playSoundAt("Honk", b2g3(vehicle->body->getWorldTransform().getOrigin()), 1.0f, 1.0f);

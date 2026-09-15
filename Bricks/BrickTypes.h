@@ -39,7 +39,8 @@ enum VehiclePart : unsigned char
 {
 	VehiclePart_None = 0,		//Just part of the body
 	VehiclePart_Wheel = 1,		//Taken out and replaced by a wheel that rolls along its long side
-	VehiclePart_Steering = 2	//Each vehicle needs exactly one, the driver stands behind it and it drives the way it faces
+	VehiclePart_Steering = 2,	//Each vehicle needs exactly one, the driver stands behind it and it drives the way it faces
+	VehiclePart_Seat = 3		//Part of the body, a passenger stands on it while someone else drives
 };
 
 /*

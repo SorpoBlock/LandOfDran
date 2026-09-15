@@ -177,6 +177,7 @@ enum FromServerPacketType : unsigned char
 	VehicleDriver = 35,		//Which dynamic is driving a vehicle, if any
 	OpenVehicleWrench = 36,	//Open the wrench dialog for a vehicle, with its music, see Interface/WrenchDialog.h
 	VehicleSaveData = 37,	//Part of a vehicle save the client asked for, see VehicleSaveDataPacket
+	VehicleBricksBroken = 38,	//Bricks Lua's radiusImpulse broke off a destructable vehicle, which fly off as debris, see VehicleBricksBrokenPacket
 };
 
 //Flags byte of a PlayerAbilities packet

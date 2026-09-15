@@ -211,6 +211,29 @@ void LoopServer::updateVehicles(float deltaT)
 			}
 		}
 
+		//Same for passengers
+		for (int s = 0; s < (int)vehicle->passengerSeats.size(); s++)
+		{
+			PassengerSeat& seat = vehicle->passengerSeats[s];
+			if (seat.riderID == NO_ID)
+				continue;
+
+			std::shared_ptr<ClientData> rider = seat.rider.lock();
+			std::shared_ptr<Dynamic> player = pd.dynamics->find(seat.riderID);
+			bool onThisSeat = rider && rider->vehicle.lock() == vehicle && rider->vehicleSeat == s;
+			if (onThisSeat && player && !rider->controllers.empty() && rider->controllers[0].target.lock() == player)
+				continue;
+
+			if (onThisSeat)
+				exitVehicle(*rider, true);
+			else
+			{
+				seat.riderID = NO_ID;
+				seat.rider.reset();
+				server->broadcast(vehicle->makeDriverPacket(), OtherReliable);
+			}
+		}
+
 		if (driver)
 		{
 			const PlayerController& keys = driver->controllers[0];
@@ -289,6 +312,15 @@ void LoopServer::updateVehiclesAfterStep()
 				if (!player->isInWorld())
 					player->body->setWorldTransform(vehicle->getSeatTransform(false));
 			}
+		}
+
+		//Passengers turn to face where they look
+		for (int s = 0; s < (int)vehicle->passengerSeats.size(); s++)
+		{
+			netIDType riderID = vehicle->passengerSeats[s].riderID;
+			std::shared_ptr<Dynamic> player = riderID != NO_ID ? pd.dynamics->find(riderID) : nullptr;
+			if (player && !player->isInWorld())
+				player->body->setWorldTransform(vehicle->getPassengerTransform(s, *player, player->lookDirection, false));
 		}
 
 		bool underwater = pd.waterEnabled && position.y() < pd.waterLevel;

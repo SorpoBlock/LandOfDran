@@ -682,7 +682,13 @@ void BrickTypes::load(const std::string& typesFolder)
 
 			//Our own field, Blockland's vehicle bricks were just shapes
 			std::string part = lowercase(field("vehiclepart"));
-			VehiclePart vehiclePart = part == "wheel" ? VehiclePart_Wheel : (part == "steering" ? VehiclePart_Steering : VehiclePart_None);
+			VehiclePart vehiclePart = VehiclePart_None;
+			if (part == "wheel")
+				vehiclePart = VehiclePart_Wheel;
+			else if (part == "steering")
+				vehiclePart = VehiclePart_Steering;
+			else if (part == "seat")
+				vehiclePart = VehiclePart_Seat;
 
 			if (!claimedFiles.insert(blb).second)
 			{

@@ -20,12 +20,12 @@ extern ServerProgramData* LUA_pd;
 std::shared_ptr<Vehicle> sliceVehicle(ClientData* builder, const glm::ivec3& low, const glm::ivec3& high, std::string& failure);
 
 /*
-	Puts the client's player (the target of their first controller) in the vehicle's seat to drive it
-	False if someone's driving it, they're already driving, their player isn't in the world, or with callEvent, a ClientEnterVehicle listener said no
+	Puts the client's player (the target of their first controller) in the vehicle's driver's seat for Vehicle::driverSeat, or on one of its passenger seats
+	False if someone's in that seat, they're already in a vehicle, their player isn't in the world, or with callEvent, a ClientEnterVehicle listener said no
 */
-bool enterVehicle(ClientData& client, const std::shared_ptr<Vehicle>& vehicle, bool callEvent);
+bool enterVehicle(ClientData& client, const std::shared_ptr<Vehicle>& vehicle, int seat, bool callEvent);
 
-//Lets the client's player out of whatever they drive, just above its seat, firing ClientExitVehicle with callEvent
+//Lets the client's player out of whatever they drive or ride, just above where they were, firing ClientExitVehicle with callEvent
 void exitVehicle(ClientData& client, bool callEvent);
 
 //Lets out its driver, removes the lights, emitters, and music loop it has, and destroys it

@@ -259,10 +259,10 @@ btTransform Vehicle::getWheelTransform(int wheel) const
 	return raycastVehicle->getWheelInfo(wheel).m_worldTransform;
 }
 
-btTransform Vehicle::getSeatTransform(bool drawn) const
+void Vehicle::getBodyTransform(bool drawn, glm::vec3& origin, glm::quat& rotation) const
 {
-	glm::vec3 origin = renderedPosition;
-	glm::quat rotation = renderedRotation;
+	origin = renderedPosition;
+	rotation = renderedRotation;
 	if (!drawn && body)
 	{
 		const btTransform& transform = body->getWorldTransform();
@@ -270,11 +270,67 @@ btTransform Vehicle::getSeatTransform(bool drawn) const
 		origin = b2g3(transform.getOrigin());
 		rotation = glm::quat(turn.w(), turn.x(), turn.y(), turn.z());
 	}
+}
+
+btTransform Vehicle::getSeatTransform(bool drawn) const
+{
+	glm::vec3 origin;
+	glm::quat rotation;
+	getBodyTransform(drawn, origin, rotation);
 
 	//Player models face -Z
 	glm::quat facing = rotation * glm::angleAxis(std::atan2(-forward.x, -forward.z), glm::vec3(0, 1, 0));
 	glm::vec3 position = origin + rotation * seat;
 	return btTransform(btQuaternion(facing.x, facing.y, facing.z, facing.w), g2b3(position));
+}
+
+btTransform Vehicle::getPassengerTransform(int seatIndex, const Dynamic& rider, const glm::vec3& look, bool drawn) const
+{
+	if (seatIndex < 0 || seatIndex >= (int)passengerSeats.size())
+		return getSeatTransform(drawn);
+
+	glm::vec3 origin;
+	glm::quat rotation;
+	getBodyTransform(drawn, origin, rotation);
+
+	//Looking straight up or down, they face the way it drives
+	glm::vec3 local = glm::inverse(rotation) * look;
+	local.y = 0.0f;
+	if (glm::length(local) < 0.001f || glm::any(glm::isnan(local)))
+		local = forward;
+
+	//Player models face -Z
+	glm::quat facing = rotation * glm::angleAxis(std::atan2(-local.x, -local.z), glm::vec3(0, 1, 0));
+
+	//The bottom of its collision box on the seat's top
+	std::shared_ptr<Model> model = rider.getType()->getModel();
+	float feetToOrigin = model->getColHalfExtents().y - model->getColOffset().y;
+	glm::vec3 position = origin + rotation * (passengerSeats[seatIndex].top + glm::vec3(0, feetToOrigin, 0));
+
+	return btTransform(btQuaternion(facing.x, facing.y, facing.z, facing.w), g2b3(position));
+}
+
+int Vehicle::findFreeSeat(const glm::vec3& near) const
+{
+	glm::vec3 origin;
+	glm::quat rotation;
+	getBodyTransform(false, origin, rotation);
+
+	int best = -1;
+	float bestDistance = 0.0f;
+	for (int a = 0; a < (int)passengerSeats.size(); a++)
+	{
+		if (passengerSeats[a].riderID != NO_ID || passengerSeats[a].broken)
+			continue;
+
+		float distance = glm::distance2(origin + rotation * passengerSeats[a].top, near);
+		if (best == -1 || distance < bestDistance)
+		{
+			best = a;
+			bestDistance = distance;
+		}
+	}
+	return best;
 }
 
 void Vehicle::finishClient(const BrickTypes* types, InstancedBrickRenderer* _renderer, Model* tireModel)
@@ -306,6 +362,101 @@ void Vehicle::finishClient(const BrickTypes* types, InstancedBrickRenderer* _ren
 		if (tireModel && !wheel.tire)
 			wheel.tire = new ModelInstance(tireModel);
 	}
+}
+
+void Vehicle::removeBricks(std::vector<uint16_t> indices, const BrickTypes* types)
+{
+	//Back to front, so taking one out doesn't move the ones still to go
+	std::sort(indices.begin(), indices.end(), [](uint16_t a, uint16_t b) { return a > b; });
+	indices.erase(std::unique(indices.begin(), indices.end()), indices.end());
+
+	bool removed = false;
+	for (uint16_t index : indices)
+	{
+		if (index >= bricks.size())
+			continue;
+
+		bricks.erase(bricks.begin() + index);
+		removed = true;
+	}
+
+	//A client's count to wait for before drawing it
+	expectedBricks = (unsigned int)bricks.size();
+
+	if (!removed)
+		return;
+
+	btCompoundShape* oldShape = shape;
+	std::vector<btCollisionShape*> oldOwned;
+	oldOwned.swap(ownedShapes);
+	shape = nullptr;
+
+	if (!buildShape(types))
+	{
+		shape = oldShape;
+		ownedShapes.swap(oldOwned);
+	}
+	else
+	{
+		if (body)
+		{
+			//Out and back into the world for the new shape, which would also replace its gravity with the world's
+			btVector3 gravity = body->getGravity();
+			world->removeBody(body);
+			body->setCollisionShape(shape);
+
+			//Like buildServer, one per brick
+			if (raycastVehicle)
+			{
+				int children = shape->getNumChildShapes();
+				std::vector<btScalar> masses(children, steering.mass);
+				btTransform principal;
+				btVector3 inertia;
+				shape->calculatePrincipalAxisTransform(masses.data(), principal, inertia);
+				body->setMassProps((btScalar)children, inertia);
+				body->updateInertiaTensor();
+			}
+
+			world->addBody(body);
+			body->setGravity(gravity);
+			body->activate();
+		}
+
+		delete oldShape;
+		for (btCollisionShape* owned : oldOwned)
+			delete owned;
+	}
+
+	if (renderer && brickGroup != -1)
+	{
+		renderer->removeBrickGroup(brickGroup);
+		brickGroup = renderer->addBrickGroup(bricks);
+	}
+}
+
+ENetPacket* Vehicle::makeBricksBrokenPacket(uint16_t bricksBefore, const std::vector<uint16_t>& indices, const glm::vec3& center, float strength) const
+{
+	//See VehicleBricksBrokenPacket
+	static constexpr size_t headerBytes = 1 + sizeof(netIDType) + sizeof(uint16_t) * 2 + sizeof(float) * 4;
+
+	ENetPacket* packet = enet_packet_create(NULL, headerBytes + indices.size() * sizeof(uint16_t), getFlagsFromChannel(OtherReliable));
+	netIDType id = getID();
+	uint16_t count = (uint16_t)indices.size();
+
+	size_t at = 0;
+	packet->data[at++] = VehicleBricksBroken;
+	memcpy(packet->data + at, &id, sizeof(netIDType));
+	at += sizeof(netIDType);
+	memcpy(packet->data + at, &bricksBefore, sizeof(uint16_t));
+	at += sizeof(uint16_t);
+	memcpy(packet->data + at, &count, sizeof(uint16_t));
+	at += sizeof(uint16_t);
+	memcpy(packet->data + at, &center[0], sizeof(float) * 3);
+	at += sizeof(float) * 3;
+	memcpy(packet->data + at, &strength, sizeof(float));
+	at += sizeof(float);
+	memcpy(packet->data + at, indices.data(), indices.size() * sizeof(uint16_t));
+	return packet;
 }
 
 void Vehicle::updateSnapshot(float deltaT)
@@ -356,22 +507,35 @@ glm::mat4 Vehicle::getDrawnWheelTransform(int wheel) const
 	return glm::translate(renderedPosition + renderedRotation * center) * glm::toMat4(renderedRotation * turn);
 }
 
-void Vehicle::releaseSeated(float idealBufferSize)
+void Vehicle::releaseSeated(int seatIndex, float idealBufferSize)
 {
-	std::shared_ptr<Dynamic> driverDynamic = seated.lock();
-	seated.reset();
-
-	if (!driverDynamic || driverDynamic->isInWorld() || driverDynamic->getKind() != DynamicKind_Plain)
+	bool isDriver = seatIndex == driverSeat;
+	if (!isDriver && (seatIndex < 0 || seatIndex >= (int)passengerSeats.size()))
 		return;
 
-	btTransform transform = driverDynamic->body->getWorldTransform();
-	transform.setOrigin(transform.getOrigin() + btVector3(0, exitHeight, 0));
-	driverDynamic->returnToWorld(transform);
+	std::weak_ptr<Dynamic>& slot = isDriver ? seated : passengerSeats[seatIndex].seated;
+	std::shared_ptr<Dynamic> rider = slot.lock();
+	slot.reset();
+
+	if (!rider || rider->isInWorld() || rider->getKind() != DynamicKind_Plain)
+		return;
+
+	//A driver comes out on top of the vehicle, a passenger just off the seat they stood on
+	btTransform transform = rider->body->getWorldTransform();
+	transform.setOrigin(transform.getOrigin() + btVector3(0, isDriver ? exitHeight : passengerExitLift, 0));
+	rider->returnToWorld(transform);
 
 	//Its snapshots are from wherever it got in, so it doesn't glide back from there
 	btQuaternion turn = transform.getRotation();
-	driverDynamic->interpolator.reset();
-	driverDynamic->interpolator.addSnapshot(b2g3(transform.getOrigin()), glm::quat(turn.w(), turn.x(), turn.y(), turn.z()), idealBufferSize, 0);
+	rider->interpolator.reset();
+	rider->interpolator.addSnapshot(b2g3(transform.getOrigin()), glm::quat(turn.w(), turn.x(), turn.y(), turn.z()), idealBufferSize, 0);
+}
+
+void Vehicle::releaseEveryone(float idealBufferSize)
+{
+	releaseSeated(driverSeat, idealBufferSize);
+	for (int a = 0; a < (int)passengerSeats.size(); a++)
+		releaseSeated(a, idealBufferSize);
 }
 
 unsigned int Vehicle::readCreationBytes(const enet_uint8* src, size_t available)
@@ -379,7 +543,12 @@ unsigned int Vehicle::readCreationBytes(const enet_uint8* src, size_t available)
 	if (available < creationHeaderBytes)
 		return 0;
 
-	unsigned int size = creationHeaderBytes + src[creationHeaderBytes - 1] * wheelCreationBytes;
+	//Then how many passenger seats it has, and each of them
+	unsigned int size = creationHeaderBytes + src[creationHeaderBytes - 1] * wheelCreationBytes + 1;
+	if (available < size)
+		return 0;
+
+	size += src[size - 1] * seatCreationBytes;
 	return available < size ? 0 : size;
 }
 
@@ -421,6 +590,15 @@ void Vehicle::readCreation(const enet_uint8* src)
 		take(&wheel.width, sizeof(float));
 		take(&wheel.settings.suspensionLength, sizeof(float));
 		wheel.suspension = wheel.settings.suspensionLength;
+	}
+
+	passengerSeats.resize(src[at]);
+	at++;
+
+	for (PassengerSeat& passengerSeat : passengerSeats)
+	{
+		take(&passengerSeat.top[0], sizeof(float) * 3);
+		take(&passengerSeat.riderID, sizeof(netIDType));
 	}
 
 	interpolator.addSnapshot(position, rotation, 4, 0);
@@ -479,11 +657,17 @@ std::vector<ENetPacket*> Vehicle::makeBrickPackets() const
 
 ENetPacket* Vehicle::makeDriverPacket() const
 {
-	ENetPacket* packet = enet_packet_create(NULL, 1 + sizeof(netIDType) * 2, getFlagsFromChannel(OtherReliable));
+	//See VehicleDriverPacket
+	static constexpr size_t headerBytes = 1 + sizeof(netIDType) * 2 + 1;
+	ENetPacket* packet = enet_packet_create(NULL, headerBytes + passengerSeats.size() * sizeof(netIDType), getFlagsFromChannel(OtherReliable));
 	netIDType id = getID();
 	packet->data[0] = VehicleDriver;
 	memcpy(packet->data + 1, &id, sizeof(netIDType));
 	memcpy(packet->data + 1 + sizeof(netIDType), &driverID, sizeof(netIDType));
+	packet->data[headerBytes - 1] = (enet_uint8)passengerSeats.size();
+
+	for (size_t a = 0; a < passengerSeats.size(); a++)
+		memcpy(packet->data + headerBytes + a * sizeof(netIDType), &passengerSeats[a].riderID, sizeof(netIDType));
 	return packet;
 }
 
@@ -500,7 +684,7 @@ bool Vehicle::requiresNetUpdate()
 
 unsigned int Vehicle::getCreationPacketBytes() const
 {
-	return creationHeaderBytes + (unsigned int)wheels.size() * wheelCreationBytes;
+	return creationHeaderBytes + (unsigned int)wheels.size() * wheelCreationBytes + 1 + (unsigned int)passengerSeats.size() * seatCreationBytes;
 }
 
 unsigned int Vehicle::getUpdatePacketBytes() const
@@ -545,6 +729,14 @@ void Vehicle::addToCreationPacket(enet_uint8* dest) const
 		put(&wheel.radius, sizeof(float));
 		put(&wheel.width, sizeof(float));
 		put(&wheel.settings.suspensionLength, sizeof(float));
+	}
+
+	dest[at++] = (enet_uint8)passengerSeats.size();
+
+	for (const PassengerSeat& passengerSeat : passengerSeats)
+	{
+		put(&passengerSeat.top[0], sizeof(float) * 3);
+		put(&passengerSeat.riderID, sizeof(netIDType));
 	}
 }
 
