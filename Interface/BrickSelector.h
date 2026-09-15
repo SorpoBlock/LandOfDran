@@ -7,7 +7,7 @@
 #include "../Bricks/BrickTypes.h"
 #include "../Graphics/Texture.h"
 
-//Picks brick sizes to put in the hot bar, and the color to build with
+//Picks brick sizes to put in the hot bar, the color and material to build with are picked in PaintMenu
 class BrickSelector : public Window
 {
 	const BrickTypes* types = nullptr;
@@ -20,18 +20,12 @@ class BrickSelector : public Window
 	bool iconsLoaded = false;
 
 	int customSize[3] = { 2, 3, 4 };
-	glm::vec4 color = glm::vec4(1, 1, 1, 1);
-
-	//A BrickMaterial, int for ImGui::Combo
-	int material = BrickMaterial_None;
 
 	//Only special bricks whose name or category contains this are listed
 	char specialFilter[64] = "";
 
 	//Bricks clicked since the last popPick, oldest first
 	std::vector<HotbarBrick> picks;
-
-	bool colorChanged = false;
 
 	void loadIcons();
 	void pick(int width, int height, int length, const std::string& brickName, Texture* icon, bool special = false);
@@ -46,16 +40,6 @@ class BrickSelector : public Window
 
 	//Takes the oldest brick clicked since the last call, false if there are none
 	bool popPick(HotbarBrick& brick);
-
-	glm::u8vec4 getColor() const;
-	unsigned char getMaterial() const { return (unsigned char)material; }
-
-	//True once after the building color or material is changed in the window
-	bool takeColorChanged();
-
-	//The building color and material are kept in settings as hotbar/color and hotbar/material
-	void save(std::shared_ptr<SettingManager> settings) const;
-	void load(std::shared_ptr<SettingManager> settings);
 
 	//A basic or special type's icon by its name, or the unknown icon, loading icons first if needed
 	Texture* findIcon(const std::string& brickName);

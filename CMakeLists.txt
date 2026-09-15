@@ -323,6 +323,8 @@ add_executable (LandOfDran
 "Interface/BrickHotbar.cpp"
 "Interface/BrickSelector.h"
 "Interface/BrickSelector.cpp"
+"Interface/PaintMenu.h"
+"Interface/PaintMenu.cpp"
 "Networking/PacketsFromClient/PlantBrick.cpp"
 "Networking/PacketsFromClient/VoiceFrame.cpp"
 "Networking/PacketsFromClient/FlashlightRequest.cpp"

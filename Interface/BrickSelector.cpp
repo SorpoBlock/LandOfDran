@@ -1,18 +1,7 @@
 #include "BrickSelector.h"
 
-static constexpr int paletteColumns = 8;
 static constexpr float iconSize = 64.0f;
 static constexpr float cellWidth = 84.0f;
-
-//Same count as the old game's palette, the last row is transparent
-static const glm::vec4 palette[] =
-{
-	{ 1, 1, 1, 1 }, { 0.9, 0.9, 0.9, 1 }, { 0.75, 0.75, 0.75, 1 }, { 0.5, 0.5, 0.5, 1 }, { 0.3, 0.3, 0.3, 1 }, { 0.15, 0.15, 0.15, 1 }, { 0.05, 0.05, 0.05, 1 }, { 0.6, 0.55, 0.5, 1 },
-	{ 0.9, 0, 0, 1 }, { 0.6, 0, 0, 1 }, { 1, 0.4, 0.4, 1 }, { 0.95, 0.45, 0, 1 }, { 1, 0.7, 0.3, 1 }, { 0.9, 0.9, 0, 1 }, { 1, 1, 0.5, 1 }, { 0.75, 0.6, 0.1, 1 },
-	{ 0, 0.5, 0.25, 1 }, { 0, 0.75, 0, 1 }, { 0.4, 0.9, 0.4, 1 }, { 0.2, 0.35, 0.1, 1 }, { 0.55, 0.7, 0.2, 1 }, { 0, 0.6, 0.6, 1 }, { 0.4, 0.9, 0.85, 1 }, { 0.1, 0.3, 0.3, 1 },
-	{ 0.2, 0, 0.8, 1 }, { 0, 0.3, 0.8, 1 }, { 0.4, 0.6, 1, 1 }, { 0, 0.1, 0.35, 1 }, { 0.5, 0.3, 0.8, 1 }, { 0.75, 0.5, 1, 1 }, { 0.8, 0.1, 0.6, 1 }, { 1, 0.6, 0.85, 1 },
-	{ 0.4, 0.25, 0.1, 1 }, { 0.6, 0.4, 0.2, 1 }, { 0.8, 0.65, 0.45, 1 }, { 0.25, 0.15, 0.05, 1 }, { 1, 1, 1, 0.4 }, { 0.6, 0.8, 1, 0.4 }, { 1, 0.3, 0.3, 0.4 }, { 0.3, 1, 0.3, 0.4 }
-};
 
 void BrickSelector::loadIcons()
 {
@@ -53,33 +42,6 @@ bool BrickSelector::popPick(HotbarBrick& brick)
 	brick = picks.front();
 	picks.erase(picks.begin());
 	return true;
-}
-
-glm::u8vec4 BrickSelector::getColor() const
-{
-	return glm::u8vec4(glm::clamp(color, 0.0f, 1.0f) * 255.0f + 0.5f);
-}
-
-bool BrickSelector::takeColorChanged()
-{
-	bool result = colorChanged;
-	colorChanged = false;
-	return result;
-}
-
-void BrickSelector::save(std::shared_ptr<SettingManager> settings) const
-{
-	settings->addColor("hotbar/color", color);
-	settings->addString("hotbar/material", brickMaterialNames[material]);
-}
-
-void BrickSelector::load(std::shared_ptr<SettingManager> settings)
-{
-	//Defaults to white when it's never been saved
-	color = glm::clamp(settings->getColor("hotbar/color"), 0.0f, 1.0f);
-
-	//None when it's never been saved
-	material = std::max(findBrickMaterial(settings->getString("hotbar/material")), 0);
 }
 
 Texture* BrickSelector::findIcon(const std::string& brickName)
@@ -143,7 +105,7 @@ void BrickSelector::renderBasic()
 
 	ImGui::Separator();
 
-	ImGui::TextWrapped("%s", "Click a brick to add it to the hot bar, then press its number key to build with it");
+	ImGui::TextWrapped("%s", "Click a brick to add it to the hot bar, then press its number key to build with it. E picks the paint color and material");
 	ImGui::BeginChild("brickTypes");
 
 	const std::vector<BasicBrickType>& basicTypes = types->getBasicTypes();
@@ -236,33 +198,6 @@ void BrickSelector::render(ImGuiIO* io)
 		ImGui::End();
 		return;
 	}
-
-	ImGui::TextUnformatted("Color");
-	for (int a = 0; a < (int)(sizeof(palette) / sizeof(palette[0])); a++)
-	{
-		ImGui::PushID(a);
-		ImVec4 swatch(palette[a].r, palette[a].g, palette[a].b, palette[a].a);
-		if (ImGui::ColorButton("##palette", swatch, ImGuiColorEditFlags_AlphaPreview, ImVec2(24, 24)))
-		{
-			color = palette[a];
-			colorChanged = true;
-		}
-		ImGui::PopID();
-
-		if ((a + 1) % paletteColumns != 0)
-			ImGui::SameLine();
-	}
-
-	//Only counts as changed once an edit finishes, not every frame of a drag, since changes get saved to file
-	ImGui::ColorEdit4("Custom color", &color[0], ImGuiColorEditFlags_AlphaBar);
-	if (ImGui::IsItemDeactivatedAfterEdit())
-		colorChanged = true;
-
-	//Painted on along with the color
-	if (ImGui::Combo("Material", &material, brickMaterialNames, BrickMaterialCount))
-		colorChanged = true;
-
-	ImGui::Separator();
 
 	if (ImGui::BeginTabBar("brickKinds"))
 	{

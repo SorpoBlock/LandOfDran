@@ -51,7 +51,9 @@ enum InputCommand
     Zoom = 39,
     Flashlight = 40,
     Wrench = 41,
-    EndOfCommands = 42
+    OpenPaintMenu = 42,
+    CustomColor = 43,
+    EndOfCommands = 44
 };
 
 //For user interface

@@ -23,6 +23,7 @@
 #include "../Bricks/BrickTypes.h"
 #include "../Interface/BrickSelector.h"
 #include "../Interface/BrickHotbar.h"
+#include "../Interface/PaintMenu.h"
 #include "../Interface/AppearanceEditor.h"
 #include "../Interface/WrenchDialog.h"
 #include "../Audio/AudioSystem.h"
@@ -70,6 +71,7 @@ struct ClientProgramData
 	GhostBrick ghostBrick;
 	std::shared_ptr<BrickSelector> brickSelector = nullptr;
 	std::shared_ptr<BrickHotbar> brickHotbar = nullptr;
+	std::shared_ptr<PaintMenu> paintMenu = nullptr;
 
 	/*
 		Things the game remembers between launches rather than settings the player picks: last server and name,

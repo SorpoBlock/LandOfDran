@@ -44,6 +44,9 @@ class LoopClient
 	//The mouse goes back to playing the frame the wrench dialog closes
 	bool wrenchDialogWasOpen = false;
 
+	//Same for the custom paint color picker
+	bool colorPickerWasOpen = false;
+
 	//How long Ctrl+undo has been held, and since the last repeated undo, see handleInput
 	float undoHeldMS = 0;
 	float undoSinceRepeatMS = 0;

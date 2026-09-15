@@ -40,6 +40,8 @@ std::string GetInputCommandString(InputCommand command)
         case Zoom: return "Zoom (hold)";
         case Flashlight: return "Flashlight (hold for color)";
         case Wrench: return "Wrench (hold and click)";
+        case OpenPaintMenu: return "Paint Palette / Next Column";
+        case CustomColor: return "Custom Paint Color";
         default: return "Other error";
     }
 }
@@ -101,6 +103,8 @@ InputMap::InputMap(std::shared_ptr<SettingManager> settings)
         bindKey(Flashlight, SDL_SCANCODE_RIGHTBRACKET);
         //Stands in for the wrench item until there's an inventory
         bindKey(Wrench, SDL_SCANCODE_INSERT);
+        bindKey(OpenPaintMenu, SDL_SCANCODE_E);
+        bindKey(CustomColor, SDL_SCANCODE_RSHIFT);
 
         //Number keys 1 through 9 then 0, SDL's scancodes for them are in that order
         for (int a = 0; a < 10; a++)

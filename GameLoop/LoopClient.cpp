@@ -392,9 +392,10 @@ void LoopClient::handleInput(float deltaT, ExecutableArguments& cmdArgs, std::sh
 		}
 		else if (e.type == SDL_MOUSEWHEEL && pd.context->getMouseLocked() && !pd.gui->shouldUnlockMouse())
 		{
-			//Scrolls through hot bar slots while building, like the old game
+			//Moves through the paint palette while it shows, otherwise hot bar slots while building, like the old game
 			int amount = e.wheel.direction == SDL_MOUSEWHEEL_FLIPPED ? -e.wheel.y : e.wheel.y;
-			pd.brickHotbar->scroll(amount);
+			if (!pd.paintMenu->scroll(amount))
+				pd.brickHotbar->scroll(amount);
 		}
 		else if (e.type == SDL_MOUSEBUTTONDOWN && simulation.camera && !pd.gui->shouldUnlockMouse() && cmdArgs.gameState == InGame && !pd.appearanceEditor->isOpen())
 		{
@@ -478,6 +479,10 @@ void LoopClient::handleInput(float deltaT, ExecutableArguments& cmdArgs, std::sh
 	if (wrenchDialogWasOpen && !pd.wrenchDialog->isOpen() && pd.gui->getOpenWindowCount() == 0 && cmdArgs.gameState == InGame)
 		pd.context->setMouseLock(true);
 	wrenchDialogWasOpen = pd.wrenchDialog->isOpen();
+
+	if (colorPickerWasOpen && !pd.paintMenu->isOpen() && pd.gui->getOpenWindowCount() == 0 && cmdArgs.gameState == InGame)
+		pd.context->setMouseLock(true);
+	colorPickerWasOpen = pd.paintMenu->isOpen();
 
 	if (pd.serverBrowser->serverPickReady())
 	{
@@ -593,6 +598,16 @@ void LoopClient::handleInput(float deltaT, ExecutableArguments& cmdArgs, std::sh
 		pd.context->setMouseLock(false);
 	}
 
+	if (pd.input->pollCommand(OpenPaintMenu))
+		pd.paintMenu->pressNextColumn();
+
+	if (pd.input->pollCommand(CustomColor))
+	{
+		pd.paintMenu->toggleCustomColor();
+		if (pd.paintMenu->isOpen())
+			pd.context->setMouseLock(false);
+	}
+
 	HotbarBrick picked;
 	bool slotsChanged = false;
 	while (pd.brickSelector->popPick(picked))
@@ -601,11 +616,11 @@ void LoopClient::handleInput(float deltaT, ExecutableArguments& cmdArgs, std::sh
 		slotsChanged = true;
 	}
 
-	bool colorChanged = pd.brickSelector->takeColorChanged();
+	bool colorChanged = pd.paintMenu->takeChange();
 	if (slotsChanged || colorChanged)
 	{
 		pd.brickHotbar->save(pd.state);
-		pd.brickSelector->save(pd.state);
+		pd.paintMenu->save(pd.state);
 
 		//Written right away rather than on exit, since not every way of quitting saves
 		pd.state->exportToFile(ClientProgramData::stateFilePath);
@@ -653,8 +668,8 @@ void LoopClient::handleInput(float deltaT, ExecutableArguments& cmdArgs, std::sh
 			pd.ghostBrick.hide();
 	}
 
-	pd.ghostBrick.setColor(pd.brickSelector->getColor());
-	pd.ghostBrick.setMaterial(pd.brickSelector->getMaterial());
+	pd.ghostBrick.setColor(pd.paintMenu->getColor());
+	pd.ghostBrick.setMaterial(pd.paintMenu->getMaterial());
 	pd.ghostBrick.update(deltaT, pd.input, simulation.camera->getDirection());
 
 	//Clicks like the old game, if the server registered sounds by these names
@@ -1777,15 +1792,16 @@ LoopClient::LoopClient(ExecutableArguments& cmdArgs, std::shared_ptr<SettingMana
 	pd.chatWindow = pd.gui->createWindow<ChatWindow>();
 	pd.brickSelector = pd.gui->createWindow<BrickSelector>(&pd.brickTypes, pd.textures);
 	pd.brickHotbar = pd.gui->createWindow<BrickHotbar>();
+	pd.paintMenu = pd.gui->createWindow<PaintMenu>(pd.input);
 	pd.appearanceEditor = pd.gui->createWindow<AppearanceEditor>(settings, pd.textures, &pd.faceNames);
 	pd.wrenchDialog = pd.gui->createWindow<WrenchDialog>();
 	//Builds from before the state file kept the hot bar in settings.txt
 	std::shared_ptr<SettingManager> hotbarSource = pd.state;
 	if (!pd.state->getPreference("hotbar/slot1/filled") && settings->getPreference("hotbar/slot1/filled"))
 		hotbarSource = settings;
-	pd.brickSelector->load(hotbarSource);
+	pd.paintMenu->load(hotbarSource);
 	pd.brickHotbar->load(hotbarSource, [this](const std::string& brickName) { return pd.brickSelector->findIcon(brickName); });
-	pd.brickSelector->save(pd.state);
+	pd.paintMenu->save(pd.state);
 	pd.brickHotbar->save(pd.state);
 	pd.state->exportToFile(ClientProgramData::stateFilePath);
 
