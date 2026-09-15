@@ -52,6 +52,9 @@ class LoopServer
 	//Removes emitters whose type's lifetime is up, or whose dynamic or brick is gone
 	void updateEmitters();
 
+	//Fires ProjectileHit for and removes projectiles that touched something, and turns the rest the way they're going, after the physics step
+	void updateProjectiles();
+
 	//Jet flames on players who are jetting and off everyone else, and flashlights turned to where their players look, after controllers run
 	void updatePlayerAbilities();
 

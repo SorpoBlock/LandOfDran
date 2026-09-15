@@ -196,7 +196,7 @@ void getQuaternion(enet_uint8 const* src, glm::quat& quat)
 
 	//Get the raw integer bit values for the smaller 3 components
 	short rawA = (src[0] & 0b00111111) << 4;
-	rawA |= (src[1] >> 6);
+	rawA |= (src[1] >> 4);
 
 	short rawB = (src[1] & 0b00001111) << 6;
 	rawB |= (src[2] >> 2);

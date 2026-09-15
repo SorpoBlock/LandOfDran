@@ -1,0 +1,7 @@
+file	shell.fbx
+Triangulate	true
+FlipUVs	true
+CalcTangentSpace	true
+OptimizeGraph	true
+JoinIdenticalVertices	true
+singlematerial	Assets/dranlauncher/shellMaterial.txt

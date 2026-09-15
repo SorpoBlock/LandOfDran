@@ -30,7 +30,7 @@ class Emitter : public SimObject
 	//Index into ServerProgramData::emitterTypes
 	uint16_t typeID = 0;
 	EmitterAttachKind attachKind = EmitterAttachFixed;
-	//Where it stays while fixed, where it was attached for a dynamic, and where it is in the vehicle's body's space for a vehicle
+	//Where it stays while fixed, how far from the middle of the dynamic (or its mesh) along the dynamic's (or mesh's) own axes for a dynamic, and where it is in the vehicle's body's space for a vehicle
 	glm::vec3 position = glm::vec3(0);
 	//The dynamic's net ID, or the vehicle's
 	netIDType dynamicID = 0;
@@ -83,6 +83,9 @@ class Emitter : public SimObject
 	//Where it is on the vehicle it's attached to, in the vehicle body's space
 	const glm::vec3& getVehicleOffset() const { return position; }
 
+	//How far from the middle of the dynamic or mesh it follows it is, turned with it, see attachToDynamic
+	const glm::vec3& getDynamicOffset() const { return position; }
+
 	//Its color as 0-1 floats
 	glm::vec4 getTint() const { return glm::vec4(color) / 255.0f; }
 
@@ -99,8 +102,8 @@ class Emitter : public SimObject
 
 	void setType(uint16_t _typeID);
 
-	//meshIndex -1 follows the dynamic's position
-	void attachToDynamic(std::shared_ptr<Dynamic> target, int _meshIndex);
+	//meshIndex -1 follows the dynamic's position, offset is in studs along the dynamic's (or mesh's) own axes, so it turns with it
+	void attachToDynamic(std::shared_ptr<Dynamic> target, int _meshIndex, const glm::vec3& offset = glm::vec3(0));
 
 	//Stays put at the brick's position, removed along with the brick, and never for its type's lifetime
 	void attachToBrick(netIDType _brickID, const glm::vec3& brickPosition);

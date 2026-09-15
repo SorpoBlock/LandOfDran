@@ -1,7 +1,7 @@
 --[[
 	Inventory
 
-	Everyone starts with a hammer, a wrench, and a paint can, and can carry up to 5 items. Q slides their items out on the
+	Everyone starts with a hammer, a wrench, a paint can, and a launcher, and can carry up to 5 items. Q slides their items out on the
 	right of the screen and puts the picked one in their hand, the mouse wheel picks another while they're out, and Ctrl+W
 	throws the one in their hand. Left clicking an item on the ground picks it up.
 
@@ -11,6 +11,10 @@
 
 	Holding left mouse with the paint can in hand sprays their paint palette's color where they're looking, painting every
 	brick the crosshair passes over with that color and material.
+
+	Left clicking with the launcher in hand fires a shell toward the crosshair, at most once per LAUNCHER_RELOAD_MS. The shell
+	falls in an arc and bursts on the first thing it touches, the ground included, pushing everything around it away with
+	radiusImpulse.
 
 	Run from serverstart.lua with dofile("Inventory.lua"), after the item types are added.
 ]]
@@ -37,8 +41,24 @@ local THROW_SPEED = 30
 local THROW_START = 2.5
 local THROW_HEIGHT = 1.5
 
+--How fast a launcher shell leaves in studs per second, and how long until the launcher can fire again in milliseconds, about its fire animation's length
+local SHELL_SPEED = 90
+local LAUNCHER_RELOAD_MS = 650
+--How far the crosshair aims a shell, and how far in front of the player and above their position it starts
+local LAUNCHER_AIM_RANGE = 250
+local SHELL_START = 3
+local SHELL_HEIGHT = 1.5
+--The end of the launcher's barrel, from the middle of its Gun mesh along the launcher's own up and forward (-z), in studs
+local MUZZLE_UP = 0.39
+local MUZZLE_FORWARD = -1.15
+--How hard a shell pushes things away where it lands (see radiusImpulse), and how long its fog keeps coming, in milliseconds
+local SHELL_IMPULSE = 140
+local SHELL_FOG_MS = 1000
+--The tag launcher shells get from addProjectile, so ProjectileHit listeners can tell them from other projectiles
+local SHELL_TAG = "launcherShell"
+
 --Item types from serverstart.lua everyone gets as they join, filling their slots in this order
-local STARTING_ITEMS = {"hammer", "wrench", "paintCan"}
+local STARTING_ITEMS = {"hammer", "wrench", "paintCan", "dranLauncher"}
 
 --Net IDs of items giveStartingItems handed out and nobody has thrown yet
 --These are removed instead of dropped when their player leaves, so people coming and going don't leave piles of tools behind
@@ -230,6 +250,91 @@ function toolTick(client)
 	swing.tick = schedule(TOOL_REPEAT_MS, "toolTick", client)
 end
 
+--Client net IDs whose launcher fired too recently to fire again
+launcherReloading = {}
+
+function launcherReloaded(clientID)
+	launcherReloading[clientID] = nil
+end
+
+local function fireLauncher(client, launcher)
+	local player = playerOf(client)
+	local shellType = getDynamicType("launcherShell")
+	if player == nil or shellType == nil or launcherReloading[client:getID()] then
+		return
+	end
+
+	launcherReloading[client:getID()] = true
+	schedule(LAUNCHER_RELOAD_MS, "launcherReloaded", client:getID())
+
+	launcher:playAnimation("fire")
+	launcher:playSound("Launch")
+
+	--A puff out of the end of the barrel
+	local smoke = addEmitter("gunSmokeEmitter")
+	if smoke ~= nil then
+		smoke:attachToDynamic(launcher, "Gun", 0, MUZZLE_UP, MUZZLE_FORWARD)
+	end
+
+	--Toward whatever the crosshair is on, or as far as it reaches
+	local camX, camY, camZ = client:getCameraPosition()
+	local dirX, dirY, dirZ = client:getCameraDirection()
+	local _, aimX, aimY, aimZ = client:getCursorItem(LAUNCHER_AIM_RANGE)
+	if aimX == nil then
+		aimX, aimY, aimZ = camX + dirX * LAUNCHER_AIM_RANGE, camY + dirY * LAUNCHER_AIM_RANGE, camZ + dirZ * LAUNCHER_AIM_RANGE
+	end
+
+	local px, py, pz = player:getPosition()
+	local x, y, z = px + dirX * SHELL_START, py + SHELL_HEIGHT + dirY * SHELL_START, pz + dirZ * SHELL_START
+
+	local toX, toY, toZ = aimX - x, aimY - y, aimZ - z
+	local distance = math.sqrt(toX * toX + toY * toY + toZ * toZ)
+	--What the crosshair is on is right in front of the shell or behind it, like between a third person camera and the player
+	if distance < 1 or toX * dirX + toY * dirY + toZ * dirZ <= 0 then
+		toX, toY, toZ, distance = dirX, dirY, dirZ, 1
+	end
+
+	local velX, velY, velZ = player:getVelocity()
+	velX = velX + toX / distance * SHELL_SPEED
+	velY = velY + toY / distance * SHELL_SPEED
+	velZ = velZ + toZ / distance * SHELL_SPEED
+
+	local shell = addProjectile(shellType, x, y, z, velX, velY, velZ, SHELL_TAG, player)
+	if shell ~= nil then
+		local trail = addEmitter("shellTrailEmitter")
+		if trail ~= nil then
+			trail:attachToDynamic(shell)
+		end
+	end
+end
+
+function removeShellFog(fog)
+	fog:destroy()
+end
+
+--Where a launcher shell lands: a push that knocks people and things away and breaks bricks off destructable vehicles, then smoke and fog
+function launcherShellHit(projectile, hit, x, y, z, tag)
+	if tag ~= SHELL_TAG then
+		return projectile, hit, x, y, z, tag
+	end
+
+	radiusImpulse(x, y, z, SHELL_IMPULSE)
+
+	for i = 1, 3 do
+		addEmitter("hammerExplosionEmitter", x + math.random() * 2 - 1, y + math.random(), z + math.random() * 2 - 1)
+	end
+
+	for i = 1, 2 do
+		local fog = addEmitter("FogEmitterA", x + math.random() * 2 - 1, y + 0.5, z + math.random() * 2 - 1)
+		if fog ~= nil then
+			schedule(SHELL_FOG_MS, "removeShellFog", fog)
+		end
+	end
+
+	return projectile, hit, x, y, z, tag
+end
+registerEventListener("ProjectileHit", "launcherShellHit")
+
 function inventoryClick(client, posX, posY, posZ, dirX, dirY, dirZ, mask)
 	--Left mouse only
 	if (mask & 1) == 0 or playerOf(client) == nil then
@@ -260,6 +365,11 @@ function inventoryClick(client, posX, posY, posZ, dirX, dirY, dirZ, mask)
 		if spraying[client:getID()] == nil then
 			startSpraying(client, held)
 		end
+		return client, posX, posY, posZ, dirX, dirY, dirZ, mask
+	end
+
+	if tool == "dranLauncher" then
+		fireLauncher(client, held)
 		return client, posX, posY, posZ, dirX, dirY, dirZ, mask
 	end
 

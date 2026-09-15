@@ -11,7 +11,7 @@ glm::vec3 Emitter::getPosition() const
 	{
 		std::shared_ptr<Dynamic> target = dynamic.lock();
 		if (target)
-			return b2g3(target->getPosition());
+			return b2g3(target->body->getWorldTransform() * g2b3(position));
 	}
 	else if (attachKind == EmitterAttachVehicle)
 	{
@@ -41,9 +41,9 @@ void Emitter::setType(uint16_t _typeID)
 	updatesLeft = resendCount;
 }
 
-void Emitter::attachToDynamic(std::shared_ptr<Dynamic> target, int _meshIndex)
+void Emitter::attachToDynamic(std::shared_ptr<Dynamic> target, int _meshIndex, const glm::vec3& offset)
 {
-	position = b2g3(target->getPosition());
+	position = offset;
 	attachKind = EmitterAttachDynamic;
 	dynamic = target;
 	vehicle.reset();

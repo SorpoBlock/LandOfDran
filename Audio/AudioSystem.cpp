@@ -46,7 +46,7 @@ static constexpr float underwaterFadeMS = 250.0f;
 
 static const EFXEAXREVERBPROPERTIES underwaterReverb = EFX_REVERB_PRESET_UNDERWATER;
 
-//Where it's drawn, or where its body is if it hasn't been drawn yet (the drawn position starts at the origin and glides over)
+//Where it's drawn, or where its body is if it hasn't been drawn yet
 static glm::vec3 soundPositionOf(const Dynamic& dynamic)
 {
 	return dynamic.renderedTransformInitialized ? dynamic.renderedPosition : b2g3(dynamic.getPosition());

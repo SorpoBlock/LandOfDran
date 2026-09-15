@@ -1663,6 +1663,120 @@ static int LUA_dynamicGetBuoyancy(lua_State* L)
 	return 1;
 }
 
+static int LUA_addProjectile(lua_State* L)
+{
+	scope("(LUA) addProjectile");
+
+	const std::string usage = "addProjectile(typeID, x, y, z, velX, velY, velZ[, tag[, shooter]])";
+
+	int args = lua_gettop(L);
+	if (args < 7 || args > 9)
+	{
+		error("Expected " + usage);
+		lua_settop(L, 0);
+		return 0;
+	}
+
+	for (int a = 1; a <= 7; a++)
+	{
+		if (lua_type(L, a) != LUA_TNUMBER)
+		{
+			error("Expected numbers for the type ID, position, and velocity in " + usage);
+			lua_settop(L, 0);
+			return 0;
+		}
+	}
+
+	std::string tag = "";
+	if (args >= 8 && !lua_isnil(L, 8))
+	{
+		if (lua_type(L, 8) != LUA_TSTRING)
+		{
+			error("Expected a string or nil for the tag in " + usage);
+			lua_settop(L, 0);
+			return 0;
+		}
+		tag = lua_tostring(L, 8);
+	}
+
+	if (!LUA_pd->dynamics)
+	{
+		error("dynamics ObjHolder is null");
+		lua_settop(L, 0);
+		return 0;
+	}
+
+	std::shared_ptr<Dynamic> shooter = nullptr;
+	if (args == 9 && !lua_isnil(L, 9))
+	{
+		shooter = LUA_pd->dynamics->popLua(L);
+		if (!shooter)
+		{
+			error("Invalid shooter passed to " + usage + ", was it deleted already?");
+			lua_settop(L, 0);
+			return 0;
+		}
+	}
+
+	int typeID = lua_tointeger(L, 1);
+	btVector3 position(lua_tonumber(L, 2), lua_tonumber(L, 3), lua_tonumber(L, 4));
+	btVector3 velocity(lua_tonumber(L, 5), lua_tonumber(L, 6), lua_tonumber(L, 7));
+	lua_settop(L, 0);
+
+	if (typeID < 0 || typeID >= LUA_pd->dynamicTypes.size())
+	{
+		error("typeID out of range in " + usage);
+		return 0;
+	}
+
+	std::shared_ptr<Dynamic> projectile = LUA_pd->dynamics->create(LUA_pd->dynamicTypes[typeID], position, btQuaternion::getIdentity());
+	projectile->isProjectile = true;
+	projectile->projectileTag = tag;
+	projectile->setVelocity(velocity);
+	projectile->faceVelocity();
+	projectile->body->setActivationState(DISABLE_DEACTIVATION);
+
+	//Small and fast, so each step sweeps it along the way it moved instead of letting it skip through thin bricks
+	btVector3 low, high;
+	projectile->body->getCollisionShape()->getAabb(btTransform::getIdentity(), low, high);
+	btVector3 halfSize = (high - low) * 0.5;
+	btScalar thinnest = std::min(halfSize.x(), std::min(halfSize.y(), halfSize.z()));
+	projectile->body->setCcdMotionThreshold(thinnest);
+	projectile->body->setCcdSweptSphereRadius(thinnest * 0.8);
+
+	if (shooter && shooter->body)
+	{
+		projectile->body->setIgnoreCollisionCheck(shooter->body, true);
+		projectile->projectileShooter = shooter;
+		projectile->ignoredShooterBody = shooter->body;
+	}
+
+	LUA_pd->dynamics->pushLua(L, projectile);
+	return 1;
+}
+
+static int LUA_dynamicIsProjectile(lua_State* L)
+{
+	scope("(LUA) dynamic:isProjectile");
+
+	if (lua_gettop(L) != 1)
+	{
+		error("Expected 1 argument dynamic:isProjectile()");
+		lua_settop(L, 0);
+		return 0;
+	}
+
+	std::shared_ptr<Dynamic> dynamic = LUA_pd->dynamics->popLua(L);
+	if (!dynamic)
+	{
+		error("Invalid dynamic object passed, was it deleted already?");
+		return 0;
+	}
+
+	lua_pushboolean(L, dynamic->isProjectile);
+	return 1;
+}
+
 static int LUA_dynamicIsItem(lua_State* L)
 {
 	scope("(LUA) dynamic:isItem");
@@ -1696,9 +1810,10 @@ luaL_Reg* getDynamicFunctions(lua_State *L)
 	lua_register(L, "getDynamicType", LUA_getDynamicType);
 	lua_register(L, "addAnimation", LUA_addAnimation);
 	lua_register(L, "raycast", LUA_raycast);
+	lua_register(L, "addProjectile", LUA_addProjectile);
 
 	//Create table of dynamic metatable functions:
-	luaL_Reg* regs = new luaL_Reg[36];
+	luaL_Reg* regs = new luaL_Reg[37];
 
 	int iter = 0;
 	regs[iter++] = { "destroy",     LUA_dynamicDestroy };
@@ -1736,6 +1851,7 @@ luaL_Reg* getDynamicFunctions(lua_State *L)
 	regs[iter++] = { "setBuoyancy", LUA_dynamicSetBuoyancy };
 	regs[iter++] = { "getBuoyancy", LUA_dynamicGetBuoyancy };
 	regs[iter++] = { "isItem", LUA_dynamicIsItem };
+	regs[iter++] = { "isProjectile", LUA_dynamicIsProjectile };
 	regs[iter++] = { NULL, NULL };
 
 	return regs;

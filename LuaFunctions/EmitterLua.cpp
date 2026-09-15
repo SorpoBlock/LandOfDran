@@ -902,10 +902,22 @@ static int LUA_emitterAttachToDynamic(lua_State* L)
 {
 	scope("(LUA) emitter:attachToDynamic");
 
-	const std::string usage = "emitter:attachToDynamic(dynamic[, meshName])";
+	const std::string usage = "emitter:attachToDynamic(dynamic[, meshName][, offsetX, offsetY, offsetZ])";
 
 	int args = lua_gettop(L);
-	if ((args != 2 && args != 3) || (args == 3 && lua_type(L, 3) != LUA_TSTRING))
+	bool hasMesh = args == 3 || args == 6;
+	bool hasOffset = args == 5 || args == 6;
+
+	bool badArguments = args != 2 && args != 3 && args != 5 && args != 6;
+	if (hasMesh && lua_type(L, 3) != LUA_TSTRING)
+		badArguments = true;
+	for (int a = args - 2; hasOffset && a <= args; a++)
+	{
+		if (lua_type(L, a) != LUA_TNUMBER)
+			badArguments = true;
+	}
+
+	if (badArguments)
 	{
 		error("Expected " + usage);
 		lua_settop(L, 0);
@@ -919,7 +931,11 @@ static int LUA_emitterAttachToDynamic(lua_State* L)
 		return 0;
 	}
 
-	std::string meshName = args == 3 ? lua_tostring(L, 3) : "";
+	std::string meshName = hasMesh ? lua_tostring(L, 3) : "";
+
+	glm::vec3 offset(0);
+	if (hasOffset)
+		offset = glm::vec3(lua_tonumber(L, args - 2), lua_tonumber(L, args - 1), lua_tonumber(L, args));
 
 	lua_settop(L, 2);
 	std::shared_ptr<Dynamic> dynamic = LUA_pd->dynamics->popLua(L);
@@ -945,7 +961,7 @@ static int LUA_emitterAttachToDynamic(lua_State* L)
 		}
 	}
 
-	emitter->attachToDynamic(dynamic, meshIndex);
+	emitter->attachToDynamic(dynamic, meshIndex, offset);
 	return 0;
 }
 

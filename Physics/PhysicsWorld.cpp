@@ -86,6 +86,35 @@ std::vector<btRigidBody*> PhysicsWorld::getTouching(const btRigidBody* body) con
   return touching;
 }
 
+btRigidBody* PhysicsWorld::getFirstContact(const btRigidBody* body, btScalar within, btVector3& point) const
+{
+  int numManifolds = dispatcher->getNumManifolds();
+  for (int i = 0; i < numManifolds; i++)
+  {
+    btPersistentManifold* manifold = dispatcher->getManifoldByIndexInternal(i);
+
+    bool bodyIsFirst = manifold->getBody0() == body;
+    if (!bodyIsFirst && manifold->getBody1() != body)
+      continue;
+
+    const btCollisionObject* other = bodyIsFirst ? manifold->getBody1() : manifold->getBody0();
+    if (!other->hasContactResponse())
+      continue;
+
+    for (int c = 0; c < manifold->getNumContacts(); c++)
+    {
+      const btManifoldPoint& contact = manifold->getContactPoint(c);
+      if (contact.getDistance() < within)
+      {
+        point = bodyIsFirst ? contact.getPositionWorldOnB() : contact.getPositionWorldOnA();
+        return (btRigidBody*)other;
+      }
+    }
+  }
+
+  return nullptr;
+}
+
 btRigidBody* PhysicsWorld::boxSweepTest(const btVector3& halfExtents, const btTransform& from, const btTransform& to, btRigidBody* ignore)
 {
     return boxSweep(halfExtents, from, to, ignore).body;

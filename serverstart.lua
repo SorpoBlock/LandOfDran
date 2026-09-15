@@ -22,6 +22,11 @@ wrenchItem = newItemType("wrench","Assets/tools/wrench.txt",0.02,0.02,0.02,"Wren
 setItemHand(wrenchItem,0,-1,0,-20,0,0)
 paintCanItem = newItemType("paintCan","Assets/tools/spraycan.txt",0.02,0.02,0.02,"Paint Can","Assets/tools/icons/paintCanIcon.png")
 setItemHand(paintCanItem,0,0,0,-10,0,0)
+--Fires launcherShell projectiles, see Inventory.lua. Its fire animation is frames 1 to 26 of the model
+dranLauncherItem = newItemType("dranLauncher","Assets/dranlauncher/gun.txt",0.02,0.02,0.02,"Launcher","Assets/dranlauncher/icon.png")
+setItemHand(dranLauncherItem,0,0.2,0.1,0,0,0)
+addAnimation(dranLauncherItem,"fire",0,25,0.04,0,0)
+launcherShell = newDynamicType("launcherShell","Assets/dranlauncher/shell.txt",0.01,0.01,0.01)
 
 --Sounds, with the old game's names and file names. Clients play ClickMove, ClickRotate, Jump, and BrickBreak on their own
 --when the server has sounds by those names. A file that isn't in Assets/sound/ logs an error and is skipped
@@ -45,6 +50,10 @@ newSoundType("HammerHit","Assets/sound/hammerHit.WAV")
 newSoundType("WrenchHit","Assets/sound/wrenchHit.wav")
 newSoundType("WrenchMiss","Assets/sound/wrenchMiss.wav")
 newSoundType("SprayLoop","Assets/sound/sprayLoop.wav")
+--And Launch from a firing launcher
+newSoundType("Launch","Assets/sound/launch.wav")
+--Drivers left click to honk
+newSoundType("Honk","Assets/sound/434878__mickthemicguy__car-honking.wav")
 --Music, which players can put on bricks by holding Insert and clicking one to open the wrench dialog
 newSoundType("After School Special","Assets/music/After_School_Special.wav",true)
 newSoundType("After School Special","Assets/music/analog.wav",true)

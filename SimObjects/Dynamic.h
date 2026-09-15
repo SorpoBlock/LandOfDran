@@ -257,6 +257,20 @@ class Dynamic : public SimObject
 	void updateCursorSnapPosition(const glm::vec3& cameraPosition, const glm::vec3& cameraDirection);
 
 	/*
+		Server only: set by Lua's addProjectile. The first time it touches anything that collides, LoopServer::updateProjectiles
+		fires ProjectileHit with its tag and removes it. Until then it's turned every tick to point its model's +Y the way it's going
+	*/
+	bool isProjectile = false;
+	std::string projectileTag = "";
+
+	//Server only: the dynamic that fired a projectile, which it passes through, and that dynamic's body, so passing through it can be undone once it's gone
+	std::weak_ptr<Dynamic> projectileShooter;
+	btRigidBody* ignoredShooterBody = nullptr;
+
+	//Server only: turns it so its model's +Y points along its velocity, with no spin, unless it's too slow to have a steady heading
+	void faceVelocity();
+
+	/*
 		How hard water pushes this up, as a multiple of its weight when it's all the way under: 0 sinks, 1 hangs in place,
 		more floats with less of it under. Sent to clients so the ones simulating it in water match the server
 	*/

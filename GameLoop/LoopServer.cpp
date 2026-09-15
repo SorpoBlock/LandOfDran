@@ -62,6 +62,7 @@ void LoopServer::run(float deltaT, ExecutableArguments& cmdArgs, std::shared_ptr
 	applyWaterForces(deltaT);
 	pd.physicsWorld->step(deltaT);
 
+	updateProjectiles();
 	updateVehiclesAfterStep();
 	playWaterSounds();
 	updateEmitters();
@@ -430,6 +431,61 @@ void LoopServer::playWaterSounds()
 			playSoundAt("ExitWater", surface, pitch, std::clamp(0.2f + (verticalSpeed - exitSpeed) / 60.0f, 0.2f, 0.7f));
 			dynamic->lastWaterSoundMS = SDL_GetTicks();
 		}
+	}
+}
+
+//How close a projectile has to have come to something to hit it, a little past touching since the step may have already pushed it back out
+static constexpr btScalar projectileHitDistance = 0.05f;
+
+void LoopServer::updateProjectiles()
+{
+	//Copies, since ProjectileHit listeners can make and remove dynamics
+	std::vector<std::shared_ptr<Dynamic>> projectiles;
+	for (unsigned int a = 0; a < pd.dynamics->size(); a++)
+	{
+		std::shared_ptr<Dynamic> dynamic = pd.dynamics->get(a);
+		if (dynamic->isProjectile)
+			projectiles.push_back(dynamic);
+	}
+
+	for (std::shared_ptr<Dynamic>& projectile : projectiles)
+	{
+		//A listener for an earlier hit removed it
+		if (pd.dynamics->find(projectile->getID()) != projectile || !projectile->isInWorld())
+			continue;
+
+		//Its shooter is gone, and a new body could be made where theirs was
+		if (projectile->ignoredShooterBody && projectile->projectileShooter.expired())
+		{
+			projectile->body->setIgnoreCollisionCheck(projectile->ignoredShooterBody, false);
+			projectile->ignoredShooterBody = nullptr;
+		}
+
+		btVector3 point;
+		btRigidBody* hit = pd.physicsWorld->getFirstContact(projectile->body, projectileHitDistance, point);
+		if (!hit)
+		{
+			projectile->faceVelocity();
+			continue;
+		}
+
+		if (pd.eventManager)
+		{
+			lua_State* L = pd.luaState;
+			lua_settop(L, 0);
+			pd.dynamics->pushLua(L, projectile);
+			//nil for the ground
+			pushRaycastResult(L, hit);
+			lua_pushnumber(L, point.x());
+			lua_pushnumber(L, point.y());
+			lua_pushnumber(L, point.z());
+			lua_pushstring(L, projectile->projectileTag.c_str());
+			pd.eventManager->callEvent(L, "ProjectileHit", 6);
+			lua_settop(L, 0);
+		}
+
+		if (pd.dynamics->find(projectile->getID()) == projectile)
+			pd.dynamics->destroy(projectile);
 	}
 }
 

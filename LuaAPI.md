@@ -145,6 +145,7 @@ setSkybox("Assets/ibl/main.hdr")                                  -- lit by a ph
 | `ClientLoadVehicle` | `function(client, brickCount, asVehicle) ... return client, brickCount, asVehicle end` | Fires when a vehicle save a client uploaded from their Saved Vehicles window is about to be placed, with how many bricks it has (wheels included) and whether it's loading as a vehicle or as bricks. Return `client, nil` to stop it, which tells the client nothing. Not fired by `loadVehicleFile`. See [Vehicles](#vehicles). |
 | `ClientRemoveVehicle` | `function(client, vehicle) ... return client, vehicle end` | Fires when a client confirms Remove vehicle in a vehicle's wrench dialog, before it's removed. Return `client, nil` to keep it. Not fired by `vehicle:destroy` or `clearAllVehicles`. |
 | `ClientDropItem` | `function(client, slot) ... return client, slot end` | Fires when a client presses their drop item key with Ctrl (Ctrl+W by default), with the slot their item bar has picked (0-4), whether or not there's an item in it or their items are out. Nothing is dropped unless a listener does it; `Inventory.lua` throws the item in their hand. |
+| `ProjectileHit` | `function(projectile, hit, x, y, z, tag) ... return projectile, hit, x, y, z, tag end` | Fires the first time a projectile from `addProjectile` touches something that collides: a Dynamic, Static, Brick, or Vehicle as `hit`, or `nil` for the ground. `x, y, z` is where on `hit` they touched, and `tag` is the tag it was fired with. It's removed right after its listeners run, unless one already removed it. Return values are ignored. `Inventory.lua` bursts launcher shells here. |
 
 ---
 
@@ -164,6 +165,7 @@ Dynamics are physics-simulated objects (players, projectiles, pickups, etc).
 | `getDynamicType(scriptName)` | string | typeID | Looks up a previously-registered type's ID by its script name. |
 | `addAnimation(typeID, animationName, startFrame, endFrame, speed, fadeInMS, fadeOutMS)` | type to attach the animation to; frame range (the model file's animation ticks, which for an FBX are its frame numbers minus 1); playback speed in ticks per ms; fade in/out durations in ms | none | Adds a named animation clip to a dynamic type. The first animation added to a type is used as its walk cycle. One named `grab` plays on a player whenever its client left clicks in game, for everyone. While several play at once, animations added later play over earlier ones, but only on the parts of the model they actually move (a grab only takes over the arm it swings, the legs keep walking). Players' heads also turn to show where their camera looks, if the model has a node named `Head`. |
 | `raycast(startX, startY, startZ, endX, endY, endZ[, dynamicToIgnore])` | ray start/end points; optionally a Dynamic to exclude from the hit test | hit object, x, y, z, normalX, normalY, normalZ, distance; or `nil` | Casts a ray through the physics world. Returns the Dynamic, Static, or Brick it hit first, then the world position of the hit, the normal of the surface it hit (pointing out of it), and the distance from the start point. If it hit the ground, which has no object, the hit object is `nil` and the rest still follow. Returns just `nil` if it hit nothing. `local hit = raycast(...)` still works if you only need the object. |
+| `addProjectile(typeID, x, y, z, velX, velY, velZ[, tag[, shooter]])` | dynamic type ID; position; velocity in studs per second; any string, `""` by default, or `nil`; a Dynamic, or `nil` | Dynamic | Fires a dynamic that falls with gravity and is turned every tick so its model's +Y points the way it's going (while faster than 8 studs a second). It never falls asleep, and is swept along each physics step so it doesn't skip through thin bricks. It passes through `shooter`, usually the player who fired it. The first time it touches anything that collides, the ground included, `ProjectileHit` fires with `tag` and it's removed. Bricks and statics with collision off don't count. |
 
 ### `dynamic:` methods
 
@@ -205,6 +207,7 @@ Dynamics are physics-simulated objects (players, projectiles, pickups, etc).
 | `dynamic:setBuoyancy(buoyancy)` | 0-10, clamped; default 1.3 | none | How hard water pushes the dynamic up, as a multiple of its weight when it's fully under. `0` sinks (slowed by drag), `1` hangs wherever it is, higher values float with less of it under. Sent to clients too, since they simulate the dynamics they control (players) in water themselves. A swimming player holds their depth while moving, so buoyancy only decides whether they sink or float up while they aren't swimming. |
 | `dynamic:getBuoyancy()` | none | number | Current buoyancy. |
 | `dynamic:isItem()` | none | bool | Whether it's an item, which has the `item:` methods below too. |
+| `dynamic:isProjectile()` | none | bool | Whether `addProjectile` made it. |
 
 ---
 
@@ -227,8 +230,8 @@ wheel picks another slot while their items are out. Pressing Q again, or a brick
 carried item is held by the first dynamic `client:setDefaultController` gave its client, and isn't drawn anywhere
 without one. Pressing Ctrl+W fires `ClientDropItem`, and letting go of a mouse button fires `ClientClickRelease`.
 
-`Inventory.lua`, run from `serverstart.lua`, gives every player who joins the `hammer`, `wrench`, and `paintCan` item
-types `serverstart.lua` adds, and removes those when they leave (other items they carry are dropped). Left clicking an
+`Inventory.lua`, run from `serverstart.lua`, gives every player who joins the `hammer`, `wrench`, `paintCan`, and
+`dranLauncher` item types `serverstart.lua` adds, and removes those when they leave (other items they carry are dropped). Left clicking an
 item on the ground within 10 studs picks it up into the first empty slot. Holding left mouse with the hammer or wrench
 in hand swings it, hitting right away and then about once a second for as long as it's held, except the wrench stops once
 it opens a dialog. The hammer knocks loose a brick it's clicked on (`brick:remove(true)`), and the wrench opens the
@@ -237,6 +240,10 @@ brick's wrench dialog, playing `WrenchHit`. Hitting anything else within reach, 
 `hammerExplosionEmitter`, or the wrench's) where it hit. Holding left mouse with the paint can sprays a `paintEmitter` stream in the player's paint color from
 the can to what they look at, with the `SprayLoop` sound, and paints every brick within 13 studs the crosshair passes
 over with their paint color and material (`client:getPaintColor`, `client:getPaintMaterial`), checking about every 30 ms.
+Left clicking with the launcher in hand plays its `fire` animation and the `Launch` sound, puts a `gunSmokeEmitter` at the
+end of its barrel, and fires a `launcherShell` (`addProjectile`, tagged `"launcherShell"`) at 90 studs a second toward
+whatever the crosshair is on, trailing a `shellTrailEmitter`, at most once every 650 ms. Where a shell lands it makes a
+`radiusImpulse` of 140, three `hammerExplosionEmitter` puffs, and two `FogEmitterA` that stop after a second.
 Ctrl+W throws the item in hand the way the player looks.
 
 ### Global functions
@@ -448,7 +455,7 @@ These use the strict argument count check.
 | `emitter:setPosition(x, y, z)` | position | none | Moves it there, no longer following a dynamic or on a brick. |
 | `emitter:getTypeName()` | none | string | Its emitter type's name. |
 | `emitter:setType(typeName)` | emitter type name | none | Switches it to another emitter type. |
-| `emitter:attachToDynamic(dynamic[, meshName])` | dynamic; name of one of its model's meshes | none | Follows the dynamic, or the middle of that mesh as it animates, ejecting particles turned the way the dynamic (or mesh) is turned. Removed along with the dynamic. |
+| `emitter:attachToDynamic(dynamic[, meshName][, offsetX, offsetY, offsetZ])` | dynamic; name of one of its model's meshes; studs along the dynamic's (or mesh's) own x, y, and z axes | none | Follows the dynamic, or the middle of that mesh as it animates, ejecting particles turned the way the dynamic (or mesh) is turned. An offset moves it that far from the middle, turning with it, like to the end of a gun's barrel. Removed along with the dynamic. |
 | `emitter:attachToBrick(brick)` | brick, or `nil` | none | Moves it to the middle of the brick, and it's removed along with the brick instead of after its type's `lifetimeMS`. `nil` leaves it where it is, no longer on or following anything. |
 | `emitter:setColor(r, g, b[, a])` | 0-1, clamped; `a` defaults to 1 | none | Multiplies its particles' colors and opacity by this, white by default. Only sent to clients if it changed, so it's cheap to call often. Particles already out keep the color they left with. |
 | `emitter:getColor()` | none | r, g, b, a | Its color. |
@@ -702,8 +709,8 @@ console), and `BrickClear` (played to everyone when someone types `/clearbricks`
 all of their own bricks). It also registers `Splash` and `ExitWater`, which the server plays by
 name where dynamics hit or leave the water, louder the faster they're moving and lower pitched
 the bigger they are, and `LightOn` and `LightOff`, which the server plays from a player whose
-flashlight turns on or off. `Inventory.lua` plays `HammerHit`, `WrenchHit`, and `WrenchMiss` where tools hit, and loops
-`SprayLoop` from a spraying paint can.
+flashlight turns on or off. `Inventory.lua` plays `HammerHit`, `WrenchHit`, and `WrenchMiss` where tools hit, loops
+`SprayLoop` from a spraying paint can, and plays `Launch` from a firing launcher. `Honk` is what drivers play with left click.
 
 In the functions below, `pitch` is a playback speed multiplier (default `1`, clamped to 0.05-10)
 and `volume` is 0-1 (default `1`). They can only be given together.

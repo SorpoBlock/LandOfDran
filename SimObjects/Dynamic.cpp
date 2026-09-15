@@ -257,6 +257,21 @@ void Dynamic::setAngularVelocity(const btVector3& vel)
 	body->setAngularVelocity(vel);
 }
 
+//Slower than this in studs per second, a projectile's heading wobbles too much to turn it to, like the old game
+static constexpr btScalar projectileTurnMinSpeed = 8.0f;
+
+void Dynamic::faceVelocity()
+{
+	btVector3 velocity = body->getLinearVelocity();
+	if (velocity.length() < projectileTurnMinSpeed)
+		return;
+
+	btTransform transform = body->getWorldTransform();
+	transform.setRotation(shortestArcQuat(btVector3(0, 1, 0), velocity.normalized()));
+	body->setWorldTransform(transform);
+	body->setAngularVelocity(btVector3(0, 0, 0));
+}
+
 btVector3 Dynamic::getVelocity() const
 {
 	return body->getLinearVelocity();

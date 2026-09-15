@@ -1,0 +1,5 @@
+albedo	DefaultMaterial_albedo.jpg
+normal	DefaultMaterial_normal.png
+roughness	DefaultMaterial_roughness.jpg
+metalness	DefaultMaterial_metallic.jpg
+occlusion	DefaultMaterial_AO.jpg

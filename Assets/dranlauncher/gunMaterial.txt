@@ -1,0 +1,3 @@
+albedo	Plastic017B_1K_Color.png
+normal	Plastic017B_1K_NormalGL.png
+roughness	Plastic017B_1K_Roughness.png

@@ -1594,8 +1594,8 @@ void LoopClient::updateParticles()
 					continue;
 				}
 
-				position = target->getMeshCenter(emitter->getMeshIndex());
 				rotation = target->getMeshRotation(emitter->getMeshIndex());
+				position = target->getMeshCenter(emitter->getMeshIndex()) + rotation * emitter->getDynamicOffset();
 				velocity = b2g3(target->getVelocity());
 			}
 			else if (emitter->getAttachKind() == EmitterAttachVehicle)

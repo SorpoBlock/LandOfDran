@@ -84,9 +84,14 @@ glm::vec3 Interpolator::getPosition()
 			float timePast = curTime - snapshots[a].time;
 			float progress = timePast / timeBetween;
 
-			return lerp(snapshots[a].position, snapshots[a + 1].position, progress); 
+			return lerp(snapshots[a].position, snapshots[a + 1].position, progress);
 		}
 	}
+
+	//Every snapshot is still ahead, like the one a dynamic is made with, which is timed right now
+	//Waiting at the first one keeps something new from being drawn at the origin and gliding over to where it really is
+	if (!snapshots.empty())
+		return snapshots[0].position;
 
 	return glm::vec3(0, 0, 0);
 }
@@ -113,7 +118,10 @@ glm::quat Interpolator::getRotation()
 		}
 	}
 
-	//std::cout<<"No snapshots to interpolate between\n";
+	//Same as getPosition
+	if (!snapshots.empty())
+		return snapshots[0].rotation;
+
 	return glm::quat(1, 0, 0, 0);
 }
 
