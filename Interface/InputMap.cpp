@@ -16,7 +16,7 @@ std::string GetInputCommandString(InputCommand command)
         case MouseLock: return "Toggle Mouse Lock";
         case OpenOptionsMenu: return "Open Settings";
         case OpenDebugWindow: return "Open Debug Window";
-        case OpenChatWindow: return "Open Chat Window";
+        case OpenChatWindow: return "Chat";
         case FirstThirdPerson: return "Switch 1st/3rd person";
         case Jump: return "Jump";
         case DebugView: return "Debug View";
@@ -79,7 +79,7 @@ InputMap::InputMap(std::shared_ptr<SettingManager> settings)
         bindKey(MouseLock, SDL_SCANCODE_M);
         bindKey(OpenOptionsMenu, SDL_SCANCODE_O);
         bindKey(OpenDebugWindow, SDL_SCANCODE_GRAVE);
-        bindKey(OpenChatWindow, SDL_SCANCODE_C);
+        bindKey(OpenChatWindow, SDL_SCANCODE_T);
         bindKey(FirstThirdPerson, SDL_SCANCODE_TAB);
         bindKey(Jump, SDL_SCANCODE_SPACE);
         bindKey(DebugView, SDL_SCANCODE_F2);
@@ -130,6 +130,10 @@ InputMap::InputMap(std::shared_ptr<SettingManager> settings)
 
             keyForCommand[a] = (SDL_Scancode)settings->getInt("keybinds/" + std::to_string(a));
         }
+
+        //Chat used to open its window with C by default, and every bind gets saved, so a saved C is the old default rather than a choice
+        if (keyForCommand[OpenChatWindow] == SDL_SCANCODE_C)
+            keyForCommand[OpenChatWindow] = SDL_SCANCODE_T;
 
         for (unsigned int a = 1; a < InputCommand::EndOfCommands; a++)
             settings->addInt("keybinds/" + std::to_string(a), keyForCommand[a]);

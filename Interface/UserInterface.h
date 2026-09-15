@@ -44,6 +44,9 @@ class Window
 	virtual void handleInput(SDL_Event& e, std::shared_ptr<InputMap> input) = 0;
 	//Is window currently open and being rendered
 	bool opened = false;
+
+	//Part of the HUD while it's open, like chat: it isn't counted by getOpenWindowCount or closed by closeOneWindow, so it never keeps the mouse unlocked
+	bool hudWindow = false;
 	 
 	//The instance that owns this Window
 	UserInterface* userInterface = nullptr;
@@ -105,7 +108,7 @@ class UserInterface
 
 	bool wantsSuppression() const;
 
-	//How many windows are currently open
+	//How many windows are currently open, not counting HUD windows like chat
 	int getOpenWindowCount() const;
 
 	/*
@@ -140,6 +143,9 @@ class UserInterface
 
 	//If mouselock should be forced on
 	bool shouldUnlockMouse() const;
+
+	//While the game has the mouse, ImGui ignores it: the hidden cursor still wanders the window, and over a HUD window like chat it would eat clicks and the wheel
+	void setMouseCaptured(bool captured);
 
 	//Trigged if you hit escape, ideally, do it again and again until all windows are closed
 	void closeOneWindow();

@@ -103,7 +103,9 @@ void BrickSelector::renderBasic()
 		pick(customSize[0], customSize[1], customSize[2], sizeName, unknownIcon);
 	}
 
+	ImGui::Spacing();
 	ImGui::Separator();
+	ImGui::Spacing();
 
 	ImGui::TextWrapped("%s", "Click a brick to add it to the hot bar, then press its number key to build with it. E picks the paint color and material");
 	ImGui::BeginChild("brickTypes");
@@ -157,6 +159,10 @@ void BrickSelector::renderSpecial()
 		if (shown.empty())
 			continue;
 
+		//A blank line between categories, but not above the first
+		if (ImGui::GetCursorPosY() > ImGui::GetCursorStartPos().y)
+			ImGui::NewLine();
+
 		//Open while searching so matches can be seen
 		ImGui::SetNextItemOpen(true, filter.empty() ? ImGuiCond_Once : ImGuiCond_Always);
 		std::string heading = category + " (" + std::to_string(shown.size()) + ")###" + category;
@@ -170,6 +176,10 @@ void BrickSelector::renderSpecial()
 			const SpecialBrickType* type = types->getSpecial((int)a);
 			if (type->subCategory != subCategory)
 			{
+				//A blank line after the previous sub category's icons
+				if (a != shown.front())
+					ImGui::NewLine();
+
 				subCategory = type->subCategory;
 				column = 0;
 				if (!subCategory.empty())

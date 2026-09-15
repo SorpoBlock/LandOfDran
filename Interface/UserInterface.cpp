@@ -120,11 +120,19 @@ bool UserInterface::shouldUnlockMouse() const
 	return io->WantCaptureMouse;
 }
 
+void UserInterface::setMouseCaptured(bool captured)
+{
+	if (captured)
+		io->ConfigFlags |= ImGuiConfigFlags_NoMouse;
+	else
+		io->ConfigFlags &= ~ImGuiConfigFlags_NoMouse;
+}
+
 int UserInterface::getOpenWindowCount() const
 {
 	int ret = 0;
 	for (unsigned int a = 0; a < windows.size(); a++)
-		if (windows[a]->opened)
+		if (windows[a]->opened && !windows[a]->hudWindow)
 			ret++;
 	return ret;
 }
@@ -134,7 +142,7 @@ void UserInterface::closeOneWindow()
 {
 	for (unsigned int a = 0; a < windows.size(); a++)
 	{
-		if (windows[a]->opened)
+		if (windows[a]->opened && !windows[a]->hudWindow)
 		{
 			windows[a]->opened = false;
 			return;
@@ -200,13 +208,7 @@ bool UserInterface::handleInput(SDL_Event& e,std::shared_ptr<InputMap> input)
 		return true;
 	}
 
-	if(e.key.keysym.scancode == input->getKeyBind(OpenChatWindow))
-	{
-		auto tmp = getWindowByName("Chat Window");
-		if (tmp)
-			tmp->open();
-		return true;
-	}
+	//The chat key is ChatWindow's own, see ChatWindow::handleInput
 
 	return false;
 }

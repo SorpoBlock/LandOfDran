@@ -32,6 +32,14 @@ static std::string trimmedSaveName(const std::string& name)
 	return name.substr(start, name.find_last_not_of(" \t") - start + 1);
 }
 
+//A collapsing header with a blank line above it, unless it's the first thing in the settings
+static bool sectionHeader(const char* label)
+{
+	if (ImGui::GetCursorPosY() > ImGui::GetCursorStartPos().y)
+		ImGui::NewLine();
+	return ImGui::CollapsingHeader(label, ImGuiTreeNodeFlags_DefaultOpen);
+}
+
 static void tooltip(const char* text)
 {
 	if (ImGui::IsItemHovered())
@@ -175,7 +183,7 @@ void WrenchDialog::render(ImGuiIO* io)
 		tooltip("For scripts to find it by");
 	}
 
-	if (editing.part == VehiclePart_Wheel && ImGui::CollapsingHeader("Wheel", ImGuiTreeNodeFlags_DefaultOpen))
+	if (editing.part == VehiclePart_Wheel && sectionHeader("Wheel"))
 	{
 		WheelSettings& wheel = settings.wheel;
 		ImGui::TextDisabled("Used once its bricks are sliced into a vehicle");
@@ -210,7 +218,7 @@ void WrenchDialog::render(ImGuiIO* io)
 		tooltip("How much cornering tips the vehicle over. Lower is steadier");
 	}
 
-	if (editing.part == VehiclePart_Steering && ImGui::CollapsingHeader("Vehicle", ImGuiTreeNodeFlags_DefaultOpen))
+	if (editing.part == VehiclePart_Steering && sectionHeader("Vehicle"))
 	{
 		SteeringSettings& steering = settings.steering;
 		ImGui::TextDisabled("Used once its bricks are sliced into a vehicle");
@@ -225,7 +233,7 @@ void WrenchDialog::render(ImGuiIO* io)
 		tooltip("Off, it turns around a point down near its wheels, which keeps it from flipping. On, around the middle of its bricks");
 	}
 
-	if (ImGui::CollapsingHeader("Music", ImGuiTreeNodeFlags_DefaultOpen))
+	if (sectionHeader("Music"))
 	{
 		if (musicNames.empty())
 			ImGui::TextDisabled("The server has no music");
@@ -242,7 +250,7 @@ void WrenchDialog::render(ImGuiIO* io)
 		}
 	}
 
-	if (!forVehicle && ImGui::CollapsingHeader("Light", ImGuiTreeNodeFlags_DefaultOpen))
+	if (!forVehicle && sectionHeader("Light"))
 	{
 		ImGui::Checkbox("Has light", &settings.hasLight);
 
@@ -288,7 +296,7 @@ void WrenchDialog::render(ImGuiIO* io)
 		}
 	}
 
-	if (!forVehicle && ImGui::CollapsingHeader("Emitter", ImGuiTreeNodeFlags_DefaultOpen))
+	if (!forVehicle && sectionHeader("Emitter"))
 	{
 		if (emitterNames.empty())
 			ImGui::TextDisabled("The server has no emitters");
@@ -296,7 +304,7 @@ void WrenchDialog::render(ImGuiIO* io)
 			nameCombo("Type##Emitter", settings.emitterName, emitterNames);
 	}
 
-	if (forVehicle && ImGui::CollapsingHeader("Save", ImGuiTreeNodeFlags_DefaultOpen))
+	if (forVehicle && sectionHeader("Save"))
 	{
 		ImGui::InputText("File name", &saveName);
 		tooltip("Saved to Saves/Vehicles on your computer, load it again from the Vehicles window");

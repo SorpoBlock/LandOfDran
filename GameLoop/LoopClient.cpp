@@ -667,8 +667,11 @@ void LoopClient::handleInput(float deltaT, ExecutableArguments& cmdArgs, std::sh
 			//By having one or more guis open, which defeats the purpose of a quick gui close key
 			if (e.key.keysym.sym == SDLK_ESCAPE)
 			{
+				//Escape while typing a chat message only cancels it
+				if (pd.chatWindow->isTyping())
+					pd.chatWindow->stopTyping(true);
 				//A saved vehicle being placed or a vehicle selection box is put away before anything opens
-				if (pd.vehicleGhost.isActive() && pd.gui->getOpenWindowCount() == 0)
+				else if (pd.vehicleGhost.isActive() && pd.gui->getOpenWindowCount() == 0)
 					pd.vehicleGhost.cancel();
 				else if (pd.selectionBox.isActive() && pd.gui->getOpenWindowCount() == 0)
 					pd.selectionBox.cancel();
@@ -949,7 +952,7 @@ void LoopClient::handleInput(float deltaT, ExecutableArguments& cmdArgs, std::sh
 
 		case OpenChat:
 		{
-			pd.chatWindow->open();
+			pd.chatWindow->startTyping();
 			break;
 		}
 
@@ -2155,6 +2158,7 @@ void LoopClient::renderEverything(float deltaT)
 	pd.gui->voiceSpeakers = pd.voice->getSpeaking();
 	pd.gui->voiceLevel = pd.voice->getInputLevel();
 	pd.gui->voiceClipping = pd.voice->isClipping();
+	pd.gui->setMouseCaptured(pd.context->getMouseLocked());
 	pd.gui->render(pd.context->getResolution().x, pd.context->getResolution().y,crossHair,hudLines);
 
 	//End frame
@@ -2329,7 +2333,9 @@ void LoopClient::run(float deltaT,ExecutableArguments& cmdArgs, std::shared_ptr<
 		pd.serverBrowser->setConnectionNote("");
 		pd.serverBrowser->close();
 
+		//Chat is part of the HUD rather than a window that holds the mouse, so playing starts with the mouse captured
 		pd.chatWindow->open();
+		pd.context->setMouseLock(true);
 	}
 
 	//All signals from packets processed for this frame, reset flags
