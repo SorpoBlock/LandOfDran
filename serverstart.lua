@@ -47,6 +47,13 @@ newSoundType("WrenchMiss","Assets/sound/wrenchMiss.wav")
 newSoundType("SprayLoop","Assets/sound/sprayLoop.wav")
 --Music, which players can put on bricks by holding Insert and clicking one to open the wrench dialog
 newSoundType("After School Special","Assets/music/After_School_Special.wav",true)
+newSoundType("After School Special","Assets/music/analog.wav",true)
+newSoundType("DJGriffen - Euphoria","Assets/music/djgriffinEuphoria.wav",true)
+newSoundType("Drums","Assets/music/drums.wav",true)
+newSoundType("Police Siren","Assets/music/policeSiren.wav",true)
+newSoundType("Spring Birds","Assets/music/springBirds.wav",true)
+newSoundType("Vehicle Hover","Assets/music/vehicleHover.wav",true)
+newSoundType("Zero Day","Assets/music/zerodaywip.wav",true)
 
 --Particle and emitter types, including the splash the server makes where dynamics fall into the water
 dofile("EmitterDefaults.lua")

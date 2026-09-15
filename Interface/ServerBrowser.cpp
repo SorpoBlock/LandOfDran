@@ -52,6 +52,14 @@ void ServerBrowser::render(ImGuiIO* io)
 	if (ImGui::InputText("Username", userNameBuffer, 256, ImGuiInputTextFlags_EnterReturnsTrue))
 		serverPicked = true; //Hit enter while this text box is selected
 
+	//Buttons sit in two equal columns spanning the input boxes above, so both rows line up
+	ImGuiStyle& style = ImGui::GetStyle();
+	float minButtonWidth = ImGui::CalcTextSize("Start Server").x + style.FramePadding.x * 2.0f;
+	float buttonWidth = (ImGui::CalcItemWidth() - style.ItemSpacing.x) * 0.5f;
+	if (buttonWidth < minButtonWidth)
+		buttonWidth = minButtonWidth;
+	ImVec2 buttonSize(buttonWidth, 0);
+
 	bool inputOkay = true;
 
 	//I assume 7 characters is the absolute min for an ip for example 1.1.1.1
@@ -69,7 +77,7 @@ void ServerBrowser::render(ImGuiIO* io)
 		serverPicked = false;
 		ImGui::BeginDisabled();
 	}
-	if (ImGui::Button("Join Server"))
+	if (ImGui::Button("Join Server", buttonSize))
 		serverPicked = true;
 	if(!inputOkay)
 		ImGui::EndDisabled();
@@ -79,17 +87,17 @@ void ServerBrowser::render(ImGuiIO* io)
 	bool nameOkay = userName.length() >= 1 && userName.length() <= 64;
 	if (!nameOkay)
 		ImGui::BeginDisabled();
-	if (ImGui::Button("Start Server"))
+	if (ImGui::Button("Start Server", buttonSize))
 		singlePlayerPicked = true;
 	if (!nameOkay)
 		ImGui::EndDisabled();
 
-	if (ImGui::Button("Settings"))
+	if (ImGui::Button("Settings", buttonSize))
 		settingsPicked = true;
 
 	ImGui::SameLine();
 
-	if (ImGui::Button("Appearance"))
+	if (ImGui::Button("Appearance", buttonSize))
 		appearancePicked = true;
 
 	if (connectionNote.length() > 0)
