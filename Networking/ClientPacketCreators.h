@@ -284,6 +284,8 @@ inline ENetPacket* makeWrenchSubmitPacket(netIDType brickID, bool collides, cons
 	1 byte		-	packet type
 	1 byte		-	face name length, 0 for no face
 	0-64 bytes	-	face name, a file in Assets/faces
+	1 byte		-	shirt name length, 0 for no shirt
+	0-64 bytes	-	shirt name, a file in Assets/shirts
 	1 byte		-	how many painted parts follow
 	Per part:
 	1 byte		-	mesh name length
@@ -293,6 +295,7 @@ inline ENetPacket* makeWrenchSubmitPacket(netIDType brickID, bool collides, cons
 inline ENetPacket* makeAppearanceChoicePacket(const PlayerAppearance& appearance)
 {
 	std::string face = appearance.face.substr(0, PlayerAppearance::maxNameLength);
+	std::string shirt = appearance.shirt.substr(0, PlayerAppearance::maxNameLength);
 
 	std::vector<std::pair<std::string, glm::vec3>> colors;
 	for (const auto& [meshName, color] : appearance.colors)
@@ -301,17 +304,22 @@ inline ENetPacket* makeAppearanceChoicePacket(const PlayerAppearance& appearance
 			colors.emplace_back(meshName.substr(0, PlayerAppearance::maxNameLength), color);
 	}
 
-	size_t length = 3 + face.length();
+	size_t length = 4 + face.length() + shirt.length();
 	for (const auto& [meshName, color] : colors)
 		length += 4 + meshName.length();
 
 	ENetPacket* ret = enet_packet_create(NULL, length, getFlagsFromChannel(JoinNegotiation));
 
 	ret->data[0] = (unsigned char)AppearanceChoice;
-	ret->data[1] = (unsigned char)face.length();
-	memcpy(ret->data + 2, face.data(), face.length());
 
-	size_t byteIterator = 2 + face.length();
+	size_t byteIterator = 1;
+	for (const std::string& name : { face, shirt })
+	{
+		ret->data[byteIterator++] = (unsigned char)name.length();
+		memcpy(ret->data + byteIterator, name.data(), name.length());
+		byteIterator += name.length();
+	}
+
 	ret->data[byteIterator++] = (unsigned char)colors.size();
 	for (const auto& [meshName, color] : colors)
 	{

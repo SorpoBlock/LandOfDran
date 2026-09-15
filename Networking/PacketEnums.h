@@ -160,7 +160,7 @@ enum FromServerPacketType : unsigned char
 	DynamicBuoyancy = 25,	//A dynamic's buoyancy, so clients simulating it in water match the server
 	ParticleEmitterType = 26,	//A particle or emitter type, for every one as a client joins and whenever Lua adds one, see ParticleEmitterTypeKind
 	PlayerAbilities = 27,	//Whether Lua lets this client use jets and a flashlight, see PlayerAbility flags
-	MeshDecal = 28,			//Put a face from Assets/faces on one mesh of a dynamic, or take it off, see Dynamic::setMeshDecal
+	MeshDecal = 28,			//Put a face from Assets/faces or a shirt from Assets/shirts on one mesh of a dynamic, or take it off, see Dynamic::setMeshDecal
 	SpecialBrickTypes = 29,	//The server's special brick type IDs and names as a client joins, so it can match them to its own, see SpecialBrickTypesPacket
 	OpenWrenchDialog = 30,	//Open the wrench dialog for a brick, with its collision, name, and attachments, see Interface/WrenchDialog.h
 	SkyboxPaths = 31,		//The day and night skyboxes from Lua's setSkybox, see Graphics/Skybox.h

@@ -21,18 +21,31 @@ static constexpr float startYaw = 3.14159265f;
 
 static const glm::vec3 backgroundColor = glm::vec3(0.16f, 0.18f, 0.22f);
 
-AppearanceEditor::AppearanceEditor(std::shared_ptr<SettingManager> _settings, std::shared_ptr<TextureManager> _textures, const std::vector<std::string>* _faceNames)
-	: settings(_settings), textures(_textures), faceNames(_faceNames)
+//Index of a file name in a list of faces or shirts, -1 if it isn't there
+static int findName(const std::vector<std::string>* names, const std::string& name)
+{
+	if (!names || name.empty())
+		return -1;
+
+	auto found = std::find(names->begin(), names->end(), name);
+	return found == names->end() ? -1 : (int)(found - names->begin());
+}
+
+AppearanceEditor::AppearanceEditor(std::shared_ptr<SettingManager> _settings, std::shared_ptr<TextureManager> _textures, const std::vector<std::string>* _faceNames, const std::vector<std::string>* _shirtNames)
+	: settings(_settings), textures(_textures), faceNames(_faceNames), shirtNames(_shirtNames)
 {
 	name = "Appearance Editor";
 }
 
 AppearanceEditor::~AppearanceEditor()
 {
-	for (Texture* icon : faceIcons)
+	for (std::vector<Texture*>* icons : { &faceIcons, &shirtIcons })
 	{
-		if (icon)
-			icon->markForCleanup();
+		for (Texture* icon : *icons)
+		{
+			if (icon)
+				icon->markForCleanup();
+		}
 	}
 
 	releaseGraphics();
@@ -58,6 +71,7 @@ PlayerAppearance AppearanceEditor::loadAppearance(std::shared_ptr<SettingManager
 {
 	PlayerAppearance appearance;
 	appearance.face = settings->getString("appearance/face");
+	appearance.shirt = settings->getString("appearance/shirt");
 
 	//Every color under appearance/colors, which meshes a player model has isn't known without loading it
 	settings->startPreferenceBindingSearch();
@@ -96,6 +110,7 @@ void AppearanceEditor::loadModel()
 
 	faceMesh = model->getFaceMeshIdx();
 	headMesh = model->getMeshIdxIgnoringCase("Head");
+	shirtMesh = model->getShirtMeshIdx();
 	colors.assign(model->getNumMeshes(), glm::vec4(0));
 }
 
@@ -103,6 +118,7 @@ void AppearanceEditor::loadSaved()
 {
 	PlayerAppearance appearance = loadAppearance(settings);
 	face = appearance.face;
+	shirt = appearance.shirt;
 
 	std::fill(colors.begin(), colors.end(), glm::vec4(0));
 	if (model)
@@ -125,14 +141,19 @@ void AppearanceEditor::prepare()
 	if (!modelLoadAttempted)
 		loadModel();
 
-	if (faceNames)
+	auto loadIcons = [&](const std::vector<std::string>* names, const std::string& folder, std::vector<Texture*>& icons)
 	{
-		for (size_t a = faceIcons.size(); a < faceNames->size(); a++)
+		if (!names)
+			return;
+
+		for (size_t a = icons.size(); a < names->size(); a++)
 		{
-			Texture* icon = textures->createTexture("Assets/faces/" + (*faceNames)[a]);
-			faceIcons.push_back(icon && icon->isValid() ? icon : nullptr);
+			Texture* icon = textures->createTexture(folder + (*names)[a]);
+			icons.push_back(icon && icon->isValid() ? icon : nullptr);
 		}
-	}
+	};
+	loadIcons(faceNames, "Assets/faces/", faceIcons);
+	loadIcons(shirtNames, "Assets/shirts/", shirtIcons);
 
 	loadSaved();
 
@@ -149,6 +170,7 @@ void AppearanceEditor::save()
 {
 	settings->remove("appearance");
 	settings->addString("appearance/face", face);
+	settings->addString("appearance/shirt", shirt);
 
 	if (model)
 	{
@@ -192,16 +214,16 @@ void AppearanceEditor::setColor(int meshIdx, const glm::vec4& color)
 
 int AppearanceEditor::faceDecal() const
 {
-	if (!faceNames || face.empty())
+	return findName(faceNames, face);
+}
+
+int AppearanceEditor::shirtDecal() const
+{
+	//Shirts' layers come after every face, see ClientProgramData::getDecal
+	int index = findName(shirtNames, shirt);
+	if (index == -1)
 		return -1;
-
-	for (size_t a = 0; a < faceNames->size(); a++)
-	{
-		if ((*faceNames)[a] == face)
-			return (int)a;
-	}
-
-	return -1;
+	return (faceNames ? (int)faceNames->size() : 0) + index;
 }
 
 std::string AppearanceEditor::partName(int meshIdx) const
@@ -258,11 +280,17 @@ void AppearanceEditor::clickMesh(int button, int meshIdx)
 		return;
 	}
 
+	openColorWindow(meshIdx, ImVec2(ImGui::GetIO().MousePos.x + 24.0f, ImGui::GetIO().MousePos.y - 40.0f));
+}
+
+void AppearanceEditor::openColorWindow(int meshIdx, ImVec2 position)
+{
 	pickingColorFor = meshIdx;
 	colorBeforePicking = colors[meshIdx];
 	faceBeforePicking = face;
+	shirtBeforePicking = shirt;
 	colorWindowAppearing = true;
-	colorWindowPosition = ImVec2(ImGui::GetIO().MousePos.x + 24.0f, ImGui::GetIO().MousePos.y - 40.0f);
+	colorWindowPosition = position;
 }
 
 bool AppearanceEditor::handleEscape()
@@ -271,6 +299,7 @@ bool AppearanceEditor::handleEscape()
 	{
 		setColor(pickingColorFor, colorBeforePicking);
 		face = faceBeforePicking;
+		shirt = shirtBeforePicking;
 		pickingColorFor = -1;
 		return true;
 	}
@@ -362,71 +391,80 @@ void AppearanceEditor::renderColorWindow()
 		{
 			setColor(pickingColorFor, colorBeforePicking);
 			face = faceBeforePicking;
+			shirt = shirtBeforePicking;
 		}
 		ImGui::SameLine();
 		if (ImGui::Button("Default"))
 			setColor(pickingColorFor, glm::vec4(0));
 		ImGui::SetItemTooltip("%s", "Go back to how the player model looks without a color");
 
-		bool faceChoices = faceMesh != -1 && sameColor(pickingColorFor, faceMesh) && faceNames && !faceNames->empty();
-		if (faceChoices)
-		{
-			ImGui::Separator();
-			ImGui::TextUnformatted("Face");
+		if (faceMesh != -1 && sameColor(pickingColorFor, faceMesh) && faceNames && !faceNames->empty())
+			renderDecalChoices("Face", *faceNames, faceIcons, face);
 
-			float buttonSize = ImGui::GetFontSize() * 2.6f;
-			ImGuiStyle& style = ImGui::GetStyle();
-			float cellWidth = buttonSize + style.FramePadding.x * 2.0f + style.ItemSpacing.x;
-			int columns = std::max(1, (int)((ImGui::GetFontSize() * 14.0f) / cellWidth));
-
-			ImVec4 chosenColor = style.Colors[ImGuiCol_ButtonActive];
-
-			//Scrolls once there are more faces than fit in a third of the screen
-			int rows = (int)(faceNames->size() + 1 + columns - 1) / columns;
-			float rowHeight = buttonSize + style.FramePadding.y * 2.0f + style.ItemSpacing.y;
-			float gridHeight = std::min(rows * rowHeight, ImGui::GetMainViewport()->Size.y * 0.33f);
-			ImGui::BeginChild("##faces", ImVec2(columns * cellWidth + style.ScrollbarSize, gridHeight));
-
-			bool noFace = face.empty();
-			if (noFace)
-				ImGui::PushStyleColor(ImGuiCol_Button, chosenColor);
-			if (ImGui::Button("None", ImVec2(buttonSize + style.FramePadding.x * 2.0f, buttonSize + style.FramePadding.y * 2.0f)))
-				face = "";
-			if (noFace)
-				ImGui::PopStyleColor();
-
-			for (size_t a = 0; a < faceNames->size(); a++)
-			{
-				if ((a + 1) % columns != 0)
-					ImGui::SameLine();
-
-				ImGui::PushID((int)a);
-				bool chosen = (*faceNames)[a] == face;
-				if (chosen)
-					ImGui::PushStyleColor(ImGuiCol_Button, chosenColor);
-
-				bool clicked;
-				if (a < faceIcons.size() && faceIcons[a])
-					clicked = ImGui::ImageButton("##face", (ImTextureID)(intptr_t)faceIcons[a]->getHandle(), ImVec2(buttonSize, buttonSize));
-				else
-					clicked = ImGui::Button("?", ImVec2(buttonSize + style.FramePadding.x * 2.0f, buttonSize + style.FramePadding.y * 2.0f));
-				ImGui::SetItemTooltip("%s", (*faceNames)[a].c_str());
-
-				if (chosen)
-					ImGui::PopStyleColor();
-				ImGui::PopID();
-
-				if (clicked)
-					face = (*faceNames)[a];
-			}
-
-			ImGui::EndChild();
-		}
+		if (shirtMesh != -1 && pickingColorFor == shirtMesh && shirtNames && !shirtNames->empty())
+			renderDecalChoices("Shirt", *shirtNames, shirtIcons, shirt);
 	}
 	ImGui::End();
 
 	if (!windowOpen)
 		pickingColorFor = -1;
+}
+
+void AppearanceEditor::renderDecalChoices(const char* label, const std::vector<std::string>& names, const std::vector<Texture*>& icons, std::string& chosen)
+{
+	ImGui::Separator();
+	ImGui::TextUnformatted(label);
+
+	float buttonSize = ImGui::GetFontSize() * 2.6f;
+	ImGuiStyle& style = ImGui::GetStyle();
+	float cellWidth = buttonSize + style.FramePadding.x * 2.0f + style.ItemSpacing.x;
+	int columns = std::max(1, (int)((ImGui::GetFontSize() * 14.0f) / cellWidth));
+
+	ImVec4 chosenColor = style.Colors[ImGuiCol_ButtonActive];
+
+	//Scrolls once there are more choices than fit in a third of the screen
+	int rows = (int)(names.size() + 1 + columns - 1) / columns;
+	float rowHeight = buttonSize + style.FramePadding.y * 2.0f + style.ItemSpacing.y;
+	float gridHeight = std::min(rows * rowHeight, ImGui::GetMainViewport()->Size.y * 0.33f);
+
+	ImGui::PushID(label);
+	ImGui::BeginChild("##choices", ImVec2(columns * cellWidth + style.ScrollbarSize, gridHeight));
+
+	bool noneChosen = chosen.empty();
+	if (noneChosen)
+		ImGui::PushStyleColor(ImGuiCol_Button, chosenColor);
+	if (ImGui::Button("None", ImVec2(buttonSize + style.FramePadding.x * 2.0f, buttonSize + style.FramePadding.y * 2.0f)))
+		chosen = "";
+	if (noneChosen)
+		ImGui::PopStyleColor();
+
+	for (size_t a = 0; a < names.size(); a++)
+	{
+		if ((a + 1) % columns != 0)
+			ImGui::SameLine();
+
+		ImGui::PushID((int)a);
+		bool isChosen = names[a] == chosen;
+		if (isChosen)
+			ImGui::PushStyleColor(ImGuiCol_Button, chosenColor);
+
+		bool clicked;
+		if (a < icons.size() && icons[a])
+			clicked = ImGui::ImageButton("##choice", (ImTextureID)(intptr_t)icons[a]->getHandle(), ImVec2(buttonSize, buttonSize));
+		else
+			clicked = ImGui::Button("?", ImVec2(buttonSize + style.FramePadding.x * 2.0f, buttonSize + style.FramePadding.y * 2.0f));
+		ImGui::SetItemTooltip("%s", names[a].c_str());
+
+		if (isChosen)
+			ImGui::PopStyleColor();
+		ImGui::PopID();
+
+		if (clicked)
+			chosen = names[a];
+	}
+
+	ImGui::EndChild();
+	ImGui::PopID();
 }
 
 void AppearanceEditor::render(ImGuiIO* io)
@@ -452,7 +490,7 @@ void AppearanceEditor::render(ImGuiIO* io)
 		ImGui::TextWrapped("%s", "Drag to spin your player around, scroll to zoom.");
 		ImGui::TextWrapped("%s", "Left click a part to set its color.");
 		ImGui::TextWrapped("%s", "Right click a part to pick up its color, then left click other parts to paint it on.");
-		ImGui::TextWrapped("%s", "Click the face to pick a different one.");
+		ImGui::TextWrapped("%s", "Click the face or torso to pick a different face or shirt.");
 
 		if (painting)
 		{
@@ -466,23 +504,25 @@ void AppearanceEditor::render(ImGuiIO* io)
 
 		ImGui::Separator();
 
-		int decal = faceDecal();
 		float iconSize = ImGui::GetFontSize() * 2.6f;
-		if (decal != -1 && decal < (int)faceIcons.size() && faceIcons[decal])
+		auto showChoice = [&](const char* label, const std::string& chosen, int index, const std::vector<Texture*>& icons)
 		{
-			ImGui::Image((ImTextureID)(intptr_t)faceIcons[decal]->getHandle(), ImVec2(iconSize, iconSize));
-			ImGui::SameLine();
-		}
-		ImGui::Text("Face: %s", face.empty() ? "None" : face.c_str());
+			if (index != -1 && index < (int)icons.size() && icons[index])
+			{
+				ImGui::Image((ImTextureID)(intptr_t)icons[index]->getHandle(), ImVec2(iconSize, iconSize));
+				ImGui::SameLine();
+			}
+			ImGui::Text("%s: %s", label, chosen.empty() ? "None" : chosen.c_str());
+		};
+		ImVec2 besidePanel(viewport->Pos.x + panelWidth + 10.0f, viewport->Pos.y + 10.0f);
 
+		showChoice("Face", face, findName(faceNames, face), faceIcons);
 		if (model && faceMesh != -1 && ImGui::Button("Change face"))
-		{
-			pickingColorFor = faceMesh;
-			colorBeforePicking = colors[faceMesh];
-			faceBeforePicking = face;
-			colorWindowAppearing = true;
-			colorWindowPosition = ImVec2(viewport->Pos.x + panelWidth + 10.0f, viewport->Pos.y + 10.0f);
-		}
+			openColorWindow(faceMesh, besidePanel);
+
+		showChoice("Shirt", shirt, findName(shirtNames, shirt), shirtIcons);
+		if (model && shirtMesh != -1 && ImGui::Button("Change shirt"))
+			openColorWindow(shirtMesh, besidePanel);
 
 		ImGui::Separator();
 
@@ -540,6 +580,8 @@ void AppearanceEditor::renderPreview(std::shared_ptr<ShaderManager> shaders, int
 		instance->setColor(a, colors[a]);
 	if (faceMesh != -1)
 		instance->setDecal(faceMesh, faceDecal());
+	if (shirtMesh != -1)
+		instance->setDecal(shirtMesh, shirtDecal());
 	model->updateAll(deltaT);
 
 	CameraUniforms& camera = shaders->cameraUniforms;

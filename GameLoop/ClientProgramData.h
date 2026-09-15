@@ -141,13 +141,25 @@ struct ClientProgramData
 	//File names of the images in Assets/faces, each one's index is its layer in the decal array, see LoopClient's constructor
 	std::vector<std::string> faceNames;
 
-	//The decal array layer of a face from Assets/faces, -1 for no face or one this game doesn't have
-	int getFaceDecal(const std::string& faceName) const
+	//File names of the images in Assets/shirts, their layers in the decal array come after every face
+	std::vector<std::string> shirtNames;
+
+	//The decal array layer of a face from Assets/faces or a shirt from Assets/shirts, the face if both folders have that name
+	//-1 for none or one this game doesn't have
+	int getDecal(const std::string& decalName) const
 	{
+		if (decalName.empty())
+			return -1;
+
 		for (size_t a = 0; a < faceNames.size(); a++)
 		{
-			if (faceNames[a] == faceName)
+			if (faceNames[a] == decalName)
 				return (int)a;
+		}
+		for (size_t a = 0; a < shirtNames.size(); a++)
+		{
+			if (shirtNames[a] == decalName)
+				return (int)(faceNames.size() + a);
 		}
 		return -1;
 	}

@@ -57,6 +57,9 @@ layout (std140) uniform BasicUniforms
 	
 	bool nonInstanced;
 	bool cameraSpacePosition;
+
+	//Texture coordinates of a decal's top left and bottom right corners, see Mesh::decalArea
+	vec4 DecalArea;
 };
 
 layout (std140) uniform CameraUniforms
@@ -479,8 +482,14 @@ void main()
 	vec2 dxuv = dFdx(uvs);
 	vec2 dyuv = dFdy(uvs);
 
+	//A decal only covers the part of the mesh's texture coordinates in DecalArea, like the front of a torso
+	vec2 decalUvs = (uvs - DecalArea.xy) / (DecalArea.zw - DecalArea.xy);
+	vec2 dxDecal = dFdx(decalUvs);
+	vec2 dyDecal = dFdy(decalUvs);
+	int decal = all(greaterThanEqual(decalUvs, vec2(0.0))) && all(lessThanEqual(decalUvs, vec2(1.0))) ? useDecal : -1;
+
 	//Before picking, so clicking the see-through part of a face plate picks whatever is behind it
-	if(decalCutout != 0 && (useDecal == -1 || textureGrad(DecalArray,vec3(uvs,useDecal),dxuv,dyuv).a < 0.5))
+	if(decalCutout != 0 && (decal == -1 || textureGrad(DecalArray,vec3(decalUvs,decal),dxDecal,dyDecal).a < 0.5))
 		discard;
 
 	//See AppearanceEditor::renderPreview
@@ -511,9 +520,9 @@ void main()
 	albedo = mix(albedo.rgb,preColor.rgb,preColor.a);
 
 	//On top of the mesh's color, so a painted head still shows its face
-	if(useDecal != -1)
+	if(decal != -1)
 	{
-		vec4 decalAlbedo = textureGrad(DecalArray,vec3(uvs,useDecal),dxuv,dyuv);
+		vec4 decalAlbedo = textureGrad(DecalArray,vec3(decalUvs,decal),dxDecal,dyDecal);
 		albedo = mix(albedo, pow(decalAlbedo.rgb,vec3(1.0 + 1.2 * nonLinearAlbedoF)), decalAlbedo.a);
 	}
 	

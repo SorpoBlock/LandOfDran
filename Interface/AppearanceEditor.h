@@ -8,7 +8,7 @@
 #include "../GameLoop/PlayerAppearance.h"
 
 /*
-	Picks how your player looks, like the old game's avatar picker: a color for each part of the player model and a face from Assets/faces
+	Picks how your player looks, like the old game's avatar picker: a color for each part of the player model, a face from Assets/faces, and a shirt from Assets/shirts
 	Saved under appearance/ in settings and sent to servers as you join them, see PlayerAppearance
 	Opened from the server browser, LoopClient draws the model with renderPreview while it's open
 */
@@ -26,6 +26,10 @@ class AppearanceEditor : public Window
 	//The same images as plain textures for the face buttons, parallel to faceNames
 	std::vector<Texture*> faceIcons;
 
+	//File names of the shirts in Assets/shirts, see ClientProgramData::shirtNames, and their buttons' textures
+	const std::vector<std::string>* shirtNames = nullptr;
+	std::vector<Texture*> shirtIcons;
+
 	//Its own copy of the player model, loaded the first time the editor opens, nullptr if that failed
 	Model* model = nullptr;
 	ModelInstance* instance = nullptr;
@@ -38,11 +42,17 @@ class AppearanceEditor : public Window
 	int faceMesh = -1;
 	int headMesh = -1;
 
+	//Where the shirt goes, -1 without one
+	int shirtMesh = -1;
+
 	//Per mesh index, alpha 0 shows the model's own look
 	std::vector<glm::vec4> colors;
 
 	//File name in Assets/faces, empty for no face
 	std::string face = "";
+
+	//File name in Assets/shirts, empty for no shirt
+	std::string shirt = "";
 
 	//Whether it was open last frame, so opening it again starts over from what's saved
 	bool wasOpen = false;
@@ -61,10 +71,11 @@ class AppearanceEditor : public Window
 	//How far the mouse has moved since, a little counts as a click and more as turning the model
 	float heldMoved = 0;
 
-	//Part whose color window is open, -1 for none, and how it and the face were before, for Revert
+	//Part whose color window is open, -1 for none, and how it, the face, and the shirt were before, for Revert
 	int pickingColorFor = -1;
 	glm::vec4 colorBeforePicking = glm::vec4(0);
 	std::string faceBeforePicking = "";
+	std::string shirtBeforePicking = "";
 	bool colorWindowAppearing = false;
 	ImVec2 colorWindowPosition = ImVec2(0, 0);
 
@@ -101,17 +112,24 @@ class AppearanceEditor : public Window
 	//Readable name of a part, like Left Shoulder
 	std::string partName(int meshIdx) const;
 
-	//Decal array layer of the chosen face, -1 for none
+	//Decal array layers of the chosen face and shirt, -1 for none
 	int faceDecal() const;
+	int shirtDecal() const;
 
-	//The color picker for pickingColorFor, with face buttons if it's the face or head
+	//Opens the color window for a part, remembering how it, the face, and the shirt were for Revert
+	void openColorWindow(int meshIdx, ImVec2 position);
+
+	//The color picker for pickingColorFor, with face buttons if it's the face or head, and shirt buttons if it's the torso
 	void renderColorWindow();
+
+	//A grid of buttons for picking one of names (or None) into chosen, icons parallel to names
+	void renderDecalChoices(const char* label, const std::vector<std::string>& names, const std::vector<Texture*>& icons, std::string& chosen);
 
 	virtual void render(ImGuiIO* io) override;
 	virtual void init() override;
 	virtual void handleInput(SDL_Event& e, std::shared_ptr<InputMap> input) override;
 
-	AppearanceEditor(std::shared_ptr<SettingManager> _settings, std::shared_ptr<TextureManager> _textures, const std::vector<std::string>* _faceNames);
+	AppearanceEditor(std::shared_ptr<SettingManager> _settings, std::shared_ptr<TextureManager> _textures, const std::vector<std::string>* _faceNames, const std::vector<std::string>* _shirtNames);
 
 	public:
 

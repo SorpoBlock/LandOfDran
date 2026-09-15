@@ -542,7 +542,7 @@ void Dynamic::setMeshDecal(int meshIdx, int decalId)
 	4 bytes		-	dynamic net ID
 	1 byte		-	mesh index
 	1 byte		-	name length, 0 to take the decal off
-	0-64 bytes	-	face file name
+	0-64 bytes	-	face or shirt file name
 */
 ENetPacket* Dynamic::setMeshDecal(const std::string& meshName, const std::string& decalName)
 {

@@ -923,13 +923,19 @@ void applyAppearance(Server const* server, ClientData& client, std::shared_ptr<D
 	for (const auto& [meshName, color] : appearance.colors)
 		paint(meshName, glm::vec4(color, 1.0f));
 
-	int faceMesh = model->getFaceMeshIdx();
-	if (faceMesh == -1 || (appearance.face.empty() && !dynamic->meshDecals.count(faceMesh)))
-		return;
+	//Nothing is sent for a part that has no decal and isn't getting one
+	auto putDecal = [&](int meshIdx, const std::string& decalName)
+	{
+		if (meshIdx == -1 || (decalName.empty() && !dynamic->meshDecals.count(meshIdx)))
+			return;
 
-	ENetPacket* packet = dynamic->setMeshDecal(model->getMeshName(faceMesh), appearance.face);
-	if (packet)
-		server->broadcast(packet, OtherReliable);
+		ENetPacket* packet = dynamic->setMeshDecal(model->getMeshName(meshIdx), decalName);
+		if (packet)
+			server->broadcast(packet, OtherReliable);
+	};
+
+	putDecal(model->getFaceMeshIdx(), appearance.face);
+	putDecal(model->getShirtMeshIdx(), appearance.shirt);
 }
 
 static int LUA_clientApplyAppearance(lua_State* L)

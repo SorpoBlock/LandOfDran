@@ -340,6 +340,13 @@ class Mesh
 	glm::vec3 low = glm::vec3(0);
 
 	/*
+		Texture coordinates of a decal's top left and bottom right corners on this mesh, client only
+		Nothing outside of them gets the decal, like the sides and back of a torso wearing a shirt
+		From a decalarea line in the model's .txt, otherwise the whole 0 to 1 range
+	*/
+	glm::vec4 decalArea = glm::vec4(0, 0, 1, 1);
+
+	/*
 		Vertex array object that contains the mesh
 		With verticies, and optionally normals, tangents, uvs, etc.
 		Can be used for instanced or non-instanced rendering
@@ -520,6 +527,9 @@ class Model
 
 	//Where a player's face goes: Face1 in the default player model, otherwise Face or Head, -1 without any of them
 	int getFaceMeshIdx() const;
+
+	//Where a player's shirt goes: Torso, -1 without one
+	int getShirtMeshIdx() const;
 
 	glm::vec3 getEyePosition() const { return eyePosition * baseScale; }
 

@@ -69,6 +69,11 @@ int Model::getMeshIdxIgnoringCase(const std::string& name) const
 	return -1;
 }
 
+int Model::getShirtMeshIdx() const
+{
+	return getMeshIdxIgnoringCase("Torso");
+}
+
 int Model::getFaceMeshIdx() const
 {
 	for (const char* name : { "Face1", "Face", "Head" })
@@ -954,6 +959,12 @@ void Mesh::render(std::shared_ptr<ShaderManager> graphics, bool useMaterials) co
 	if(instances.size() < 1)
 		return;
 
+	if (graphics->basicUniforms.DecalArea != decalArea)
+	{
+		graphics->basicUniforms.DecalArea = decalArea;
+		graphics->updateBasicUBO();
+	}
+
 	if (useMaterials && material)
 		material->use(graphics);
 
@@ -1285,6 +1296,12 @@ Model::Model(std::string filePath, bool _serverSide, glm::vec3 _baseScale) : loa
 			continue;
 		}
 
+		if (argument == "decalarea")
+		{
+			//Server-side doesn't draw decals
+			continue;
+		}
+
 		auto flagSearchResult = aiProcessMap.find(argument);
 		//It wasn't a valid assimp flag
 		if (flagSearchResult == aiProcessMap.end())
@@ -1367,6 +1384,9 @@ Model::Model(std::string filePath, std::shared_ptr<TextureManager> textures,glm:
 	//First string is material name from model, second string is path to material descriptor text file
 	std::map<std::string, std::string> materialOverrides;
 
+	//Lower case mesh names and their decalarea lines, see Mesh::decalArea
+	std::map<std::string, glm::vec4> decalAreas;
+
 	std::string line = "";
 	while (!descriptorFile.eof())
 	{
@@ -1422,6 +1442,22 @@ Model::Model(std::string filePath, std::shared_ptr<TextureManager> textures,glm:
 
 			materialOverrides.insert(std::pair<std::string,std::string>(materialName, materialPath));
 
+			continue;
+		}
+
+		//Where decals go on a mesh: its name, then the texture coordinates of a decal's top left and bottom right corners
+		if (argument == "decalarea")
+		{
+			std::istringstream values(value);
+			std::string meshName;
+			glm::vec4 area;
+			if (!(values >> meshName >> area.x >> area.y >> area.z >> area.w) || area.x == area.z || area.y == area.w)
+			{
+				error("decalarea line needs a mesh name and two corners that aren't in line: " + value);
+				continue;
+			}
+
+			decalAreas[lowercase(meshName)] = area;
 			continue;
 		}
 
@@ -1563,7 +1599,17 @@ Model::Model(std::string filePath, std::shared_ptr<TextureManager> textures,glm:
 
 		tmp->meshIndex = allMeshes.size();
 		allMeshes.push_back(tmp);
+
+		auto area = decalAreas.find(lowercase(tmp->name));
+		if (area != decalAreas.end())
+		{
+			tmp->decalArea = area->second;
+			decalAreas.erase(area);
+		}
 	}
+
+	for (const auto& [meshName, area] : decalAreas)
+		error("decalarea line for " + meshName + " but " + filePath + " has no mesh by that name");
 
 	rootNode = new Node(scene->mRootNode, this);
 

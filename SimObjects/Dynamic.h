@@ -216,14 +216,14 @@ class Dynamic : public SimObject
 	//Server side: returns a fully created packet ready to broadcast to relay the mesh color update
 	ENetPacket* setMeshColor(const std::string& meshName, const glm::vec4& color);
 
-	//Client side: shows a decal (a layer of the decal array, see ClientProgramData::faceNames) on a mesh, -1 for none
+	//Client side: shows a decal (a layer of the decal array, see ClientProgramData::getDecal) on a mesh, -1 for none
 	void setMeshDecal(int meshIdx, int decalId);
 
-	//Server side: puts the face with that file name in Assets/faces on a mesh, empty for none
+	//Server side: puts the face or shirt with that file name in Assets/faces or Assets/shirts on a mesh, empty for none
 	//Returns a fully created packet ready to broadcast, or nullptr if the model has no mesh by that name
 	ENetPacket* setMeshDecal(const std::string& meshName, const std::string& decalName);
 
-	//Server side: face file names by mesh index, for creation packets
+	//Server side: decal file names by mesh index, for creation packets
 	std::map<int, std::string> meshDecals;
 
 	//Applies (or, if color.a <= 0, clears) an outline/highlight effect on this object. Used both client-side when

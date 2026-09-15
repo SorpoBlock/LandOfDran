@@ -21,9 +21,9 @@ bool MeshDecalPacket::applyPacket(const ClientProgramData& pd, Simulation& simul
 	if (!dynamic)
 		return false;
 
-	//A face this game doesn't have is left off
+	//A face or shirt this game doesn't have is left off
 	std::string decalName((char*)packet->data + 3 + sizeof(netIDType), nameLength);
-	dynamic->setMeshDecal(meshIdx, pd.getFaceDecal(decalName));
+	dynamic->setMeshDecal(meshIdx, pd.getDecal(decalName));
 
 	return true;
 }

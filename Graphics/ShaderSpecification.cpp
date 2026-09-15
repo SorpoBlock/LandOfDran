@@ -147,7 +147,7 @@ ShaderManager::ShaderManager()
 
 	//Note, because of OpenGLs std140 padding, we cannot do sizeof(struct basicUniforms) there's basically no way but to manually calculate the padding size
 	glBindBuffer(GL_UNIFORM_BUFFER, basicUBO);
-	glBufferData(GL_UNIFORM_BUFFER, 224, &basicUniforms, GL_DYNAMIC_DRAW);
+	glBufferData(GL_UNIFORM_BUFFER, 240, &basicUniforms, GL_DYNAMIC_DRAW);
 	glBindBuffer(GL_UNIFORM_BUFFER, 0);
 
 	//Camera:
@@ -225,7 +225,7 @@ void ShaderManager::updateCameraUBO() const
 void ShaderManager::updateBasicUBO() const
 {
 	glBindBuffer(GL_UNIFORM_BUFFER, basicUBO);
-	glBufferData(GL_UNIFORM_BUFFER, 224, &basicUniforms, GL_DYNAMIC_DRAW);
+	glBufferData(GL_UNIFORM_BUFFER, 240, &basicUniforms, GL_DYNAMIC_DRAW);
 	glBindBuffer(GL_UNIFORM_BUFFER, 0);
 }
 

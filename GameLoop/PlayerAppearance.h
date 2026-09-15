@@ -12,10 +12,13 @@ struct PlayerAppearance
 	//File name of an image in Assets/faces, empty for no face
 	std::string face = "";
 
+	//File name of an image in Assets/shirts, empty for no shirt
+	std::string shirt = "";
+
 	//Mesh names, lower case like settings keep them, and the color each part is painted
 	std::vector<std::pair<std::string, glm::vec3>> colors;
 
-	//Longest face or mesh name sent either way
+	//Longest face, shirt, or mesh name sent either way
 	static constexpr unsigned int maxNameLength = 64;
 
 	//Most painted parts one appearance sends

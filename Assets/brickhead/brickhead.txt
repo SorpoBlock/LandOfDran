@@ -5,3 +5,4 @@ CalcTangentSpace	true
 OptimizeGraph	true
 JoinIdenticalVertices	true
 singlematerial	Assets/brickhead/plastic.txt
+decalarea	Torso	0.616	0.489	0.385	0.261

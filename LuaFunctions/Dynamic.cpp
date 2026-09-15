@@ -996,7 +996,7 @@ static int LUA_dynamicSetMeshDecal(lua_State* L)
 
 	if (!mesh || !face)
 	{
-		error("Mesh and face names have to be strings");
+		error("Mesh and decal names have to be strings");
 		return 0;
 	}
 

@@ -24,6 +24,8 @@ layout (std140) uniform BasicUniforms
 
 	bool nonInstanced;
 	bool cameraSpacePosition;
+
+	vec4 DecalArea;
 };
 
 layout (std140) uniform CameraUniforms

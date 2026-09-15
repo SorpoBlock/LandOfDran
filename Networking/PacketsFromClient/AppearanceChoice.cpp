@@ -38,7 +38,7 @@ void appearanceChoice(JoinedClient* source, Server const* const server, ENetPack
 	};
 
 	PlayerAppearance appearance;
-	if (!readName(appearance.face) || byteIterator >= packet->dataLength)
+	if (!readName(appearance.face) || !readName(appearance.shirt) || byteIterator >= packet->dataLength)
 		return;
 
 	unsigned int parts = std::min((unsigned int)packet->data[byteIterator++], PlayerAppearance::maxColors);

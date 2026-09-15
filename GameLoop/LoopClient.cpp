@@ -2028,7 +2028,7 @@ LoopClient::LoopClient(ExecutableArguments& cmdArgs, std::shared_ptr<SettingMana
 	pd.brickHotbar = pd.gui->createWindow<BrickHotbar>();
 	pd.paintMenu = pd.gui->createWindow<PaintMenu>(pd.input);
 	pd.itemHotbar = pd.gui->createWindow<ItemHotbar>();
-	pd.appearanceEditor = pd.gui->createWindow<AppearanceEditor>(settings, pd.textures, &pd.faceNames);
+	pd.appearanceEditor = pd.gui->createWindow<AppearanceEditor>(settings, pd.textures, &pd.faceNames, &pd.shirtNames);
 	pd.wrenchDialog = pd.gui->createWindow<WrenchDialog>();
 	//Builds from before the state file kept the hot bar in settings.txt
 	std::shared_ptr<SettingManager> hotbarSource = pd.state;
@@ -2068,28 +2068,41 @@ LoopClient::LoopClient(ExecutableArguments& cmdArgs, std::shared_ptr<SettingMana
 	simulation.camera = std::make_shared<Camera>(pd.context->getResolution().x / pd.context->getResolution().y);
 	simulation.camera->updateSettings(settings);
 
-	//Faces players pick in the appearance editor, each on its own decal array layer, servers send them by file name
-	std::vector<std::filesystem::path> facePaths;
-	if (std::filesystem::is_directory("Assets/faces"))
+	//Faces and shirts players pick in the appearance editor, each on its own decal array layer, servers send them by file name
+	auto listImages = [](const char* folder)
 	{
-		for (const std::filesystem::directory_entry& entry : std::filesystem::directory_iterator("Assets/faces"))
+		std::vector<std::filesystem::path> paths;
+		if (std::filesystem::is_directory(folder))
 		{
-			std::string extension = lowercase(entry.path().extension().string());
-			if (entry.is_regular_file() && (extension == ".png" || extension == ".jpg"))
-				facePaths.push_back(entry.path());
+			for (const std::filesystem::directory_entry& entry : std::filesystem::directory_iterator(folder))
+			{
+				std::string extension = lowercase(entry.path().extension().string());
+				if (entry.is_regular_file() && (extension == ".png" || extension == ".jpg"))
+					paths.push_back(entry.path());
+			}
 		}
-	}
-	std::sort(facePaths.begin(), facePaths.end());
+		std::sort(paths.begin(), paths.end());
+		return paths;
+	};
+	std::vector<std::filesystem::path> facePaths = listImages("Assets/faces");
+	std::vector<std::filesystem::path> shirtPaths = listImages("Assets/shirts");
 
-	//Decal IDs get 8 bits of a mesh's instance flags
+	//Decal IDs get 8 bits of a mesh's instance flags, faces come first
 	if (facePaths.size() > 256)
 		facePaths.resize(256);
+	if (facePaths.size() + shirtPaths.size() > 256)
+		shirtPaths.resize(256 - facePaths.size());
 
-	pd.textures->allocateForDecals(256, std::max<unsigned int>(1, (unsigned int)facePaths.size()));
+	pd.textures->allocateForDecals(256, std::max<unsigned int>(1, (unsigned int)(facePaths.size() + shirtPaths.size())));
 	for (const std::filesystem::path& facePath : facePaths)
 	{
 		if (pd.textures->addDecal(facePath.generic_string(), (int)pd.faceNames.size()))
 			pd.faceNames.push_back(facePath.filename().string());
+	}
+	for (const std::filesystem::path& shirtPath : shirtPaths)
+	{
+		if (pd.textures->addDecal(shirtPath.generic_string(), (int)(pd.faceNames.size() + pd.shirtNames.size())))
+			pd.shirtNames.push_back(shirtPath.filename().string());
 	}
 	pd.textures->finalizeDecals();
 

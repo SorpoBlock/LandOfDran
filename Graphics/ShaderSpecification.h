@@ -6,7 +6,7 @@
 /*
 	Model matrix and material data for non-instanced rendering for a uniform buffer object
 	Padding exists to conform to an std140 layout used by OpenGL
-	OpenGL Size: 224 bytes
+	OpenGL Size: 240 bytes
 */
 struct BasicUniforms					
 {														//base			aligned
@@ -25,6 +25,9 @@ struct BasicUniforms
 	
 	GLint nonInstanced = 0;								//4				216
 	GLint cameraSpacePosition = 0;						//4				220
+
+	//Texture coordinates of a decal's top left and bottom right corners on the mesh being drawn, see Mesh::decalArea
+	glm::vec4 DecalArea = glm::vec4(0, 0, 1, 1);		//16			224
 };
 
 /*

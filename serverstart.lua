@@ -371,7 +371,7 @@ function join(client)
 	--This function will be replaced with something better, for now the only way to un-control the object is to delete it
 	client:setDefaultController(dynamic)
 
-	--The colors and face they picked in their appearance editor
+	--The colors, face, and shirt they picked in their appearance editor
 	client:applyAppearance(dynamic)
 
 	playSound("PlayerConnect")

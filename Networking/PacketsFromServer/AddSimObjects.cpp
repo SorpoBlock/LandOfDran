@@ -283,8 +283,8 @@ bool AddSimObjectsPacket::applyPacket(const ClientProgramData& pd, Simulation& s
 					if (byteIterator + nameLength > packet->dataLength)
 						break;
 
-					//A face this game doesn't have is left off
-					meshDecals.emplace_back(meshIdx, pd.getFaceDecal(std::string((char*)packet->data + byteIterator, nameLength)));
+					//A face or shirt this game doesn't have is left off
+					meshDecals.emplace_back(meshIdx, pd.getDecal(std::string((char*)packet->data + byteIterator, nameLength)));
 					byteIterator += nameLength;
 				}
 

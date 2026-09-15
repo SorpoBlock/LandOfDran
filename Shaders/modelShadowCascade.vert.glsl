@@ -23,6 +23,8 @@ layout (std140) uniform BasicUniforms
 
 	bool nonInstanced;
 	bool cameraSpacePosition;
+
+	vec4 DecalArea;
 };
 
 uniform mat4 lightSpaceMatrix;
