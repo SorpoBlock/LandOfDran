@@ -47,6 +47,13 @@ static constexpr float tiltVelocitySmoothing = 8.0f;
 
 void Dynamic::updateSnapshot(float deltaT, bool forceUsePhysicsTransform, float waterLevel)
 {
+	//Every frame mixes toward the last, so one NaN target would otherwise hide this and misplace its sounds forever
+	if (glm::any(glm::isnan(renderedPosition)) || glm::any(glm::isnan(renderedRotation)) || glm::any(glm::isnan(tiltVelocity)))
+	{
+		renderedTransformInitialized = false;
+		tiltVelocity = glm::vec3(0);
+	}
+
 	glm::vec3 previousPosition = renderedPosition;
 	bool wasInitialized = renderedTransformInitialized;
 

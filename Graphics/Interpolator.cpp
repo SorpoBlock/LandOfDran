@@ -36,8 +36,10 @@ void Interpolator::addSnapshot(const glm::vec3& pos, const glm::quat& rot,float 
 	float timeBetween = msSinceLastSend;
 	float diff = snapshots.size() - idealBufferSize;
 	diff = 1.0 - (diff * 0.1);
+	//More than 10 over (a burst of updates handled in one frame after a hitch) would take the root of a negative number,
+	//the NaN time that gives makes getPosition return NaN, and the drawn player vanishes for good
 	if (diff < 1.0)
-		diff = sqrt(diff);
+		diff = sqrt(std::max(diff, 0.1f));
 
 	//Don't apply the slowdown side of that while still ramping up right after creation - a small buffer here just
 	//means the object hasn't existed long enough yet to have idealBufferSize snapshots, not that the network is
