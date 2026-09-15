@@ -141,13 +141,17 @@ static void swim(const std::shared_ptr<Dynamic>& player, float deltaT, glm::vec3
 //potentially forever if the player holds a key with no further state changes to trigger a resend
 ENetPacket* PlayerController::makeMovementInputsPacket()
 {
-	//Jets starting or stopping go out right away, so the flames under the player don't lag behind
+	unsigned char flags = (lastJump ? MovementFlag_Jump : 0) | (lastForward ? MovementFlag_Forward : 0) | (lastBackward ? MovementFlag_Backward : 0) |
+		(lastLeft ? MovementFlag_Left : 0) | (lastRight ? MovementFlag_Right : 0) | (lastJumpHeld ? MovementFlag_JumpHeld : 0) | (lastJet ? MovementFlag_Jet : 0);
+
+	//Jets starting or stopping go out right away, so the flames under the player don't lag behind, and so does any other key, which steers a vehicle
 	//While left mouse is held they go out more often, so scripts following the crosshair, like the paint can, keep up with it
-	if (getTicksMS() - lastSentControls < (sendQuickly ? 30u : 100u) && lastJet == lastSentJet)
+	if (getTicksMS() - lastSentControls < (sendQuickly ? 30u : 100u) && flags == lastSentFlags)
 		return nullptr;
 
 	lastSentControls = getTicksMS();
 	lastSentJet = lastJet;
+	lastSentFlags = flags;
 
 	std::shared_ptr<Dynamic> targetLock = target.lock();
 	if (!targetLock)
@@ -195,14 +199,22 @@ bool PlayerController::control(std::shared_ptr<PhysicsWorld> world, float deltaT
 	if (!targetLock)
 		return true;
 
-	targetLock->body->activate();
-
 	//Turns the player's head, see Dynamic::lookDirection
 	if (glm::length(cameraDirection) > 0.0001f && !glm::any(glm::isnan(cameraDirection)))
 	{
 		targetLock->lookDirection = glm::normalize(cameraDirection);
 		targetLock->hasLook = true;
 	}
+
+	//Out of the physics world while it drives a vehicle, which takes these keys instead, see LoopServer::updateVehicles
+	if (!targetLock->isInWorld())
+	{
+		targetLock->playWalkingAnimation = false;
+		targetLock->stop(0);
+		return false;
+	}
+
+	targetLock->body->activate();
 
 	btScalar submerged = targetLock->getSubmergedFraction(waterLevel);
 

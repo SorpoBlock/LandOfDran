@@ -34,7 +34,8 @@ enum RigidBodyUserIndex
 	groundPlane = 10,		//The single infinite ground plane at the bottom of the world created on start-up
 	dynamicBody = 20,
 	staticBody = 30,
-	brickBody = 40
+	brickBody = 40,
+	vehicleBody = 50		//A Vehicle's bricks, see SimObjects/Vehicle.h
 };
 
 //What a box sweep hit, body is nullptr if nothing was
@@ -88,8 +89,25 @@ class PhysicsWorld
 	//already computes these each step, just reads the dispatcher's cached manifolds rather than testing anything itself
 	std::vector<btRigidBody*> getTouching(const btRigidBody* body) const;
 
-	btRigidBody *doRaycast(const btVector3 &start,const btVector3 &end,btRigidBody *ignore,btVector3 &hitPos,btVector3 &hitNormal) const;
+	//ignoreAlso skips a second body, like the vehicle a player is driving
+	btRigidBody *doRaycast(const btVector3 &start,const btVector3 &end,btRigidBody *ignore,btVector3 &hitPos,btVector3 &hitNormal, const btRigidBody* ignoreAlso = nullptr) const;
 	btRigidBody *doRaycast(const btVector3 &start,const btVector3 &end,btRigidBody *ignore) const;
+
+	//For things that do their own work each physics step, like a vehicle's wheels
+	void addAction(btActionInterface* action)
+	{
+		world->addAction(action);
+	}
+
+	void removeAction(btActionInterface* action)
+	{
+		world->removeAction(action);
+	}
+
+	btDynamicsWorld* getDynamicsWorld() const
+	{
+		return world;
+	}
 
 	//How far from start to end (0-1) the nearest hit is, skipping up to two bodies and debris, 1 if nothing's in the way
 	//Cheaper than doRaycast, which collects every hit along the ray

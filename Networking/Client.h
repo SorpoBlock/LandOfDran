@@ -35,6 +35,10 @@
 #include "PacketsFromServer/SkyboxPaths.h"
 #include "PacketsFromServer/ItemState.h"
 #include "PacketsFromServer/InventoryContents.h"
+#include "PacketsFromServer/VehicleBricks.h"
+#include "PacketsFromServer/VehicleDriver.h"
+#include "PacketsFromServer/OpenVehicleWrench.h"
+#include "PacketsFromServer/VehicleSaveData.h"
 #include "../GameLoop/ClientProgramData.h"
 #include "../GameLoop/Simulation.h"
 

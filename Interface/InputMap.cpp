@@ -44,6 +44,7 @@ std::string GetInputCommandString(InputCommand command)
         case CustomColor: return "Custom Paint Color";
         case OpenInventory: return "Show/Hide Items";
         case DropItem: return "Drop Item (with Ctrl)";
+        case StartSelection: return "Select Bricks for Vehicle";
         default: return "Other error";
     }
 }
@@ -110,6 +111,8 @@ InputMap::InputMap(std::shared_ptr<SettingManager> settings)
         bindKey(OpenInventory, SDL_SCANCODE_Q);
         //Shares W with walking forward, dropping is Ctrl plus the bound key
         bindKey(DropItem, SDL_SCANCODE_W);
+        //The old game's Insert is the wrench now
+        bindKey(StartSelection, SDL_SCANCODE_G);
 
         //Number keys 1 through 9 then 0, SDL's scancodes for them are in that order
         for (int a = 0; a < 10; a++)
@@ -154,7 +157,9 @@ void InputMap::handleInput(SDL_Event& event)
     if (event.type != SDL_KEYDOWN && event.type != SDL_KEYUP)
         return;
 
-    if (supressed)
+    //Letting go still counts while a window has the keyboard, since a key that opens a window is usually let go after it opens,
+    //and a release that's dropped leaves the command looking held, so its next press is ignored
+    if (supressed && event.type == SDL_KEYDOWN)
         return;
 
     for (unsigned int a = 1; a < InputCommand::EndOfCommands; a++)

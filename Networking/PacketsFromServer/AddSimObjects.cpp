@@ -194,6 +194,35 @@ bool AddSimObjectsPacket::applyPacket(const ClientProgramData& pd, Simulation& s
 			}
 			break;
 		}
+		case VehicleTypeId:
+		{
+			unsigned int numObjects = packet->data[2];
+			unsigned int byteIterator = 3;
+			for (unsigned int a = 0; a < numObjects; a++)
+			{
+				unsigned int bytes = Vehicle::readCreationBytes(packet->data + byteIterator, packet->dataLength - byteIterator);
+				if (bytes == 0)
+					break;
+
+				netIDType id;
+				memcpy(&id, packet->data + byteIterator, sizeof(netIDType));
+
+				//Can be sent twice, see the note on statics above
+				if (!simulation.vehicles->find(id))
+				{
+					simulation.vehicles->clientSetNextId(id);
+					std::shared_ptr<Vehicle> vehicle = simulation.vehicles->create();
+					vehicle->readCreation(packet->data + byteIterator);
+
+					//Its bricks come in VehicleBricks packets after this
+					if (vehicle->hasAllBricks())
+						vehicle->finishClient(&pd.brickTypes, pd.brickRenderer, pd.tireModel);
+				}
+
+				byteIterator += bytes;
+			}
+			break;
+		}
 		case DynamicTypeId:
 		{
 			unsigned int numObjects = packet->data[2];

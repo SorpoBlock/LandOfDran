@@ -653,3 +653,36 @@ addEmitterType("paintEmitter", {
 	thetaMax = 4,
 	phiVariance = 360
 })
+
+--Thrown up by vehicle wheels going fast while turning or braking, tinted the color of the brick they're driving on, see setVehicleDirtEmitter
+addParticleType("vehicleDirtParticle", {
+	texture = "Assets/particles/chunk.png",
+	color0 = {0.9, 0.9, 0.9, 1.0},
+	color1 = {0.8, 0.8, 0.8, 0.8},
+	color2 = {0.7, 0.7, 0.7, 0.5},
+	color3 = {0.7, 0.7, 0.7, 0.0},
+	size0 = 0.5, size1 = 0.45, size2 = 0.35, size3 = 0.2,
+	time0 = 0, time1 = 0.3, time2 = 0.7, time3 = 1,
+	drag = 1,
+	gravity = {0, -40, 0},
+	spinSpeed = 200,
+	inheritedVelFactor = 0.3,
+	lifetimeMS = 700,
+	lifetimeVarianceMS = 250,
+	useInvAlpha = true,
+	needsSorting = true,
+	lit = true
+})
+
+addEmitterType("vehicleDirtEmitter", {
+	particles = "vehicleDirtParticle",
+	uiName = "Vehicle Dirt",
+	ejectionOffset = 0.2,
+	ejectionPeriodMS = 15,
+	periodVarianceMS = 5,
+	ejectionVelocity = 8,
+	velocityVariance = 4,
+	thetaMin = 0,
+	thetaMax = 60,
+	phiVariance = 360
+})

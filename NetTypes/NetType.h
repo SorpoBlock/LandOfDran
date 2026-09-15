@@ -16,6 +16,7 @@ enum SimObjectType : unsigned char //might be used for packets who knows
 	BrickTypeId = 4,				//Not a SimObject either, see Bricks/Brick.h
 	LightTypeId = 5,				//Point lights, see SimObjects/Light.h
 	EmitterTypeId = 6,				//Particle emitters, see SimObjects/Emitter.h
+	VehicleTypeId = 7,				//Drivable vehicles sliced out of bricks, see SimObjects/Vehicle.h
 };
 
 /*

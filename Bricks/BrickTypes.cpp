@@ -628,6 +628,7 @@ void BrickTypes::load(const std::string& typesFolder)
 		std::string category = "";
 		std::string subCategory = "";
 		bool listed = true;
+		VehiclePart vehiclePart = VehiclePart_None;
 	};
 	std::vector<NamedFile> namedFiles;
 	std::unordered_set<std::string> claimedFiles;
@@ -679,9 +680,32 @@ void BrickTypes::load(const std::string& typesFolder)
 				continue;
 			}
 
+			//Our own field, Blockland's vehicle bricks were just shapes
+			std::string part = lowercase(field("vehiclepart"));
+			VehiclePart vehiclePart = part == "wheel" ? VehiclePart_Wheel : (part == "steering" ? VehiclePart_Steering : VehiclePart_None);
+
 			if (!claimedFiles.insert(blb).second)
+			{
+				//test.cs names some of the same files, like the wheels, and its names stay for old saves, but they still become vehicle parts in the selector's vehicle section
+				if (vehiclePart != VehiclePart_None)
+				{
+					for (NamedFile& claimed : namedFiles)
+					{
+						if (claimed.blb.string() != blb)
+							continue;
+
+						claimed.vehiclePart = vehiclePart;
+						claimed.category = blocklandTextToUtf8(field("category"));
+						claimed.subCategory = blocklandTextToUtf8(field("subcategory"));
+						claimed.listed = !field("category").empty();
+						if (claimed.icon.empty())
+							claimed.icon = resolve(csPath, field("iconname"), ".png");
+					}
+				}
 				continue;
-			namedFiles.push_back({ uiName, blb, resolve(csPath, field("iconname"), ".png"), blocklandTextToUtf8(field("category")), blocklandTextToUtf8(field("subcategory")), !field("category").empty() });
+			}
+
+			namedFiles.push_back({ uiName, blb, resolve(csPath, field("iconname"), ".png"), blocklandTextToUtf8(field("category")), blocklandTextToUtf8(field("subcategory")), !field("category").empty(), vehiclePart });
 		}
 	}
 
@@ -731,6 +755,7 @@ void BrickTypes::load(const std::string& typesFolder)
 			type->category = named.category.empty() ? "Other" : named.category;
 			type->subCategory = named.subCategory;
 			type->listed = named.listed;
+			type->vehiclePart = named.vehiclePart;
 			type->blbPath = named.blb.string();
 			type->iconPath = icon;
 			type->width = width;

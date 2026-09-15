@@ -18,6 +18,7 @@
 --From NetTypes/NetType.h's SimObjectType enum
 local DYNAMIC_TYPE_ID = 1
 local BRICK_TYPE_ID = 4
+local VEHICLE_TYPE_ID = 7
 
 --How far out from the camera a click looks for an item or brick, a third person camera sits well behind its player
 local CLICK_RANGE = 60
@@ -189,6 +190,11 @@ local function hitWithTool(client, tool)
 		else
 			playSound("HammerHit", x, y, z)
 		end
+	elseif hit ~= nil and hit.type == VEHICLE_TYPE_ID then
+		--A vehicle's dialog has its music
+		playSound("WrenchHit", x, y, z)
+		client:openWrenchDialog(hit)
+		return true
 	elseif isBrick then
 		playSound("WrenchHit", x, y, z)
 		client:openWrenchDialog(hit)

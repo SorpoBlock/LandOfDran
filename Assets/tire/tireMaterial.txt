@@ -1,0 +1,4 @@
+albedo	Tire_low_Material_BaseColor.png
+normal	Tire_low_Material_Normal.png
+roughness	Tire_low_Material_Roughness.png
+metalness	Tire_low_Material_Metallic.png

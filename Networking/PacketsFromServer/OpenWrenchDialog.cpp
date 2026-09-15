@@ -40,7 +40,10 @@ bool OpenWrenchDialogPacket::applyPacket(const ClientProgramData& pd, Simulation
 	{
 		const SpecialBrickType* type = brick->isSpecial() ? pd.brickTypes.getSpecial(brick->typeID - 1) : nullptr;
 		if (type)
+		{
 			label = type->uiName;
+			editing.part = type->vehiclePart;
+		}
 		else
 			label = std::to_string(brick->width) + "x" + std::to_string(brick->length) + " brick, " + std::to_string(brick->height) + (brick->height == 1 ? " plate" : " plates") + " tall";
 	}

@@ -69,6 +69,25 @@ bool DeleteSimObjectsPacket::applyPacket(const ClientProgramData& pd, Simulation
 			}
 			break;
 		}
+		case VehicleTypeId:
+		{
+			unsigned int numObjects = packet->data[2];
+			for (unsigned int a = 0; a < numObjects; a++)
+			{
+				netIDType id;
+				memcpy(&id, packet->data + 3 + a * sizeof(netIDType), sizeof(netIDType));
+
+				//Whoever was driving it gets out right where they were
+				std::shared_ptr<Vehicle> vehicle = simulation.vehicles->find(id);
+				if (!vehicle)
+					continue;
+
+				vehicle->releaseSeated(simulation.idealBufferSize);
+				vehicle.reset();
+				simulation.vehicles->destroyByID(id);
+			}
+			break;
+		}
 	}
 
 	return true;

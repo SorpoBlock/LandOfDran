@@ -8,6 +8,7 @@
 #include "../LuaFunctions/BrickLua.h"
 #include "../LuaFunctions/SkyLua.h"
 #include "../LuaFunctions/ItemLua.h"
+#include "../LuaFunctions/VehicleLua.h"
 
 #include <random>
 
@@ -54,10 +55,14 @@ void LoopServer::run(float deltaT, ExecutableArguments& cmdArgs, std::shared_ptr
 	pd.statics->sendRecent();
 	pd.lights->sendRecent();
 	pd.emitters->sendRecent();
+	pd.vehicles->sendRecent();
+	sendNewVehicleBricks();
 	pd.bricks->sendRecent();
+	updateVehicles(deltaT);
 	applyWaterForces(deltaT);
 	pd.physicsWorld->step(deltaT);
 
+	updateVehiclesAfterStep();
 	playWaterSounds();
 	updateEmitters();
 
@@ -155,6 +160,171 @@ void LoopServer::updateItems()
 	pd.changedItems.clear();
 }
 
+void LoopServer::sendNewVehicleBricks()
+{
+	for (std::weak_ptr<Vehicle>& waiting : pd.vehiclesAwaitingBricks)
+	{
+		std::shared_ptr<Vehicle> vehicle = waiting.lock();
+		if (!vehicle)
+			continue;
+
+		//Clients hold onto these until the vehicle's creation packet arrives
+		for (ENetPacket* packet : vehicle->makeBrickPackets())
+			server->broadcast(packet, OtherReliable);
+	}
+	pd.vehiclesAwaitingBricks.clear();
+}
+
+void LoopServer::updateVehicles(float deltaT)
+{
+	//A wheel this far above the water already floats a little, and floats hardest this far below it, like the old game
+	static constexpr float floatAbove = 2.0f;
+	static constexpr float floatBelow = 7.0f;
+	//How much of the vehicle's weight each wheel holds up all the way under, spread between its wheels
+	static constexpr float wheelBuoyancy = 1.6f;
+
+	unsigned int now = SDL_GetTicks();
+
+	for (unsigned int a = 0; a < pd.vehicles->size(); a++)
+	{
+		std::shared_ptr<Vehicle> vehicle = pd.vehicles->get(a);
+		if (!vehicle->body)
+			continue;
+
+		std::shared_ptr<ClientData> driver = vehicle->driver.lock();
+
+		//A driver whose client left, or whose player was destroyed or swapped out, gets out
+		if (vehicle->driverID != NO_ID)
+		{
+			std::shared_ptr<Dynamic> player = pd.dynamics->find(vehicle->driverID);
+			bool stillDriving = driver && player && !driver->controllers.empty() && driver->controllers[0].target.lock() == player;
+			if (!stillDriving)
+			{
+				if (driver)
+					exitVehicle(*driver, true);
+				else
+				{
+					vehicle->driverID = NO_ID;
+					server->broadcast(vehicle->makeDriverPacket(), OtherReliable);
+				}
+				driver = nullptr;
+			}
+		}
+
+		if (driver)
+		{
+			const PlayerController& keys = driver->controllers[0];
+			bool speeding = vehicle->drive(keys.lastForward, keys.lastBackward, keys.lastLeft, keys.lastRight, keys.lastJumpHeld);
+			if (speeding && driver->client && now - vehicle->lastSpeedWarningMS > 5000)
+			{
+				vehicle->lastSpeedWarningMS = now;
+				driver->client->sendCenterPrint("You have reached this vehicle's max speed!", 3000, 1.0f, 1.0f, 1.0f);
+			}
+		}
+		else
+			vehicle->park();
+
+		if (!pd.waterEnabled || vehicle->wheels.empty() || vehicle->body->getInvMass() <= 0)
+			continue;
+
+		btScalar weight = vehicle->body->getGravity().length() / vehicle->body->getInvMass();
+		const btVector3& origin = vehicle->body->getWorldTransform().getOrigin();
+		bool floating = false;
+
+		for (int w = 0; w < (int)vehicle->wheels.size(); w++)
+		{
+			btVector3 wheel = vehicle->getWheelTransform(w).getOrigin();
+			float depth = pd.waterLevel + floatAbove - wheel.y();
+			if (depth <= 0)
+				continue;
+
+			float amount = std::clamp(depth / (floatAbove + floatBelow), 0.0f, 1.0f);
+			vehicle->body->applyForce(btVector3(0, weight * wheelBuoyancy * amount / vehicle->wheels.size(), 0), wheel - origin);
+			floating = true;
+		}
+
+		if (floating)
+			vehicle->body->activate();
+	}
+}
+
+void LoopServer::updateVehiclesAfterStep()
+{
+	static constexpr unsigned int splashCooldownMS = 1000;
+
+	unsigned int now = SDL_GetTicks();
+
+	//Backwards, since removing one moves the ones after it down
+	for (int a = (int)pd.vehicles->size() - 1; a >= 0; a--)
+	{
+		std::shared_ptr<Vehicle> vehicle = pd.vehicles->get(a);
+		if (!vehicle->body)
+			continue;
+
+		//Like the old game, a vehicle the physics sent flying off is removed before it takes anything with it
+		const btVector3& position = vehicle->body->getWorldTransform().getOrigin();
+		std::string problem = "";
+		if (!std::isfinite(position.x()) || !std::isfinite(position.y()) || !std::isfinite(position.z()))
+			problem = "its position stopped being a number";
+		else if (vehicle->body->getLinearVelocity().length() > 1000)
+			problem = "it was going faster than 1000 studs a second";
+		else if (vehicle->body->getAngularVelocity().length() > 300)
+			problem = "it was spinning too fast";
+		else if (position.length() > 10000)
+			problem = "it went more than 10000 studs from the middle of the world";
+
+		if (!problem.empty())
+		{
+			error("Removed vehicle " + std::to_string(vehicle->getID()) + " because " + problem);
+			destroyVehicle(vehicle);
+			continue;
+		}
+
+		vehicle->updateWheelStates();
+
+		if (vehicle->driverID != NO_ID)
+		{
+			if (std::shared_ptr<Dynamic> player = pd.dynamics->find(vehicle->driverID))
+			{
+				if (!player->isInWorld())
+					player->body->setWorldTransform(vehicle->getSeatTransform(false));
+			}
+		}
+
+		bool underwater = pd.waterEnabled && position.y() < pd.waterLevel;
+		vehicle->body->setDamping(underwater ? 0.3f : 0.0f, underwater ? 0.2f : vehicle->steering.angularDamping);
+
+		for (int w = 0; w < (int)vehicle->wheels.size(); w++)
+		{
+			if (!pd.waterEnabled)
+			{
+				vehicle->wheelInWater[w] = false;
+				continue;
+			}
+
+			btVector3 wheel = vehicle->getWheelTransform(w).getOrigin();
+
+			//The same gap between going in and coming out as the old game
+			if (vehicle->wheelInWater[w])
+			{
+				if (wheel.y() > pd.waterLevel + 2.0f)
+					vehicle->wheelInWater[w] = false;
+			}
+			else if (wheel.y() < pd.waterLevel - 1.0f)
+			{
+				vehicle->wheelInWater[w] = true;
+				if (now - vehicle->lastSplashMS[w] > splashCooldownMS)
+				{
+					vehicle->lastSplashMS[w] = now;
+					glm::vec3 surface(wheel.x(), pd.waterLevel, wheel.z());
+					playSoundAt("Splash", surface, 1.0f, 1.0f);
+					spawnEmitterAt("playerBubbleEmitter", surface);
+				}
+			}
+		}
+	}
+}
+
 void LoopServer::applyWaterForces(float deltaT)
 {
 	if (!pd.waterEnabled)
@@ -241,12 +411,14 @@ void LoopServer::updateEmitters()
 		std::shared_ptr<Emitter> emitter = pd.emitters->get(a);
 
 		uint16_t typeID = emitter->getTypeID();
-		//Ones on bricks last as long as the brick, their particles still live out their own lifetimes
-		bool expired = emitter->getAttachKind() != EmitterAttachBrick && typeID < pd.emitterTypes.size() && pd.emitterTypes[typeID].lifetimeMS > 0 && now - emitter->getCreationTime() > pd.emitterTypes[typeID].lifetimeMS;
+		//Ones on bricks and vehicles last as long as they do, their particles still live out their own lifetimes
+		bool lasting = emitter->getAttachKind() == EmitterAttachBrick || emitter->getAttachKind() == EmitterAttachVehicle;
+		bool expired = !lasting && typeID < pd.emitterTypes.size() && pd.emitterTypes[typeID].lifetimeMS > 0 && now - emitter->getCreationTime() > pd.emitterTypes[typeID].lifetimeMS;
 		bool dynamicGone = emitter->getAttachKind() == EmitterAttachDynamic && emitter->dynamic.expired();
+		bool vehicleGone = emitter->getAttachKind() == EmitterAttachVehicle && emitter->vehicle.expired();
 		bool brickGone = emitter->brickID != NO_ID && !pd.bricks->find(emitter->brickID);
 
-		if (expired || dynamicGone || brickGone)
+		if (expired || dynamicGone || vehicleGone || brickGone)
 			pd.emitters->destroy(emitter);
 	}
 }
@@ -262,7 +434,8 @@ void LoopServer::updatePlayerAbilities()
 		for (PlayerController& controller : client->controllers)
 		{
 			std::shared_ptr<Dynamic> target = controller.target.lock();
-			bool jetting = target && controller.lastJet && controller.jetsAllowed;
+			//Not while driving, when right mouse is how they get out
+			bool jetting = target && target->isInWorld() && controller.lastJet && controller.jetsAllowed;
 			bool flaming = !controller.jetEmitters[0].expired() || !controller.jetEmitters[1].expired();
 
 			if (jetting && !flaming)
@@ -402,6 +575,8 @@ LoopServer::LoopServer(ExecutableArguments& cmdArgs, std::shared_ptr<SettingMana
 	pd.lights->makeLuaMetatable(pd.luaState, "metatable_light", getLightFunctions(pd.luaState));
 	pd.emitters = new ObjHolder<Emitter>(SimObjectType::EmitterTypeId, server);
 	pd.emitters->makeLuaMetatable(pd.luaState, "metatable_emitter", getEmitterFunctions(pd.luaState));
+	pd.vehicles = new ObjHolder<Vehicle>(SimObjectType::VehicleTypeId, server);
+	pd.vehicles->makeLuaMetatable(pd.luaState, "metatable_vehicle", getVehicleFunctions(pd.luaState));
 	pd.bricks = new BrickHolder(pd.physicsWorld, &pd.brickTypes, server);
 	//Music, lights, and emitters put on bricks come and go with them
 	pd.bricks->spawnAttachments = updateBrickAttachments;
@@ -447,6 +622,14 @@ LoopServer::~LoopServer()
 	//Removes brick bodies, so it has to go before the physics world
 	delete pd.bricks;
 	pd.bricks = nullptr;
+
+	//Their bodies and wheels are in the physics world too
+	if (pd.vehicles)
+	{
+		pd.vehicles->destroyAll();
+		delete pd.vehicles;
+		pd.vehicles = nullptr;
+	}
 
 	pd.physicsWorld.reset();
 	SimObject::world = nullptr;

@@ -140,6 +140,31 @@ void Server::switchPacketType(JoinedClient * source, ENetPacket* packet, const v
 			paintChoice(source, this, packet, pd);
 			return;
 		}
+		case SliceRequest:
+		{
+			sliceRequest(source, this, packet, pd);
+			return;
+		}
+		case VehicleWrenchSubmit:
+		{
+			vehicleWrenchSubmit(source, this, packet, pd);
+			return;
+		}
+		case VehicleSaveRequest:
+		{
+			vehicleSaveRequest(source, this, packet, pd);
+			return;
+		}
+		case VehicleUpload:
+		{
+			vehicleUpload(source, this, packet, pd);
+			return;
+		}
+		case VehicleRemoveRequest:
+		{
+			vehicleRemoveRequest(source, this, packet, pd);
+			return;
+		}
 
 		case InvalidClient:
 		default:

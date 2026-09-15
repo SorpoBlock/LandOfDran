@@ -10,6 +10,7 @@
 #include <set>
 
 struct ServerProgramData;
+class Vehicle;
 
 //Basically JoinedClient is lower level and used by the server for networking, ClientData is used in server-side packet functions
 //ClientData contains references to a JoinedClient but also anything else that client 'owns' like a player, a camera, bricks, etc.
@@ -33,6 +34,9 @@ struct ClientData
 
 	//The brick in the last wrench dialog sent to them, the only one a WrenchSubmit from them can change, NO_ID once they've submitted
 	netIDType wrenchedBrickID = NO_ID;
+
+	//Same for the last vehicle wrench dialog
+	netIDType wrenchedVehicleID = NO_ID;
 
 	//Voice chat, see Networking/PacketsFromClient/VoiceFrame.cpp
 	//Lua's client:setVoiceMuted, their voice is dropped while it's set
@@ -68,6 +72,21 @@ struct ClientData
 	glm::u8vec4 paintColor = glm::u8vec4(255, 255, 255, 255);
 	unsigned char paintMaterial = 0;
 
+	//The vehicle their player is driving, see LuaFunctions/VehicleLua.h
+	std::weak_ptr<Vehicle> vehicle;
+
+	//SDL_GetTicks of the last time they honked while driving, and sliced bricks into a vehicle
+	unsigned int lastHonkMS = 0;
+	unsigned int lastSliceMS = 0;
+
+	//SDL_GetTicks of the last time they saved a vehicle to their computer and loaded one from it, see Networking/PacketsFromClient/VehicleFiles.cpp
+	unsigned int lastVehicleSaveMS = 0;
+	unsigned int lastVehicleLoadMS = 0;
+
+	//A vehicle save they're uploading, as much of it as has arrived, and the ID their game gave that upload
+	std::string vehicleUpload;
+	uint32_t vehicleUploadID = 0;
+
 	//Puts an item that's on the ground into a slot, or the first empty one for -1. Returns the slot, or -1 if that slot is taken or none are free
 	int addItem(const ServerProgramData* pd, const std::shared_ptr<Item>& item, int slot = -1);
 
@@ -92,4 +111,7 @@ struct ClientData
 
 	//Removes their flashlight and jet flames, for when they leave
 	void removeEffects(const ServerProgramData* pd);
+
+	//Lets their player out of whatever they're driving, without ClientExitVehicle, for when they leave
+	void leaveVehicle();
 };

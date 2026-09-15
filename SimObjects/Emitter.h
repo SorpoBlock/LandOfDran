@@ -4,12 +4,15 @@
 #include "Dynamic.h"
 #include "ParticleTypes.h"
 
+class Vehicle;
+
 //What an Emitter's position comes from, sent with its state
 enum EmitterAttachKind : unsigned char
 {
 	EmitterAttachFixed = 0,		//Its own position
 	EmitterAttachDynamic = 1,	//A dynamic, or the middle of one of its meshes
-	EmitterAttachBrick = 2		//Its own position, on a brick, which keeps it past its type's lifetime
+	EmitterAttachBrick = 2,		//Its own position, on a brick, which keeps it past its type's lifetime
+	EmitterAttachVehicle = 3	//A spot on a vehicle, carried over from one of the bricks it was sliced from, which keeps it past its type's lifetime
 };
 
 /*
@@ -27,8 +30,9 @@ class Emitter : public SimObject
 	//Index into ServerProgramData::emitterTypes
 	uint16_t typeID = 0;
 	EmitterAttachKind attachKind = EmitterAttachFixed;
-	//Where it stays while fixed, where it was attached otherwise
+	//Where it stays while fixed, where it was attached for a dynamic, and where it is in the vehicle's body's space for a vehicle
 	glm::vec3 position = glm::vec3(0);
+	//The dynamic's net ID, or the vehicle's
 	netIDType dynamicID = 0;
 	//Which of the dynamic's meshes it follows the middle of, -1 for the dynamic itself
 	int meshIndex = -1;
@@ -46,7 +50,7 @@ class Emitter : public SimObject
 
 	virtual void onCreation() override {}
 
-	virtual void requestDestruction() override { dynamic.reset(); }
+	virtual void requestDestruction() override { dynamic.reset(); vehicle.reset(); }
 
 	public:
 
@@ -56,6 +60,9 @@ class Emitter : public SimObject
 	//Server: what it follows, it's removed along with it, see LoopServer::updateEmitters
 	//Client: the dynamic with dynamicID, found again whenever that isn't it
 	std::weak_ptr<Dynamic> dynamic;
+
+	//Same for a vehicle it's on
+	std::weak_ptr<Vehicle> vehicle;
 
 	//Server only: the brick it was put on with attachToBrick, it's removed along with it
 	netIDType brickID = NO_ID;
@@ -73,13 +80,16 @@ class Emitter : public SimObject
 	netIDType getAimDynamicID() const { return aimDynamicID; }
 	float getAimRange() const { return aimRange; }
 
+	//Where it is on the vehicle it's attached to, in the vehicle body's space
+	const glm::vec3& getVehicleOffset() const { return position; }
+
 	//Its color as 0-1 floats
 	glm::vec4 getTint() const { return glm::vec4(color) / 255.0f; }
 
 	//Client only: the dynamic with aimDynamicID, found again whenever that isn't it
 	std::weak_ptr<Dynamic> aimer;
 
-	//Server: its fixed position, or where the dynamic it follows is
+	//Server: its fixed position, or where the dynamic or vehicle it follows is
 	glm::vec3 getPosition() const;
 
 	//Each of these has clients sent the change
@@ -94,6 +104,9 @@ class Emitter : public SimObject
 
 	//Stays put at the brick's position, removed along with the brick, and never for its type's lifetime
 	void attachToBrick(netIDType _brickID, const glm::vec3& brickPosition);
+
+	//Goes along with a vehicle at offset in its body's space, removed along with it, and never for its type's lifetime
+	void attachToVehicle(const std::shared_ptr<Vehicle>& target, const glm::vec3& offset);
 
 	//Only sent if it's different
 	void setColor(const glm::u8vec4& _color);

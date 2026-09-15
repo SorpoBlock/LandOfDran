@@ -1,0 +1,6 @@
+file	Tire_low.fbx
+Triangulate	true
+FlipUVs	true
+CalcTangentSpace	true
+JoinIdenticalVertices	true
+singlematerial	Assets/tire/tireMaterial.txt

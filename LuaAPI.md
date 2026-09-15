@@ -137,6 +137,12 @@ setSkybox("Assets/ibl/main.hdr")                                  -- lit by a ph
 | `ClientStopTalking` | `function(client) ... return client end` | Fires when a client lets go of push to talk, or half a second after their voice stops arriving (a lost last packet, or muted while talking). Not fired for a client who leaves while talking. |
 | `ClientWrenchBrick` | `function(client, brick) ... return client, brick end` | Fires when a client holds Insert and left clicks a brick within 100 studs of their camera, before its wrench dialog opens. Return `client, nil` to keep the dialog closed, or another brick to open that one's dialog instead. Not fired by `client:openWrenchDialog`, which is what the wrench item in `Inventory.lua` uses. |
 | `ClientClickRelease` | `function(client, posX, posY, posZ, dirX, dirY, dirZ, mask) ... return client, posX, posY, posZ, dirX, dirY, dirZ, mask end` | Fires when a client lets go of a mouse button in game, even over a window. Same arguments as `ClientClick`, except `mask` is only the button let go. `Inventory.lua` stops swinging the hammer or wrench here. |
+| `ClientSliceBricks` | `function(client, brickCount) ... return client, brickCount end` | Fires when a client's selection box would make a vehicle, after every rule it has to follow checks out, with how many bricks (wheels included) would be sliced. Return `client, nil` to stop it, which leaves the bricks where they are and tells the client nothing. See [Vehicles](#vehicles). |
+| `ClientEnterVehicle` | `function(client, vehicle) ... return client, vehicle end` | Fires when a client right clicks a vehicle nobody is driving, before they get in. Return `client, nil` to keep them out. Not fired by `client:enterVehicle`. |
+| `ClientExitVehicle` | `function(client, vehicle) ... return client, vehicle end` | Fires after a client gets out of a vehicle by right clicking, or because their player was destroyed or given to someone else while driving. Not fired by `client:exitVehicle`, `vehicle:ejectDriver`, removing the vehicle, or leaving the server. |
+| `ClientWrenchVehicle` | `function(client, vehicle) ... return client, vehicle end` | Fires when a client holds Insert and left clicks a vehicle, before its wrench dialog opens. Return `client, nil` to keep the dialog closed. Not fired by `client:openWrenchDialog`. |
+| `ClientLoadVehicle` | `function(client, brickCount, asVehicle) ... return client, brickCount, asVehicle end` | Fires when a vehicle save a client uploaded from their Saved Vehicles window is about to be placed, with how many bricks it has (wheels included) and whether it's loading as a vehicle or as bricks. Return `client, nil` to stop it, which tells the client nothing. Not fired by `loadVehicleFile`. See [Vehicles](#vehicles). |
+| `ClientRemoveVehicle` | `function(client, vehicle) ... return client, vehicle end` | Fires when a client confirms Remove vehicle in a vehicle's wrench dialog, before it's removed. Return `client, nil` to keep it. Not fired by `vehicle:destroy` or `clearAllVehicles`. |
 | `ClientDropItem` | `function(client, slot) ... return client, slot end` | Fires when a client presses their drop item key with Ctrl (Ctrl+W by default), with the slot their item bar has picked (0-4), whether or not there's an item in it or their items are out. Nothing is dropped unless a listener does it; `Inventory.lua` throws the item in their hand. |
 
 ---
@@ -532,7 +538,8 @@ selector. Shape effects are only drawn: a brick always collides as its plain sha
 ### Wrench dialog and brick attachments
 
 Players wrench a brick to open its wrench dialog, where they can change whether it collides, its name,
-its music loop with volume and pitch, its light, and its emitter. Wrenching is left clicking a brick with the
+its music loop with volume and pitch, its light, and its emitter. Wheel and steering wheel bricks also get a section for
+how they drive once sliced into a vehicle, see [Vehicles](#vehicles). Wrenching is left clicking a brick with the
 wrench item in hand (see [Items](#items)), or holding Insert (the `Wrench` key bind) and left clicking one. Lua can
 veto or redirect the Insert way with the `ClientWrenchBrick` event, or open a dialog itself with `client:openWrenchDialog`.
 Anyone can currently wrench any brick; there are no build permissions yet. The music list only shows
@@ -556,6 +563,100 @@ Light fields for `brick:setLight` and `brick:getLight` (see [Lights](#lights) fo
 | `direction` | `{0, -1, 0}` | Which way a spotlight points, any length but zero. |
 | `spin` | `0` | Degrees per second, -3600 to 3600. |
 | `offset` | `{0, 0, 0}` | Where the light is from the middle of the brick, in world units, -32 to 32 on each axis. Point light shadows leave out any brick a light is inside, so a light in the middle of its brick shines out through it, though bricks right next to it still cast shadows. |
+
+---
+
+## Vehicles
+
+Players build a vehicle out of bricks where it stands, then slice it out of the world into one body that drives on
+wheels, like the old game's brick cars. Pressing G (the `Select Bricks for Vehicle` key bind) and clicking starts a
+selection box on whatever the crosshair is on; hovering one of its faces and dragging with left mouse held stretches
+it, up to 64 studs wide and 160 plates tall, and Enter slices every brick with any part inside it. Escape, or G again,
+puts the box away. Lua does the same with `sliceBricks`.
+
+A vehicle needs exactly one steering wheel brick and at least one wheel brick (at most 24), up to 10000 other bricks,
+and can reach at most 40 studs along any axis. Special brick types are vehicle parts through our own `vehiclePart`
+datablock field in `bricks.txt` (`"wheel"` or `"steering"`); `Assets/brick/types/vehicle` has the old game's wheels and
+steering wheel, listed under Special, Vehicle in the brick selector. The steering wheel decides which way the vehicle
+drives (the way its rim faces from its column, `+x` unturned, with the driver standing on its column's side), and every
+wheel has to roll that way: a wheel rolls along its longer side. Wheel bricks become wheels drawn with
+`Assets/tire/tire.txt`, half as tall as the brick in radius, and everything else, the steering wheel included, becomes
+the body. Bricks that don't collide are drawn but aren't part of the body. Lights and emitters on the bricks carry over and
+move with the vehicle. Music on the steering wheel brick becomes the vehicle's music; music on other bricks doesn't carry
+over. Like the old game, the body weighs one per colliding brick, so a very small vehicle is light enough to wheelie and
+flip easily.
+
+Players right click a vehicle within 30 studs of their camera to get in, standing behind its steering wheel. W and S
+run the engine, A and D steer, jump brakes, left click plays the `Honk` sound if one is registered, and right click
+gets out just above the seat. A vehicle nobody drives holds its brakes. The engine stops pushing past 200 studs a second.
+Wheels on the ground going faster than 50 km/h (about 14 studs a second) while turning or braking throw up the
+`setVehicleDirtEmitter` emitter type (`vehicleDirtEmitter` from `EmitterDefaults.lua` by default), tinted a darker shade
+of the brick under them, or brown when there's no brick under them. Wheels in the water float the vehicle and splash like the old game. A vehicle going faster than
+1000 studs a second, spinning faster than 300 radians a second, more than 10000 studs from the middle of the world, or
+with a position that isn't a number is removed, with an error logged.
+
+Wrenching a wheel brick before slicing adds a Wheel section to its wrench dialog, and a steering wheel brick a Vehicle
+section, which are saved with the brick by `saveBuild`. Wrenching a vehicle (with the wrench item, or Insert and left
+click) opens a dialog with its music loop and a Save section, which saves the vehicle to `Saves/Vehicles/<name>.lod` on
+the player's own computer: the server sends its bricks as they were before slicing, wheels and their settings included,
+with its music on its steering wheel. Its red Remove vehicle button, once confirmed, fires `ClientRemoveVehicle` and
+removes it. The `Saved Vehicles` window, opened from the escape menu while in a server, lists those files; picking one
+to load as a vehicle ready to drive, or as plain bricks the player owns and can undo, change, and slice again, shows a
+ghost of it at the crosshair (up to 100 studs away, 15 studs out in the air otherwise), and left clicking places it there
+(Escape cancels). The file is uploaded to the server, which checks the spot is within 140 studs of the player's camera,
+fires `ClientLoadVehicle`, and lets a player load one every 5 seconds. Anyone can currently slice, drive, wrench, or load
+anything; use the events to limit that.
+
+| Wheel setting | Default | Range | Description |
+|---|---|---|---|
+| Engine force | `200` | -2000 to 2000 | How hard the wheel drives the vehicle forward, negative backward. |
+| Brake force | `400` | 0 to 2000 | How hard it stops while the driver holds jump, and while nobody drives. |
+| Steering | `0.5` radians | -pi to pi | How far it turns while steering, 0 doesn't steer, negative turns the other way. |
+| Suspension length | `0.7` | 0.1 to 5 | World units the wheel hangs down when resting. |
+| Stiffness | `100` | 1 to 1000 | How hard the suspension pushes back. |
+| Compression / relaxation damping | `6` / `10` | 1 to 100 | How much the suspension resists moving in and out. |
+| Grip | `1.2` | 0.1 to 10 | Friction slip, higher slides less. |
+| Roll influence | `0.6` | 0.1 to 10 | How much cornering tips the vehicle, lower is steadier. |
+
+| Steering wheel setting | Default | Range | Description |
+|---|---|---|---|
+| Mass | `1.5` | 1.5 to 30 | How heavy each brick is to turn or tip over. |
+| Spin damping | `0.03` | 0 to 1 | How quickly spinning slows down. |
+| Realistic center of mass | off | | Off, the vehicle turns around a point down near its wheels, which keeps it from flipping. On, around the middle of its bricks. |
+
+### Global functions
+
+| Function | Arguments | Returns | Description |
+|---|---|---|---|
+| `sliceBricks(x1, y1, z1, x2, y2, z2)` | two opposite grid corners in studs/plates, both inclusive | Vehicle, or `nil` and why | Slices every brick with any part in that box into a vehicle, without firing `ClientSliceBricks`. The box can be at most 64 by 160 by 64. |
+| `getNumVehicles()` | none | count | How many vehicles exist. |
+| `getVehicleIdx(index)` | 0-based index | Vehicle | Looks up a vehicle by its position in the internal list. |
+| `getVehicleId(id)` | net ID | Vehicle or `nil` | Looks up a vehicle by its net ID. |
+| `clearAllVehicles()` | none | none | Removes every vehicle, letting their drivers out. |
+| `setVehicleDirtEmitter(typeName)` / `setVehicleDirtEmitter(nil)` | an emitter type's name | none | The emitter type wheels of vehicles sliced from now on throw dirt with. `nil` for none. |
+| `loadVehicleFile(fileName, x, y, z[, asBricks])` | a name in the server's `Saves/Vehicles` without `.lod`; a grid spot in studs/plates; `asBricks` | Vehicle (or `true` as bricks) and a message, or `nil` and why | Places a vehicle save, from `vehicle:saveToFile` or one a player saved, with the middle of its bottom at the spot. As a vehicle it follows the same rules as slicing; as bricks, ones in the way of other bricks are left out. Doesn't fire `ClientLoadVehicle`. |
+
+### `vehicle:` methods
+
+| Method | Arguments | Returns | Description |
+|---|---|---|---|
+| `vehicle:destroy()` / `vehicle:remove()` | none | none | Lets out its driver, removes its lights, emitters, and music, and removes it. Its bricks don't come back. |
+| `vehicle:saveToFile(fileName)` | a name without `.lod` | bool | Saves it to `Saves/Vehicles/<fileName>.lod` on the server, for `loadVehicleFile`. Names can't have folders in them. |
+| `vehicle:getNumBricks()` | none | count | Bricks in its body, the steering wheel included. |
+| `vehicle:getNumWheels()` | none | count | |
+| `vehicle:getPosition()` / `vehicle:setPosition(x, y, z)` | world position | x, y, z / none | Its body's origin, which is near its wheels' tops unless its steering wheel asks for a realistic center of mass. |
+| `vehicle:getRotation()` / `vehicle:setRotation(w, x, y, z)` | quaternion | w, x, y, z / none | |
+| `vehicle:getVelocity()` / `vehicle:setVelocity(x, y, z)` | studs per second | x, y, z / none | |
+| `vehicle:getAngularVelocity()` / `vehicle:setAngularVelocity(x, y, z)` | radians per second | x, y, z / none | |
+| `vehicle:setGravity(x, y, z)` | acceleration | none | |
+| `vehicle:getDriver()` | none | Client or `nil` | Who's driving it. |
+| `vehicle:ejectDriver()` | none | none | Lets its driver out, without `ClientExitVehicle`. |
+| `vehicle:getBuilder()` | none | Client or `nil` | Who sliced it, `nil` if Lua did or they left. |
+| `vehicle:getBuilderID()` | none | client net ID, or `-1` | |
+| `vehicle:getMusic()` | none | sound name, volume, pitch; or `nil` | The loop playing from it. |
+| `vehicle:setMusic(soundName[, volume, pitch])` / `vehicle:setMusic(nil)` | a sound type's name; `volume` 0-1, `pitch` 0.05-10 | none | Plays the sound on a loop from the vehicle for everyone, following it, until it's changed or the vehicle is removed. Changing anything starts the loop over. |
+
+Vehicles also come back from `raycast()` and `client:getCursorItem`, with `type` 7.
 
 ---
 
@@ -682,5 +783,8 @@ A "client" represents one connected player/connection.
 | `client:getCameraDirection()` | none | x, y, z | Which way their camera looked then, normalized. Needs `setDefaultController`. While they hold left mouse, their camera is sent about every 30 ms instead. |
 | `client:getPaintColor()` | none | r, g, b, a | The color their paint palette (E, or Right Shift's custom color) has picked, 0-1. Their game sends it as they connect and whenever it changes. White until then. |
 | `client:getPaintMaterial()` | none | material name | The brick material their paint palette has picked, like `"Chrome"`, see [Brick materials](#brick-materials). |
-| `client:openWrenchDialog(brick)` | Brick | none | Opens the wrench dialog for the brick on the client's screen, as if they'd wrenched it, without firing `ClientWrenchBrick`. What they apply only reaches the brick in the last dialog they were sent, once. See [Wrench dialog and brick attachments](#wrench-dialog-and-brick-attachments). |
+| `client:openWrenchDialog(brick)` / `client:openWrenchDialog(vehicle)` | Brick or Vehicle | none | Opens the wrench dialog for the brick (or vehicle, with just its music) on the client's screen, as if they'd wrenched it, without firing `ClientWrenchBrick` or `ClientWrenchVehicle`. What they apply only reaches the brick or vehicle in the last dialog of that kind they were sent, once. See [Wrench dialog and brick attachments](#wrench-dialog-and-brick-attachments) and [Vehicles](#vehicles). |
+| `client:getVehicle()` | none | Vehicle or `nil` | The vehicle the client is driving. |
+| `client:enterVehicle(vehicle)` | Vehicle | bool | Puts the player from `setDefaultController` in the vehicle's seat, without firing `ClientEnterVehicle`. `false` if someone's already driving it, the client is already driving, or their player isn't standing in the world (like one Lua took out of it). |
+| `client:exitVehicle()` | none | none | Lets the client out of whatever they're driving, just above its seat, without firing `ClientExitVehicle`. |
 | `client:applyAppearance(dynamic)` | Dynamic | none | Puts the colors, face, and shirt the client picked in their appearance editor on the dynamic, usually their player in `ClientJoin`. Their game sends their appearance as they connect: each painted part is matched to a mesh by name ignoring case (parts the model doesn't have are skipped), the face goes on the `Face1` mesh, or `Face` or `Head` if there's no `Face1`, and the shirt goes on the `Torso` mesh, like `dynamic:setMeshDecal`. If they save a change while connected, it's put on the last dynamic this was called with, and parts they no longer paint go back to the model's own look. |

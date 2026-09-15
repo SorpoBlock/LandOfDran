@@ -49,32 +49,29 @@ std::string getSavePath(const std::string& fileName)
 	return "Saves/" + fileName;
 }
 
-static void writeValue(std::ofstream& file, const auto& value)
+std::string getVehicleSavePath(const std::string& name)
+{
+	if (name.empty() || name.length() > 64 || name[0] == '.' || name.back() == ' ')
+		return "";
+
+	if (name.find_first_of("/\\:*?\"<>|") != std::string::npos || name.find("..") != std::string::npos)
+		return "";
+
+	return "Saves/Vehicles/" + name + ".lod";
+}
+
+static void writeValue(std::ostream& file, const auto& value)
 {
 	file.write((const char*)&value, sizeof(value));
 }
 
-static bool readValue(std::ifstream& file, auto& value)
+static bool readValue(std::istream& file, auto& value)
 {
 	return (bool)file.read((char*)&value, sizeof(value));
 }
 
-bool saveLodBuild(const BrickHolder& bricks, const std::string& path, bool omitOwnership)
+bool writeLodBricks(std::ostream& file, const std::vector<const Brick*>& bricks, const BrickTypes* types, bool omitOwnership)
 {
-	scope("saveLodBuild");
-
-	std::error_code errorCode;
-	std::filesystem::create_directories(std::filesystem::path(path).parent_path(), errorCode);
-
-	std::ofstream file(path, std::ios::binary);
-	if (!file.is_open())
-	{
-		error("Could not open " + path + " for writing");
-		return false;
-	}
-
-	const BrickTypes* types = bricks.getTypes();
-
 	std::vector<const Brick*> basic;
 	std::vector<const Brick*> special;
 
@@ -82,9 +79,8 @@ bool saveLodBuild(const BrickHolder& bricks, const std::string& path, bool omitO
 	std::vector<std::string> typeNames;
 	std::unordered_map<uint16_t, unsigned int> saveTypeIDs;
 
-	for (size_t a = 0; a < bricks.size(); a++)
+	for (const Brick* brick : bricks)
 	{
-		const Brick* brick = bricks.get(a);
 		const SpecialBrickType* type = brick->isSpecial() && types ? types->getSpecial(brick->typeID - 1) : nullptr;
 		if (!type)
 		{
@@ -122,7 +118,7 @@ bool saveLodBuild(const BrickHolder& bricks, const std::string& path, bool omitO
 		writeValue(file, (float)((brick->y + brick->height * 0.5) * PLATE_SIZE));
 		writeValue(file, (float)(brick->z + brick->footprintLength() * 0.5));
 
-		if (brick->isSpecial())
+		if (saveTypeIDs.count(brick->typeID))
 			writeValue(file, saveTypeIDs[brick->typeID]);
 		else
 		{
@@ -160,13 +156,35 @@ bool saveLodBuild(const BrickHolder& bricks, const std::string& path, bool omitO
 	for (const Brick* brick : special)
 		writeRecord(brick);
 
-	if (!file)
+	return (bool)file;
+}
+
+bool saveLodBuild(const BrickHolder& bricks, const std::string& path, bool omitOwnership)
+{
+	scope("saveLodBuild");
+
+	std::error_code errorCode;
+	std::filesystem::create_directories(std::filesystem::path(path).parent_path(), errorCode);
+
+	std::ofstream file(path, std::ios::binary);
+	if (!file.is_open())
+	{
+		error("Could not open " + path + " for writing");
+		return false;
+	}
+
+	std::vector<const Brick*> all;
+	all.reserve(bricks.size());
+	for (size_t a = 0; a < bricks.size(); a++)
+		all.push_back(bricks.get(a));
+
+	if (!writeLodBricks(file, all, bricks.getTypes(), omitOwnership))
 	{
 		error("Error while writing " + path);
 		return false;
 	}
 
-	info("Saved " + std::to_string(count) + " bricks to " + path);
+	info("Saved " + std::to_string(all.size()) + " bricks to " + path);
 	return true;
 }
 
@@ -174,7 +192,7 @@ bool saveLodBuild(const BrickHolder& bricks, const std::string& path, bool omitO
 	Reads the owner, name, and flags at the end of a next version record, then either our attachments or the old game's music/light/print data, which is skipped
 	Returns false if the file ran out
 */
-static bool readRecordExtras(std::ifstream& file, bool hasAttachments, bool& collides, std::string& name, std::shared_ptr<BrickAttachments>& attachments)
+static bool readRecordExtras(std::istream& file, bool hasAttachments, bool& collides, std::string& name, std::shared_ptr<BrickAttachments>& attachments)
 {
 	int ownerID;
 	unsigned char nameLength, flags;
@@ -192,7 +210,7 @@ static bool readRecordExtras(std::ifstream& file, bool hasAttachments, bool& col
 
 	if (hasAttachments)
 	{
-		if (!(flags & (BrickAttachment_Music | BrickAttachment_Light | BrickAttachment_Emitter)))
+		if (!(flags & (BrickAttachment_Music | BrickAttachment_Light | BrickAttachment_Emitter | BrickAttachment_Wheel | BrickAttachment_Steering)))
 			return true;
 
 		auto read = std::make_shared<BrickAttachments>();
@@ -225,76 +243,47 @@ static bool readRecordExtras(std::ifstream& file, bool hasAttachments, bool& col
 	return (bool)file;
 }
 
-int loadLodBuild(BrickHolder& bricks, const std::string& path, int offsetX, int offsetY, int offsetZ)
+LodReadResult readLodBricks(std::istream& file, const BrickTypes* types, const std::function<void(Brick&)>& found)
 {
-	scope("loadLodBuild");
-
-	unsigned int startMS = SDL_GetTicks();
-
-	std::ifstream file(path, std::ios::binary);
-	if (!file.is_open())
-	{
-		error("Could not open " + path);
-		return -1;
-	}
+	LodReadResult result;
 
 	unsigned int magic, brickCount, typeCount;
 	if (!readValue(file, magic) || magic < lodMagic || magic > lodMagicAttachments)
-	{
-		error(path + " is not a Land of Dran binary save");
-		return -1;
-	}
+		return result;
+
+	result.valid = true;
 	bool hasExtras = magic != lodMagic;
 	bool hasAttachments = magic == lodMagicAttachments;
 
 	if (!readValue(file, brickCount) || !readValue(file, typeCount))
-	{
-		error(path + " ended early");
-		return -1;
-	}
+		return result;
 
 	//Special type names, bricks in the save refer to them by index, which becomes our own type ID or 0 if we don't have it
-	const BrickTypes* types = bricks.getTypes();
 	std::vector<uint16_t> typeIDs;
-	std::map<std::string, int> missingTypes;
-
 	for (unsigned int a = 0; a < typeCount; a++)
 	{
 		unsigned char nameLength;
 		std::string typeName;
 		if (!readValue(file, nameLength))
-		{
-			error(path + " ended early");
-			return -1;
-		}
+			return result;
+
 		typeName.resize(nameLength);
 		if (nameLength > 0 && !file.read(&typeName[0], nameLength))
-		{
-			error(path + " ended early");
-			return -1;
-		}
+			return result;
 
 		typeName = blocklandTextToUtf8(typeName);
 		int special = types ? types->findSpecial(typeName) : -1;
 		typeIDs.push_back(special < 0 ? 0 : (uint16_t)(special + 1));
 		if (special < 0)
-			missingTypes[typeName] = 0;
+			result.missingTypes[typeName] = 0;
 	}
-
-	int loaded = 0;
-	int rejected = 0;
-	int skippedSpecial = 0;
-	int invalid = 0;
 
 	//Opaque basic, transparent basic, then special bricks
 	for (int section = 0; section < 3; section++)
 	{
 		unsigned int sectionCount;
 		if (!readValue(file, sectionCount))
-		{
-			error(path + " ended early");
-			break;
-		}
+			return result;
 
 		for (unsigned int a = 0; a < sectionCount; a++)
 		{
@@ -317,10 +306,7 @@ int loadLodBuild(BrickHolder& bricks, const std::string& path, int offsetX, int 
 				ok = readRecordExtras(file, hasAttachments, collides, name, attachments);
 
 			if (!ok)
-			{
-				error(path + " ended early, loaded " + std::to_string(loaded) + " bricks");
-				return loaded;
-			}
+				return result;
 
 			uint16_t specialType = 0;
 			if (section == 2)
@@ -329,7 +315,7 @@ int loadLodBuild(BrickHolder& bricks, const std::string& path, int offsetX, int 
 				const SpecialBrickType* type = types ? types->getSpecial(specialType - 1) : nullptr;
 				if (!type)
 				{
-					skippedSpecial++;
+					result.skippedSpecial++;
 					continue;
 				}
 
@@ -338,9 +324,10 @@ int loadLodBuild(BrickHolder& bricks, const std::string& path, int offsetX, int 
 				length = type->length;
 			}
 
-			if (width == 0 || height == 0 || length == 0 || angleID > 3)
+			if (width == 0 || height == 0 || length == 0 || angleID > 3 || !std::isfinite(centerX) || !std::isfinite(centerY) || !std::isfinite(centerZ) ||
+				std::abs(centerX) > 40000 || std::abs(centerY) > 40000 || std::abs(centerZ) > 40000)
 			{
-				invalid++;
+				result.invalid++;
 				continue;
 			}
 
@@ -358,29 +345,67 @@ int loadLodBuild(BrickHolder& bricks, const std::string& path, int offsetX, int 
 			desc.collides = collides;
 			desc.name = name;
 			desc.attachments = attachments;
-			desc.x = (int)lround(centerX - desc.footprintWidth() * 0.5) + offsetX;
-			desc.y = (int)lround(centerY / PLATE_SIZE - height * 0.5) + offsetY;
-			desc.z = (int)lround(centerZ - desc.footprintLength() * 0.5) + offsetZ;
+			desc.x = (int)lround(centerX - desc.footprintWidth() * 0.5);
+			desc.y = (int)lround(centerY / PLATE_SIZE - height * 0.5);
+			desc.z = (int)lround(centerZ - desc.footprintLength() * 0.5);
 
-			if (bricks.add(desc))
-				loaded++;
-			else
-				rejected++;
+			found(desc);
 		}
 	}
+
+	result.complete = true;
+	return result;
+}
+
+int loadLodBuild(BrickHolder& bricks, const std::string& path, int offsetX, int offsetY, int offsetZ)
+{
+	scope("loadLodBuild");
+
+	unsigned int startMS = SDL_GetTicks();
+
+	std::ifstream file(path, std::ios::binary);
+	if (!file.is_open())
+	{
+		error("Could not open " + path);
+		return -1;
+	}
+
+	int loaded = 0;
+	int rejected = 0;
+
+	LodReadResult result = readLodBricks(file, bricks.getTypes(), [&](Brick& desc)
+	{
+		desc.x += offsetX;
+		desc.y += offsetY;
+		desc.z += offsetZ;
+
+		if (bricks.add(desc))
+			loaded++;
+		else
+			rejected++;
+	});
+
+	if (!result.valid)
+	{
+		error(path + " is not a Land of Dran binary save");
+		return -1;
+	}
+
+	if (!result.complete)
+		error(path + " ended early, loaded " + std::to_string(loaded) + " bricks");
 
 	info("Loaded " + std::to_string(loaded) + " bricks from " + path + " in " + std::to_string(SDL_GetTicks() - startMS) + "ms");
 	if (rejected > 0)
 		info(std::to_string(rejected) + " bricks overlapped existing bricks or were out of bounds");
-	if (skippedSpecial > 0)
+	if (result.skippedSpecial > 0)
 	{
 		std::string list = "";
-		for (const auto& entry : missingTypes)
+		for (const auto& entry : result.missingTypes)
 			list += (list.empty() ? "" : ", ") + entry.first;
-		info(std::to_string(skippedSpecial) + " special bricks of types we don't have were skipped: " + list);
+		info(std::to_string(result.skippedSpecial) + " special bricks of types we don't have were skipped: " + list);
 	}
-	if (invalid > 0)
-		error(std::to_string(invalid) + " bricks had invalid sizes or rotations");
+	if (result.invalid > 0)
+		error(std::to_string(result.invalid) + " bricks had invalid sizes or rotations");
 
 	return loaded;
 }

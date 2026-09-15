@@ -6,6 +6,45 @@
 #define BrickAttachment_Music 2
 #define BrickAttachment_Light 4
 #define BrickAttachment_Emitter 16
+#define BrickAttachment_Wheel 32
+#define BrickAttachment_Steering 64
+
+//How a wheel brick's wheel drives once its bricks are sliced into a vehicle, from the old game's wheel wrench dialog
+struct WheelSettings
+{
+	//Forward push while driving, negative runs it backwards
+	float engineForce = 200.0f;
+	float brakeForce = 400.0f;
+	//Radians the wheel turns while steering, 0 for a wheel that doesn't steer
+	float steerAngle = 0.5f;
+	//World units from where the wheel hangs to its middle when resting
+	float suspensionLength = 0.7f;
+	float suspensionStiffness = 100.0f;
+	float dampingCompression = 6.0f;
+	float dampingRelaxation = 10.0f;
+	//Grip, higher slides less
+	float frictionSlip = 1.2f;
+	//How much the wheels' grip tips the vehicle over in turns, lower is steadier
+	float rollInfluence = 0.6f;
+
+	static constexpr size_t floatCount = 9;
+
+	//Same ranges as the old game's wrench dialog
+	void clampValues();
+};
+
+//How a whole vehicle handles, set on its steering wheel brick
+struct SteeringSettings
+{
+	//Weight each brick adds to how hard the vehicle is to turn over
+	float mass = 1.5f;
+	//How quickly spinning slows down
+	float angularDamping = 0.03f;
+	//Off, the vehicle turns around a point near its wheels so it's hard to flip, on, around the middle of its bricks
+	bool realisticCenterOfMass = false;
+
+	void clampValues();
+};
 
 /*
 	What the wrench dialog puts on a brick besides its collision and name: a music loop, a light, and an emitter
@@ -37,6 +76,14 @@ struct BrickAttachments
 
 	//An emitter type's name, "" for no emitter
 	std::string emitterName = "";
+
+	//A wheel brick's settings from its wrench dialog, the defaults until it's wrenched, see WheelSettings
+	bool hasWheel = false;
+	WheelSettings wheel;
+
+	//A steering wheel brick's settings from its wrench dialog, see SteeringSettings
+	bool hasSteering = false;
+	SteeringSettings steering;
 
 	//Server only: the loop, light, and emitter made from the settings above, never saved or sent
 	unsigned int musicLoopID = NO_ID;

@@ -8,6 +8,7 @@
 #include "../SimObjects/StaticObject.h"
 #include "../SimObjects/Light.h"
 #include "../SimObjects/Emitter.h"
+#include "../SimObjects/Vehicle.h"
 #include "../LuaFunctions/EventManager.h"
 #include "../Physics/PhysicsWorld.h"
 #include "../Bricks/BrickHolder.h"
@@ -52,7 +53,7 @@ struct ServerProgramData
 	mutable bool worldStateChanged = true;
 
 	std::shared_ptr<PhysicsWorld>	physicsWorld = nullptr;
-	
+
 	lua_State * luaState = nullptr;
 	EventManager * eventManager = nullptr;
 
@@ -79,6 +80,8 @@ struct ServerProgramData
 		glm::vec3 position = glm::vec3(0);
 		//Only for SoundLocationDynamic, the loop ends when this does
 		std::weak_ptr<Dynamic> dynamic;
+		//Only for SoundLocationVehicle, the same
+		std::weak_ptr<Vehicle> vehicle;
 		float pitch = 1.0f;
 		float volume = 1.0f;
 	};
@@ -102,12 +105,19 @@ struct ServerProgramData
 	//Someone who hasn't sent any voice for this long has stopped talking, see LoopServer::endQuietTalkers
 	static constexpr unsigned int voiceTimeoutMS = 500;
 
+	//Lua's setVehicleDirtEmitter: the emitter type new vehicles' wheels throw dirt with, "" for none
+	std::string vehicleDirtEmitter = "vehicleDirtEmitter";
+
 	//ObjHolders created and destroyed with ServerLoop class
 	//All dynamic objects:
 	ObjHolder<Dynamic>* dynamics = nullptr;
 	ObjHolder<StaticObject> * statics = nullptr;
 	ObjHolder<Light> * lights = nullptr;
 	ObjHolder<Emitter> * emitters = nullptr;
+	ObjHolder<Vehicle> * vehicles = nullptr;
+
+	//Vehicles made since the last tick, whose bricks go out once their creation packets have, see LoopServer::run
+	mutable std::vector<std::weak_ptr<Vehicle>> vehiclesAwaitingBricks;
 
 	//Created and destroyed with ServerLoop class, like the ObjHolders above
 	BrickHolder* bricks = nullptr;
@@ -168,6 +178,9 @@ struct ServerProgramData
 		{
 			if (c->at(a).get() == src->userData)
 			{
+				//Out of whatever they were driving, while their player is still around to be let out
+				c->at(a)->leaveVehicle();
+
 				//These objects don't have to dissapear if Lua modders don't want them to
 				//But we need to clarify all of these objects are *only* owned by Lua now
 				c->at(a)->controlledObjects.clear();

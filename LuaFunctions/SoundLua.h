@@ -31,6 +31,9 @@ bool startSoundLoopAt(const std::string& name, const glm::vec3& position, float 
 //Stops a loop from startSoundLoop or startSoundLoopAt, nothing happens if it already ended
 void stopSoundLoopByID(unsigned int loopID);
 
+//Same as startSoundLoopAt, following a vehicle, and ending when it's removed
+bool startSoundLoopOnVehicle(const std::string& name, const std::shared_ptr<Vehicle>& vehicle, float pitch, float volume, unsigned int& loopID);
+
 bool isSoundLoopPlaying(unsigned int loopID);
 
 bool soundTypeExists(const std::string& name);

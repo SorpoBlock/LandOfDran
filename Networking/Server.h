@@ -79,3 +79,8 @@ void playerGrab(JoinedClient* source, Server const* const server, ENetPacket con
 void inventorySelect(JoinedClient* source, Server const* const server, ENetPacket const* const packet, const void* pdv);
 void dropItemRequest(JoinedClient* source, Server const* const server, ENetPacket const* const packet, const void* pdv);
 void paintChoice(JoinedClient* source, Server const* const server, ENetPacket const* const packet, const void* pdv);
+void sliceRequest(JoinedClient* source, Server const* const server, ENetPacket const* const packet, const void* pdv);
+void vehicleWrenchSubmit(JoinedClient* source, Server const* const server, ENetPacket const* const packet, const void* pdv);
+void vehicleSaveRequest(JoinedClient* source, Server const* const server, ENetPacket const* const packet, const void* pdv);
+void vehicleUpload(JoinedClient* source, Server const* const server, ENetPacket const* const packet, const void* pdv);
+void vehicleRemoveRequest(JoinedClient* source, Server const* const server, ENetPacket const* const packet, const void* pdv);

@@ -98,6 +98,27 @@ bool UpdateSimObjectsPacket::applyPacket(const ClientProgramData& pd, Simulation
 
 		break;
 	}
+	case VehicleTypeId:
+	{
+		unsigned int numObjects = packet->data[2];
+		unsigned int byteIterator = 3;
+		netIDType lastId = NO_ID;
+
+		for (unsigned int a = 0; a < numObjects; a++)
+		{
+			lastId = simulation.vehicles->getIdFromDelta(packet->data + byteIterator, lastId, byteIterator);
+
+			//How many bytes an update takes depends on the vehicle's wheels, so one we don't know about leaves the rest unreadable
+			std::shared_ptr<Vehicle> toUpdate = simulation.vehicles->find(lastId);
+			if (!toUpdate || byteIterator + toUpdate->getUpdatePacketBytes() > packet->dataLength)
+				break;
+
+			toUpdate->readUpdate(packet->data + byteIterator, simulation.idealBufferSize);
+			byteIterator += toUpdate->getUpdatePacketBytes();
+		}
+
+		break;
+	}
 	case DynamicTypeId:
 	{
 		unsigned int numObjects = packet->data[2];

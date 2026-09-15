@@ -29,6 +29,10 @@ layout (std140) uniform EnvironmentUniforms
 
 uniform mat4 lightSpaceMatrix;
 
+//Identity for placed bricks, a vehicle's transform for its bricks, see InstancedBrickRenderer::renderShadowCascade
+//skipPoint is in the same space as BrickCorner, so for a vehicle it's the light's position in the vehicle's space
+uniform mat4 brickTransform;
+
 //Bricks less opaque than this are skipped: half for plain shadows, 0 for the colored shadow passes where every transparent brick tints
 uniform float minOpacity;
 
@@ -108,6 +112,8 @@ void main()
 		shape.y *= stretch;
 		worldPos = BrickCorner * gridScale + shape;
 	}
+
+	worldPos = (brickTransform * vec4(worldPos, 1.0)).xyz;
 
 	if(animate && material == 1)
 		worldPos += unduloOffset(worldPos);

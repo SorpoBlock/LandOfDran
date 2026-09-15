@@ -19,7 +19,7 @@ static void putString(std::vector<unsigned char>& bytes, const std::string& text
 }
 
 //See readSoundLocation in OneShotSound.cpp
-static void putLocation(std::vector<unsigned char>& bytes, SoundLocationKind kind, const glm::vec3& position, const std::shared_ptr<Dynamic>& dynamic)
+static void putLocation(std::vector<unsigned char>& bytes, SoundLocationKind kind, const glm::vec3& position, const std::shared_ptr<Dynamic>& dynamic, const std::shared_ptr<Vehicle>& vehicle = nullptr)
 {
 	bytes.push_back(kind);
 
@@ -31,6 +31,8 @@ static void putLocation(std::vector<unsigned char>& bytes, SoundLocationKind kin
 	}
 	else if (kind == SoundLocationDynamic)
 		put(bytes, (netIDType)dynamic->getID());
+	else if (kind == SoundLocationVehicle)
+		put(bytes, (netIDType)vehicle->getID());
 }
 
 static ENetPacket* makePacket(const std::vector<unsigned char>& bytes, PacketChannel channel)
@@ -70,7 +72,7 @@ static ENetPacket* makeLoopStartPacket(const ServerProgramData::ActiveSoundLoop&
 	put(bytes, loop.soundID);
 	put(bytes, loop.pitch);
 	put(bytes, loop.volume);
-	putLocation(bytes, loop.kind, loop.position, dynamic);
+	putLocation(bytes, loop.kind, loop.position, dynamic, loop.vehicle.lock());
 	return makePacket(bytes, OtherReliable);
 }
 
@@ -103,6 +105,8 @@ void sendSoundState(const ServerProgramData* pd, JoinedClient* client)
 	{
 		std::shared_ptr<Dynamic> dynamic = loop.dynamic.lock();
 		if (loop.kind == SoundLocationDynamic && !dynamic)
+			continue;
+		if (loop.kind == SoundLocationVehicle && loop.vehicle.expired())
 			continue;
 
 		client->send(makeLoopStartPacket(loop, dynamic), OtherReliable);
@@ -193,7 +197,7 @@ static void forgetEndedSoundLoops()
 {
 	std::erase_if(LUA_pd->soundLoops, [](const ServerProgramData::ActiveSoundLoop& loop)
 	{
-		return loop.kind == SoundLocationDynamic && loop.dynamic.expired();
+		return (loop.kind == SoundLocationDynamic && loop.dynamic.expired()) || (loop.kind == SoundLocationVehicle && loop.vehicle.expired());
 	});
 }
 
@@ -421,6 +425,32 @@ void stopSoundLoopByID(unsigned int loopID)
 
 	LUA_pd->soundLoops.erase(loop);
 	LUA_server->broadcast(makeLoopStopPacket(loopID), OtherReliable);
+}
+
+bool startSoundLoopOnVehicle(const std::string& name, const std::shared_ptr<Vehicle>& vehicle, float pitch, float volume, unsigned int& loopID)
+{
+	if (!LUA_pd || !LUA_server || !vehicle)
+		return false;
+
+	int soundID = findSoundType(name);
+	if (soundID == -1)
+		return false;
+
+	forgetEndedSoundLoops();
+
+	ServerProgramData::ActiveSoundLoop loop;
+	loop.id = LUA_pd->nextSoundLoopID++;
+	loop.soundID = (uint16_t)soundID;
+	loop.kind = SoundLocationVehicle;
+	loop.vehicle = vehicle;
+	loop.pitch = std::clamp(pitch, 0.05f, 10.0f);
+	loop.volume = std::clamp(volume, 0.0f, 1.0f);
+	LUA_pd->soundLoops.push_back(loop);
+
+	LUA_server->broadcast(makeLoopStartPacket(loop, nullptr), OtherReliable);
+
+	loopID = loop.id;
+	return true;
 }
 
 bool isSoundLoopPlaying(unsigned int loopID)

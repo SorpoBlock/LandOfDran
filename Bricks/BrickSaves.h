@@ -10,6 +10,38 @@
 std::string getSavePath(const std::string& fileName);
 
 /*
+	Vehicle saves live in Saves/Vehicles, on the server for Lua and on each player's own computer for the ones they save from a vehicle's wrench dialog
+	Returns the full path for a name without its .lod extension, or "" if the name could reach outside that folder
+*/
+std::string getVehicleSavePath(const std::string& name);
+
+/*
+	Writes bricks in our binary save format, see saveLodBuild, types gives special bricks' names
+	Returns false if the stream failed
+*/
+bool writeLodBricks(std::ostream& file, const std::vector<const Brick*>& bricks, const BrickTypes* types, bool omitOwnership);
+
+//How readLodBricks went
+struct LodReadResult
+{
+	//It started with a save format's number
+	bool valid = false;
+	//It didn't end early
+	bool complete = false;
+	//Special bricks of types we don't have, by name
+	int skippedSpecial = 0;
+	std::map<std::string, int> missingTypes;
+	//Bricks with invalid sizes, rotations, or positions
+	int invalid = 0;
+};
+
+/*
+	Reads either version of the old binary format or our own newer one from a stream, calling found with each brick's description
+	Bricks of special types we don't have or with invalid values are skipped and counted instead
+*/
+LodReadResult readLodBricks(std::istream& file, const BrickTypes* types, const std::function<void(Brick&)>& found);
+
+/*
 	Old Land of Dran binary save format, written like OldServer/lua/miscFunctions.h's saveBuild except that each brick's
 	music, light, and emitter are written as BrickAttachments under a newer version number the old game can't read
 	Returns false if the file couldn't be written

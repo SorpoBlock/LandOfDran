@@ -10,9 +10,31 @@ static float finiteOr(float value, float fallback)
 	return std::isfinite(value) ? value : fallback;
 }
 
+void WheelSettings::clampValues()
+{
+	const WheelSettings defaults;
+	engineForce = std::clamp(finiteOr(engineForce, defaults.engineForce), -2000.0f, 2000.0f);
+	brakeForce = std::clamp(finiteOr(brakeForce, defaults.brakeForce), 0.0f, 2000.0f);
+	steerAngle = std::clamp(finiteOr(steerAngle, defaults.steerAngle), -3.1415f, 3.1415f);
+	suspensionLength = std::clamp(finiteOr(suspensionLength, defaults.suspensionLength), 0.1f, 5.0f);
+	suspensionStiffness = std::clamp(finiteOr(suspensionStiffness, defaults.suspensionStiffness), 1.0f, 1000.0f);
+	dampingCompression = std::clamp(finiteOr(dampingCompression, defaults.dampingCompression), 1.0f, 100.0f);
+	dampingRelaxation = std::clamp(finiteOr(dampingRelaxation, defaults.dampingRelaxation), 1.0f, 100.0f);
+	frictionSlip = std::clamp(finiteOr(frictionSlip, defaults.frictionSlip), 0.1f, 10.0f);
+	rollInfluence = std::clamp(finiteOr(rollInfluence, defaults.rollInfluence), 0.1f, 10.0f);
+}
+
+void SteeringSettings::clampValues()
+{
+	const SteeringSettings defaults;
+	mass = std::clamp(finiteOr(mass, defaults.mass), 1.5f, 30.0f);
+	angularDamping = std::clamp(finiteOr(angularDamping, defaults.angularDamping), 0.0f, 1.0f);
+}
+
 unsigned char BrickAttachments::getFlags() const
 {
-	return (musicName.empty() ? 0 : BrickAttachment_Music) | (hasLight ? BrickAttachment_Light : 0) | (emitterName.empty() ? 0 : BrickAttachment_Emitter);
+	return (musicName.empty() ? 0 : BrickAttachment_Music) | (hasLight ? BrickAttachment_Light : 0) | (emitterName.empty() ? 0 : BrickAttachment_Emitter) |
+		(hasWheel ? BrickAttachment_Wheel : 0) | (hasSteering ? BrickAttachment_Steering : 0);
 }
 
 void BrickAttachments::clampValues()
@@ -41,6 +63,9 @@ void BrickAttachments::clampValues()
 
 	float length = glm::length(lightDirection);
 	lightDirection = length > 0.0001f ? lightDirection / length : glm::vec3(0, -1, 0);
+
+	wheel.clampValues();
+	steering.clampValues();
 }
 
 void BrickAttachments::resetLight()
@@ -81,6 +106,21 @@ void BrickAttachments::writeParts(const std::function<void(const void*, size_t)>
 
 	if (!emitterName.empty())
 		writeName(emitterName);
+
+	if (hasWheel)
+	{
+		const float values[WheelSettings::floatCount] = { wheel.engineForce, wheel.brakeForce, wheel.steerAngle, wheel.suspensionLength, wheel.suspensionStiffness,
+			wheel.dampingCompression, wheel.dampingRelaxation, wheel.frictionSlip, wheel.rollInfluence };
+		writeBytes(values, sizeof(values));
+	}
+
+	if (hasSteering)
+	{
+		const float values[2] = { steering.mass, steering.angularDamping };
+		unsigned char realistic = steering.realisticCenterOfMass ? 1 : 0;
+		writeBytes(values, sizeof(values));
+		writeBytes(&realistic, 1);
+	}
 }
 
 bool BrickAttachments::readParts(unsigned char flags, const std::function<bool(void*, size_t)>& readBytes)
@@ -98,6 +138,8 @@ bool BrickAttachments::readParts(unsigned char flags, const std::function<bool(v
 	musicName = "";
 	emitterName = "";
 	hasLight = flags & BrickAttachment_Light;
+	hasWheel = flags & BrickAttachment_Wheel;
+	hasSteering = flags & BrickAttachment_Steering;
 
 	if ((flags & BrickAttachment_Music) && (!readName(musicName) || !readBytes(&musicVolume, sizeof(float)) || !readBytes(&musicPitch, sizeof(float))))
 		return false;
@@ -120,6 +162,35 @@ bool BrickAttachments::readParts(unsigned char flags, const std::function<bool(v
 
 	if ((flags & BrickAttachment_Emitter) && !readName(emitterName))
 		return false;
+
+	if (hasWheel)
+	{
+		float values[WheelSettings::floatCount];
+		if (!readBytes(values, sizeof(values)))
+			return false;
+
+		wheel.engineForce = values[0];
+		wheel.brakeForce = values[1];
+		wheel.steerAngle = values[2];
+		wheel.suspensionLength = values[3];
+		wheel.suspensionStiffness = values[4];
+		wheel.dampingCompression = values[5];
+		wheel.dampingRelaxation = values[6];
+		wheel.frictionSlip = values[7];
+		wheel.rollInfluence = values[8];
+	}
+
+	if (hasSteering)
+	{
+		float values[2];
+		unsigned char realistic;
+		if (!readBytes(values, sizeof(values)) || !readBytes(&realistic, 1))
+			return false;
+
+		steering.mass = values[0];
+		steering.angularDamping = values[1];
+		steering.realisticCenterOfMass = realistic & 1;
+	}
 
 	return true;
 }

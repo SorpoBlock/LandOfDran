@@ -1343,6 +1343,14 @@ bool pushRaycastResult(lua_State* L, btRigidBody* result)
 		LUA_pd->bricks->pushLua(L, (Brick*)result->getUserPointer());
 		return true;
 	}
+	else if (result->getUserIndex() == vehicleBody)
+	{
+		if (std::shared_ptr<Vehicle> vehicle = vehicleFromBody(result))
+		{
+			LUA_pd->vehicles->pushLua(L, vehicle);
+			return true;
+		}
+	}
 
 	lua_pushnil(L);
 	return false;

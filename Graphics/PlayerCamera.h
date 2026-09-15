@@ -58,6 +58,9 @@ class Camera
 
 	float maxThirdPersonDistance = 30.0;
 
+	//A body the third person camera sees through besides its target's, like the vehicle the target is driving, nullptr for none
+	const btRigidBody* alsoIgnore = nullptr;
+
 	void setFirstPerson(bool _firstPerson);
 	void swapPerson();
 

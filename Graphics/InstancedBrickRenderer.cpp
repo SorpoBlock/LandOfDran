@@ -120,6 +120,20 @@ static bool boxVisible(const std::array<glm::vec4, 6>& planes, const glm::vec3& 
 	return true;
 }
 
+//World bounds of a box after a transform, from its 8 corners
+static void transformBounds(const glm::mat4& transform, const glm::vec3& min, const glm::vec3& max, glm::vec3& outMin, glm::vec3& outMax)
+{
+	outMin = glm::vec3(FLT_MAX);
+	outMax = glm::vec3(-FLT_MAX);
+	for (int corner = 0; corner < 8; corner++)
+	{
+		glm::vec3 local((corner & 1) ? max.x : min.x, (corner & 2) ? max.y : min.y, (corner & 4) ? max.z : min.z);
+		glm::vec3 world = glm::vec3(transform * glm::vec4(local, 1.0f));
+		outMin = glm::min(outMin, world);
+		outMax = glm::max(outMax, world);
+	}
+}
+
 void InstancedBrickRenderer::createInstancedVao(GLuint& vao, GLuint& instanceBuffer) const
 {
 	glGenVertexArrays(1, &vao);
@@ -273,6 +287,11 @@ void InstancedBrickRenderer::rebuild(Chunk* chunk)
 		return;
 	}
 
+	upload(chunk);
+}
+
+void InstancedBrickRenderer::upload(Chunk* chunk)
+{
 	std::vector<float> instances[2];
 	std::vector<std::pair<int, const Brick*>> specials[2];
 	glm::vec3 min = glm::vec3(FLT_MAX);
@@ -349,6 +368,42 @@ void InstancedBrickRenderer::rebuildDirty(float budgetMS)
 	}
 }
 
+int InstancedBrickRenderer::addBrickGroup(const std::vector<Brick>& bricks)
+{
+	BrickGroup* group = new BrickGroup;
+	group->bricks = bricks;
+
+	group->chunk = new Chunk;
+	for (int transparency = 0; transparency < 2; transparency++)
+	{
+		createInstancedVao(group->chunk->vao[transparency], group->chunk->instanceBuffer[transparency]);
+		createSpecialVao(group->chunk->specialVao[transparency], group->chunk->specialInstanceBuffer[transparency]);
+	}
+
+	for (Brick& brick : group->bricks)
+		group->chunk->bricks.push_back(&brick);
+
+	if (!group->bricks.empty())
+		upload(group->chunk);
+
+	generation++;
+	int id = nextGroup++;
+	groups[id] = group;
+	return id;
+}
+
+void InstancedBrickRenderer::removeBrickGroup(int group)
+{
+	auto found = groups.find(group);
+	if (found == groups.end())
+		return;
+
+	destroyChunk(found->second->chunk);
+	delete found->second;
+	groups.erase(found);
+	generation++;
+}
+
 void InstancedBrickRenderer::setTransform(const glm::mat4& transform) const
 {
 	glUniformMatrix4fv(brickTransformUniform, 1, GL_FALSE, &transform[0][0]);
@@ -384,17 +439,17 @@ void InstancedBrickRenderer::drawInstances(std::shared_ptr<ShaderManager> shader
 		bool tileByStuds;
 	};
 
-	const FaceGroup groups[3] =
+	const FaceGroup faceGroups[3] =
 	{
 		{ topMaterial, topFirst, topCount, true },
 		{ bottomMaterial, bottomFirst, bottomCount, true },
 		{ sideMaterial, sidesFirst, sidesCount, false }
 	};
 
-	for (const FaceGroup& group : groups)
+	for (const FaceGroup& faceGroup : faceGroups)
 	{
-		group.material->use(shaders);
-		glUniform1i(tileByStudsUniform, group.tileByStuds);
+		faceGroup.material->use(shaders);
+		glUniform1i(tileByStudsUniform, faceGroup.tileByStuds);
 
 		for (size_t a = 0; a < sets.size(); a++)
 		{
@@ -402,7 +457,7 @@ void InstancedBrickRenderer::drawInstances(std::shared_ptr<ShaderManager> shader
 				beforeEach(a);
 
 			glBindVertexArray(sets[a].vao);
-			glDrawArraysInstanced(GL_TRIANGLES, group.first, group.count, sets[a].count);
+			glDrawArraysInstanced(GL_TRIANGLES, faceGroup.first, faceGroup.count, sets[a].count);
 		}
 	}
 
@@ -420,7 +475,7 @@ void InstancedBrickRenderer::drawSpecial(std::shared_ptr<ShaderManager> shaders,
 	glUniform1i(specialMeshUniform, 1);
 	glUniform1i(tileByStudsUniform, 0);
 
-	for (int group = 0; group < BrickTextureCount; group++)
+	for (int faceGroup = 0; faceGroup < BrickTextureCount; faceGroup++)
 	{
 		bool materialInUse = false;
 
@@ -435,17 +490,17 @@ void InstancedBrickRenderer::drawSpecial(std::shared_ptr<ShaderManager> shaders,
 			for (const SpecialRun& run : *sets[a].runs)
 			{
 				const SpecialBrickType* type = types->getSpecial(run.type);
-				if (!type || type->groupCount[group] == 0)
+				if (!type || type->groupCount[faceGroup] == 0)
 					continue;
 
 				if (!materialInUse)
 				{
-					materials[group]->use(shaders);
+					materials[faceGroup]->use(shaders);
 					materialInUse = true;
 				}
 
 				pointSpecialInstances(run.first);
-				glDrawArraysInstanced(GL_TRIANGLES, specialTypeOffsets[run.type] + type->groupFirst[group], type->groupCount[group], run.count);
+				glDrawArraysInstanced(GL_TRIANGLES, specialTypeOffsets[run.type] + type->groupFirst[faceGroup], type->groupCount[faceGroup], run.count);
 			}
 		}
 	}
@@ -492,6 +547,54 @@ void InstancedBrickRenderer::render(std::shared_ptr<ShaderManager> shaders, bool
 	if (!visible.empty())
 		drawInstances(shaders, visible);
 	drawSpecial(shaders, visibleSpecial);
+
+	if (transparent)
+	{
+		glDepthMask(GL_TRUE);
+		glDisable(GL_BLEND);
+	}
+}
+
+void InstancedBrickRenderer::renderGroups(std::shared_ptr<ShaderManager> shaders, const std::vector<GroupDraw>& draws, bool transparent) const
+{
+	int transparency = transparent ? 1 : 0;
+	std::array<glm::vec4, 6> planes = frustumPlanes(shaders->cameraUniforms.CameraProjection * shaders->cameraUniforms.CameraView);
+	bool drewAny = false;
+
+	for (const GroupDraw& draw : draws)
+	{
+		auto found = groups.find(draw.group);
+		if (found == groups.end())
+			continue;
+
+		const Chunk* chunk = found->second->chunk;
+		if (chunk->count[transparency] == 0 && chunk->specialRuns[transparency].empty())
+			continue;
+
+		glm::vec3 min, max;
+		transformBounds(draw.transform, chunk->min, chunk->max, min, max);
+		if (!boxVisible(planes, min, max))
+			continue;
+
+		if (!drewAny && transparent)
+		{
+			glEnable(GL_BLEND);
+			glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+			glDepthMask(GL_FALSE);
+		}
+		drewAny = true;
+
+		setTransform(draw.transform);
+		if (chunk->count[transparency] > 0)
+			drawInstances(shaders, { { chunk->vao[transparency], chunk->count[transparency] } });
+		if (!chunk->specialRuns[transparency].empty())
+			drawSpecial(shaders, { { chunk->specialVao[transparency], chunk->specialInstanceBuffer[transparency], &chunk->specialRuns[transparency] } });
+	}
+
+	if (!drewAny)
+		return;
+
+	setTransform(glm::mat4(1.0f));
 
 	if (transparent)
 	{
@@ -590,65 +693,52 @@ bool InstancedBrickRenderer::hasTransparentBricks() const
 		if (entry.second->count[1] > 0 || !entry.second->specialRuns[1].empty())
 			return true;
 	}
+	for (const auto& entry : groups)
+	{
+		if (entry.second->chunk->count[1] > 0 || !entry.second->chunk->specialRuns[1].empty())
+			return true;
+	}
 	return false;
 }
 
-void InstancedBrickRenderer::renderShadowCascade(const glm::mat4& lightSpaceMatrix, bool opaque, bool transparent, bool tintProgram) const
+void InstancedBrickRenderer::drawChunkShadow(const Chunk* chunk, bool opaque, bool transparent, GLint specialUniform) const
 {
-	std::array<glm::vec4, 6> planes = frustumPlanes(lightSpaceMatrix);
-	//Chunks between the light and the cascade still shadow it, GL_DEPTH_CLAMP flattens them onto its near plane
-	planes[4] = glm::vec4(0, 0, 0, 1);
-
-	std::vector<const Chunk*> casting;
-	for (const auto& entry : chunks)
+	//brickShadowCascade.vert drops transparent bricks under its minOpacity
+	for (int transparency = 0; transparency < 2; transparency++)
 	{
-		if (boxVisible(planes, entry.second->min, entry.second->max))
-			casting.push_back(entry.second);
-	}
+		if (chunk->count[transparency] < 1 || !(transparency ? transparent : opaque))
+			continue;
 
-	for (const Chunk* chunk : casting)
-	{
-		//brickShadowCascade.vert drops transparent bricks under its minOpacity
-		for (int transparency = 0; transparency < 2; transparency++)
-		{
-			if (chunk->count[transparency] < 1 || !(transparency ? transparent : opaque))
-				continue;
-
-			glBindVertexArray(chunk->vao[transparency]);
-			glDrawArraysInstanced(GL_TRIANGLES, 0, topCount + bottomCount + sidesCount, chunk->count[transparency]);
-		}
+		glBindVertexArray(chunk->vao[transparency]);
+		glDrawArraysInstanced(GL_TRIANGLES, 0, topCount + bottomCount + sidesCount, chunk->count[transparency]);
 	}
 
 	//Special shapes aren't always closed, so unlike boxes both of their sides cast
-	GLint specialUniform = tintProgram ? tintSpecialMeshUniform : shadowSpecialMeshUniform;
 	bool culling = glIsEnabled(GL_CULL_FACE);
 	bool anySpecial = false;
 
-	for (const Chunk* chunk : casting)
+	for (int transparency = 0; transparency < 2; transparency++)
 	{
-		for (int transparency = 0; transparency < 2; transparency++)
+		if (chunk->specialRuns[transparency].empty() || !(transparency ? transparent : opaque))
+			continue;
+
+		if (!anySpecial)
 		{
-			if (chunk->specialRuns[transparency].empty() || !(transparency ? transparent : opaque))
+			glUniform1i(specialUniform, 1);
+			glDisable(GL_CULL_FACE);
+			anySpecial = true;
+		}
+
+		glBindVertexArray(chunk->specialVao[transparency]);
+		glBindBuffer(GL_ARRAY_BUFFER, chunk->specialInstanceBuffer[transparency]);
+		for (const SpecialRun& run : chunk->specialRuns[transparency])
+		{
+			const SpecialBrickType* type = types->getSpecial(run.type);
+			if (!type)
 				continue;
 
-			if (!anySpecial)
-			{
-				glUniform1i(specialUniform, 1);
-				glDisable(GL_CULL_FACE);
-				anySpecial = true;
-			}
-
-			glBindVertexArray(chunk->specialVao[transparency]);
-			glBindBuffer(GL_ARRAY_BUFFER, chunk->specialInstanceBuffer[transparency]);
-			for (const SpecialRun& run : chunk->specialRuns[transparency])
-			{
-				const SpecialBrickType* type = types->getSpecial(run.type);
-				if (!type)
-					continue;
-
-				pointSpecialInstances(run.first);
-				glDrawArraysInstanced(GL_TRIANGLES, specialTypeOffsets[run.type], type->vertexCount(), run.count);
-			}
+			pointSpecialInstances(run.first);
+			glDrawArraysInstanced(GL_TRIANGLES, specialTypeOffsets[run.type], type->vertexCount(), run.count);
 		}
 	}
 
@@ -661,6 +751,61 @@ void InstancedBrickRenderer::renderShadowCascade(const glm::mat4& lightSpaceMatr
 	}
 
 	glBindVertexArray(0);
+}
+
+void InstancedBrickRenderer::renderShadowCascade(const glm::mat4& lightSpaceMatrix, bool opaque, bool transparent, bool tintProgram, const std::vector<GroupDraw>* draws, const glm::vec3* skipPoint) const
+{
+	std::array<glm::vec4, 6> planes = frustumPlanes(lightSpaceMatrix);
+	//Chunks between the light and the cascade still shadow it, GL_DEPTH_CLAMP flattens them onto its near plane
+	planes[4] = glm::vec4(0, 0, 0, 1);
+
+	GLint specialUniform = tintProgram ? tintSpecialMeshUniform : shadowSpecialMeshUniform;
+	GLint transformUniform = tintProgram ? tintTransformUniform : shadowTransformUniform;
+	GLint skipPointUniform = tintProgram ? tintSkipPointUniform : shadowSkipPointUniform;
+
+	const glm::mat4 identity(1.0f);
+	glUniformMatrix4fv(transformUniform, 1, GL_FALSE, &identity[0][0]);
+
+	for (const auto& entry : chunks)
+	{
+		if (boxVisible(planes, entry.second->min, entry.second->max))
+			drawChunkShadow(entry.second, opaque, transparent, specialUniform);
+	}
+
+	if (!draws || draws->empty())
+		return;
+
+	bool drewAny = false;
+	for (const GroupDraw& draw : *draws)
+	{
+		auto found = groups.find(draw.group);
+		if (found == groups.end())
+			continue;
+
+		glm::vec3 min, max;
+		transformBounds(draw.transform, found->second->chunk->min, found->second->chunk->max, min, max);
+		if (!boxVisible(planes, min, max))
+			continue;
+
+		drewAny = true;
+		glUniformMatrix4fv(transformUniform, 1, GL_FALSE, &draw.transform[0][0]);
+
+		//The shader compares it to brick corners in the group's own space
+		if (skipPoint)
+		{
+			glm::vec3 local = glm::vec3(glm::inverse(draw.transform) * glm::vec4(*skipPoint, 1.0f));
+			glUniform3fv(skipPointUniform, 1, &local[0]);
+		}
+
+		drawChunkShadow(found->second->chunk, opaque, transparent, specialUniform);
+	}
+
+	if (!drewAny)
+		return;
+
+	glUniformMatrix4fv(transformUniform, 1, GL_FALSE, &identity[0][0]);
+	if (skipPoint)
+		glUniform3fv(skipPointUniform, 1, &(*skipPoint)[0]);
 }
 
 void InstancedBrickRenderer::destroyChunk(Chunk* chunk)
@@ -721,6 +866,10 @@ InstancedBrickRenderer::InstancedBrickRenderer(std::shared_ptr<ShaderManager> sh
 	specialMeshUniform = shaders->brickShader->getUniformLocation("specialMesh");
 	shadowSpecialMeshUniform = shaders->brickShadowCascadeShader->getUniformLocation("specialMesh");
 	tintSpecialMeshUniform = shaders->brickShadowTintShader->getUniformLocation("specialMesh");
+	shadowTransformUniform = shaders->brickShadowCascadeShader->getUniformLocation("brickTransform");
+	tintTransformUniform = shaders->brickShadowTintShader->getUniformLocation("brickTransform");
+	shadowSkipPointUniform = shaders->brickShadowCascadeShader->getUniformLocation("skipPoint");
+	tintSkipPointUniform = shaders->brickShadowTintShader->getUniformLocation("skipPoint");
 
 	info("Uploaded " + std::to_string(specialMeshes.size() / specialVertexFloats) + " vertices for " + std::to_string(specialTypeOffsets.size()) + " special brick types");
 }
@@ -728,6 +877,13 @@ InstancedBrickRenderer::InstancedBrickRenderer(std::shared_ptr<ShaderManager> sh
 InstancedBrickRenderer::~InstancedBrickRenderer()
 {
 	clear();
+
+	for (auto& entry : groups)
+	{
+		destroyChunk(entry.second->chunk);
+		delete entry.second;
+	}
+	groups.clear();
 
 	glDeleteVertexArrays(1, &singleVao);
 	glDeleteBuffers(1, &singleInstanceBuffer);

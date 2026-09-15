@@ -230,6 +230,22 @@ KickReason Client::handleEvent(ENetEvent& event)
 					packets.push_back(new InventoryContentsPacket(packetHoldTime, event.packet));
 					return NotKicked;
 
+				case VehicleBricks:
+					packets.push_back(new VehicleBricksPacket(packetHoldTime, event.packet));
+					return NotKicked;
+
+				case VehicleDriver:
+					packets.push_back(new VehicleDriverPacket(packetHoldTime, event.packet));
+					return NotKicked;
+
+				case OpenVehicleWrench:
+					packets.push_back(new OpenVehicleWrenchPacket(packetHoldTime, event.packet));
+					return NotKicked;
+
+				case VehicleSaveData:
+					packets.push_back(new VehicleSaveDataPacket(packetHoldTime, event.packet));
+					return NotKicked;
+
 				//Can't process packet
 				case InvalidServer:
 				default:

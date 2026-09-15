@@ -1,5 +1,6 @@
 #include "Light.h"
 #include "Dynamic.h"
+#include "Vehicle.h"
 
 #include <random>
 #include <glm/gtc/constants.hpp>
@@ -34,6 +35,8 @@ void Light::setPosition(const glm::vec3& _position)
 	position = _position;
 	holderID = NO_ID;
 	holder.reset();
+	vehicleID = NO_ID;
+	vehicle.reset();
 	updatesLeft = resendCount;
 }
 
@@ -41,7 +44,16 @@ void Light::setHolder(const std::shared_ptr<Dynamic>& dynamic)
 {
 	holder = dynamic;
 	holderID = dynamic ? dynamic->getID() : NO_ID;
+	vehicleID = NO_ID;
+	vehicle.reset();
 	updatesLeft = resendCount;
+}
+
+void Light::attachToVehicle(const std::shared_ptr<Vehicle>& target, const glm::vec3& offset)
+{
+	setPosition(offset);
+	vehicle = target;
+	vehicleID = target ? target->getID() : NO_ID;
 }
 
 glm::vec3 Light::getPosition() const
@@ -50,6 +62,13 @@ glm::vec3 Light::getPosition() const
 	{
 		if (std::shared_ptr<Dynamic> held = holder.lock())
 			return b2g3(held->getPosition());
+	}
+
+	if (vehicleID != NO_ID)
+	{
+		std::shared_ptr<Vehicle> on = vehicle.lock();
+		if (on && on->body)
+			return b2g3(on->body->getWorldTransform() * g2b3(position));
 	}
 
 	return position;
@@ -175,6 +194,7 @@ void Light::writeState(enet_uint8* dest) const
 		direction.x, direction.y, direction.z, coneAngle, spin };
 	memcpy(dest, state, sizeof(state));
 	memcpy(dest + sizeof(state), &holderID, sizeof(netIDType));
+	memcpy(dest + sizeof(state) + sizeof(netIDType), &vehicleID, sizeof(netIDType));
 }
 
 void Light::readFromPacket(const enet_uint8* src)
@@ -190,6 +210,12 @@ void Light::readFromPacket(const enet_uint8* src)
 		heldDirectionSet = false;
 	}
 	holderID = newHolderID;
+
+	netIDType newVehicleID;
+	memcpy(&newVehicleID, src + sizeof(state) + sizeof(netIDType), sizeof(netIDType));
+	if (newVehicleID != vehicleID)
+		vehicle.reset();
+	vehicleID = newVehicleID;
 
 	position = glm::vec3(state[0], state[1], state[2]);
 	color = glm::vec3(state[3], state[4], state[5]);

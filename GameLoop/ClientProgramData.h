@@ -21,6 +21,8 @@
 #include "../Graphics/WaterRipples.h"
 #include "../Graphics/ParticleSystem.h"
 #include "../Bricks/GhostBrick.h"
+#include "../Bricks/SelectionBox.h"
+#include "../Bricks/VehicleGhost.h"
 #include "../Bricks/BrickTypes.h"
 #include "../Interface/BrickSelector.h"
 #include "../Interface/BrickHotbar.h"
@@ -28,6 +30,7 @@
 #include "../Interface/ItemHotbar.h"
 #include "../Interface/AppearanceEditor.h"
 #include "../Interface/WrenchDialog.h"
+#include "../Interface/VehicleLoader.h"
 #include "../Audio/AudioSystem.h"
 #include "../Audio/AcousticProbe.h"
 #include "../Audio/VoiceChat.h"
@@ -70,7 +73,16 @@ struct ClientProgramData
 	//Named brick sizes with icons, for the brick selector
 	BrickTypes brickTypes;
 
+	//Lives for the whole program, every vehicle's wheels are instances of it, nullptr if it couldn't be loaded, see LoopClient::placeVehicleWheels
+	Model* tireModel = nullptr;
+
 	GhostBrick ghostBrick;
+
+	//The box drawn around bricks to slice them into a vehicle
+	SelectionBox selectionBox;
+
+	//A saved vehicle following the crosshair until a left click places it
+	VehicleGhost vehicleGhost;
 	std::shared_ptr<BrickSelector> brickSelector = nullptr;
 	std::shared_ptr<BrickHotbar> brickHotbar = nullptr;
 	std::shared_ptr<PaintMenu> paintMenu = nullptr;
@@ -137,6 +149,7 @@ struct ClientProgramData
 	std::shared_ptr<ChatWindow>		chatWindow = nullptr;
 	std::shared_ptr<AppearanceEditor> appearanceEditor = nullptr;
 	std::shared_ptr<WrenchDialog>	wrenchDialog = nullptr;
+	std::shared_ptr<VehicleLoader>	vehicleLoader = nullptr;
 
 	//File names of the images in Assets/faces, each one's index is its layer in the decal array, see LoopClient's constructor
 	std::vector<std::string> faceNames;

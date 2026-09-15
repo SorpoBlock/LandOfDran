@@ -47,6 +47,9 @@ class LoopClient
 	//Same for the custom paint color picker
 	bool colorPickerWasOpen = false;
 
+	//And the saved vehicles window
+	bool vehicleLoaderWasOpen = false;
+
 	//How long Ctrl+undo has been held, and since the last repeated undo, see handleInput
 	float undoHeldMS = 0;
 	float undoSinceRepeatMS = 0;
@@ -76,6 +79,21 @@ class LoopClient
 
 	//Moves item swings along and draws carried items in their holders' hands, or hides them, after the camera moves for the frame
 	void placeHeldItems(float deltaT);
+
+	//Right mouse got us into or out of a vehicle, so it doesn't jet until it's let go
+	bool jetSuppressed = false;
+
+	//Every vehicle's bricks and where they're drawn this frame, for each pass that draws bricks, see renderEverything
+	std::vector<InstancedBrickRenderer::GroupDraw> vehicleDraws;
+
+	//The vehicle our player is driving, nullptr if they aren't
+	std::shared_ptr<Vehicle> getDrivenVehicle() const;
+
+	//Takes drivers out of the physics world and stands them in their vehicles' seats, and lets out anyone who stopped driving, before the camera moves
+	void placeVehicleDrivers(float deltaT);
+
+	//Puts each vehicle wheel's tire where it's drawn, before models update
+	void placeVehicleWheels();
 
 	//Send simulation.controlledObjects physics/transform data to server
 	void sendControlledObjects();

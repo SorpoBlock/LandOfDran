@@ -1,4 +1,5 @@
 #include "Emitter.h"
+#include "Vehicle.h"
 
 Emitter::Emitter(uint16_t _typeID, const glm::vec3& _position) : typeID(_typeID), position(_position)
 {
@@ -12,6 +13,12 @@ glm::vec3 Emitter::getPosition() const
 		if (target)
 			return b2g3(target->getPosition());
 	}
+	else if (attachKind == EmitterAttachVehicle)
+	{
+		std::shared_ptr<Vehicle> target = vehicle.lock();
+		if (target && target->body)
+			return b2g3(target->body->getWorldTransform() * g2b3(position));
+	}
 
 	return position;
 }
@@ -21,6 +28,7 @@ void Emitter::setPosition(const glm::vec3& _position)
 	position = _position;
 	attachKind = EmitterAttachFixed;
 	dynamic.reset();
+	vehicle.reset();
 	dynamicID = 0;
 	meshIndex = -1;
 	brickID = NO_ID;
@@ -38,6 +46,7 @@ void Emitter::attachToDynamic(std::shared_ptr<Dynamic> target, int _meshIndex)
 	position = b2g3(target->getPosition());
 	attachKind = EmitterAttachDynamic;
 	dynamic = target;
+	vehicle.reset();
 	dynamicID = target->getID();
 	meshIndex = _meshIndex;
 	brickID = NO_ID;
@@ -49,6 +58,14 @@ void Emitter::attachToBrick(netIDType _brickID, const glm::vec3& brickPosition)
 	setPosition(brickPosition);
 	attachKind = EmitterAttachBrick;
 	brickID = _brickID;
+}
+
+void Emitter::attachToVehicle(const std::shared_ptr<Vehicle>& target, const glm::vec3& offset)
+{
+	setPosition(offset);
+	attachKind = EmitterAttachVehicle;
+	vehicle = target;
+	dynamicID = target->getID();
 }
 
 void Emitter::writeState(enet_uint8* dest) const
@@ -91,7 +108,7 @@ void Emitter::readFromPacket(const enet_uint8* src)
 		clock = EmitterClock();
 	typeID = newType;
 
-	attachKind = src[2] <= EmitterAttachBrick ? (EmitterAttachKind)src[2] : EmitterAttachFixed;
+	attachKind = src[2] <= EmitterAttachVehicle ? (EmitterAttachKind)src[2] : EmitterAttachFixed;
 	meshIndex = src[3] == 255 ? -1 : src[3];
 	memcpy(&dynamicID, src + 4, sizeof(netIDType));
 	memcpy(&position[0], src + 4 + sizeof(netIDType), sizeof(float) * 3);

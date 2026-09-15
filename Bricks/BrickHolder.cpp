@@ -87,6 +87,13 @@ Brick* BrickHolder::getAt(int x, int y, int z) const
 	return found;
 }
 
+void BrickHolder::forEachInBox(const glm::ivec3& low, const glm::ivec3& high, const std::function<void(Brick*)>& visit) const
+{
+	int min[3] = { low.x, low.y, low.z };
+	int max[3] = { high.x, high.y, high.z };
+	tree.Search(min, max, [&visit](Brick* const& brick) { visit(brick); return true; });
+}
+
 Brick* BrickHolder::find(netIDType netId) const
 {
 	auto it = byId.find(netId);

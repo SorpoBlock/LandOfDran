@@ -198,7 +198,7 @@ btScalar PhysicsWorld::solidThickness(const btVector3& start, const btVector3& e
     return total;
 }
 
-btRigidBody *PhysicsWorld::doRaycast(const btVector3 &start,const btVector3 &end,btRigidBody *ignore,btVector3 &hitPos,btVector3 &hitNormal) const
+btRigidBody *PhysicsWorld::doRaycast(const btVector3 &start,const btVector3 &end,btRigidBody *ignore,btVector3 &hitPos,btVector3 &hitNormal, const btRigidBody* ignoreAlso) const
 {
   btCollisionWorld::AllHitsRayResultCallback ground(start,end);
   //Purely visual debris, like undone bricks, shouldn't block clicks or the camera
@@ -213,7 +213,7 @@ btRigidBody *PhysicsWorld::doRaycast(const btVector3 &start,const btVector3 &end
 
   for(int a = 0; a<ground.m_collisionObjects.size(); a++)
   {
-      if(ground.m_collisionObjects[a] == ignore)
+      if(ground.m_collisionObjects[a] == ignore || (ignoreAlso && ground.m_collisionObjects[a] == ignoreAlso))
           continue;
 
       float dist = (ground.m_hitPointWorld[a]-start).length();

@@ -3,6 +3,7 @@
 #include "../../LuaFunctions/ClientLua.h"
 #include "../../LuaFunctions/SoundLua.h"
 #include "../../LuaFunctions/SkyLua.h"
+#include "../../LuaFunctions/VehicleLua.h"
 
 /*
 	Do not attempt to assign a handle to JoinedClient to other objects directly
@@ -38,6 +39,8 @@ void clientFinishedLoading(JoinedClient* source, Server const* const server, ENe
 	pd->statics->sendAll(source);
 	pd->lights->sendAll(source);
 	pd->emitters->sendAll(source);
+	pd->vehicles->sendAll(source);
+	sendVehicleState(pd, source);
 	pd->bricks->sendAll(source);
 
 	//Loops already playing and the reverb preset

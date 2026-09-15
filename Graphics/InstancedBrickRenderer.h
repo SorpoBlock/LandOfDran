@@ -27,7 +27,7 @@ class InstancedBrickRenderer
 		std::vector<Brick*> bricks;
 		bool dirty = false;
 
-		//World space bounds of every brick in the chunk, as of the last rebuild
+		//World space bounds of every brick in the chunk, as of the last rebuild, or the bounds in its own space for a brick group
 		glm::vec3 min = glm::vec3(0);
 		glm::vec3 max = glm::vec3(0);
 
@@ -40,6 +40,13 @@ class InstancedBrickRenderer
 		GLuint specialVao[2] = { 0, 0 };
 		GLuint specialInstanceBuffer[2] = { 0, 0 };
 		std::vector<SpecialRun> specialRuns[2];
+	};
+
+	//Bricks drawn together with their own transform, see addBrickGroup, its chunk points into bricks
+	struct BrickGroup
+	{
+		Chunk* chunk = nullptr;
+		std::vector<Brick> bricks;
 	};
 
 	//A VAO and instance buffer to draw drawInstances with
@@ -59,6 +66,9 @@ class InstancedBrickRenderer
 
 	std::unordered_map<int64_t, Chunk*> chunks;
 	std::vector<Chunk*> dirtyChunks;
+
+	std::unordered_map<int, BrickGroup*> groups;
+	int nextGroup = 0;
 
 	//See getGeneration
 	unsigned int generation = 0;
@@ -95,12 +105,20 @@ class InstancedBrickRenderer
 	GLint shadowSpecialMeshUniform = -1;
 	GLint tintSpecialMeshUniform = -1;
 
+	//brickTransform and skipPoint in brickShadowCascade.vert, for each program that uses it
+	GLint shadowTransformUniform = -1;
+	GLint tintTransformUniform = -1;
+	GLint shadowSkipPointUniform = -1;
+	GLint tintSkipPointUniform = -1;
+
 	void createInstancedVao(GLuint& vao, GLuint& instanceBuffer) const;
 	void createSpecialVao(GLuint& vao, GLuint& instanceBuffer) const;
 
 	Chunk* getChunk(const Brick* brick);
 	void markDirty(Chunk* chunk);
 	void rebuild(Chunk* chunk);
+	//Uploads a chunk's bricks and works out its bounds
+	void upload(Chunk* chunk);
 	void destroyChunk(Chunk* chunk);
 
 	//nullptr for basic bricks, and for special types this client never loaded
@@ -119,6 +137,9 @@ class InstancedBrickRenderer
 	//Like drawInstances for special bricks, turns on specialMesh in brickShader while it draws
 	void drawSpecial(std::shared_ptr<ShaderManager> shaders, const std::vector<SpecialSet>& sets, const std::function<void(size_t)>& beforeEach = nullptr) const;
 
+	//Draws a chunk's boxes then its special shapes into a shadow pass, skipping the kinds of bricks not asked for
+	void drawChunkShadow(const Chunk* chunk, bool opaque, bool transparent, GLint specialUniform) const;
+
 	public:
 
 	//A brick drawn on its own with any rotation, centered on the transform's origin
@@ -127,6 +148,13 @@ class InstancedBrickRenderer
 		const Brick* brick;
 		glm::mat4 transform;
 		float alpha;
+	};
+
+	//A brick group to draw, and the transform that puts its bricks' grid in the world
+	struct GroupDraw
+	{
+		int group;
+		glm::mat4 transform;
 	};
 
 	void addBrick(Brick* brick);
@@ -140,8 +168,15 @@ class InstancedBrickRenderer
 	//Re-uploads chunks changed since the last call, stopping once budgetMS has been spent
 	void rebuildDirty(float budgetMS);
 
+	//Bricks drawn together wherever a transform puts them, like a vehicle's, uploaded right away. Returns the ID the calls below take
+	int addBrickGroup(const std::vector<Brick>& bricks);
+	void removeBrickGroup(int group);
+
 	//Expects shaders->brickShader to be in use, culls chunks against the camera currently in shaders->cameraUniforms
 	void render(std::shared_ptr<ShaderManager> shaders, bool transparent) const;
+
+	//Same as render, for brick groups
+	void renderGroups(std::shared_ptr<ShaderManager> shaders, const std::vector<GroupDraw>& draws, bool transparent) const;
 
 	//Expects shaders->brickShader to be in use, draws one translucent brick that brightens and turns more opaque as pulse goes from 0 to 1
 	void renderGhost(std::shared_ptr<ShaderManager> shaders, const Brick& ghost, float pulse) const;
@@ -154,9 +189,11 @@ class InstancedBrickRenderer
 
 	/*
 		Expects shaders->brickShadowCascadeShader, or brickShadowTintShader with tintProgram set, to be in use
-		Draws the chunks that can cast into one shadow cascade
+		Draws the chunks that can cast into one shadow cascade, then any brick groups in draws
+		A point light's pass passes where it is as skipPoint, which each group gets in its own space
 	*/
-	void renderShadowCascade(const glm::mat4& lightSpaceMatrix, bool opaque, bool transparent, bool tintProgram = false) const;
+	void renderShadowCascade(const glm::mat4& lightSpaceMatrix, bool opaque, bool transparent, bool tintProgram = false,
+		const std::vector<GroupDraw>* draws = nullptr, const glm::vec3* skipPoint = nullptr) const;
 
 	bool hasTransparentBricks() const;
 

@@ -55,7 +55,8 @@ enum InputCommand
     CustomColor = 43,
     OpenInventory = 44,
     DropItem = 45,
-    EndOfCommands = 46
+    StartSelection = 46,
+    EndOfCommands = 47
 };
 
 //For user interface

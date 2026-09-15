@@ -2,6 +2,13 @@
 
 #include "ServerProgramData.h"
 #include "../LuaFunctions/SoundLua.h"
+#include "../LuaFunctions/VehicleLua.h"
+
+void ClientData::leaveVehicle()
+{
+	if (!vehicle.expired())
+		exitVehicle(*this, false);
+}
 
 //A bright, wide spotlight
 static constexpr float flashlightBrightness = 150.0f;

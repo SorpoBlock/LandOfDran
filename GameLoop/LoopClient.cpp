@@ -11,12 +11,26 @@ void LoopClient::leaveServer(ExecutableArguments& cmdArgs)
 
 	pd.chatWindow->close();
 	pd.wrenchDialog->close();
+	pd.vehicleLoader->close();
+	pd.vehicleGhost.cancel();
 
 	//Will need to log in again to get eval access
 	pd.debugMenu->reset();
 
 	simulation.controllers.clear();
 	simulation.controlledDynamics.clear();
+
+	//Before dynamics, while the physics world their bodies are in still exists
+	if (simulation.vehicles)
+	{
+		simulation.vehicles->destroyAll();
+		delete simulation.vehicles;
+		simulation.vehicles = nullptr;
+	}
+	simulation.camera->alsoIgnore = nullptr;
+	vehicleDraws.clear();
+	pd.selectionBox.cancel();
+	jetSuppressed = false;
 
 	//destroyAll actually frees each object (and its ModelInstance, removing it from e.g. the highlight list)
 	//Deleting the holder alone would leak them, leaving their highlights drawn over the main menu
@@ -447,6 +461,104 @@ void LoopClient::placeHeldItems(float deltaT)
 	}
 }
 
+std::shared_ptr<Vehicle> LoopClient::getDrivenVehicle() const
+{
+	if (!simulation.vehicles || simulation.controllers.empty())
+		return nullptr;
+
+	std::shared_ptr<Dynamic> player = simulation.controllers[0]->target.lock();
+	if (!player)
+		return nullptr;
+
+	for (unsigned int a = 0; a < simulation.vehicles->size(); a++)
+	{
+		if (simulation.vehicles->get(a)->driverID == player->getID())
+			return simulation.vehicles->get(a);
+	}
+
+	return nullptr;
+}
+
+void LoopClient::placeVehicleDrivers(float deltaT)
+{
+	simulation.camera->alsoIgnore = nullptr;
+
+	if (!simulation.vehicles || !simulation.dynamics)
+		return;
+
+	std::shared_ptr<Dynamic> followed = simulation.camera->target.lock();
+
+	for (unsigned int a = 0; a < simulation.vehicles->size(); a++)
+	{
+		std::shared_ptr<Vehicle> vehicle = simulation.vehicles->get(a);
+		std::shared_ptr<Dynamic> driver = vehicle->driverID != NO_ID ? simulation.dynamics->find(vehicle->driverID) : nullptr;
+		if (driver && driver->getKind() != DynamicKind_Plain)
+			driver = nullptr;
+
+		//Got out, or someone else got in
+		if (vehicle->seated.lock() != driver)
+			vehicle->releaseSeated(simulation.idealBufferSize);
+
+		if (!driver)
+			continue;
+
+		//Out of the physics world while seated, like a carried item, so it doesn't bump into the vehicle
+		vehicle->seated = driver;
+		if (driver->isInWorld())
+			driver->removeFromWorld();
+
+		btTransform seat = vehicle->getSeatTransform(true);
+		btQuaternion turn = seat.getRotation();
+		driver->body->setWorldTransform(seat);
+		driver->setDrawnTransform(b2g3(seat.getOrigin()), glm::quat(turn.w(), turn.x(), turn.y(), turn.z()));
+		driver->playWalkingAnimation = false;
+		driver->stop(0);
+		driver->turnHead(deltaT);
+
+		//A third person camera sees through the vehicle it rides in
+		if (driver == followed)
+			simulation.camera->alsoIgnore = vehicle->body;
+	}
+}
+
+void LoopClient::placeVehicleWheels()
+{
+	if (!pd.tireModel || !simulation.vehicles)
+		return;
+
+	//The tire model's thinnest side is its axle and its widest is its diameter, around the middle of its bounding box
+	glm::vec3 halfExtents = pd.tireModel->getColHalfExtents();
+	int axleAxis = 0;
+	for (int axis = 1; axis < 3; axis++)
+	{
+		if (halfExtents[axis] < halfExtents[axleAxis])
+			axleAxis = axis;
+	}
+
+	glm::vec3 modelAxle(0);
+	modelAxle[axleAxis] = 1;
+	float modelRadius = std::max(halfExtents[(axleAxis + 1) % 3], halfExtents[(axleAxis + 2) % 3]);
+	modelRadius = std::max(modelRadius, 0.0001f);
+	glm::mat4 centered = glm::translate(-pd.tireModel->getColOffset());
+
+	for (unsigned int a = 0; a < simulation.vehicles->size(); a++)
+	{
+		std::shared_ptr<Vehicle> vehicle = simulation.vehicles->get(a);
+		glm::vec3 axle = glm::normalize(glm::cross(glm::vec3(0, -1, 0), vehicle->forward));
+		glm::mat4 align = glm::toMat4(glm::rotation(modelAxle, axle));
+
+		for (size_t w = 0; w < vehicle->wheels.size(); w++)
+		{
+			VehicleWheel& wheel = vehicle->wheels[w];
+			if (!wheel.tire)
+				continue;
+
+			float scale = wheel.radius / modelRadius;
+			wheel.tire->setModelTransform(vehicle->getDrawnWheelTransform((int)w) * align * glm::scale(glm::vec3(scale)) * centered);
+		}
+	}
+}
+
 void LoopClient::handleInput(float deltaT, ExecutableArguments& cmdArgs, std::shared_ptr<SettingManager> settings)
 {
 	pd.input->keystates = SDL_GetKeyboardState(NULL);
@@ -498,8 +610,13 @@ void LoopClient::handleInput(float deltaT, ExecutableArguments& cmdArgs, std::sh
 			//By having one or more guis open, which defeats the purpose of a quick gui close key
 			if (e.key.keysym.sym == SDLK_ESCAPE)
 			{
+				//A saved vehicle being placed or a vehicle selection box is put away before anything opens
+				if (pd.vehicleGhost.isActive() && pd.gui->getOpenWindowCount() == 0)
+					pd.vehicleGhost.cancel();
+				else if (pd.selectionBox.isActive() && pd.gui->getOpenWindowCount() == 0)
+					pd.selectionBox.cancel();
 				//The appearance editor's color window and painting close before the editor itself
-				if (pd.appearanceEditor->isOpen() && pd.appearanceEditor->handleEscape())
+				else if (pd.appearanceEditor->isOpen() && pd.appearanceEditor->handleEscape())
 				{
 				}
 				else if (pd.gui->getOpenWindowCount() == 0)
@@ -524,6 +641,44 @@ void LoopClient::handleInput(float deltaT, ExecutableArguments& cmdArgs, std::sh
 		}
 		else if (e.type == SDL_MOUSEBUTTONDOWN && simulation.camera && !pd.gui->shouldUnlockMouse() && cmdArgs.gameState == InGame && !pd.appearanceEditor->isOpen())
 		{
+			//A saved vehicle's ghost takes the left click that places it
+			if (e.button.button == SDL_BUTTON_LEFT && pd.vehicleGhost.isActive() && pd.context->getMouseLocked())
+			{
+				if (client && pd.vehicleGhost.hasPlace())
+				{
+					static uint32_t nextUploadID = 1;
+					for (ENetPacket* packet : makeVehicleUploadPackets(nextUploadID++, pd.vehicleGhost.placesAsVehicle(), pd.vehicleGhost.getSpot(), pd.vehicleGhost.getFileBytes()))
+						client->send(packet, OtherReliable);
+				}
+				pd.vehicleGhost.cancel();
+				continue;
+			}
+
+			//A vehicle selection box takes left clicks for itself while it's out
+			if (e.button.button == SDL_BUTTON_LEFT && pd.selectionBox.isActive() && pd.context->getMouseLocked() && pd.physicsWorld)
+			{
+				btRigidBody* ignore = simulation.controlledDynamics.empty() ? nullptr : simulation.controlledDynamics[0]->body;
+				btVector3 hitPosition, hitNormal;
+				glm::vec3 start = simulation.camera->getPosition();
+				glm::vec3 direction = simulation.camera->getDirection();
+				bool hit = pd.physicsWorld->doRaycast(g2b3(start), g2b3(start + direction * 250.0f), ignore, hitPosition, hitNormal) != nullptr;
+				pd.selectionBox.press(start, direction, hit, b2g3(hitPosition));
+				continue;
+			}
+
+			//Right mouse getting into or out of a vehicle doesn't jet until it's let go
+			if (e.button.button == SDL_BUTTON_RIGHT)
+			{
+				jetSuppressed = getDrivenVehicle() != nullptr;
+				if (!jetSuppressed && pd.physicsWorld)
+				{
+					btRigidBody* ignore = simulation.controlledDynamics.empty() ? nullptr : simulation.controlledDynamics[0]->body;
+					glm::vec3 start = simulation.camera->getPosition();
+					btRigidBody* hit = pd.physicsWorld->doRaycast(g2b3(start), g2b3(start + simulation.camera->getDirection() * 30.0f), ignore);
+					jetSuppressed = hit && hit->getUserIndex() == vehicleBody;
+				}
+			}
+
 			int mx, my;
 			int mask = SDL_GetMouseState(&mx, &my);
 
@@ -549,7 +704,9 @@ void LoopClient::handleInput(float deltaT, ExecutableArguments& cmdArgs, std::sh
 				client->send(makeWrenchRequestPacket(simulation.camera->getPosition(), dir), OtherReliable);
 			else
 			{
-				ENetPacket *mouseClickPacket = makeMouseClickPacket(worldPos, dir, mask);
+				//The mask can't say which button this was if another is held too
+				unsigned char pressFlags = e.button.button == SDL_BUTTON_LEFT ? ClickFlag_LeftPress : (e.button.button == SDL_BUTTON_RIGHT ? ClickFlag_RightPress : 0);
+				ENetPacket *mouseClickPacket = makeMouseClickPacket(worldPos, dir, mask, false, pressFlags);
 				client->send(mouseClickPacket, OtherReliable);
 
 				//While building, a left click puts the ghost brick wherever the crosshair points
@@ -559,6 +716,11 @@ void LoopClient::handleInput(float deltaT, ExecutableArguments& cmdArgs, std::sh
 		}
 		else if (e.type == SDL_MOUSEBUTTONUP && simulation.camera && client && cmdArgs.gameState == InGame)
 		{
+			if (e.button.button == SDL_BUTTON_LEFT)
+				pd.selectionBox.release();
+			if (e.button.button == SDL_BUTTON_RIGHT)
+				jetSuppressed = false;
+
 			//Every release goes to the server, even over a window, so whatever holding the button started, like a swing, always ends
 			int mx, my;
 			SDL_GetMouseState(&mx, &my);
@@ -621,7 +783,49 @@ void LoopClient::handleInput(float deltaT, ExecutableArguments& cmdArgs, std::sh
 
 	WrenchSubmission wrenchSubmission;
 	if (pd.wrenchDialog->takeSubmission(wrenchSubmission) && client)
-		client->send(makeWrenchSubmitPacket(wrenchSubmission.brickID, wrenchSubmission.collides, wrenchSubmission.name, wrenchSubmission.attachments), OtherReliable);
+	{
+		if (wrenchSubmission.vehicleID != NO_ID)
+			client->send(makeVehicleWrenchSubmitPacket(wrenchSubmission.vehicleID, wrenchSubmission.attachments), OtherReliable);
+		else
+			client->send(makeWrenchSubmitPacket(wrenchSubmission.brickID, wrenchSubmission.collides, wrenchSubmission.name, wrenchSubmission.attachments), OtherReliable);
+	}
+
+	//The server sends the vehicle's bricks back for VehicleSaveDataPacket to write
+	netIDType saveVehicleID;
+	std::string savePath;
+	if (pd.wrenchDialog->takeSaveRequest(saveVehicleID, savePath) && client)
+	{
+		simulation.vehicleSaves[saveVehicleID] = { savePath, "" };
+		client->send(makeVehicleSaveRequestPacket(saveVehicleID), OtherReliable);
+	}
+
+	//A picked save follows the crosshair as a ghost until a left click places it
+	std::string loadPath;
+	bool loadAsVehicle = true;
+	if (pd.vehicleLoader->takeRequest(loadPath, loadAsVehicle) && client && cmdArgs.gameState == InGame)
+	{
+		std::ifstream file(loadPath, std::ios::binary);
+		std::string bytes = file.is_open() ? std::string((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>()) : "";
+		std::string failure;
+		if (bytes.empty() || bytes.size() > 8 * 1024 * 1024)
+			pd.gui->addCenterPrint("Couldn't read " + loadPath, 3000, 1.0f, 0.4f, 0.4f);
+		else if (!pd.vehicleGhost.start(std::filesystem::path(loadPath).stem().string(), bytes, loadAsVehicle, pd.brickTypes, failure))
+			pd.gui->addCenterPrint(failure, 3000, 1.0f, 0.4f, 0.4f);
+		else
+		{
+			pd.brickHotbar->putAway();
+			pd.itemHotbar->putAway();
+			pd.selectionBox.cancel();
+		}
+	}
+
+	netIDType removeVehicleID;
+	if (pd.wrenchDialog->takeRemoveRequest(removeVehicleID) && client)
+		client->send(makeVehicleRemoveRequestPacket(removeVehicleID), OtherReliable);
+
+	if (vehicleLoaderWasOpen && !pd.vehicleLoader->isOpen() && pd.gui->getOpenWindowCount() == 0 && cmdArgs.gameState == InGame)
+		pd.context->setMouseLock(true);
+	vehicleLoaderWasOpen = pd.vehicleLoader->isOpen();
 
 	//Applied or closed, back to playing if nothing else is open
 	if (wrenchDialogWasOpen && !pd.wrenchDialog->isOpen() && pd.gui->getOpenWindowCount() == 0 && cmdArgs.gameState == InGame)
@@ -710,6 +914,13 @@ void LoopClient::handleInput(float deltaT, ExecutableArguments& cmdArgs, std::sh
 			break;
 		}
 
+		case OpenSavedVehicles:
+		{
+			if (cmdArgs.gameState == InGame)
+				pd.vehicleLoader->openLoader();
+			break;
+		}
+
 		case None:
 		default:
 			break;
@@ -744,6 +955,26 @@ void LoopClient::handleInput(float deltaT, ExecutableArguments& cmdArgs, std::sh
 	{
 		pd.brickSelector->open();
 		pd.context->setMouseLock(false);
+	}
+
+	//Drawing a box around bricks to slice into a vehicle puts bricks and items away, so Enter slices instead of planting
+	if (pd.input->pollCommand(StartSelection))
+	{
+		pd.selectionBox.toggle();
+		if (pd.selectionBox.isActive())
+		{
+			pd.vehicleGhost.cancel();
+			pd.brickHotbar->putAway();
+			pd.itemHotbar->putAway();
+		}
+	}
+	pd.selectionBox.update(simulation.camera->getPosition(), simulation.camera->getDirection());
+
+	if (pd.vehicleGhost.isActive() && pd.physicsWorld)
+	{
+		btRigidBody* ignore = simulation.controlledDynamics.empty() ? nullptr : simulation.controlledDynamics[0]->body;
+		std::shared_ptr<Vehicle> driven = getDrivenVehicle();
+		pd.vehicleGhost.update(simulation.camera->getPosition(), simulation.camera->getDirection(), *pd.physicsWorld, ignore, driven ? driven->body : nullptr);
 	}
 
 	pd.paintMenu->updatePaintKey(pd.input->pollCommand(OpenPaintMenu));
@@ -790,6 +1021,8 @@ void LoopClient::handleInput(float deltaT, ExecutableArguments& cmdArgs, std::sh
 		{
 			pd.brickHotbar->pressSlot(a);
 			pd.itemHotbar->putAway();
+			pd.selectionBox.cancel();
+			pd.vehicleGhost.cancel();
 		}
 	}
 	if (pd.input->pollCommand(HideGhostBrick))
@@ -842,7 +1075,14 @@ void LoopClient::handleInput(float deltaT, ExecutableArguments& cmdArgs, std::sh
 		pd.audio->playSound("ClickMove");
 
 	//Polled every frame so presses made while the ghost is hidden don't fire later
-	if (pd.input->pollCommand(PlantBrick) && pd.ghostBrick.isVisible())
+	bool plantPressed = pd.input->pollCommand(PlantBrick);
+	if (plantPressed && pd.selectionBox.getPhase() == SelectionBox::Selecting)
+	{
+		if (client)
+			client->send(makeSliceRequestPacket(pd.selectionBox.getMin(), pd.selectionBox.getMax()), OtherReliable);
+		pd.selectionBox.cancel();
+	}
+	else if (plantPressed && pd.ghostBrick.isVisible())
 	{
 		//Special types go by the server's ID for them
 		Brick planted = pd.ghostBrick.get();
@@ -1071,6 +1311,8 @@ void LoopClient::renderScene(bool clipAtWater)
 	pd.shaders->updateBasicUBO();
 	for (unsigned int a = 0; a < simulation.dynamicTypes.size(); a++)
 		simulation.dynamicTypes[a]->render(pd.shaders);
+	if (pd.tireModel)
+		pd.tireModel->render(pd.shaders);
 
 	//Render grass
 	pd.shaders->basicUniforms.ScaleMatrix = glm::mat4(1.0);
@@ -1090,6 +1332,7 @@ void LoopClient::renderScene(bool clipAtWater)
 	glUniform1i(pd.shaders->brickShader->getUniformLocation("shadowSoftness"), pd.shadowSoftness);
 	glUniform1i(pd.shaders->brickShader->getUniformLocation("coloredShadows"), pd.tintShadowsActive);
 	pd.brickRenderer->render(pd.shaders, false);
+	pd.brickRenderer->renderGroups(pd.shaders, vehicleDraws, false);
 
 	//Only in the main view, not reflected or refracted by water
 	//Debris writes depth, so it goes before anything drawn without depth writes
@@ -1114,12 +1357,29 @@ void LoopClient::renderTransparent(bool clipAtWater)
 	pd.shadowTint->bindColorResult(TintColorArray);
 	pd.pointLights->bindShadowMaps();
 	pd.brickRenderer->render(pd.shaders, true);
+	pd.brickRenderer->renderGroups(pd.shaders, vehicleDraws, true);
+
+	//The box around bricks about to be sliced into a vehicle, and the face under the crosshair that dragging moves
+	if (!clipAtWater && pd.selectionBox.isActive() && pd.selectionBox.getPhase() != SelectionBox::WaitingForClick)
+	{
+		pd.brickRenderer->renderGhost(pd.shaders, pd.selectionBox.getBoxBrick(), 0.0f);
+		Brick face;
+		if (pd.selectionBox.getFaceBrick(face))
+			pd.brickRenderer->renderGhost(pd.shaders, face, 1.0f);
+	}
 
 	if (!clipAtWater && pd.ghostBrick.isVisible())
 	{
 		//Pulses a bit under once a second so the ghost can't be mistaken for a planted transparent brick
 		float pulse = 0.5f + 0.5f * std::sin(SDL_GetTicks() / 1000.0f * 6.2831853f * 0.8f);
 		pd.brickRenderer->renderGhost(pd.shaders, pd.ghostBrick.get(), pulse);
+	}
+
+	//A saved vehicle about to be placed, pulsing the same way
+	if (!clipAtWater && pd.vehicleGhost.hasPlace())
+	{
+		float pulse = 0.5f + 0.5f * std::sin(SDL_GetTicks() / 1000.0f * 6.2831853f * 0.8f);
+		pd.vehicleGhost.forEachPlaced([&](const Brick& brick) { pd.brickRenderer->renderGhost(pd.shaders, brick, pulse); });
 	}
 
 	//Neither writes depth, so they go after everything that does
@@ -1281,10 +1541,29 @@ void LoopClient::updateParticles()
 				rotation = target->getMeshRotation(emitter->getMeshIndex());
 				velocity = b2g3(target->getVelocity());
 			}
+			else if (emitter->getAttachKind() == EmitterAttachVehicle)
+			{
+				std::shared_ptr<Vehicle> vehicle = emitter->vehicle.lock();
+				if (!vehicle || vehicle->getID() != emitter->getDynamicID())
+				{
+					vehicle = simulation.vehicles ? simulation.vehicles->find(emitter->getDynamicID()) : nullptr;
+					emitter->vehicle = vehicle;
+				}
+
+				if (!vehicle)
+				{
+					ParticleSystem::skipEmission(emitter->clock, position, rotation, nowMS);
+					continue;
+				}
+
+				position = vehicle->renderedPosition + vehicle->renderedRotation * emitter->getVehicleOffset();
+				rotation = vehicle->renderedRotation;
+				velocity = vehicle->serverVelocity;
+			}
 
 			//The server removes it too, this just keeps a short burst from running long while that's on its way
 			const EmitterTypeData* type = pd.particles->getEmitterType(emitter->getTypeID());
-			bool expired = type && emitter->getAttachKind() != EmitterAttachBrick && type->lifetimeMS > 0 && ticks - emitter->startMS > (int64_t)type->lifetimeMS;
+			bool expired = type && emitter->getAttachKind() != EmitterAttachBrick && emitter->getAttachKind() != EmitterAttachVehicle && type->lifetimeMS > 0 && ticks - emitter->startMS > (int64_t)type->lifetimeMS;
 
 			if (expired || glm::distance(position, cameraPosition) > ejectDistance)
 				ParticleSystem::skipEmission(emitter->clock, position, rotation, nowMS);
@@ -1293,6 +1572,41 @@ void LoopClient::updateParticles()
 				glm::vec3 aimTarget;
 				bool aimed = emitter->getAimDynamicID() != NO_ID && findAimTarget(*emitter, aimTarget);
 				pd.particles->emit(emitter->clock, emitter->getTypeID(), position, rotation, velocity, nowMS, emitter->getTint(), aimed ? &aimTarget : nullptr);
+			}
+		}
+	}
+
+	//Dirt thrown up by vehicle wheels, a darker shade of the brick each one drives on, or brown off of bricks
+	static constexpr float dirtShade = 0.7f;
+	static const glm::vec4 plainDirt(0.42f, 0.28f, 0.14f, 1.0f);
+	if (simulation.vehicles && pd.physicsWorld)
+	{
+		for (unsigned int a = 0; a < simulation.vehicles->size(); a++)
+		{
+			std::shared_ptr<Vehicle> vehicle = simulation.vehicles->get(a);
+			for (size_t w = 0; w < vehicle->wheels.size(); w++)
+			{
+				VehicleWheel& wheel = vehicle->wheels[w];
+				glm::vec3 center = glm::vec3(vehicle->getDrawnWheelTransform((int)w)[3]);
+				glm::vec3 ground = center - glm::vec3(0, wheel.radius, 0);
+				const glm::quat upright(1, 0, 0, 0);
+
+				if (!wheel.dirt || vehicle->dirtEmitterType == Vehicle::noEmitterType || glm::distance(ground, cameraPosition) > ejectDistance)
+				{
+					ParticleSystem::skipEmission(wheel.dirtClock, ground, upright, nowMS);
+					continue;
+				}
+
+				glm::vec4 tint = plainDirt;
+				btVector3 hitPosition, hitNormal;
+				btRigidBody* under = pd.physicsWorld->doRaycast(g2b3(center), g2b3(center - glm::vec3(0, wheel.radius + 1.0f, 0)), vehicle->body, hitPosition, hitNormal);
+				if (under && under->getUserIndex() == brickBody)
+				{
+					tint = glm::vec4(glm::vec3(((Brick*)under->getUserPointer())->color) / 255.0f * dirtShade, 1.0f);
+					ground = b2g3(hitPosition);
+				}
+
+				pd.particles->emit(wheel.dirtClock, vehicle->dirtEmitterType, ground, upright, vehicle->serverVelocity, nowMS, tint);
 			}
 		}
 	}
@@ -1323,6 +1637,9 @@ void LoopClient::renderEverything(float deltaT)
 		}
 	}
 
+	//Before the camera, which follows our player while they drive too
+	placeVehicleDrivers(deltaT);
+
 	makeWaterRipples(deltaT);
 
 	//Before carried items are placed, so ours in first person keep up with the camera instead of trailing a frame behind
@@ -1331,9 +1648,26 @@ void LoopClient::renderEverything(float deltaT)
 	placeHeldItems(deltaT);
 	updateItemHotbar();
 
+	vehicleDraws.clear();
+	if (simulation.vehicles)
+	{
+		for (unsigned int a = 0; a < simulation.vehicles->size(); a++)
+		{
+			std::shared_ptr<Vehicle> vehicle = simulation.vehicles->get(a);
+			if (vehicle->getBrickGroup() != -1)
+				vehicleDraws.push_back({ vehicle->getBrickGroup(), vehicle->getBrickTransform() });
+		}
+	}
+
 	//Technically rendering related calculations based on previously inputted transform data
 	for (unsigned int a = 0; a < simulation.dynamicTypes.size(); a++)
 		simulation.dynamicTypes[a]->getModel()->updateAll(deltaT);
+
+	if (pd.tireModel)
+	{
+		placeVehicleWheels();
+		pd.tireModel->updateAll(deltaT);
+	}
 
 	pd.environment.cycle = simulation.dayCycle;
 	pd.environment.calc(simulation.worldTimeSeconds);
@@ -1392,7 +1726,7 @@ void LoopClient::renderEverything(float deltaT)
 		glUniform1f(pd.shadowCascadeMinOpacityUniform, 0.0f);
 		setSkippedPoint(pd.shadowCascadeSkipContainingUniform, pd.shadowCascadeSkipPointUniform, lightPosition);
 		glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
-		pd.brickRenderer->renderShadowCascade(lightSpaceMatrix, false, true);
+		pd.brickRenderer->renderShadowCascade(lightSpaceMatrix, false, true, false, &vehicleDraws, lightPosition);
 		glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 
 		//Each channel keeps the least light any transparent brick along the way lets through, so order doesn't matter and
@@ -1405,7 +1739,7 @@ void LoopClient::renderEverything(float deltaT)
 		glUniformMatrix4fv(pd.shadowTintMatrixUniform, 1, GL_FALSE, &lightSpaceMatrix[0][0]);
 		glUniform1f(pd.shadowTintMinOpacityUniform, 0.0f);
 		setSkippedPoint(pd.shadowTintSkipContainingUniform, pd.shadowTintSkipPointUniform, lightPosition);
-		pd.brickRenderer->renderShadowCascade(lightSpaceMatrix, false, true, true);
+		pd.brickRenderer->renderShadowCascade(lightSpaceMatrix, false, true, true, &vehicleDraws, lightPosition);
 		glBlendEquation(GL_FUNC_ADD);
 		glDisable(GL_BLEND);
 		glDepthMask(GL_TRUE);
@@ -1424,6 +1758,8 @@ void LoopClient::renderEverything(float deltaT)
 		glUniformMatrix4fv(pd.shadowCascadeMatrixUniformModel, 1, GL_FALSE, &pd.lightSpaceMatricies[cascade][0][0]);
 		for (unsigned int a = 0; a < simulation.dynamicTypes.size(); a++)
 			simulation.dynamicTypes[a]->render(pd.shaders, false);
+		if (pd.tireModel)
+			pd.tireModel->render(pd.shaders, false);
 		glEnable(GL_CULL_FACE);
 
 		//Bricks are closed boxes, so only their far sides are drawn, which leaves a whole brick between a lit face and the depth it's compared to
@@ -1433,7 +1769,7 @@ void LoopClient::renderEverything(float deltaT)
 		//Without colored shadows, mostly see-through bricks don't block any light
 		glUniform1f(pd.shadowCascadeMinOpacityUniform, 0.5f);
 		setSkippedPoint(pd.shadowCascadeSkipContainingUniform, pd.shadowCascadeSkipPointUniform, nullptr);
-		pd.brickRenderer->renderShadowCascade(pd.lightSpaceMatricies[cascade], true, !pd.tintShadowsActive);
+		pd.brickRenderer->renderShadowCascade(pd.lightSpaceMatricies[cascade], true, !pd.tintShadowsActive, false, &vehicleDraws);
 
 		if (pd.tintShadowsActive)
 		{
@@ -1462,6 +1798,23 @@ void LoopClient::renderEverything(float deltaT)
 			if (light->getHolderID() != NO_ID && !placeHeldLight(*light, position, direction))
 				continue;
 
+			//Lights carried over onto a vehicle from its bricks, where they are on it as it's drawn
+			if (light->getVehicleID() != NO_ID)
+			{
+				std::shared_ptr<Vehicle> vehicle = light->vehicle.lock();
+				if (!vehicle || vehicle->getID() != light->getVehicleID())
+				{
+					vehicle = simulation.vehicles ? simulation.vehicles->find(light->getVehicleID()) : nullptr;
+					light->vehicle = vehicle;
+				}
+
+				if (!vehicle)
+					continue;
+
+				position = vehicle->renderedPosition + vehicle->renderedRotation * position;
+				direction = vehicle->renderedRotation * direction;
+			}
+
 			lightSources.push_back({ light->getID(), position, light->getColor(), light->getBrightness(), light->getCoronaWidth(), light->getRange(),
 				direction, light->getConeCosine() });
 		}
@@ -1488,6 +1841,20 @@ void LoopClient::renderEverything(float deltaT)
 			if (glm::dot(closest - position, closest - position) < range * range)
 				return true;
 		}
+
+		//Only moving vehicles, a parked one's shadow stays where it was last drawn
+		for (unsigned int a = 0; simulation.vehicles && a < simulation.vehicles->size(); a++)
+		{
+			std::shared_ptr<Vehicle> vehicle = simulation.vehicles->get(a);
+			if (!vehicle->body || glm::length(vehicle->serverVelocity) < 0.05f)
+				continue;
+
+			btVector3 aabbMin, aabbMax;
+			vehicle->body->getAabb(aabbMin, aabbMax);
+			glm::vec3 closest = glm::clamp(position, b2g3(aabbMin), b2g3(aabbMax));
+			if (glm::dot(closest - position, closest - position) < range * range)
+				return true;
+		}
 		return false;
 	};
 
@@ -1498,6 +1865,8 @@ void LoopClient::renderEverything(float deltaT)
 		glUniformMatrix4fv(pd.shadowCascadeMatrixUniformModel, 1, GL_FALSE, &lightSpaceMatrix[0][0]);
 		for (unsigned int a = 0; a < simulation.dynamicTypes.size(); a++)
 			simulation.dynamicTypes[a]->render(pd.shaders, false);
+		if (pd.tireModel)
+			pd.tireModel->render(pd.shaders, false);
 		glEnable(GL_CULL_FACE);
 
 		//Like the sun: transparent bricks tint the light instead of blocking it, or without colored shadows the ones at least half opaque block it
@@ -1506,7 +1875,7 @@ void LoopClient::renderEverything(float deltaT)
 		glUniformMatrix4fv(pd.shadowCascadeMatrixUniformBrick, 1, GL_FALSE, &lightSpaceMatrix[0][0]);
 		glUniform1f(pd.shadowCascadeMinOpacityUniform, 0.5f);
 		setSkippedPoint(pd.shadowCascadeSkipContainingUniform, pd.shadowCascadeSkipPointUniform, &lightPosition);
-		pd.brickRenderer->renderShadowCascade(lightSpaceMatrix, true, !tinted);
+		pd.brickRenderer->renderShadowCascade(lightSpaceMatrix, true, !tinted, false, &vehicleDraws, &lightPosition);
 		glCullFace(GL_BACK);
 	};
 
@@ -1707,6 +2076,19 @@ void LoopClient::renderEverything(float deltaT)
 				": IJKL move, . , up/down, U rotate, Left Shift resize, Left Alt super shift, Enter plant, / put away, Ctrl+Z undo");
 	}
 
+	if (pd.selectionBox.getPhase() == SelectionBox::WaitingForClick)
+		hudLines.push_back("Selecting bricks for a vehicle: click where the vehicle is, Escape cancels");
+	else if (pd.selectionBox.isActive())
+	{
+		glm::ivec3 size = pd.selectionBox.getMax() - pd.selectionBox.getMin();
+		hudLines.push_back("Vehicle selection " + std::to_string(size.x) + "x" + std::to_string(size.z) + " studs, " + std::to_string(size.y) +
+			" plates tall: drag its faces, Enter slices every brick touching it into a vehicle, Escape cancels");
+	}
+	if (pd.vehicleGhost.isActive())
+		hudLines.push_back("Placing " + pd.vehicleGhost.getName() + (pd.vehicleGhost.placesAsVehicle() ? " as a vehicle" : " as bricks") + ": aim with the crosshair, left click places it, Escape cancels");
+	if (getDrivenVehicle())
+		hudLines.push_back("Driving: W/S drive, A/D steer, jump brakes, left click honks, right click gets out");
+
 	pd.escapeMenu->showLeaveServer = client != nullptr;
 	pd.gui->superShiftIndicator = pd.ghostBrick.isVisible() ? (pd.ghostBrick.isSuperShift() ? 1 : 0) : -1;
 	pd.gui->resizeIndicator = pd.ghostBrick.isVisible() ? (pd.ghostBrick.isResizeMode() ? 1 : 0) : -1;
@@ -1748,7 +2130,7 @@ void LoopClient::sendControlledObjects()
 void LoopClient::updateControllers(float deltaT)
 {
 	//Jets while right mouse is held, only while the mouse is captured for playing rather than clicking around a window
-	bool jet = simulation.jetsEnabled && pd.context->getMouseLocked() && !pd.input->supressed && (SDL_GetMouseState(nullptr, nullptr) & SDL_BUTTON_RMASK);
+	bool jet = simulation.jetsEnabled && pd.context->getMouseLocked() && !pd.input->supressed && (SDL_GetMouseState(nullptr, nullptr) & SDL_BUTTON_RMASK) && !jetSuppressed && !getDrivenVehicle();
 	bool firing = pd.context->getMouseLocked() && !pd.input->supressed && (SDL_GetMouseState(nullptr, nullptr) & SDL_BUTTON_LMASK);
 
 	//Go through player controllers, remove any that are bound to now deleted dynamics
@@ -1874,6 +2256,7 @@ void LoopClient::run(float deltaT,ExecutableArguments& cmdArgs, std::shared_ptr<
 		simulation.statics = new ObjHolder<StaticObject>(StaticTypeId);
 		simulation.lights = new ObjHolder<Light>(LightTypeId);
 		simulation.emitters = new ObjHolder<Emitter>(EmitterTypeId);
+		simulation.vehicles = new ObjHolder<Vehicle>(VehicleTypeId);
 		simulation.bricks = new BrickHolder(pd.physicsWorld, &pd.brickTypes);
 		simulation.bricks->setRenderer(pd.brickRenderer);
 		simulation.brickDebris = new BrickDebris(pd.physicsWorld, &pd.brickTypes);
@@ -1907,6 +2290,13 @@ void LoopClient::run(float deltaT,ExecutableArguments& cmdArgs, std::shared_ptr<
 			if (simulation.dynamics->get(a)->isInWorld())
 				simulation.dynamics->get(a)->applyWaterForces(simulation.waterLevel, deltaT);
 		}
+	}
+
+	//Vehicles' bodies move to where they're drawn before the step, so they push players around from there
+	if (simulation.vehicles)
+	{
+		for (unsigned int a = 0; a < simulation.vehicles->size(); a++)
+			simulation.vehicles->get(a)->updateSnapshot(deltaT);
 	}
 
 	if (pd.physicsWorld)
@@ -2030,6 +2420,7 @@ LoopClient::LoopClient(ExecutableArguments& cmdArgs, std::shared_ptr<SettingMana
 	pd.itemHotbar = pd.gui->createWindow<ItemHotbar>();
 	pd.appearanceEditor = pd.gui->createWindow<AppearanceEditor>(settings, pd.textures, &pd.faceNames, &pd.shirtNames);
 	pd.wrenchDialog = pd.gui->createWindow<WrenchDialog>();
+	pd.vehicleLoader = pd.gui->createWindow<VehicleLoader>();
 	//Builds from before the state file kept the hot bar in settings.txt
 	std::shared_ptr<SettingManager> hotbarSource = pd.state;
 	if (!pd.state->getPreference("hotbar/slot1/filled") && settings->getPreference("hotbar/slot1/filled"))
@@ -2133,6 +2524,15 @@ LoopClient::LoopClient(ExecutableArguments& cmdArgs, std::shared_ptr<SettingMana
 
 	pd.brickRenderer = new InstancedBrickRenderer(pd.shaders, pd.textures, &pd.brickTypes);
 
+	//Every vehicle's wheels are drawn with it
+	pd.tireModel = new Model("Assets/tire/tire.txt", pd.textures, glm::vec3(1.0f));
+	if (!pd.tireModel->isValid() || pd.tireModel->getNumMeshes() < 1)
+	{
+		error("Couldn't load Assets/tire/tire.txt, vehicle wheels won't be drawn");
+		delete pd.tireModel;
+		pd.tireModel = nullptr;
+	}
+
 	pd.skybox = new Skybox(pd.shaders);
 	pd.imageBasedLighting = settings->getBool("graphics/imagebasedlighting");
 
@@ -2193,6 +2593,10 @@ LoopClient::~LoopClient()
 	glDeleteVertexArrays(1, &pd.skyVao);
 	glDeleteVertexArrays(1, &pd.waterVao);
 	glDeleteBuffers(1, &pd.waterVbo);
+
+	//Vehicles' tire instances are gone with leaveServer
+	delete pd.tireModel;
+	pd.tireModel = nullptr;
 
 	delete pd.brickRenderer;
 	pd.brickRenderer = nullptr;

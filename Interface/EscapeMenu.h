@@ -12,7 +12,8 @@ enum EscapeButtonPressed
 	OpenChat = 3,
 	OpenDebugMenu = 4,
 	OpenSettings = 5,
-	JoinServer = 6
+	JoinServer = 6,
+	OpenSavedVehicles = 7
 };
 
 class EscapeMenu : public Window

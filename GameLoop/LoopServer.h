@@ -61,6 +61,15 @@ class LoopServer
 	//Keeps carried items with their holders, and sends everyone the state of items that changed, after dynamics' creations go out
 	void updateItems();
 
+	//Drivers' keys drive their vehicles, drivers who are gone let go, and wheels in the water float, before the physics step
+	void updateVehicles(float deltaT);
+
+	//Removes vehicles that flew off, sends wheel states, splashes, and keeps drivers in their seats, after the physics step
+	void updateVehiclesAfterStep();
+
+	//Sends the bricks of vehicles made since the last tick, after vehicles' creations go out
+	void sendNewVehicleBricks();
+
 public:
 
 	//Constructor have any issues?

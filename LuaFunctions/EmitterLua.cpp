@@ -86,6 +86,11 @@ bool emitterTypeExists(const std::string& typeName)
 	return LUA_pd && findEmitterType(typeName) != -1;
 }
 
+int findEmitterTypeIndex(const std::string& typeName)
+{
+	return LUA_pd ? findEmitterType(typeName) : -1;
+}
+
 std::string findEmitterTypeByUiName(const std::string& uiName)
 {
 	if (!LUA_pd || uiName.empty())

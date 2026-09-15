@@ -105,6 +105,9 @@ class BrickHolder
 	//Brick occupying this voxel, or nullptr
 	Brick* getAt(int x, int y, int z) const;
 
+	//Calls visit for every brick with any part inside the voxels from low to high, both inclusive
+	void forEachInBox(const glm::ivec3& low, const glm::ivec3& high, const std::function<void(Brick*)>& visit) const;
+
 	//nullptr if no brick has that ID
 	Brick* find(netIDType netId) const;
 

@@ -11,9 +11,10 @@
 
 //Not included, ClientProgramData includes this and Dynamic's headers lead back to ClientProgramData
 class Dynamic;
+class Vehicle;
 class btRigidBody;
 
-//Where a sound plays from: nowhere in particular (same volume in both ears), a fixed point, or following a Dynamic
+//Where a sound plays from: nowhere in particular (same volume in both ears), a fixed point, or following a Dynamic or Vehicle
 struct SoundLocation
 {
 	enum Kind
@@ -24,16 +25,19 @@ struct SoundLocation
 	} kind = Flat;
 
 	glm::vec3 position = glm::vec3(0);
+	//An attached sound follows one of these
 	std::weak_ptr<Dynamic> dynamic;
+	std::weak_ptr<Vehicle> vehicle;
 
 	static SoundLocation flat() { return SoundLocation(); }
 	static SoundLocation at(const glm::vec3& position);
 	static SoundLocation on(const std::shared_ptr<Dynamic>& dynamic);
+	static SoundLocation onVehicle(const std::shared_ptr<Vehicle>& vehicle);
 
-	//Moves position to where an attached Dynamic is drawn, false once that Dynamic is gone (position stays where it was last)
+	//Moves position to where what it's attached to is drawn, false once that's gone (position stays where it was last)
 	bool follow();
 
-	//The physics body of the Dynamic it follows, nullptr if it doesn't follow one
+	//The physics body of the Dynamic or Vehicle it follows, nullptr if it doesn't follow one
 	const btRigidBody* body() const;
 };
 

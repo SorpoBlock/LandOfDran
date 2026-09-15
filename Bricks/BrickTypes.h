@@ -34,6 +34,14 @@ enum BrickFaceTexture
 //Position, normal, tangent, bitangent, uv, vertex color
 constexpr int specialVertexFloats = 18;
 
+//What a special brick becomes when bricks around it are sliced into a vehicle, from vehiclePart in its datablock, see SimObjects/Vehicle.h
+enum VehiclePart : unsigned char
+{
+	VehiclePart_None = 0,		//Just part of the body
+	VehiclePart_Wheel = 1,		//Taken out and replaced by a wheel that rolls along its long side
+	VehiclePart_Steering = 2	//Each vehicle needs exactly one, the driver stands behind it and it drives the way it faces
+};
+
 /*
 	A brick with its own shape from a Blockland .blb file, like a ramp
 	Occupies its width x height x length on the grid like a basic brick, and turns in quarter turns around its middle
@@ -61,6 +69,9 @@ struct SpecialBrickType
 
 	//Some faces have see-through vertex colors, so the whole brick is drawn with transparent bricks
 	bool hasTransparency = false;
+
+	//Whether it's a wheel or steering wheel for vehicles
+	VehiclePart vehiclePart = VehiclePart_None;
 
 	/*
 		Triangles in world units, centered on the brick's middle, specialVertexFloats each

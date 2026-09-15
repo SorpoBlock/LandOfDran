@@ -25,6 +25,9 @@ std::string getEmitterTypeName(const Emitter& emitter);
 
 bool emitterTypeExists(const std::string& typeName);
 
+//The ID clients know the named emitter type by, -1 if there's no such type
+int findEmitterTypeIndex(const std::string& typeName);
+
 //For Blockland imports: the name of the emitter type with this uiName, ignoring case, the last added if there's more than one, "" if there's none
 std::string findEmitterTypeByUiName(const std::string& uiName);
 

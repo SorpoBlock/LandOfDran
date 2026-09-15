@@ -53,6 +53,27 @@ bool readSoundLocation(const ENetPacket* packet, unsigned int& byteIterator, Sim
 			result = SoundLocation::on(dynamic);
 			return true;
 		}
+
+		case SoundLocationVehicle:
+		{
+			if (packet->dataLength < byteIterator + sizeof(netIDType))
+				return false;
+
+			netIDType id;
+			memcpy(&id, packet->data + byteIterator, sizeof(netIDType));
+			byteIterator += sizeof(netIDType);
+
+			//Same as for dynamics
+			std::shared_ptr<Vehicle> vehicle = simulation.vehicles ? simulation.vehicles->find(id) : nullptr;
+			if (!vehicle)
+			{
+				waiting = true;
+				return false;
+			}
+
+			result = SoundLocation::onVehicle(vehicle);
+			return true;
+		}
 	}
 
 	return false;

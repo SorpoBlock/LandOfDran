@@ -1,0 +1,62 @@
+#pragma once
+
+extern "C"
+{
+	#include <lua.h>
+	#include <lualib.h>
+	#include <lauxlib.h>
+}
+
+#include "../GameLoop/ServerProgramData.h"
+
+extern ServerProgramData* LUA_pd;
+
+/*
+	Slices every brick with any part in the grid voxels from low to high (both inclusive) out of the world into a vehicle, like the old game
+	The bricks need exactly one steering wheel and at least one wheel brick, every wheel rolling the way the steering wheel faces
+	builder is the client doing it, who gets a ClientSliceBricks event to veto it, or nullptr for Lua
+	Returns nullptr and why in failure if it can't, failure is empty if a listener stopped it
+*/
+std::shared_ptr<Vehicle> sliceVehicle(ClientData* builder, const glm::ivec3& low, const glm::ivec3& high, std::string& failure);
+
+/*
+	Puts the client's player (the target of their first controller) in the vehicle's seat to drive it
+	False if someone's driving it, they're already driving, their player isn't in the world, or with callEvent, a ClientEnterVehicle listener said no
+*/
+bool enterVehicle(ClientData& client, const std::shared_ptr<Vehicle>& vehicle, bool callEvent);
+
+//Lets the client's player out of whatever they drive, just above its seat, firing ClientExitVehicle with callEvent
+void exitVehicle(ClientData& client, bool callEvent);
+
+//Lets out its driver, removes the lights, emitters, and music loop it has, and destroys it
+void destroyVehicle(std::shared_ptr<Vehicle> vehicle);
+
+//Every vehicle's bricks, to a client that just finished loading, after the vehicles themselves
+void sendVehicleState(const ServerProgramData* pd, JoinedClient* client);
+
+//Sends the client the wrench dialog for a vehicle, after which one VehicleWrenchSubmit from them can change it, see Networking/PacketsFromClient/Wrench.cpp
+void openVehicleWrenchDialog(ClientData& client, const Vehicle& vehicle);
+
+//Loops music from the vehicle for everyone, replacing whatever it played, "" for none
+void setVehicleMusic(Vehicle& vehicle, const std::string& name, float volume, float pitch);
+
+/*
+	The bytes of a Land of Dran save of the vehicle's bricks as they were before slicing, wheels included,
+	with its music on its steering wheel, which becomes the music of a vehicle loaded from it
+*/
+std::string makeVehicleSaveFile(const Vehicle& vehicle);
+
+/*
+	Places the bricks of a save from makeVehicleSaveFile with the middle of their bottom at the grid voxel spot, as a vehicle or as plain bricks
+	builder gets a ClientLoadVehicle event to veto it, and owns (and can undo) bricks placed as bricks, nullptr for Lua
+	message says how it went, for whoever loaded it, empty if a listener stopped it. vehicle is set to a vehicle it makes
+	Returns true if anything was placed
+*/
+bool loadVehicleSave(ClientData* builder, const std::string& data, const glm::ivec3& spot, bool asVehicle, std::string& message, std::shared_ptr<Vehicle>* vehicle = nullptr);
+
+/*
+	Registers global vehicle functions and the client methods for driving
+	Returns vehicle methods to be passed to ObjHolder<Vehicle>::makeLuaMetatable, which then deletes the list
+	Has to come after registerClientFunctions
+*/
+luaL_Reg* getVehicleFunctions(lua_State* L);

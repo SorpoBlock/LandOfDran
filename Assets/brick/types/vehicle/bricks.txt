@@ -1,0 +1,170 @@
+//Vehicle parts, see SimObjects/Vehicle.h
+//test.cs names the steering wheel and the 1x2 wheels for old saves, and those names win, the same ones are used here
+//vehiclePart is our own field: "wheel" bricks turn into wheels and each vehicle needs one "steering" brick when bricks are sliced into a vehicle
+
+datablock fxDTSBrickData(brick1x2SteeringWheelData)
+{
+	brickFile = "./1x2_Steering_Wheel.blb";
+	category = "Special";
+	subCategory = "Vehicle";
+	uiName = "1x2 Steering Wheel";
+	iconName = "./1x2_Steering_Wheel";
+	vehiclePart = "steering";
+};
+
+datablock fxDTSBrickData(brick1x2VertWheelData)
+{
+	brickFile = "./1x2_Vert_Wheel.blb";
+	category = "Special";
+	subCategory = "Vehicle";
+	uiName = "1x2 Vert Wheel A";
+	iconName = "./1x2_Vert_Wheel";
+	vehiclePart = "wheel";
+};
+
+datablock fxDTSBrickData(brick1x2VertWheelClassicData)
+{
+	brickFile = "./1x2_Vert_Wheel_Classic.blb";
+	category = "Special";
+	subCategory = "Vehicle";
+	uiName = "1x4 Vert Wheel Classic";
+	iconName = "./1x2_Vert_Wheel_Classic";
+	vehiclePart = "wheel";
+};
+
+datablock fxDTSBrickData(brick1x2VertWheelFatData)
+{
+	brickFile = "./1x2_Vert_Wheel_FAT.blb";
+	category = "Special";
+	subCategory = "Vehicle";
+	uiName = "1x2 Vert Wheel Wide";
+	iconName = "./1x2_Vert_Wheel_FAT";
+	vehiclePart = "wheel";
+};
+
+datablock fxDTSBrickData(brickBigVertWheelData)
+{
+	brickFile = "./Big_Vert_Wheel.blb";
+	category = "Special";
+	subCategory = "Vehicle";
+	uiName = "Big Vert Wheel";
+	iconName = "./Big_Vert_Wheel";
+	vehiclePart = "wheel";
+};
+
+datablock fxDTSBrickData(brick1x1NoosleData)
+{
+	brickFile = "./1x1_Noosle.blb";
+	category = "Special";
+	subCategory = "Vehicle";
+	uiName = "1x1 Noosle";
+	iconName = "./1x1_Noosle";
+};
+
+datablock fxDTSBrickData(brick2x2EngineBlockData)
+{
+	brickFile = "./2x2_Engine_Block.blb";
+	category = "Special";
+	subCategory = "Vehicle";
+	uiName = "2x2 Engine Block";
+	iconName = "./2x2_Engine_Block";
+};
+
+datablock fxDTSBrickData(brick2x4x2WindscreenData)
+{
+	brickFile = "./2x4x2_Windscreen.blb";
+	category = "Special";
+	subCategory = "Vehicle";
+	uiName = "2x4x2 Windscreen";
+	iconName = "./2x4x2_Windscreen";
+};
+
+datablock fxDTSBrickData(brick2x4x2WindscreenFlatData)
+{
+	brickFile = "./2x4x2_Windscreen_Flat.blb";
+	category = "Special";
+	subCategory = "Vehicle";
+	uiName = "2x4x2 Windscreen Flat";
+	iconName = "./2x4x2_Windscreen_Flat";
+};
+
+datablock fxDTSBrickData(brick2x4x2WindscreenInvertedData)
+{
+	brickFile = "./2x4x2_Windscreen_Inverted.blb";
+	category = "Special";
+	subCategory = "Vehicle";
+	uiName = "2x4x2 Windscreen Inverted";
+	iconName = "./2x4x2_Windscreen_Inverted";
+};
+
+datablock fxDTSBrickData(brick2x4x3WindowData)
+{
+	brickFile = "./2x4x3_45_Deg_Window.blb";
+	category = "Special";
+	subCategory = "Vehicle";
+	uiName = "2x4x3 45 Deg Window";
+	iconName = "./2x4x3_45_Deg_Window";
+};
+
+datablock fxDTSBrickData(brick2x5SlantData)
+{
+	brickFile = "./2x5_Slant.blb";
+	category = "Special";
+	subCategory = "Vehicle";
+	uiName = "2x5 Slant";
+	iconName = "./2x5_Slant";
+};
+
+datablock fxDTSBrickData(brick2x6x2WindscreenData)
+{
+	brickFile = "./2x6x2_Windscreen.blb";
+	category = "Special";
+	subCategory = "Vehicle";
+	uiName = "2x6x2 Windscreen";
+	iconName = "./2x6x2_Windscreen";
+};
+
+datablock fxDTSBrickData(brick3x10x3WindscreenData)
+{
+	brickFile = "./3x10x3_Windscreen.blb";
+	category = "Special";
+	subCategory = "Vehicle";
+	uiName = "3x10x3 Windscreen";
+	iconName = "./3x10x3_Windscreen";
+};
+
+datablock fxDTSBrickData(brick3x4x4WindscreenInvertedData)
+{
+	brickFile = "./3x4x4_Windscreen_Inverted.blb";
+	category = "Special";
+	subCategory = "Vehicle";
+	uiName = "3x4x4 Windscreen Inverted";
+	iconName = "./3x4x4_Windscreen_Inverted";
+};
+
+datablock fxDTSBrickData(brick4x3x3WindscreenData)
+{
+	brickFile = "./4x3x3_Windscreen.blb";
+	category = "Special";
+	subCategory = "Vehicle";
+	uiName = "4x3x3 Windscreen";
+	iconName = "./4x3x3_Windscreen";
+};
+
+datablock fxDTSBrickData(brick4x5x3WindscreenData)
+{
+	brickFile = "./4x5x3_Windscreen.blb";
+	category = "Special";
+	subCategory = "Vehicle";
+	uiName = "4x5x3 Windscreen";
+	iconName = "./4x5x3_Windscreen";
+};
+
+datablock fxDTSBrickData(brick8x5WindscreenData)
+{
+	brickFile = "./8x5_Windscreen.blb";
+	category = "Special";
+	subCategory = "Vehicle";
+	uiName = "8x5 Windscreen";
+	iconName = "./8x5_Windscreen";
+};

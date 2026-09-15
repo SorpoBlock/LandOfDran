@@ -2,6 +2,7 @@
 #include "Dynamic.h" //pushRaycastResult
 #include "SoundLua.h"
 #include "BrickLua.h"
+#include "VehicleLua.h"
 
 Server * LUA_server = nullptr;
 
@@ -657,8 +658,11 @@ static int LUA_clientGetCursorItem(lua_State* L)
 	btVector3 start = btVector3(cameraPosition.x, cameraPosition.y, cameraPosition.z);
 	btVector3 end = start + btVector3(cameraDirection.x, cameraDirection.y, cameraDirection.z) * maxDistance;
 
+	//Or the vehicle they're driving
+	std::shared_ptr<Vehicle> driving = client->vehicle.lock();
+
 	btVector3 hitPosition, hitNormal;
-	btRigidBody* result = LUA_pd->physicsWorld->doRaycast(start, end, ignore, hitPosition, hitNormal);
+	btRigidBody* result = LUA_pd->physicsWorld->doRaycast(start, end, ignore, hitPosition, hitNormal, driving ? driving->body : nullptr);
 	return pushRaycastHit(L, result, start, hitPosition, hitNormal);
 }
 
@@ -983,8 +987,27 @@ static int LUA_clientOpenWrenchDialog(lua_State* L)
 
 	if (lua_gettop(L) != 2)
 	{
-		error("Expected 2 arguments client:openWrenchDialog(brick)");
+		error("Expected 2 arguments client:openWrenchDialog(brick) or client:openWrenchDialog(vehicle)");
 		lua_settop(L, 0);
+		return 0;
+	}
+
+	//A vehicle's dialog just has its music
+	lua_getfield(L, 2, "type");
+	bool isVehicle = lua_isinteger(L, -1) && lua_tointeger(L, -1) == VehicleTypeId;
+	lua_pop(L, 1);
+	if (isVehicle)
+	{
+		std::shared_ptr<Vehicle> vehicle = LUA_pd->vehicles->popLua(L);
+		if (!vehicle)
+		{
+			lua_settop(L, 0);
+			return 0;
+		}
+
+		std::shared_ptr<ClientData> client = popClientData(L, 1, "client:openWrenchDialog(vehicle)");
+		if (client)
+			openVehicleWrenchDialog(*client, *vehicle);
 		return 0;
 	}
 

@@ -82,10 +82,17 @@ enum FromClientPacketType : unsigned char
 	InventorySelect = 17,	//Whether the client's item bar is out and which slot it has picked, see Networking/PacketsFromClient/Inventory.cpp
 	DropItemRequest = 18,	//The client pressed the drop item keys, with the slot their item bar has picked
 	PaintChoice = 19,		//The color and material the client's paint palette has picked, sent as they connect and whenever it changes
+	SliceRequest = 20,		//Turn the bricks in the client's selection box into a vehicle, see Networking/PacketsFromClient/Slice.cpp
+	VehicleWrenchSubmit = 21,	//What the client changed in the vehicle wrench dialog the server last sent them
+	VehicleSaveRequest = 22,	//Send the client a save of a vehicle to write to their own computer, see Networking/PacketsFromClient/VehicleFiles.cpp
+	VehicleUpload = 23,		//Part of a vehicle save from the client's computer, with where they placed its ghost
+	VehicleRemoveRequest = 24,	//Remove the vehicle in the wrench dialog the server last sent them
 };
 
 //Flags byte after the mask of a ClickDetails packet
 #define ClickFlag_Release 1			//A mouse button was let go rather than pressed, mask is just that button
+#define ClickFlag_RightPress 2		//The button pressed was the right one, the mask can't say which when another is held too
+#define ClickFlag_LeftPress 4		//The button pressed was the left one
 
 //Byte after a dynamic's decals in creation packets, saying what kind of dynamic it is and what follows
 enum DynamicKind : unsigned char
@@ -166,6 +173,10 @@ enum FromServerPacketType : unsigned char
 	SkyboxPaths = 31,		//The day and night skyboxes from Lua's setSkybox, see Graphics/Skybox.h
 	ItemState = 32,			//Who carries an item, whether it's in their hand, and the animations it plays, see Item::writeState
 	InventoryContents = 33,	//The net IDs of the items in each of your inventory slots, see ClientData::sendInventory
+	VehicleBricks = 34,		//Some of a vehicle's bricks, which come after its creation packet, see Vehicle::makeBrickPackets
+	VehicleDriver = 35,		//Which dynamic is driving a vehicle, if any
+	OpenVehicleWrench = 36,	//Open the wrench dialog for a vehicle, with its music, see Interface/WrenchDialog.h
+	VehicleSaveData = 37,	//Part of a vehicle save the client asked for, see VehicleSaveDataPacket
 };
 
 //Flags byte of a PlayerAbilities packet
@@ -184,7 +195,8 @@ enum SoundLocationKind : unsigned char
 {
 	SoundLocationFlat = 0,		//No position, nothing follows
 	SoundLocationFixed = 1,		//x, y, z floats
-	SoundLocationDynamic = 2	//Net ID of a dynamic to follow
+	SoundLocationDynamic = 2,	//Net ID of a dynamic to follow
+	SoundLocationVehicle = 3	//Net ID of a vehicle to follow
 };
 
 //Second byte of a SoundLoop packet

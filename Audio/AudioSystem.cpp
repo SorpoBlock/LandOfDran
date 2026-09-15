@@ -2,6 +2,7 @@
 #include "ReverbPresets.h"
 #include "SoundFile.h"
 #include "../SimObjects/Dynamic.h"
+#include "../SimObjects/Vehicle.h"
 
 #define AL_ALEXT_PROTOTYPES
 #include <AL/alext.h>
@@ -69,17 +70,34 @@ SoundLocation SoundLocation::on(const std::shared_ptr<Dynamic>& dynamic)
 	return ret;
 }
 
+SoundLocation SoundLocation::onVehicle(const std::shared_ptr<Vehicle>& vehicle)
+{
+	SoundLocation ret;
+	ret.kind = Attached;
+	ret.vehicle = vehicle;
+	if (vehicle)
+		ret.position = vehicle->renderedPosition;
+	return ret;
+}
+
 bool SoundLocation::follow()
 {
 	if (kind != Attached)
 		return true;
 
-	std::shared_ptr<Dynamic> target = dynamic.lock();
-	if (!target)
-		return false;
+	if (std::shared_ptr<Dynamic> target = dynamic.lock())
+	{
+		position = soundPositionOf(*target);
+		return true;
+	}
 
-	position = soundPositionOf(*target);
-	return true;
+	if (std::shared_ptr<Vehicle> target = vehicle.lock())
+	{
+		position = target->renderedPosition;
+		return true;
+	}
+
+	return false;
 }
 
 const btRigidBody* SoundLocation::body() const
@@ -87,7 +105,10 @@ const btRigidBody* SoundLocation::body() const
 	if (kind != Attached)
 		return nullptr;
 
-	std::shared_ptr<Dynamic> target = dynamic.lock();
+	if (std::shared_ptr<Dynamic> target = dynamic.lock())
+		return target->body;
+
+	std::shared_ptr<Vehicle> target = vehicle.lock();
 	return target ? target->body : nullptr;
 }
 
@@ -203,6 +224,10 @@ static glm::vec3 soundVelocity(const SoundLocation& where)
 {
 	if (where.kind != SoundLocation::Attached)
 		return glm::vec3(0);
+
+	//A vehicle's body on clients only follows where it's drawn, so it goes by the velocity the server sent
+	if (std::shared_ptr<Vehicle> vehicle = where.vehicle.lock())
+		return vehicle->serverVelocity;
 
 	const btRigidBody* body = where.body();
 	if (!body)

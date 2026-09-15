@@ -15,11 +15,12 @@
 	12 bytes	-	camera direction
 	1 byte		-	SDL mouse button mask, just the button let go for a release
 	1 byte		-	ClickFlag flags
+	pressFlags is ClickFlag_LeftPress or ClickFlag_RightPress for a press of that button
 */
-inline ENetPacket* makeMouseClickPacket(glm::vec3 pos, glm::vec3 dir, unsigned char mask, bool release = false)
+inline ENetPacket* makeMouseClickPacket(glm::vec3 pos, glm::vec3 dir, unsigned char mask, bool release = false, unsigned char pressFlags = 0)
 {
 	ENetPacket* ret = enet_packet_create(NULL, 3 + 6 * sizeof(float), getFlagsFromChannel(OtherReliable));
-	ret->data[2 + sizeof(float) * 6] = release ? ClickFlag_Release : 0;
+	ret->data[2 + sizeof(float) * 6] = (release ? ClickFlag_Release : 0) | pressFlags;
 
 	ret->data[0] = (unsigned char)ClickDetails;
 	memcpy(ret->data + 1 + sizeof(float) * 0, &pos.x, sizeof(float));
@@ -278,6 +279,101 @@ inline ENetPacket* makeWrenchSubmitPacket(netIDType brickID, bool collides, cons
 	attachments.write(bytes);
 
 	return enet_packet_create(bytes.data(), bytes.size(), getFlagsFromChannel(OtherReliable));
+}
+
+/*
+	1 byte		-	packet type
+	4 bytes		-	vehicle net ID
+	The rest	-	BrickAttachments::write, only its music matters
+*/
+inline ENetPacket* makeVehicleWrenchSubmitPacket(netIDType vehicleID, const BrickAttachments& attachments)
+{
+	std::vector<unsigned char> bytes;
+	bytes.push_back((unsigned char)VehicleWrenchSubmit);
+	bytes.resize(1 + sizeof(netIDType));
+	memcpy(bytes.data() + 1, &vehicleID, sizeof(netIDType));
+
+	BrickAttachments music;
+	music.musicName = attachments.musicName;
+	music.musicVolume = attachments.musicVolume;
+	music.musicPitch = attachments.musicPitch;
+	music.write(bytes);
+
+	return enet_packet_create(bytes.data(), bytes.size(), getFlagsFromChannel(OtherReliable));
+}
+
+/*
+	1 byte		-	packet type
+	4 bytes		-	vehicle net ID
+*/
+inline ENetPacket* makeVehicleSaveRequestPacket(netIDType vehicleID)
+{
+	ENetPacket* ret = enet_packet_create(NULL, 1 + sizeof(netIDType), getFlagsFromChannel(OtherReliable));
+	ret->data[0] = (unsigned char)VehicleSaveRequest;
+	memcpy(ret->data + 1, &vehicleID, sizeof(netIDType));
+	return ret;
+}
+
+/*
+	A vehicle save file in pieces, each:
+	1 byte		-	packet type
+	4 bytes		-	upload ID, a new one for each file
+	1 byte		-	1 to load it as a vehicle, 0 as bricks
+	4 bytes		-	size of the whole file
+	4 bytes		-	where in the file this packet's bytes go
+	12 bytes	-	grid voxel the middle of its bottom goes at
+	The rest	-	file bytes
+*/
+inline std::vector<ENetPacket*> makeVehicleUploadPackets(uint32_t uploadID, bool asVehicle, const glm::ivec3& spot, const std::string& file)
+{
+	static constexpr size_t chunkBytes = 1100;
+	static constexpr size_t headerBytes = 1 + sizeof(uint32_t) + 1 + sizeof(uint32_t) * 2 + sizeof(int32_t) * 3;
+	const int32_t spotValues[3] = { spot.x, spot.y, spot.z };
+
+	std::vector<ENetPacket*> packets;
+	uint32_t total = (uint32_t)file.size();
+	for (size_t offset = 0; offset < file.size(); offset += chunkBytes)
+	{
+		size_t length = std::min(chunkBytes, file.size() - offset);
+		uint32_t at = (uint32_t)offset;
+
+		ENetPacket* ret = enet_packet_create(NULL, headerBytes + length, getFlagsFromChannel(OtherReliable));
+		ret->data[0] = (unsigned char)VehicleUpload;
+		memcpy(ret->data + 1, &uploadID, sizeof(uint32_t));
+		ret->data[1 + sizeof(uint32_t)] = asVehicle ? 1 : 0;
+		memcpy(ret->data + 2 + sizeof(uint32_t), &total, sizeof(uint32_t));
+		memcpy(ret->data + 2 + sizeof(uint32_t) * 2, &at, sizeof(uint32_t));
+		memcpy(ret->data + 2 + sizeof(uint32_t) * 3, spotValues, sizeof(spotValues));
+		memcpy(ret->data + headerBytes, file.data() + offset, length);
+		packets.push_back(ret);
+	}
+	return packets;
+}
+
+/*
+	1 byte		-	packet type
+	4 bytes		-	vehicle net ID
+*/
+inline ENetPacket* makeVehicleRemoveRequestPacket(netIDType vehicleID)
+{
+	ENetPacket* ret = enet_packet_create(NULL, 1 + sizeof(netIDType), getFlagsFromChannel(OtherReliable));
+	ret->data[0] = (unsigned char)VehicleRemoveRequest;
+	memcpy(ret->data + 1, &vehicleID, sizeof(netIDType));
+	return ret;
+}
+
+/*
+	1 byte		-	packet type
+	12 bytes	-	selection box min corner, grid voxels, inclusive
+	12 bytes	-	selection box max corner, exclusive
+*/
+inline ENetPacket* makeSliceRequestPacket(const glm::ivec3& min, const glm::ivec3& max)
+{
+	ENetPacket* ret = enet_packet_create(NULL, 1 + sizeof(int32_t) * 6, getFlagsFromChannel(OtherReliable));
+	ret->data[0] = (unsigned char)SliceRequest;
+	const int32_t corners[6] = { min.x, min.y, min.z, max.x, max.y, max.z };
+	memcpy(ret->data + 1, corners, sizeof(corners));
+	return ret;
 }
 
 /*

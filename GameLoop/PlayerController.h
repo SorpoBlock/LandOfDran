@@ -51,6 +51,9 @@ struct PlayerController
 	//Client only, the jet state in the last packet we sent
 	bool lastSentJet = false;
 
+	//Client only, the MovementFlag bits in the last packet we sent, a change goes out right away so driving a vehicle responds quickly
+	unsigned char lastSentFlags = 0;
+
 	//Whether the last control call made the target jump
 	bool jumped = false;
 

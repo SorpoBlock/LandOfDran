@@ -6,6 +6,7 @@
 #include "../SimObjects/Light.h"
 #include "../SimObjects/Emitter.h"
 #include "../SimObjects/Item.h"
+#include "../SimObjects/Vehicle.h"
 #include "../Networking/ObjHolder.h"
 #include "../Graphics/PlayerCamera.h"
 #include "../GameLoop/PlayerController.h"
@@ -65,6 +66,7 @@ struct Simulation
 	ObjHolder<StaticObject>* statics = nullptr;
 	ObjHolder<Light>* lights = nullptr;
 	ObjHolder<Emitter>* emitters = nullptr;
+	ObjHolder<Vehicle>* vehicles = nullptr;
 
 	//Goes up whenever statics are added, removed, or changed, so point light shadows know to redraw
 	unsigned int staticsChanged = 0;
@@ -78,4 +80,13 @@ struct Simulation
 	std::vector<uint16_t> brickTypeFromServer;
 	//Indexed by our type ID, gives the server's, or 0 if the server doesn't have it
 	std::vector<uint16_t> brickTypeToServer;
+
+	//A vehicle save we asked for from its wrench dialog, where it goes and as much of it as has arrived, see VehicleSaveDataPacket
+	struct PendingVehicleSave
+	{
+		std::string path;
+		std::string bytes;
+	};
+	//By vehicle net ID
+	std::map<netIDType, PendingVehicleSave> vehicleSaves;
 };

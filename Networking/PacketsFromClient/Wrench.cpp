@@ -4,6 +4,7 @@
 #include "../../LuaFunctions/BrickLua.h"
 #include "../../LuaFunctions/SoundLua.h"
 #include "../../LuaFunctions/EmitterLua.h"
+#include "../../LuaFunctions/VehicleLua.h"
 
 #include <cmath>
 
@@ -15,7 +16,7 @@ static constexpr float wrenchReach = 100.0f;
 	12 bytes	-	camera position
 	12 bytes	-	camera direction
 
-	Wrenches the brick the camera points at, which opens the wrench dialog for it unless a ClientWrenchBrick listener says not to
+	Wrenches the brick or vehicle the camera points at, which opens its wrench dialog unless a ClientWrenchBrick or ClientWrenchVehicle listener says not to
 */
 void wrenchRequest(JoinedClient* source, Server const* const server, ENetPacket const* const packet, const void* pdv)
 {
@@ -44,13 +45,30 @@ void wrenchRequest(JoinedClient* source, Server const* const server, ENetPacket 
 	//Not their own player, a third person camera looks past it
 	btRigidBody* ignore = client->controlledObjects.empty() ? nullptr : client->controlledObjects[0]->body;
 	btRigidBody* hit = pd->physicsWorld->doRaycast(g2b3(start), g2b3(start + direction * wrenchReach), ignore);
-	if (!hit || hit->getUserIndex() != brickBody)
+	if (!hit)
+		return;
+
+	lua_State* L = pd->luaState;
+
+	if (std::shared_ptr<Vehicle> vehicle = vehicleFromBody(hit))
+	{
+		pushClientLua(L, source->me);
+		pd->vehicles->pushLua(L, vehicle);
+		pd->eventManager->callEvent(L, "ClientWrenchVehicle", 2);
+		bool vetoed = lua_gettop(L) == 2 && lua_isnil(L, 2);
+		lua_settop(L, 0);
+
+		if (!vetoed && pd->vehicles->find(vehicle->getID()))
+			openVehicleWrenchDialog(*client, *vehicle);
+		return;
+	}
+
+	if (hit->getUserIndex() != brickBody)
 		return;
 
 	Brick* brick = (Brick*)hit->getUserPointer();
 	netIDType brickID = brick->netId;
 
-	lua_State* L = pd->luaState;
 	pushClientLua(L, source->me);
 	pd->bricks->pushLua(L, brick);
 	pd->eventManager->callEvent(L, "ClientWrenchBrick", 2);
@@ -128,8 +146,108 @@ void wrenchSubmit(JoinedClient* source, Server const* const server, ENetPacket c
 	if (!settings.emitterName.empty() && !emitterTypeExists(settings.emitterName) && !(current && current->emitterName == settings.emitterName))
 		settings.emitterName = "";
 
+	//Wheel settings only go on wheels and steering settings on steering wheels, other bricks keep whatever Lua gave them
+	const SpecialBrickType* type = brick->isSpecial() ? pd->brickTypes.getSpecial(brick->typeID - 1) : nullptr;
+	VehiclePart part = type ? type->vehiclePart : VehiclePart_None;
+	if (part != VehiclePart_Wheel)
+	{
+		settings.hasWheel = current && current->hasWheel;
+		settings.wheel = current ? current->wheel : WheelSettings();
+	}
+	if (part != VehiclePart_Steering)
+	{
+		settings.hasSteering = current && current->hasSteering;
+		settings.steering = current ? current->steering : SteeringSettings();
+	}
+
 	if (brick->collides != collides)
 		pd->bricks->setColliding(brick, collides);
 	brick->name = name;
 	setBrickAttachments(brick, settings);
+}
+
+/*
+	1 byte		-	packet type
+	4 bytes		-	vehicle net ID
+	The rest	-	BrickAttachments::write, only its music is used
+*/
+void vehicleWrenchSubmit(JoinedClient* source, Server const* const server, ENetPacket const* const packet, const void* pdv)
+{
+	const ServerProgramData* pd = (const ServerProgramData*)pdv;
+
+	if (packet->dataLength < 1 + sizeof(netIDType) + 1)
+		return;
+
+	std::shared_ptr<ClientData> client = pd->getClient(source->me);
+	if (!client)
+		return;
+
+	netIDType vehicleID;
+	memcpy(&vehicleID, packet->data + 1, sizeof(netIDType));
+
+	//Only the vehicle they were last sent a dialog for, and only once
+	if (vehicleID != client->wrenchedVehicleID)
+		return;
+	client->wrenchedVehicleID = NO_ID;
+
+	std::shared_ptr<Vehicle> vehicle = pd->vehicles->find(vehicleID);
+	if (!vehicle)
+		return;
+
+	size_t at = 1 + sizeof(netIDType);
+	BrickAttachments settings;
+	if (!settings.read(packet->data, packet->dataLength, at))
+		return;
+	settings.clampValues();
+
+	//Same as bricks: a music sound type, or whatever Lua already put on it
+	if (!settings.musicName.empty() && !isMusicSoundType(settings.musicName) && settings.musicName != vehicle->musicName)
+		settings.musicName = "";
+
+	//Loops can't be changed while they play, so only a change starts it over
+	if (settings.musicName != vehicle->musicName || settings.musicVolume != vehicle->musicVolume || settings.musicPitch != vehicle->musicPitch)
+		setVehicleMusic(*vehicle, settings.musicName, settings.musicVolume, settings.musicPitch);
+}
+
+/*
+	1 byte		-	packet type
+	4 bytes		-	vehicle net ID
+
+	The client confirmed Remove vehicle in its wrench dialog
+*/
+void vehicleRemoveRequest(JoinedClient* source, Server const* const server, ENetPacket const* const packet, const void* pdv)
+{
+	const ServerProgramData* pd = (const ServerProgramData*)pdv;
+
+	if (packet->dataLength < 1 + sizeof(netIDType))
+		return;
+
+	std::shared_ptr<ClientData> client = pd->getClient(source->me);
+	if (!client)
+		return;
+
+	netIDType vehicleID;
+	memcpy(&vehicleID, packet->data + 1, sizeof(netIDType));
+
+	//Like applying the dialog, only the vehicle they were last sent a dialog for, and only once
+	if (vehicleID != client->wrenchedVehicleID)
+		return;
+	client->wrenchedVehicleID = NO_ID;
+
+	std::shared_ptr<Vehicle> vehicle = pd->vehicles->find(vehicleID);
+	if (!vehicle)
+		return;
+
+	lua_State* L = pd->luaState;
+	pushClientLua(L, client->client);
+	pd->vehicles->pushLua(L, vehicle);
+	pd->eventManager->callEvent(L, "ClientRemoveVehicle", 2);
+	bool vetoed = lua_gettop(L) == 2 && lua_isnil(L, 2);
+	lua_settop(L, 0);
+
+	//Listeners can remove it themselves
+	if (vetoed || !pd->vehicles->find(vehicleID))
+		return;
+
+	destroyVehicle(vehicle);
 }

@@ -1,4 +1,5 @@
 #include "WrenchDialog.h"
+#include "../Bricks/BrickSaves.h"
 
 #include <cmath>
 
@@ -22,10 +23,30 @@ static void nameCombo(const char* label, std::string& picked, const std::vector<
 	ImGui::EndCombo();
 }
 
+//A typed file name without spaces around it
+static std::string trimmedSaveName(const std::string& name)
+{
+	size_t start = name.find_first_not_of(" \t");
+	if (start == std::string::npos)
+		return "";
+	return name.substr(start, name.find_last_not_of(" \t") - start + 1);
+}
+
 static void tooltip(const char* text)
 {
 	if (ImGui::IsItemHovered())
 		ImGui::SetTooltip("%s", text);
+}
+
+//A red button, for something that can't be undone
+static bool dangerButton(const char* label)
+{
+	ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.6f, 0.12f, 0.12f, 1.0f));
+	ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.78f, 0.18f, 0.18f, 1.0f));
+	ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.9f, 0.24f, 0.24f, 1.0f));
+	bool clicked = ImGui::Button(label);
+	ImGui::PopStyleColor(3);
+	return clicked;
 }
 
 void WrenchDialog::openFor(const WrenchSubmission& settings, const std::string& label, const std::vector<std::string>& music, const std::vector<std::string>& emitters)
@@ -34,6 +55,12 @@ void WrenchDialog::openFor(const WrenchSubmission& settings, const std::string& 
 	brickLabel = label;
 	musicNames = music;
 	emitterNames = emitters;
+
+	//Applying a wheel or steering wheel's dialog keeps its settings, even the defaults it opened with
+	if (editing.part == VehiclePart_Wheel)
+		editing.attachments.hasWheel = true;
+	if (editing.part == VehiclePart_Steering)
+		editing.attachments.hasSteering = true;
 
 	//Applying without touching them keeps whatever Lua put on the brick
 	const std::string& musicName = editing.attachments.musicName;
@@ -67,6 +94,27 @@ bool WrenchDialog::takeSubmission(WrenchSubmission& submission)
 	submission.name = submission.name.substr(0, 255);
 	submission.attachments.clampValues();
 	return true;
+}
+
+bool WrenchDialog::takeRemoveRequest(netIDType& vehicleID)
+{
+	if (!removeRequested)
+		return false;
+
+	removeRequested = false;
+	vehicleID = editing.vehicleID;
+	return vehicleID != NO_ID;
+}
+
+bool WrenchDialog::takeSaveRequest(netIDType& vehicleID, std::string& path)
+{
+	if (!saveRequested)
+		return false;
+
+	saveRequested = false;
+	path = getVehicleSavePath(trimmedSaveName(saveName));
+	vehicleID = editing.vehicleID;
+	return vehicleID != NO_ID && !path.empty();
 }
 
 void WrenchDialog::render(ImGuiIO* io)
@@ -104,24 +152,78 @@ void WrenchDialog::render(ImGuiIO* io)
 		ImGui::SetWindowPos(ImVec2(x, y));
 
 	BrickAttachments& settings = editing.attachments;
+	bool forVehicle = editing.vehicleID != NO_ID;
 
 	ImGui::TextUnformatted(brickLabel.c_str());
 	ImGui::Separator();
 
 	//The settings scroll once they'd be taller than most of the screen, which a light and large UI scaling easily make them, so Apply stays in view
 	float itemWidth = ImGui::GetFontSize() * 16.0f;
-	float bodyWidth = itemWidth + style.ItemInnerSpacing.x + ImGui::CalcTextSize("Brightness").x + style.ScrollbarSize + ImGui::GetFontSize();
+	float bodyWidth = itemWidth + style.ItemInnerSpacing.x + ImGui::CalcTextSize("Compression damping").x + style.ScrollbarSize + ImGui::GetFontSize();
 	float chrome = ImGui::GetFrameHeight() + style.WindowPadding.y * 2.0f + ImGui::GetTextLineHeightWithSpacing() * 2.0f + ImGui::GetFrameHeightWithSpacing() + style.ItemSpacing.y * 2.0f;
 	float maxBodyHeight = std::max(ImGui::GetFontSize() * 6.0f, viewport->WorkSize.y * 0.95f - chrome);
 	ImGui::SetNextWindowSizeConstraints(ImVec2(bodyWidth, 0.0f), ImVec2(bodyWidth, maxBodyHeight));
 	ImGui::BeginChild("Settings", ImVec2(bodyWidth, 0.0f), ImGuiChildFlags_AutoResizeY);
 	ImGui::PushItemWidth(itemWidth);
 
-	ImGui::Checkbox("Colliding", &editing.collides);
-	tooltip("Whether players and objects bump into it. Clicks and raycasts hit it either way");
+	if (!forVehicle)
+	{
+		ImGui::Checkbox("Colliding", &editing.collides);
+		tooltip("Whether players and objects bump into it. Clicks and raycasts hit it either way");
 
-	ImGui::InputText("Name", &editing.name);
-	tooltip("For scripts to find it by");
+		ImGui::InputText("Name", &editing.name);
+		tooltip("For scripts to find it by");
+	}
+
+	if (editing.part == VehiclePart_Wheel && ImGui::CollapsingHeader("Wheel", ImGuiTreeNodeFlags_DefaultOpen))
+	{
+		WheelSettings& wheel = settings.wheel;
+		ImGui::TextDisabled("Used once its bricks are sliced into a vehicle");
+
+		ImGui::SliderFloat("Engine force", &wheel.engineForce, -2000.0f, 2000.0f, "%.0f");
+		tooltip("How hard it drives the vehicle forward. Negative drives it backward, 0 just rolls along");
+
+		ImGui::SliderFloat("Brake force", &wheel.brakeForce, 0.0f, 2000.0f, "%.0f");
+		tooltip("How hard it stops while the driver holds jump");
+
+		float steerDegrees = glm::degrees(wheel.steerAngle);
+		if (ImGui::SliderFloat("Steering", &steerDegrees, -90.0f, 90.0f, "%.0f degrees"))
+			wheel.steerAngle = glm::radians(steerDegrees);
+		tooltip("How far it turns while steering. 0 doesn't steer, negative turns the other way, like rear wheel steering");
+
+		ImGui::SliderFloat("Suspension length", &wheel.suspensionLength, 0.1f, 5.0f, "%.2f studs");
+		tooltip("How far it hangs down from where it's attached when resting");
+
+		ImGui::SliderFloat("Stiffness", &wheel.suspensionStiffness, 1.0f, 1000.0f, "%.0f", ImGuiSliderFlags_Logarithmic);
+		tooltip("How hard the suspension pushes back. Low is bouncy, high is rigid");
+
+		ImGui::SliderFloat("Compression damping", &wheel.dampingCompression, 1.0f, 100.0f, "%.1f", ImGuiSliderFlags_Logarithmic);
+		tooltip("How much the suspension resists being pushed in");
+
+		ImGui::SliderFloat("Relaxation damping", &wheel.dampingRelaxation, 1.0f, 100.0f, "%.1f", ImGuiSliderFlags_Logarithmic);
+		tooltip("How much the suspension resists springing back out");
+
+		ImGui::SliderFloat("Grip", &wheel.frictionSlip, 0.1f, 10.0f, "%.2f", ImGuiSliderFlags_Logarithmic);
+		tooltip("How hard it holds the ground before sliding");
+
+		ImGui::SliderFloat("Roll influence", &wheel.rollInfluence, 0.1f, 10.0f, "%.2f", ImGuiSliderFlags_Logarithmic);
+		tooltip("How much cornering tips the vehicle over. Lower is steadier");
+	}
+
+	if (editing.part == VehiclePart_Steering && ImGui::CollapsingHeader("Vehicle", ImGuiTreeNodeFlags_DefaultOpen))
+	{
+		SteeringSettings& steering = settings.steering;
+		ImGui::TextDisabled("Used once its bricks are sliced into a vehicle");
+
+		ImGui::SliderFloat("Mass", &steering.mass, 1.5f, 30.0f, "%.1f");
+		tooltip("How heavy each brick is to turn and tip over");
+
+		ImGui::SliderFloat("Spin damping", &steering.angularDamping, 0.0f, 1.0f, "%.2f");
+		tooltip("How quickly it stops spinning");
+
+		ImGui::Checkbox("Realistic center of mass", &steering.realisticCenterOfMass);
+		tooltip("Off, it turns around a point down near its wheels, which keeps it from flipping. On, around the middle of its bricks");
+	}
 
 	if (ImGui::CollapsingHeader("Music", ImGuiTreeNodeFlags_DefaultOpen))
 	{
@@ -140,7 +242,7 @@ void WrenchDialog::render(ImGuiIO* io)
 		}
 	}
 
-	if (ImGui::CollapsingHeader("Light", ImGuiTreeNodeFlags_DefaultOpen))
+	if (!forVehicle && ImGui::CollapsingHeader("Light", ImGuiTreeNodeFlags_DefaultOpen))
 	{
 		ImGui::Checkbox("Has light", &settings.hasLight);
 
@@ -186,12 +288,30 @@ void WrenchDialog::render(ImGuiIO* io)
 		}
 	}
 
-	if (ImGui::CollapsingHeader("Emitter", ImGuiTreeNodeFlags_DefaultOpen))
+	if (!forVehicle && ImGui::CollapsingHeader("Emitter", ImGuiTreeNodeFlags_DefaultOpen))
 	{
 		if (emitterNames.empty())
 			ImGui::TextDisabled("The server has no emitters");
 		else
 			nameCombo("Type##Emitter", settings.emitterName, emitterNames);
+	}
+
+	if (forVehicle && ImGui::CollapsingHeader("Save", ImGuiTreeNodeFlags_DefaultOpen))
+	{
+		ImGui::InputText("File name", &saveName);
+		tooltip("Saved to Saves/Vehicles on your computer, load it again from the Vehicles window");
+
+		bool usable = !getVehicleSavePath(trimmedSaveName(saveName)).empty();
+		ImGui::BeginDisabled(!usable);
+		if (ImGui::Button("Save to my computer"))
+			saveRequested = true;
+		ImGui::EndDisabled();
+
+		if (!usable && !saveName.empty())
+		{
+			ImGui::SameLine();
+			ImGui::TextDisabled("Names can't have / \\ : * ? \" < > |");
+		}
 	}
 
 	ImGui::PopItemWidth();
@@ -208,6 +328,32 @@ void WrenchDialog::render(ImGuiIO* io)
 
 	if (ImGui::Button("Cancel"))
 		close();
+
+	if (forVehicle)
+	{
+		ImGui::SameLine();
+		if (dangerButton("Remove vehicle"))
+			ImGui::OpenPopup("Remove vehicle?");
+
+		if (ImGui::BeginPopupModal("Remove vehicle?", nullptr, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings))
+		{
+			ImGui::TextUnformatted("Its bricks won't come back. Save it first to keep a copy.");
+
+			if (dangerButton("Remove"))
+			{
+				removeRequested = true;
+				ImGui::CloseCurrentPopup();
+				close();
+			}
+
+			ImGui::SameLine();
+
+			if (ImGui::Button("Keep it"))
+				ImGui::CloseCurrentPopup();
+
+			ImGui::EndPopup();
+		}
+	}
 
 	ImGui::End();
 }
