@@ -96,6 +96,9 @@ class BrickHolder
 	void setColliding(Brick* brick, bool collides);
 	void setColor(Brick* brick, const glm::u8vec4& color);
 
+	//An unknown material becomes BrickMaterial_None
+	void setMaterial(Brick* brick, unsigned char material);
+
 	//Would a brick with this min corner and rotated size overlap an existing one
 	bool overlaps(int x, int y, int z, int footprintWidth, int height, int footprintLength) const;
 

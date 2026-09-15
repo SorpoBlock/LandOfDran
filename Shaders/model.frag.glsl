@@ -13,6 +13,31 @@ in vec3 normal;
 flat in int useDecal;
 //Only the decal is drawn, see MeshFlag_DecalCutout in Mesh.h
 flat in int decalCutout;
+//Bricks only, 0 for everything else: a BrickMaterial, and where in its grid box this is, see brick.vert
+flat in int material;
+in vec3 brickLocal;
+flat in vec3 brickBoxSize;
+
+//BrickMaterial in Bricks/Brick.h, Undulo and Bouncy only change the shape in brick.vert
+const int MaterialPearl = 3;
+const int MaterialChrome = 4;
+const int MaterialBlink = 5;
+const int MaterialHologram = 6;
+const int MaterialGlow = 7;
+const int MaterialSlippery = 8;
+const int MaterialFoil = 9;
+const int MaterialRainbow = 10;
+
+//About how far apart hologram bars are, in world units, a brick gets however many fit evenly around it
+const float hologramBarSpacing = 1.0;
+//Share of each bar spacing that's see-through
+const float hologramGap = 0.4;
+
+//How much of the brick's paint the rainbow and foil hues replace, 0 to 1
+const float rainbowStrength = 0.5;
+const float foilStrength = 0.25;
+//How far foil's crinkles tilt the surface
+const float foilCrinkle = 0.15;
 
 layout (std140) uniform BasicUniforms
 {
@@ -160,6 +185,47 @@ vec3 fresnelSchlickRoughness(float cosTheta, vec3 F0, float roughness)
 //End tutorial code
 
 uniform float test;
+
+//Fully saturated color for a hue from 0 to 1, red at 0 and 1
+vec3 hueColor(float hue)
+{
+	return clamp(abs(fract(hue + vec3(0.0, 2.0 / 3.0, 1.0 / 3.0)) * 6.0 - 3.0) - 1.0, 0.0, 1.0);
+}
+
+//Smooth noise from 0 to 1 that changes about once per unit, for foil's crinkles
+float hash(vec3 p)
+{
+	return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453);
+}
+
+float valueNoise(vec3 p)
+{
+	vec3 cell = floor(p);
+	vec3 f = fract(p);
+	f = f * f * (3.0 - 2.0 * f);
+
+	return mix(mix(mix(hash(cell), hash(cell + vec3(1, 0, 0)), f.x), mix(hash(cell + vec3(0, 1, 0)), hash(cell + vec3(1, 1, 0)), f.x), f.y),
+		mix(mix(hash(cell + vec3(0, 0, 1)), hash(cell + vec3(1, 0, 1)), f.x), mix(hash(cell + vec3(0, 1, 1)), hash(cell + vec3(1, 1, 1)), f.x), f.y), f.z);
+}
+
+//How far around the outside of the brick's box, seen from above, the nearest point on its edge is
+//Starts at the min corner and goes along +x first, so each side continues into the next
+float distanceAroundBrick()
+{
+	vec2 halfSize = max(brickBoxSize.xz * 0.5, vec2(0.001));
+	vec2 fromCenter = brickLocal.xz - halfSize;
+
+	if(abs(fromCenter.x) / halfSize.x >= abs(fromCenter.y) / halfSize.y)
+	{
+		if(fromCenter.x > 0.0)
+			return 2.0 * halfSize.x + halfSize.y + fromCenter.y;
+		return 4.0 * halfSize.x + 3.0 * halfSize.y - fromCenter.y;
+	}
+
+	if(fromCenter.y < 0.0)
+		return halfSize.x + fromCenter.x;
+	return 3.0 * halfSize.x + 2.0 * halfSize.y - fromCenter.x;
+}
 
 //Per axis sample offsets (in texels) and weights for filterShadow, s is how far into its texel the position is
 //level 1 to 3 is a 3x3, 5x5 or 7x7 texel filter
@@ -378,7 +444,16 @@ void main()
 		color = vec4(float(pickingID) / 255.0, 0.0, 0.0, 1.0);
 		return;
 	}
-	
+
+	//Bars of nothing that walk around the brick's sides, and over its top and bottom toward the middle
+	if(material == MaterialHologram)
+	{
+		float perimeter = 4.0 * (max(brickBoxSize.x, 0.001) + max(brickBoxSize.z, 0.001)) * 0.5;
+		float bars = max(1.0, floor(perimeter / hologramBarSpacing + 0.5));
+		if(fract(distanceAroundBrick() / perimeter * bars - WaveTime) < hologramGap)
+			discard;
+	}
+
 	vec3 viewVector = normalize(CameraPosition - worldPos);
 	
 	vec4 albedo_ = vec4(1,1,1,1);
@@ -397,8 +472,27 @@ void main()
 		albedo = mix(albedo, pow(decalAlbedo.rgb,vec3(1.0 + 1.2 * nonLinearAlbedoF)), decalAlbedo.a);
 	}
 	
+	//Half paint, half a hue that cycles every 5 seconds (a whole number of times per WaveTime's 100 seconds),
+	//shifted along a diagonal so the colors flow across a build in bands about 20 units apart
+	if(material == MaterialRainbow)
+	{
+		float hue = fract(WaveTime * 0.2 - dot(worldPos, vec3(0.03, 0.02, 0.03)));
+		albedo = mix(albedo, pow(hueColor(hue), vec3(1.0 + 1.2 * nonLinearAlbedoF)), rainbowStrength);
+	}
+
 	vec3 newNormal = getNormalFromMapGrad(uvs,dxuv,dyuv);
-		
+
+	//Perfectly smooth, none of the texture's bumps
+	if(material == MaterialSlippery)
+		newNormal = normalize(normal);
+
+	//Crinkles tilt the surface a little in a pattern fixed in place
+	if(material == MaterialFoil)
+	{
+		vec3 crinkle = vec3(valueNoise(worldPos * 3.0), valueNoise(worldPos * 3.0 + 17.0), valueNoise(worldPos * 3.0 + 31.0)) - 0.5;
+		newNormal = normalize(newNormal + crinkle * foilCrinkle);
+	}
+
 	//Sun during the day, moon at night
 	vec3 sunDirection = LightDirection;
 	vec3 sunColor = LightColor;
@@ -457,7 +551,25 @@ void main()
 		mor.g = 1;
 	if(useRoughness == -1)
 		mor.b = 0.5;
-	
+
+	if(material == MaterialPearl)
+		mor.r = max(mor.r, 0.5);
+	else if(material == MaterialChrome)
+		mor.r = 1.0;
+	else if(material == MaterialSlippery)
+	{
+		//Not quite 0, which would shrink the sun's highlight to nothing
+		mor.b = 0.05;
+	}
+	else if(material == MaterialFoil)
+	{
+		//The rainbow's hue shifts with how squarely and from which way the surface is seen, and across the crinkles
+		float hue = fract(dot(newNormal, viewVector) * 1.5 + dot(viewVector, vec3(0.35, 0.6, 0.25)) + valueNoise(worldPos * 1.5) * 0.5);
+		albedo = mix(albedo, pow(hueColor(hue), vec3(2.2)), foilStrength);
+		mor.r = 0.9;
+		mor.b = min(mor.b, 0.3);
+	}
+
 	float NdotV = max(dot(newNormal, viewVector), 0.0);	
 	vec3 halfVector = normalize(viewVector + sunDirection);     
 	vec3 F0 = vec3(0.04); 
@@ -489,8 +601,21 @@ void main()
 	//Gamma correction
 	color.rgb = pow(color.rgb, vec3(1.0/2.2));
 
+	//However dark it is, never drawn darker than its own color
+	if(material == MaterialGlow)
+		color.rgb = max(color.rgb, preColor.rgb);
+
 	//After tone mapping, which would otherwise squash the glow to almost nothing on bright or sunlit surfaces
 	color.rgb = mix(color.rgb, vec3(1.0), glow);
+
+	//Same pulse as the part under the mouse in the appearance editor, see AppearanceEditor::renderPreview
+	//Once a second, which lines up with WaveTime starting over every 100 seconds
+	if(material == MaterialBlink)
+	{
+		float pulse = 0.5 + 0.5 * sin(WaveTime * 6.2831853);
+		vec3 highlight = dot(preColor.rgb, vec3(0.299, 0.587, 0.114)) > 0.7 ? vec3(0.25, 0.5, 1.0) : vec3(1.0);
+		color.rgb = mix(color.rgb, highlight, 0.15 + 0.15 * pulse);
+	}
 	color.rgb = mix(color.rgb, editorHighlight.rgb, editorHighlight.a);
 
 	float fogFactor = clamp((length(CameraPosition - worldPos) - FogDistanceMin) / (FogDistanceMax - FogDistanceMin), 0.0, 1.0);

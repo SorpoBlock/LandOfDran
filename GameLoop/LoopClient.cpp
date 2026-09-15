@@ -654,6 +654,7 @@ void LoopClient::handleInput(float deltaT, ExecutableArguments& cmdArgs, std::sh
 	}
 
 	pd.ghostBrick.setColor(pd.brickSelector->getColor());
+	pd.ghostBrick.setMaterial(pd.brickSelector->getMaterial());
 	pd.ghostBrick.update(deltaT, pd.input, simulation.camera->getDirection());
 
 	//Clicks like the old game, if the server registered sounds by these names
@@ -1454,10 +1455,11 @@ void LoopClient::renderEverything(float deltaT)
 	if (pd.ghostBrick.isVisible())
 	{
 		const Brick& ghost = pd.ghostBrick.get();
+		std::string material = ghost.material != BrickMaterial_None ? " " + std::string(brickMaterialNames[ghost.material]) : "";
 		if (const SpecialBrickType* type = pd.brickTypes.getSpecial(ghost.typeID - 1))
-			hudLines.push_back("Ghost brick " + type->uiName + ": IJKL move, . , up/down, U rotate, Left Alt super shift, Enter plant, / put away, Ctrl+Z undo");
+			hudLines.push_back("Ghost brick " + type->uiName + material + ": IJKL move, . , up/down, U rotate, Left Alt super shift, Enter plant, / put away, Ctrl+Z undo");
 		else
-			hudLines.push_back("Ghost brick " + std::to_string(ghost.width) + "x" + std::to_string(ghost.height) + "x" + std::to_string(ghost.length) +
+			hudLines.push_back("Ghost brick " + std::to_string(ghost.width) + "x" + std::to_string(ghost.height) + "x" + std::to_string(ghost.length) + material +
 				": IJKL move, . , up/down, U rotate, Left Shift resize, Left Alt super shift, Enter plant, / put away, Ctrl+Z undo");
 	}
 

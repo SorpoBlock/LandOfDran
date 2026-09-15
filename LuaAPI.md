@@ -376,14 +376,33 @@ as they join, and draw bricks of types they don't have as plain boxes.
 | `getBrickId(id)` | net ID | Brick or `nil` | Looks up a brick by its net ID. |
 | `getBrickAt(x, y, z)` | one stud/plate grid cell | Brick or `nil` | The brick filling that cell, if any. |
 | `clearAllBricks()` | none | none | Removes every brick. |
-| `saveBuild(fileName[, omitOwnership])` | file name inside the `Saves` folder; `omitOwnership` writes every owner as `-1` | bool | Saves every brick, with its name, collision, music, light, and emitter, in the Land of Dran binary format. Saves are written under a newer version number than the old game's, so the old game can't load them. |
-| `loadLodSave(fileName[, x, y, z])` | file name inside `Saves`; optional offset in studs/plates | count, or `nil` | Loads a Land of Dran binary save (either of the old game's versions, or ours) on top of the current bricks, returning how many were added. Special bricks of types in `Assets/brick/types` are loaded, and so are names, collision, and our saves' music, lights, and emitters. Other special types, and the old game's lights, music, and prints, are skipped. A brick's music or emitter of a type the server doesn't have is kept (and saved again) but doesn't play. |
-| `loadBlocklandSave(fileName)` | file name inside `Saves` | count, or `nil` | Imports a Blockland `.bls` save using its own color palette, returning how many bricks were added. Brick names are matched against `Assets/brick/types`, special bricks included; unrecognized names are skipped and listed in the log. Brick names, collision, lights, emitters, and music come along, the last three as the brick's own like the wrench dialog's (saved by `saveBuild`). Lights become the light `addBlocklandLight` gave their Blockland type. Emitters use the emitter type `addBlocklandEmitter` gave their name, or else the one whose `uiName` matches, ignoring case, and always point up. Music uses a music sound type (see `newSoundType`) with the same name, ignoring case and with underscores as spaces. Anything without a match is skipped and listed in the log. `BlocklandImports.lua` and `EmitterDefaults.lua`, run from `serverstart.lua`, cover every light and emitter type Blockland's default add-ons have. |
+| `saveBuild(fileName[, omitOwnership])` | file name inside the `Saves` folder; `omitOwnership` writes every owner as `-1` | bool | Saves every brick, with its name, material, collision, music, light, and emitter, in the Land of Dran binary format. Saves are written under a newer version number than the old game's, so the old game can't load them. |
+| `loadLodSave(fileName[, x, y, z])` | file name inside `Saves`; optional offset in studs/plates | count, or `nil` | Loads a Land of Dran binary save (either of the old game's versions, or ours) on top of the current bricks, returning how many were added. Special bricks of types in `Assets/brick/types` are loaded, and so are names, collision, materials, and our saves' music, lights, and emitters. The old game let undulo or bouncy go on top of another material; those bricks keep only the undulo or bouncy. Other special types, and the old game's lights, music, and prints, are skipped. A brick's music or emitter of a type the server doesn't have is kept (and saved again) but doesn't play. |
+| `loadBlocklandSave(fileName)` | file name inside `Saves` | count, or `nil` | Imports a Blockland `.bls` save using its own color palette, returning how many bricks were added. Brick names are matched against `Assets/brick/types`, special bricks included; unrecognized names are skipped and listed in the log. Pearl, chrome, glow, blink, swirl (as `Hologram`), rainbow, and undulo effects become materials, undulo winning on a brick that has a color effect too; water effects are dropped. Brick names, collision, lights, emitters, and music come along, the last three as the brick's own like the wrench dialog's (saved by `saveBuild`). Lights become the light `addBlocklandLight` gave their Blockland type. Emitters use the emitter type `addBlocklandEmitter` gave their name, or else the one whose `uiName` matches, ignoring case, and always point up. Music uses a music sound type (see `newSoundType`) with the same name, ignoring case and with underscores as spaces. Anything without a match is skipped and listed in the log. `BlocklandImports.lua` and `EmitterDefaults.lua`, run from `serverstart.lua`, cover every light and emitter type Blockland's default add-ons have. |
 | `addBlocklandLight(uiName, table)` / `addBlocklandLight(uiName, nil)` | a Blockland light type's name, like `"Red Light"`, 1-255 characters, case-insensitive; light fields as for `brick:setLight` | none | Sets the light `loadBlocklandSave` puts on bricks that had this Blockland light type, replacing any set before. Fields left out get a new light's defaults, so without an `offset` the light sits in the middle of its brick, like Blockland's. An unknown field or a value of the wrong kind logs an error and changes nothing. `nil` forgets the type, so its lights are skipped. Bricks already loaded keep their lights. |
 | `addBlocklandEmitter(uiName, typeName)` / `addBlocklandEmitter(uiName, nil)` | a Blockland emitter's name, like `"Fog A"`, 1-255 characters, case-insensitive; an emitter type's name | none | Makes `loadBlocklandSave` put an emitter of that type on bricks that had this Blockland emitter, instead of looking for a type with that `uiName`. Logs an error if there's no emitter type by that name. `nil` goes back to matching by `uiName`. |
 
 Save and load functions only accept a plain file name, with no folders, since saves always live
 directly in `Saves/`. Bricks that would overlap an existing brick are skipped when loading.
+
+### Brick materials
+
+Every brick has one material, painted on like its color. Players pick theirs next to the color in the brick
+selector. Shape effects are only drawn: a brick always collides as its plain shape.
+
+| Material | Effect |
+|---|---|
+| `None` | Plain brick. |
+| `Undulo` | Its corners wiggle and dance around, up to 0.3 studs along each axis. |
+| `Bouncy` | Stretches up to 35% taller and back down, once every 1.25 seconds. Anything landing on it bounces back up as fast as it came down (100% restitution), like a trampoline. |
+| `Pearl` | At least half metallic. |
+| `Chrome` | Fully metallic. |
+| `Blink` | Pulses once a second, like the part under the mouse in the appearance editor. |
+| `Hologram` | See-through bars walk around its sides. |
+| `Glow` | Never drawn darker than its own color, however dark it is. |
+| `Slippery` | Perfectly smooth to look at, and has a friction of 0.01 with whatever touches it. |
+| `Foil` | Metallic, with crinkled rainbow highlights that shift as you look at it from different directions. |
+| `Rainbow` | Its color is replaced by one that cycles through the rainbow every 5 seconds, in bands that flow diagonally across a build. |
 
 ### `brick:` methods
 
@@ -394,6 +413,8 @@ directly in `Saves/`. Bricks that would overlap an existing brick are skipped wh
 | `brick:getAngleID()` | none | 0-3 | Quarter turns around the vertical axis. |
 | `brick:getColor()` | none | r, g, b, a | Color, 0-1. |
 | `brick:setColor(r, g, b, a)` | color | none | Recolors the brick. |
+| `brick:getMaterial()` | none | material name | The brick's material, like `"Chrome"`, or `"None"`. |
+| `brick:setMaterial(name)` | a material name, case-insensitive | none | Paints a material onto the brick, see Brick materials above. `"None"` takes it off. Logs an error listing the materials for an unknown name. |
 | `brick:isColliding()` | none | bool | Whether players and objects collide with it. |
 | `brick:setColliding(collides)` | bool | none | Turns collision on or off. Non-colliding bricks can still be hit by `raycast()`. |
 | `brick:getOwner()` | none | client net ID, or `-1` | Who planted it. `-1` for bricks added by Lua or loaded from a save. |

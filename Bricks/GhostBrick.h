@@ -47,6 +47,7 @@ class GhostBrick
 	void select(int width, int height, int length, uint16_t typeID = 0);
 
 	void setColor(const glm::u8vec4& color) { brick.color = color; }
+	void setMaterial(unsigned char material) { brick.material = material; }
 
 	//Places the ghost just outside a surface hit by a raycast from the camera
 	void spawnAt(const glm::vec3& hitPoint, const glm::vec3& hitNormal);

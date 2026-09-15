@@ -2,10 +2,37 @@
 
 /*
 	The "next version" (16483535) adds owner, name, and flag fields to every brick record
-	Our own version after that (16483536) swaps its music track and light color for BrickAttachments' music loop, whole light, and emitter
+	Our own version after that (16483536) swaps its music track and light color for BrickAttachments' music loop, whole light, and emitter,
+	and its material byte is a BrickMaterial (saves from before materials wrote 0 there, which is none)
 */
 static constexpr unsigned int lodMagic = 16483534;
 static constexpr unsigned int lodMagicAttachments = lodMagic + 2;
+
+/*
+	The old game's material byte: 2-9 were pearl, chrome, glow, blink, swirl, rainbow (from Blockland saves, never drawn), slippery, and foil,
+	and undulo and bouncy were 1000 and 2000 added on top, cut down to a byte when saved
+	Bricks here have one material, so undulo or bouncy wins over whatever it was added to
+*/
+static unsigned char oldSaveMaterial(unsigned char saved)
+{
+	if (saved >= 1000 % 256 && saved < 1000 % 256 + 10)
+		return BrickMaterial_Undulo;
+	if (saved >= 2000 % 256 && saved < 2000 % 256 + 10)
+		return BrickMaterial_Bouncy;
+
+	switch (saved)
+	{
+		case 2: return BrickMaterial_Pearl;
+		case 3: return BrickMaterial_Chrome;
+		case 4: return BrickMaterial_Glow;
+		case 5: return BrickMaterial_Blink;
+		case 6: return BrickMaterial_Hologram;
+		case 7: return BrickMaterial_Rainbow;
+		case 8: return BrickMaterial_Slippery;
+		case 9: return BrickMaterial_Foil;
+		default: return BrickMaterial_None;
+	}
+}
 
 //Fixed size parts of old save brick records
 static constexpr std::streamoff basicRecordBytes = 4 + 3 * 4 + 4 + 2;
@@ -106,7 +133,7 @@ bool saveLodBuild(const BrickHolder& bricks, const std::string& path, bool omitO
 		}
 
 		writeValue(file, brick->angleID);
-		writeValue(file, (unsigned char)0); //Material
+		writeValue(file, brick->material);
 
 		writeValue(file, omitOwnership ? -1 : brick->ownerID);
 
@@ -324,6 +351,10 @@ int loadLodBuild(BrickHolder& bricks, const std::string& path, int offsetX, int 
 			desc.length = length;
 			desc.angleID = angleID;
 			desc.color = glm::u8vec4(color[0], color[1], color[2], color[3]);
+			if (hasAttachments)
+				desc.material = material < BrickMaterialCount ? material : BrickMaterial_None;
+			else
+				desc.material = oldSaveMaterial(material);
 			desc.collides = collides;
 			desc.name = name;
 			desc.attachments = attachments;
@@ -454,6 +485,7 @@ int loadBlocklandBuild(BrickHolder& bricks, const BrickTypes& types, const std::
 	int emitters = 0;
 	int music = 0;
 	int turnedEmitters = 0;
+	int droppedEffects = 0;
 	std::map<std::string, int> skippedNames;
 	std::map<std::string, int> missingLights;
 	std::map<std::string, int> missingEmitters;
@@ -574,6 +606,20 @@ int loadBlocklandBuild(BrickHolder& bricks, const BrickTypes& types, const std::
 		pending.color = palette[std::clamp(atoi(fields[5].c_str()), 0, 63)];
 		pending.collides = fields[10] != "0";
 
+		//colorFx 1-6 are pearl, chrome, glow, blink, swirl, and rainbow, and shapeFx 1 is undulo, which wins since bricks here have one material
+		//Water (shapeFx 2) has no material here
+		static constexpr unsigned char colorFxMaterials[7] = { BrickMaterial_None, BrickMaterial_Pearl, BrickMaterial_Chrome, BrickMaterial_Glow, BrickMaterial_Blink, BrickMaterial_Hologram, BrickMaterial_Rainbow };
+		int colorFx = atoi(fields[7].c_str());
+		int shapeFx = atoi(fields[8].c_str());
+		if (shapeFx == 1)
+			pending.material = BrickMaterial_Undulo;
+		else if (colorFx >= 0 && colorFx < 7)
+			pending.material = colorFxMaterials[colorFx];
+
+		bool colorKept = colorFx == 0 || (colorFx > 0 && colorFx < 7 && pending.material == colorFxMaterials[colorFx]);
+		if (!colorKept || (shapeFx != 0 && shapeFx != 1))
+			droppedEffects++;
+
 		//Blockland is z-up with half-stud and fifth-of-a-world-unit units, the old game swapped y and z and doubled
 		double centerX = atof(fields[0].c_str()) * 2.0;
 		double centerZ = atof(fields[1].c_str()) * 2.0;
@@ -617,6 +663,8 @@ int loadBlocklandBuild(BrickHolder& bricks, const BrickTypes& types, const std::
 	}
 	if (turnedEmitters > 0)
 		info(std::to_string(turnedEmitters) + " emitters pointed sideways or down in Blockland, emitters on bricks here always point up");
+	if (droppedEffects > 0)
+		info(std::to_string(droppedEffects) + " bricks lost a color or shape effect: water has no material here, and undulo replaces a color effect on the same brick");
 
 	return loaded;
 }

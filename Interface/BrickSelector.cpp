@@ -70,12 +70,16 @@ bool BrickSelector::takeColorChanged()
 void BrickSelector::save(std::shared_ptr<SettingManager> settings) const
 {
 	settings->addColor("hotbar/color", color);
+	settings->addString("hotbar/material", brickMaterialNames[material]);
 }
 
 void BrickSelector::load(std::shared_ptr<SettingManager> settings)
 {
 	//Defaults to white when it's never been saved
 	color = glm::clamp(settings->getColor("hotbar/color"), 0.0f, 1.0f);
+
+	//None when it's never been saved
+	material = std::max(findBrickMaterial(settings->getString("hotbar/material")), 0);
 }
 
 Texture* BrickSelector::findIcon(const std::string& brickName)
@@ -252,6 +256,10 @@ void BrickSelector::render(ImGuiIO* io)
 	//Only counts as changed once an edit finishes, not every frame of a drag, since changes get saved to file
 	ImGui::ColorEdit4("Custom color", &color[0], ImGuiColorEditFlags_AlphaBar);
 	if (ImGui::IsItemDeactivatedAfterEdit())
+		colorChanged = true;
+
+	//Painted on along with the color
+	if (ImGui::Combo("Material", &material, brickMaterialNames, BrickMaterialCount))
 		colorChanged = true;
 
 	ImGui::Separator();

@@ -3,6 +3,8 @@
 #include "../NetTypes/NetType.h"
 #include "../Graphics/InstancedBrickRenderer.h"
 
+#include <BulletCollision/CollisionDispatch/btManifoldResult.h>
+
 //Packet type byte plus a u16 count
 static constexpr unsigned int packetHeaderBytes = 3;
 static constexpr unsigned int maxPacketBytes = ENET_HOST_DEFAULT_MTU - 20;
@@ -33,7 +35,8 @@ void BrickHolder::writeRecord(const Brick* brick, enet_uint8* data)
 	data[13] = brick->angleID;
 	for (int channel = 0; channel < 4; channel++)
 		data[14 + channel] = brick->color[channel];
-	data[18] = brick->collides ? 1 : 0;
+	//Collision in the low bit, material in the 4 above it
+	data[18] = (brick->collides ? 1 : 0) | ((brick->material & 15) << 1);
 	memcpy(data + 19, &brick->typeID, sizeof(uint16_t));
 }
 
@@ -58,6 +61,9 @@ Brick BrickHolder::readRecord(const enet_uint8* data)
 	for (int channel = 0; channel < 4; channel++)
 		brick.color[channel] = data[14 + channel];
 	brick.collides = data[18] & 1;
+	brick.material = (data[18] >> 1) & 15;
+	if (brick.material >= BrickMaterialCount)
+		brick.material = BrickMaterial_None;
 	memcpy(&brick.typeID, data + 19, sizeof(uint16_t));
 	return brick;
 }
@@ -101,7 +107,7 @@ Brick* BrickHolder::add(const Brick& requested)
 		desc.length = type->length;
 	}
 
-	if (desc.width == 0 || desc.height == 0 || desc.length == 0 || desc.angleID > 3)
+	if (desc.width == 0 || desc.height == 0 || desc.length == 0 || desc.angleID > 3 || desc.material >= BrickMaterialCount)
 		return nullptr;
 
 	int footprintWidth = desc.footprintWidth();
@@ -144,6 +150,7 @@ Brick* BrickHolder::addFromServer(const Brick& desc)
 	if (Brick* existing = find(desc.netId))
 	{
 		existing->color = desc.color;
+		existing->material = desc.material;
 		setColliding(existing, desc.collides);
 		if (renderer)
 			renderer->updateBrick(existing);
@@ -312,6 +319,53 @@ void BrickHolder::setColor(Brick* brick, const glm::u8vec4& color)
 
 	if (renderer)
 		renderer->updateBrick(brick);
+}
+
+void BrickHolder::setMaterial(Brick* brick, unsigned char material)
+{
+	brick->material = material < BrickMaterialCount ? material : BrickMaterial_None;
+
+	if (server)
+		pendingSends.insert(brick->netId);
+
+	if (renderer)
+		renderer->updateBrick(brick);
+
+	//Something resting on it should notice it's bouncy or slippery now
+	if (brick->body)
+	{
+		for (btRigidBody* touching : world->getTouching(brick->body))
+			touching->activate();
+	}
+}
+
+static const Brick* materialBrick(const btCollisionObject* body)
+{
+	return body->getUserIndex() == brickBody ? (const Brick*)body->getUserPointer() : nullptr;
+}
+
+//Bullet multiplies restitutions by default, and almost nothing else has any, so a bouncy brick decides on its own
+static btScalar combinedRestitution(const btCollisionObject* body0, const btCollisionObject* body1)
+{
+	for (const btCollisionObject* body : { body0, body1 })
+	{
+		const Brick* brick = materialBrick(body);
+		if (brick && brick->material == BrickMaterial_Bouncy)
+			return 1.0f;
+	}
+	return body0->getRestitution() * body1->getRestitution();
+}
+
+//Same as Bullet's default, capped at 10, except a slippery brick has a friction of 0.01 whatever touches it
+static btScalar combinedFriction(const btCollisionObject* body0, const btCollisionObject* body1)
+{
+	for (const btCollisionObject* body : { body0, body1 })
+	{
+		const Brick* brick = materialBrick(body);
+		if (brick && brick->material == BrickMaterial_Slippery)
+			return 0.01f;
+	}
+	return std::min(body0->getFriction() * body1->getFriction(), (btScalar)10.0f);
 }
 
 std::vector<ENetPacket*> BrickHolder::makeAddPackets(const std::vector<const Brick*>& toSend) const
@@ -492,6 +546,9 @@ Brick* BrickHolder::popLua(lua_State* L) const
 
 BrickHolder::BrickHolder(std::shared_ptr<PhysicsWorld> _world, const BrickTypes* _types, Server* _server) : world(_world), types(_types), server(_server)
 {
+	//Global to Bullet, but they only look at the bodies they're given, so the client's and server's worlds can share them
+	gCalculateCombinedRestitutionCallback = &combinedRestitution;
+	gCalculateCombinedFrictionCallback = &combinedFriction;
 }
 
 BrickHolder::~BrickHolder()

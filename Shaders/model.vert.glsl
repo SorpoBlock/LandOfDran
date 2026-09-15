@@ -67,6 +67,10 @@ out float opacity;
 flat out int  useDecal;
 //See MeshFlag_DecalCutout in Mesh.h
 flat out int  decalCutout;
+//Bricks only, see brick.vert
+flat out int  material;
+out vec3 brickLocal;
+flat out vec3 brickBoxSize;
 
 void main()
 {
@@ -83,6 +87,9 @@ void main()
 	opacity = 1.0;
 	useDecal = (InstanceFlags & 131072) == 131072 ? ((InstanceFlags & 130560) >> 9) : -1;
 	decalCutout = (InstanceFlags & 524288) != 0 ? 1 : 0;
+	material = 0;
+	brickLocal = vec3(0.0);
+	brickBoxSize = vec3(0.0);
 	uvs = TextureCoords;
 	
 	mat4 transform;

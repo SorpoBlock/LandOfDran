@@ -7,6 +7,25 @@ layout(location = 6) in vec3 BrickSize;
 layout(location = 7) in vec4 BrickColor;
 layout(location = 8) in vec4 VertexColor;
 layout(location = 9) in float BrickAngle;
+layout(location = 10) in float BrickMaterial;
+
+layout (std140) uniform EnvironmentUniforms
+{
+	//See EnvironmentUniforms in ShaderSpecification.h
+	vec3 SunDirection;
+	float FogDistanceMin;
+	vec3 LightDirection;
+	float FogDistanceMax;
+	vec3 LightColor;
+	float WaveTime;
+	vec3 SkyColor;
+	float WaterLevel;
+	vec3 FogColor;
+	float HorizonHeight;
+	vec4 ClipPlane;
+	vec3 AmbientColor;
+	float ShadowStrength;
+};
 
 uniform mat4 lightSpaceMatrix;
 
@@ -25,6 +44,25 @@ out vec4 casterColor;
 
 //STUD_SIZE and PLATE_SIZE in Bricks/Brick.h
 const vec3 gridScale = vec3(1.0, 0.4, 1.0);
+
+//Same shape effects as brick.vert
+const float loopRadians = 6.2831853 / 100.0;
+const float unduloAmplitude = 0.3;
+const float bouncyStretch = 0.35;
+
+float bouncyScale()
+{
+	return 1.0 + bouncyStretch * (0.5 - 0.5 * cos(WaveTime * loopRadians * 80.0));
+}
+
+vec3 unduloOffset(vec3 position)
+{
+	float t = WaveTime * loopRadians;
+	return unduloAmplitude * vec3(
+		sin(position.x * 1.3 + position.y * 0.9 + t * 60.0),
+		cos(position.y * 1.7 + position.z * 1.1 + t * 45.0),
+		sin(position.z * 1.3 + position.x * 0.7 + t * 70.0));
+}
 
 void main()
 {
@@ -46,13 +84,33 @@ void main()
 		return;
 	}
 
+	//Point light shadows (the passes with skipContaining) are only redrawn now and then, so they keep the brick's still shape
+	//instead of one frozen partway through moving
+	int material = int(BrickMaterial + 0.5);
+	bool animate = !skipContaining;
+	float stretch = animate && material == 2 ? bouncyScale() : 1.0;
+
+	vec3 worldPos;
 	if(specialMesh)
 	{
 		float c = cos(BrickAngle * 1.5707963);
 		float s = sin(BrickAngle * 1.5707963);
 		mat3 turn = mat3(c, 0.0, -s, 0.0, 1.0, 0.0, s, 0.0, c);
-		gl_Position = lightSpaceMatrix * vec4((BrickCorner + BrickSize * 0.5) * gridScale + turn * CubePosition, 1.0);
+
+		vec3 shape = turn * CubePosition;
+		float bottom = -BrickSize.y * gridScale.y * 0.5;
+		shape.y = (shape.y - bottom) * stretch + bottom;
+		worldPos = (BrickCorner + BrickSize * 0.5) * gridScale + shape;
 	}
 	else
-		gl_Position = lightSpaceMatrix * vec4((BrickCorner + CubePosition * BrickSize) * gridScale, 1.0);
+	{
+		vec3 shape = CubePosition * BrickSize * gridScale;
+		shape.y *= stretch;
+		worldPos = BrickCorner * gridScale + shape;
+	}
+
+	if(animate && material == 1)
+		worldPos += unduloOffset(worldPos);
+
+	gl_Position = lightSpaceMatrix * vec4(worldPos, 1.0);
 }

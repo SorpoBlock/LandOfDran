@@ -7,12 +7,16 @@
 
 //Position, normal, tangent, bitangent, uv
 static constexpr int cubeVertexFloats = 14;
-//Min corner, size, color
-static constexpr int instanceFloats = 10;
-//Min corner, size, color, quarter turns
-static constexpr int specialInstanceFloats = 11;
+//Min corner, size, color, material
+static constexpr int instanceFloats = 11;
+//Min corner, size, color, material, quarter turns
+static constexpr int specialInstanceFloats = 12;
 //In studs horizontally and plates vertically
 static constexpr int chunkSize = 64;
+
+//How far shape effects move bricks past their grid box, the same as brick.vert, so chunks aren't culled while bricks still show
+static constexpr float unduloAmplitude = 0.3f;
+static constexpr float bouncyStretch = 0.35f;
 
 //Where each face group sits in the shared cube, see makeCube
 static constexpr GLint topFirst = 0;
@@ -48,7 +52,7 @@ static void appendInstance(std::vector<float>& instances, const glm::vec3& corne
 {
 	glm::vec3 size = brickSize(brick);
 	glm::vec3 color = glm::vec3(brick.color) / 255.0f;
-	instances.insert(instances.end(), { corner.x, corner.y, corner.z, size.x, size.y, size.z, color.r, color.g, color.b, alpha });
+	instances.insert(instances.end(), { corner.x, corner.y, corner.z, size.x, size.y, size.z, color.r, color.g, color.b, alpha, (float)brick.material });
 }
 
 static void appendSpecialInstance(std::vector<float>& instances, const glm::vec3& corner, const Brick& brick, float alpha)
@@ -134,11 +138,12 @@ void InstancedBrickRenderer::createInstancedVao(GLuint& vao, GLuint& instanceBuf
 
 	glBindBuffer(GL_ARRAY_BUFFER, instanceBuffer);
 	glBufferData(GL_ARRAY_BUFFER, 0, nullptr, GL_DYNAMIC_DRAW);
-	const int instanceAttributeSizes[3] = { 3, 3, 4 };
+	const GLuint instanceAttributes[4] = { 5, 6, 7, 10 };
+	const int instanceAttributeSizes[4] = { 3, 3, 4, 1 };
 	offset = 0;
-	for (int a = 0; a < 3; a++)
+	for (int a = 0; a < 4; a++)
 	{
-		GLuint attribute = 5 + a;
+		GLuint attribute = instanceAttributes[a];
 		glEnableVertexAttribArray(attribute);
 		glVertexAttribPointer(attribute, instanceAttributeSizes[a], GL_FLOAT, GL_FALSE, instanceFloats * sizeof(float), (void*)(offset * sizeof(float)));
 		glVertexAttribDivisor(attribute, 1);
@@ -169,7 +174,7 @@ void InstancedBrickRenderer::createSpecialVao(GLuint& vao, GLuint& instanceBuffe
 
 	glBindBuffer(GL_ARRAY_BUFFER, instanceBuffer);
 	glBufferData(GL_ARRAY_BUFFER, 0, nullptr, GL_DYNAMIC_DRAW);
-	for (GLuint attribute : { 5, 6, 7, 9 })
+	for (GLuint attribute : { 5, 6, 7, 9, 10 })
 	{
 		glEnableVertexAttribArray(attribute);
 		glVertexAttribDivisor(attribute, 1);
@@ -188,7 +193,8 @@ void InstancedBrickRenderer::pointSpecialInstances(GLsizei firstInstance) const
 	glVertexAttribPointer(5, 3, GL_FLOAT, GL_FALSE, stride, (void*)offset);
 	glVertexAttribPointer(6, 3, GL_FLOAT, GL_FALSE, stride, (void*)(offset + 3 * sizeof(float)));
 	glVertexAttribPointer(7, 4, GL_FLOAT, GL_FALSE, stride, (void*)(offset + 6 * sizeof(float)));
-	glVertexAttribPointer(9, 1, GL_FLOAT, GL_FALSE, stride, (void*)(offset + 10 * sizeof(float)));
+	glVertexAttribPointer(10, 1, GL_FLOAT, GL_FALSE, stride, (void*)(offset + 10 * sizeof(float)));
+	glVertexAttribPointer(9, 1, GL_FLOAT, GL_FALSE, stride, (void*)(offset + 11 * sizeof(float)));
 }
 
 const SpecialBrickType* InstancedBrickRenderer::specialType(const Brick& brick) const
@@ -271,12 +277,18 @@ void InstancedBrickRenderer::rebuild(Chunk* chunk)
 	std::vector<std::pair<int, const Brick*>> specials[2];
 	glm::vec3 min = glm::vec3(FLT_MAX);
 	glm::vec3 max = glm::vec3(-FLT_MAX);
+	bool anyUndulo = false;
 
 	for (const Brick* brick : chunk->bricks)
 	{
 		glm::vec3 corner = glm::vec3(brick->x, brick->y, brick->z);
+		glm::vec3 top = corner + brickSize(*brick);
+		if (brick->material == BrickMaterial_Bouncy)
+			top.y = corner.y + brick->height * (1.0f + bouncyStretch);
+		anyUndulo |= brick->material == BrickMaterial_Undulo;
+
 		min = glm::min(min, corner);
-		max = glm::max(max, corner + brickSize(*brick));
+		max = glm::max(max, top);
 
 		if (const SpecialBrickType* type = specialType(*brick))
 		{
@@ -288,8 +300,9 @@ void InstancedBrickRenderer::rebuild(Chunk* chunk)
 		appendInstance(instances[brick->color.a < 255 ? 1 : 0], corner, *brick, brick->color.a / 255.0f);
 	}
 
-	chunk->min = min * gridScale;
-	chunk->max = max * gridScale;
+	glm::vec3 wiggle = glm::vec3(anyUndulo ? unduloAmplitude : 0.0f);
+	chunk->min = min * gridScale - wiggle;
+	chunk->max = max * gridScale + wiggle;
 
 	for (int transparency = 0; transparency < 2; transparency++)
 	{

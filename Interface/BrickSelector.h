@@ -3,6 +3,7 @@
 #include "../LandOfDran.h"
 #include "UserInterface.h"
 #include "BrickHotbar.h"
+#include "../Bricks/Brick.h"
 #include "../Bricks/BrickTypes.h"
 #include "../Graphics/Texture.h"
 
@@ -20,6 +21,9 @@ class BrickSelector : public Window
 
 	int customSize[3] = { 2, 3, 4 };
 	glm::vec4 color = glm::vec4(1, 1, 1, 1);
+
+	//A BrickMaterial, int for ImGui::Combo
+	int material = BrickMaterial_None;
 
 	//Only special bricks whose name or category contains this are listed
 	char specialFilter[64] = "";
@@ -44,11 +48,12 @@ class BrickSelector : public Window
 	bool popPick(HotbarBrick& brick);
 
 	glm::u8vec4 getColor() const;
+	unsigned char getMaterial() const { return (unsigned char)material; }
 
-	//True once after the building color is changed in the window
+	//True once after the building color or material is changed in the window
 	bool takeColorChanged();
 
-	//The building color is kept in settings as hotbar/color
+	//The building color and material are kept in settings as hotbar/color and hotbar/material
 	void save(std::shared_ptr<SettingManager> settings) const;
 	void load(std::shared_ptr<SettingManager> settings);
 

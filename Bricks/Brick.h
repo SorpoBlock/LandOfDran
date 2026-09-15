@@ -10,6 +10,44 @@ constexpr float STUD_SIZE = 1.0f;
 constexpr float PLATE_SIZE = 0.4f;
 
 /*
+	Painted onto a brick like its color, one per brick
+	The numbers are sent in brick records (4 bits) and written in saves, and brick.vert/model.frag/brickShadowCascade.vert use them too
+	Shape effects are only drawn, a brick always collides as its plain shape
+*/
+enum BrickMaterial : unsigned char
+{
+	BrickMaterial_None = 0,
+	BrickMaterial_Undulo = 1,		//Corners wiggle around
+	BrickMaterial_Bouncy = 2,		//Stretches up and back down, and anything landing on it bounces back as fast as it came
+	BrickMaterial_Pearl = 3,		//At least half metallic
+	BrickMaterial_Chrome = 4,		//Fully metallic
+	BrickMaterial_Blink = 5,		//Pulses like the part under the mouse in the appearance editor
+	BrickMaterial_Hologram = 6,		//See-through bars walk around its sides
+	BrickMaterial_Glow = 7,			//Never drawn darker than its color
+	BrickMaterial_Slippery = 8,		//Perfectly smooth, and almost no friction
+	BrickMaterial_Foil = 9,			//Metallic with rainbow highlights that shift with the view
+	BrickMaterial_Rainbow = 10,		//Its color cycles through the rainbow, in bands that flow across builds
+	BrickMaterialCount = 11
+};
+
+//Names shown to players and used by Lua, indexed by BrickMaterial
+inline constexpr const char* brickMaterialNames[BrickMaterialCount] =
+{
+	"None", "Undulo", "Bouncy", "Pearl", "Chrome", "Blink", "Hologram", "Glow", "Slippery", "Foil", "Rainbow"
+};
+
+//Ignoring case, -1 if there's no material by that name
+inline int findBrickMaterial(const std::string& name)
+{
+	for (int a = 0; a < BrickMaterialCount; a++)
+	{
+		if (lowercase(name) == lowercase(brickMaterialNames[a]))
+			return a;
+	}
+	return -1;
+}
+
+/*
 	A brick on a grid of 1 stud x 1 plate x 1 stud, either a basic box or a special brick with its own shape filling the same space
 	Plain data shared by server and client, owned by a BrickHolder
 */
@@ -38,6 +76,9 @@ struct Brick
 	uint16_t typeID = 0;
 
 	glm::u8vec4 color = glm::u8vec4(255, 255, 255, 255);
+
+	//A BrickMaterial
+	unsigned char material = BrickMaterial_None;
 
 	//Non-colliding bricks still have a body, so they can be clicked and raycast
 	bool collides = true;

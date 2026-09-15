@@ -560,6 +560,53 @@ static int LUA_brickSetColor(lua_State* L)
 	return 0;
 }
 
+static int LUA_brickGetMaterial(lua_State* L)
+{
+	scope("(LUA) brick:getMaterial");
+
+	if (lua_gettop(L) != 1)
+	{
+		error("Expected 1 argument brick:getMaterial()");
+		return 0;
+	}
+
+	Brick* brick = brickArgument(L);
+	if (!brick)
+		return 0;
+
+	lua_pushstring(L, brickMaterialNames[brick->material]);
+	return 1;
+}
+
+static int LUA_brickSetMaterial(lua_State* L)
+{
+	scope("(LUA) brick:setMaterial");
+
+	if (lua_gettop(L) != 2 || !lua_isstring(L, 2))
+	{
+		error("Expected 2 arguments brick:setMaterial(materialName)");
+		return 0;
+	}
+
+	Brick* brick = brickArgument(L);
+	if (!brick)
+		return 0;
+
+	std::string name = lua_tostring(L, 2);
+	int material = findBrickMaterial(name);
+	if (material < 0)
+	{
+		std::string names = "";
+		for (int a = 0; a < BrickMaterialCount; a++)
+			names += (a > 0 ? ", " : "") + std::string(brickMaterialNames[a]);
+		error("No brick material named " + name + ", the materials are " + names);
+		return 0;
+	}
+
+	LUA_pd->bricks->setMaterial(brick, (unsigned char)material);
+	return 0;
+}
+
 static int LUA_brickIsColliding(lua_State* L)
 {
 	scope("(LUA) brick:isColliding");
@@ -1093,7 +1140,7 @@ luaL_Reg* getBrickFunctions(lua_State* L)
 	lua_register(L, "addBlocklandLight", LUA_addBlocklandLight);
 	lua_register(L, "addBlocklandEmitter", LUA_addBlocklandEmitter);
 
-	luaL_Reg* methods = new luaL_Reg[20];
+	luaL_Reg* methods = new luaL_Reg[22];
 	methods[0] = { "getPosition", LUA_brickGetPosition };
 	methods[1] = { "getDimensions", LUA_brickGetDimensions };
 	methods[2] = { "getAngleID", LUA_brickGetAngleID };
@@ -1113,6 +1160,8 @@ luaL_Reg* getBrickFunctions(lua_State* L)
 	methods[16] = { "setLight", LUA_brickSetLight };
 	methods[17] = { "getEmitter", LUA_brickGetEmitter };
 	methods[18] = { "setEmitter", LUA_brickSetEmitter };
-	methods[19] = { NULL, NULL };
+	methods[19] = { "getMaterial", LUA_brickGetMaterial };
+	methods[20] = { "setMaterial", LUA_brickSetMaterial };
+	methods[21] = { NULL, NULL };
 	return methods;
 }
